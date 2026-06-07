@@ -12,6 +12,14 @@ namespace UVision.Tests;
 /// </summary>
 public class UVisionApiFactory : WebApplicationFactory<Program>
 {
+    static UVisionApiFactory()
+    {
+        // 테스트는 ambient .env(예: server/.env 의 gpustack 설정)에 의존하지 않는다 — provider 를
+        // mock 으로 고정한다. Program 의 DotNetEnv 는 NoClobber 이므로 미리 설정한 이 값이 .env 보다
+        // 우선한다. (호스트 빌드 전에 실행되도록 정적 생성자에 둔다.)
+        Environment.SetEnvironmentVariable("VLM_PROVIDER", "mock");
+    }
+
     public string DataPath { get; } =
         Path.Combine(Path.GetTempPath(), "uvision-tests-" + Guid.NewGuid().ToString("N"));
 

@@ -3,6 +3,7 @@ using IronHive.Abstractions.Messages;
 using IronHive.Core;
 using IronHive.Providers.GoogleAI;
 using IronHive.Providers.OpenAI;
+using IronHive.Providers.OpenAI.Compatible.GpuStack;
 using Microsoft.Extensions.DependencyInjection;
 using UVision.Api.Configuration;
 
@@ -37,6 +38,17 @@ public static class VlmProviderFactory
                         "google",
                         new GoogleAIConfig { ApiKey = options.ApiKey })),
                     "google",
+                    options.Model);
+
+            case "gpustack":
+                // GPUStack — OpenAI 호환 셀프호스트(/v1-openai/). ironhive 1급 provider 가 base URL·경로를 흡수.
+                // Endpoint 는 경로 없는 서버 base URL(예: http://host:8080) — GpuStackConfig 가 /v1-openai/ 를 붙인다.
+                return new IronHiveVlmProvider(
+                    BuildMessageService(b => b.AddGpuStackProviders(
+                        "gpustack",
+                        new GpuStackConfig { BaseUrl = options.Endpoint, ApiKey = options.ApiKey },
+                        GpuStackServiceType.Language)),
+                    "gpustack",
                     options.Model);
 
             case "vllm":

@@ -7,21 +7,29 @@ using UVision.Api.Models;
 namespace UVision.Api.Services.Vlm;
 
 /// <summary>
-/// ironhive(IMessageService) 기반 VLM 어댑터 — openai/google 둘 다 처리한다.
-/// ironhive 가 provider 추상화·비전 입력·구조화 출력을 흡수하므로 provider 별 구현을 분리하지 않는다.
+/// ironhive(IMessageService) 기반 VLM 어댑터 — openai/google/gpustack 모두 처리한다.
+/// ironhive 가 provider 추상화·비전 입력을 흡수하므로 provider 별 구현을 분리하지 않는다.
 ///
-/// ⚠️ UNVERIFIED — API 키 부재로 실호출 미검증. 구조화 출력(Output=typeof) 의 실제 응답 형태·
-/// latency 는 M0.1(벤치마크 하네스, 키 필요)에서 검증해야 한다. 그 전까지 옳다고 가정하지 말 것.
+/// 출력 계약은 <see cref="VlmPrompt"/> 의 프롬프트로 강제한다(JSON 한 객체). ironhive 의 구조화
+/// 출력(Output=typeof)은 쓰지 않는다 — JsonSchemaFactory 가 생성하는 json_schema 를 OpenAI 호환
+/// 셀프호스트(llama.cpp/GPUStack)가 grammar 로 강제하지 못해 산문 방출→서버 500 이 된다(M0.1 실측 확인).
+/// 명시적 JSON 지시 + 관용 파싱이 cloud·셀프호스트 양쪽에서 안정적이다.
+/// 상세: claudedocs/issues/ISSUE-ironhive-*-jsonschema-llamacpp.md
 /// (원본: server/app/services/vlm/{openai,google}_provider.py 를 단일 어댑터로 통합)
 /// </summary>
 public sealed class IronHiveVlmProvider : IVlmProvider
 {
-    // ironhive JsonSchemaFactory 가 PropertyNameCaseInsensitive 로 스키마를 만들므로 역직렬화도 동일하게.
-    // Verdict enum 의 "OK"/"NG" 변환은 모델에 부착된 JsonStringEnumConverter<Verdict> 가 처리.
+    // 모델 출력 JSON 의 속성명 대소문자/순서에 관대하게. Verdict enum 의 "OK"/"NG" 변환은
+    // 모델에 부착된 JsonStringEnumConverter<Verdict> 가 처리.
     private static readonly JsonSerializerOptions DeserializeOptions = new()
     {
         PropertyNameCaseInsensitive = true,
     };
+
+    // reasoning 모델(예: GPUStack 의 qwen3 계열)은 답(JSON) 앞에 사고 토큰을 소비한다. 한도가 낮으면
+    // 사고가 예산을 다 써 content 가 빈 채로 truncate(finish_reason=length)되어 역직렬화가 실패한다.
+    // 사고 + 구조화 JSON 이 함께 들어가도록 넉넉히 둔다. (비추론 provider 엔 영향 없음 — 짧게 끝남.)
+    private const int MaxOutputTokens = 4096;
 
     private readonly IMessageService _messageService;
     private readonly string _model;
@@ -49,7 +57,7 @@ public sealed class IronHiveVlmProvider : IVlmProvider
             [
                 new UserMessage { Content = BuildContent(image, scenario.References) },
             ],
-            Output = typeof(InspectionResult), // 구조화 출력 강제
+            MaxTokens = MaxOutputTokens,       // reasoning 모델 truncation 방지(위 주석)
         };
 
         var response = await _messageService.GenerateMessageAsync(request, cancellationToken);
@@ -62,11 +70,22 @@ public sealed class IronHiveVlmProvider : IVlmProvider
         if (string.IsNullOrWhiteSpace(json))
         {
             throw new InvalidOperationException(
-                $"VLM provider '{Name}' 가 구조화 출력 텍스트를 반환하지 않음.");
+                $"VLM provider '{Name}' 가 텍스트 응답을 반환하지 않음.");
         }
 
-        return JsonSerializer.Deserialize<InspectionResult>(json, DeserializeOptions)
+        return JsonSerializer.Deserialize<InspectionResult>(ExtractJson(json), DeserializeOptions)
             ?? throw new InvalidOperationException($"VLM 응답 역직렬화 실패: {json}");
+    }
+
+    /// <summary>
+    /// 모델 응답 텍스트에서 JSON 객체를 관용적으로 추출한다. grammar 강제가 없으므로(프롬프트로만 지시)
+    /// reasoning 모델이 코드펜스(```json)나 머리말을 덧붙일 수 있다 — 첫 '{' ~ 마지막 '}' 구간만 취한다.
+    /// </summary>
+    internal static string ExtractJson(string text)
+    {
+        var start = text.IndexOf('{');
+        var end = text.LastIndexOf('}');
+        return start >= 0 && end > start ? text[start..(end + 1)] : text.Trim();
     }
 
     /// <summary>

@@ -5,9 +5,10 @@ using UVision.Api.Endpoints;
 using UVision.Api.Services.Vlm;
 using UVision.Api.Storage;
 
-// 개발 편의: server/.env 로딩(존재 시). 환경변수가 이미 있으면 그것이 우선.
+// 개발 편의: server/.env 로딩(존재 시). NoClobber — 이미 설정된 실제 환경변수가 .env 보다 우선한다
+// (배포 플랫폼이 주입한 env 가 우연히 남은 .env 에 덮이지 않게; 테스트가 provider 를 고정할 수 있게).
 // (원본 Python: pydantic-settings 의 .env 로딩과 동등 UX)
-DotNetEnv.Env.TraversePath().Load();
+DotNetEnv.Env.TraversePath().NoClobber().Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,7 @@ var vlmOptions = new VlmOptions
     Provider = Environment.GetEnvironmentVariable("VLM_PROVIDER") ?? "mock",
     Model = Environment.GetEnvironmentVariable("VLM_MODEL") ?? "gpt-4o",
     ApiKey = Environment.GetEnvironmentVariable("VLM_API_KEY") ?? "",
+    Endpoint = Environment.GetEnvironmentVariable("VLM_ENDPOINT") ?? "",
     MaxUploadSizeMb = int.TryParse(Environment.GetEnvironmentVariable("MAX_UPLOAD_SIZE_MB"), out var mb) ? mb : 10,
 };
 builder.Services.AddSingleton(vlmOptions);

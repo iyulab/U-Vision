@@ -49,4 +49,16 @@ public class FewShotWiringTests
         Assert.Contains(
             content.OfType<TextMessageContent>(), t => t.Value.Contains("솔더 브릿지"));
     }
+
+    // grammar 강제 없이 프롬프트로만 JSON 을 지시하므로(특히 reasoning 모델) 응답에 코드펜스·머리말이
+    // 섞일 수 있다. ExtractJson 이 첫 '{' ~ 마지막 '}' 를 관용적으로 뽑는지 검증한다.
+    [Theory]
+    [InlineData("{\"verdict\":\"OK\"}", "{\"verdict\":\"OK\"}")]
+    [InlineData("```json\n{\"verdict\":\"NG\"}\n```", "{\"verdict\":\"NG\"}")]
+    [InlineData("판정 결과입니다: {\"verdict\":\"OK\"} 이상.", "{\"verdict\":\"OK\"}")]
+    [InlineData("no json here", "no json here")]
+    public void ExtractJson_StripsFencesAndPreamble(string input, string expected)
+    {
+        Assert.Equal(expected, IronHiveVlmProvider.ExtractJson(input));
+    }
 }

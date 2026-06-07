@@ -17,6 +17,7 @@
     <PackageReference Include="IronHive.Core" Version="0.7.3" />
     <PackageReference Include="IronHive.Providers.GoogleAI" Version="0.7.3" />
     <PackageReference Include="IronHive.Providers.OpenAI" Version="0.7.3" />
+    <PackageReference Include="IronHive.Providers.OpenAI.Compatible" Version="0.7.3" />
   </ItemGroup>
 
 </Project>

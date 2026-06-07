@@ -6,12 +6,18 @@ namespace UVision.Api.Configuration;
 /// </summary>
 public sealed class VlmOptions
 {
-    /// <summary>mock | openai | google | vllm</summary>
+    /// <summary>mock | openai | google | gpustack | vllm</summary>
     public string Provider { get; set; } = "mock";
 
     public string Model { get; set; } = "gpt-4o";
 
     public string ApiKey { get; set; } = "";
+
+    /// <summary>
+    /// 셀프호스트/OpenAI 호환 provider(gpustack 등)의 서버 base URL — 경로 없이(예: http://host:8080).
+    /// 클라우드 provider(openai/google)는 사용하지 않는다.
+    /// </summary>
+    public string Endpoint { get; set; } = "";
 
     /// <summary>업로드 크기 상한(MB) — DoS 방지.</summary>
     public int MaxUploadSizeMb { get; set; } = 10;
