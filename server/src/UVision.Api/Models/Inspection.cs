@@ -1,0 +1,60 @@
+using System.Text.Json.Serialization;
+
+namespace UVision.Api.Models;
+
+/// <summary>
+/// 검사 판정 결과. provider 와 무관한 안정 계약이다.
+/// 어떤 VLM 이 뒤에 있든 inspect 는 <see cref="InspectionResult"/> 를 반환한다.
+/// (원본: server/app/models/inspection.py)
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter<Verdict>))]
+public enum Verdict
+{
+    OK,
+    NG,
+}
+
+/// <summary>
+/// 판정에 필요한 시나리오 컨텍스트.
+/// 현 단계에서는 criteria(자연어 기준)만 사용한다. 기준 이미지(ok/ng)·ROI 등은
+/// 시나리오 관리(Phase 2)에서 확장한다. 여기서 선제 확장하지 않는다(YAGNI).
+/// </summary>
+public sealed record ScenarioContext
+{
+    public required string ScenarioId { get; init; }
+
+    public string Criteria { get; init; } = "";
+}
+
+/// <summary>
+/// VLM 판정 결과 — provider 가 반환하는 도메인 객체.
+/// ironhive 구조화 출력(Output=typeof)의 역직렬화 타겟이므로 init 속성으로 둔다.
+/// </summary>
+public sealed record InspectionResult
+{
+    public required Verdict Verdict { get; init; }
+
+    /// <summary>NG 시 불량 소견 텍스트.</summary>
+    public string Findings { get; init; } = "";
+
+    /// <summary>0.0~1.0. 경계 사례일수록 낮다.</summary>
+    public required double Confidence { get; init; }
+}
+
+/// <summary>
+/// <c>POST /api/inspect</c> 응답 — 도메인 결과 + API 메타데이터.
+/// 도메인(<see cref="InspectionResult"/>)과 분리: API 는 timestamp/image_id 를 덧붙인다.
+/// wire 계약(snake_case)은 전역 JSON 정책으로 보존 — image_id 등.
+/// </summary>
+public sealed record InspectResponse
+{
+    public required Verdict Verdict { get; init; }
+
+    public required string Findings { get; init; }
+
+    public required double Confidence { get; init; }
+
+    public required string Timestamp { get; init; }
+
+    public required string ImageId { get; init; }
+}

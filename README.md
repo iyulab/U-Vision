@@ -105,8 +105,8 @@ U-Vision은 브라우저에서 완전히 동작합니다. 한 번 배포하면 U
 | 화면 유지 | Wake Lock API |
 | 오프라인 저장 | IndexedDB (Dexie.js) |
 | 스타일링 | Tailwind CSS |
-| 서버 | FastAPI (Python) |
-| VLM 백엔드 | GPT-4o Vision / Gemini 1.5 Pro / 자체 서버 (vLLM) |
+| 서버 | ASP.NET Core (.NET 10, Minimal API) |
+| VLM 백엔드 | ironhive (GPT-4o / Gemini) · 자체 서버 (vLLM, 예약) |
 | 이미지 전송 | HTTPS multipart/form-data |
 
 ---
@@ -133,7 +133,7 @@ U-Vision은 브라우저에서 완전히 동작합니다. 한 번 배포하면 U
 ### 요구 사항
 - HTTPS 엔드포인트 (`getUserMedia` 및 Wake Lock API 필수 조건)
 - 태블릿: Android 10+ / Chrome 92+ (권장) 또는 iOS 16.4+ / Safari
-- 서버: Python 3.11+, 자체 VLM 사용 시 GPU 권장
+- 서버: .NET 10 SDK, 자체 VLM 사용 시 GPU 권장
 
 ### 빠른 시작
 
@@ -148,10 +148,9 @@ npm install
 npm run build        # dist/ 폴더에 빌드 결과 생성
 npm run preview      # 로컬 HTTPS 미리보기
 
-# 백엔드
+# 백엔드 (.NET 10)
 cd ../server
-pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000
+dotnet run --project src/UVision.Api --urls http://0.0.0.0:8000
 ```
 
 ### 환경 변수

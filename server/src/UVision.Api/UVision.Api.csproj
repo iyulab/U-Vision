@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DotNetEnv" Version="3.2.0" />
+    <PackageReference Include="IronHive.Abstractions" Version="0.7.3" />
+    <PackageReference Include="IronHive.Core" Version="0.7.3" />
+    <PackageReference Include="IronHive.Providers.GoogleAI" Version="0.7.3" />
+    <PackageReference Include="IronHive.Providers.OpenAI" Version="0.7.3" />
+  </ItemGroup>
+
+</Project>

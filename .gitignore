@@ -7,12 +7,18 @@ dist/
 dist-ssr/
 *.local
 
-# Python
+# .NET
+bin/
+obj/
+*.user
+
+# Python (레거시 — .NET 마이그레이션으로 제거됨, 잔여 venv/캐시 무시)
 __pycache__/
 *.py[cod]
 .venv/
 venv/
 *.egg-info/
+.pytest_cache/
 
 # Env (실제 비밀값 — .env.example만 커밋)
 .env
