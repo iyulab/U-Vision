@@ -1,7 +1,9 @@
 using System.Text.Json;
+using UVision.Api.Auth;
 using UVision.Api.Configuration;
 using UVision.Api.Endpoints;
 using UVision.Api.Services.Vlm;
+using UVision.Api.Storage;
 
 // 개발 편의: server/.env 로딩(존재 시). 환경변수가 이미 있으면 그것이 우선.
 // (원본 Python: pydantic-settings 의 .env 로딩과 동등 UX)
@@ -22,6 +24,20 @@ builder.Services.AddSingleton(vlmOptions);
 // IVlmProvider 는 singleton — ironhive hive 를 1회만 빌드한다.
 builder.Services.AddSingleton<IVlmProvider>(_ => VlmProviderFactory.Create(vlmOptions));
 
+// 파일시스템 저장소 — Storage:DataPath(appsettings, 환경변수 override 가능) 아래에 영속화.
+var storageOptions = builder.Configuration.GetSection(StorageOptions.SectionName)
+    .Get<StorageOptions>() ?? new StorageOptions();
+builder.Services.AddSingleton(new StoragePaths(storageOptions, builder.Environment.ContentRootPath));
+builder.Services.AddSingleton<IScenarioStore, FileScenarioStore>();
+builder.Services.AddSingleton<IInspectionStore, FileInspectionStore>();
+builder.Services.AddSingleton<IReferenceStore, FileReferenceStore>();
+
+// 관리자 PIN — 미설정 시 관리 엔드포인트는 503(운영은 무인증으로 정상 동작).
+builder.Services.AddSingleton(new AdminPinOptions
+{
+    Pin = Environment.GetEnvironmentVariable("ADMIN_PIN"),
+});
+
 // wire 계약 보존: snake_case 속성명(image_id 등). Verdict enum 의 "OK"/"NG" 는 모델 부착 converter.
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
@@ -36,6 +52,8 @@ var app = builder.Build();
 
 app.UseCors();
 app.MapInspectEndpoints();
+app.MapScenarioEndpoints();
+app.MapReferenceEndpoints();
 
 app.Run();
 

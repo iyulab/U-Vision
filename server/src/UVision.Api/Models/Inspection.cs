@@ -23,7 +23,15 @@ public sealed record ScenarioContext
 {
     public required string ScenarioId { get; init; }
 
+    public string Name { get; init; } = "";
+
     public string Criteria { get; init; } = "";
+
+    /// <summary>
+    /// few-shot 기준 이미지(OK/NG). 판정 입력의 일부 — criteria 와 함께 provider 에 전달된다.
+    /// 비어 있으면 zero-shot(기준 텍스트만). 로드 실패 시에도 비운 채 진행한다(판정은 degrade, 실패 아님).
+    /// </summary>
+    public IReadOnlyList<ReferenceImage> References { get; init; } = [];
 }
 
 /// <summary>
@@ -57,4 +65,27 @@ public sealed record InspectResponse
     public required string Timestamp { get; init; }
 
     public required string ImageId { get; init; }
+}
+
+/// <summary>
+/// 디스크에 영속화되는 판정 레코드 — <c>{image_id}.json</c> 의 스키마.
+/// system-of-record 의 단위. <c>image_file</c> 로 짝 이미지를 가리킨다.
+/// <c>{image_id}.json</c> 의 존재 = 완결 레코드(이미지 먼저 쓰고 json 으로 커밋).
+/// </summary>
+public sealed record StoredResult
+{
+    public required string ScenarioId { get; init; }
+
+    public required string ImageId { get; init; }
+
+    public required Verdict Verdict { get; init; }
+
+    public required string Findings { get; init; }
+
+    public required double Confidence { get; init; }
+
+    public required string Timestamp { get; init; }
+
+    /// <summary>짝 이미지 파일명(예: <c>img_ab12cd34.jpg</c>).</summary>
+    public required string ImageFile { get; init; }
 }

@@ -1,5 +1,5 @@
-import { DEFAULT_MOTION_CONFIG } from '../lib/motion'
-import { DEFAULT_ROI } from '../lib/roi'
+import type { MotionConfig } from '../lib/motion'
+import type { Roi } from '../lib/roi'
 import { useCamera } from '../hooks/useCamera'
 import { useInspection } from '../hooks/useInspection'
 import { useMotionDetection } from '../hooks/useMotionDetection'
@@ -8,18 +8,26 @@ import { InspectionHistory } from './InspectionHistory'
 import { RoiOverlay } from './RoiOverlay'
 import { VerdictBadge } from './VerdictBadge'
 
-// C2 하드코딩 시나리오. 시나리오 선택 UI 는 P2(관리자 셋업, ~C8).
-const SCENARIO_ID = 'demo'
+interface CameraViewProps {
+  /** 활성 시나리오 id — 상위(App)가 localStorage 해석으로 결정한다(하드코딩 대체). */
+  scenarioId: string
+  /** 활성 시나리오의 검사 구역(ROI) — 관리자가 편집한 값. */
+  roi: Roi
+  /** 활성 시나리오의 캡처 설정(모션 임계/정지 프레임) — 관리자가 편집한 값. */
+  motionConfig: MotionConfig
+  /** 흐림 거부 임계(라플라시안 분산). 0 이면 비활성. */
+  minSharpness: number
+}
 
 /**
  * 운영 화면(작업자) — 코어 루프 완성:
- * 카메라 → 정지감지 → 캡처 → 업로드 → OK/NG 판정 표시.
+ * 카메라 → 정지감지 → 캡처(ROI crop·흐림 거부) → 업로드 → OK/NG 판정 표시.
  */
-export function CameraView() {
+export function CameraView({ scenarioId, roi, motionConfig, minSharpness }: CameraViewProps) {
   const { videoRef, ready, error } = useCamera()
-  const inspection = useInspection(videoRef, SCENARIO_ID)
-  // 정지 확정 순간 검사 트리거.
-  const motion = useMotionDetection(videoRef, DEFAULT_MOTION_CONFIG, ready, inspection.trigger)
+  const inspection = useInspection(videoRef, scenarioId, roi, minSharpness)
+  // 정지 확정 순간 검사 트리거 — 시나리오별 캡처 설정 적용.
+  const motion = useMotionDetection(videoRef, motionConfig, ready, inspection.trigger)
   // 카메라 준비되면 화면 유지.
   useWakeLock(ready)
 
@@ -34,7 +42,7 @@ export function CameraView() {
   return (
     <div className="relative h-screen w-full overflow-hidden bg-black">
       <video ref={videoRef} className="h-full w-full object-cover" playsInline muted autoPlay />
-      <RoiOverlay roi={DEFAULT_ROI} />
+      <RoiOverlay roi={roi} />
 
       {/* 상태 인디케이터 */}
       <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur">

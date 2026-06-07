@@ -1,26 +1,48 @@
+import type { Roi } from './roi'
+import { laplacianVariance } from './sharpness'
+
+export interface CaptureResult {
+  blob: Blob
+  /** 캡처 영역의 라플라시안 분산(선명도). 흐림 거부 판단에 사용. */
+  sharpness: number
+}
+
 /**
- * video 의 현재 프레임을 JPEG Blob 으로 캡처한다.
- *
- * ROI crop 은 아직 적용하지 않는다(전체 프레임 전송). ROI 한정 캡처는
- * 토큰 절약 차원의 개선 후보로 carry(로드맵 P2/cycle-05 참조).
+ * video 의 현재 프레임을 JPEG 으로 캡처한다. ROI 가 유효하면 그 영역만 crop 한다
+ * (VLM 토큰 절약 + 검사 영역 집중). 선명도(라플라시안 분산)도 함께 계산해 반환한다.
  */
-export async function captureFrame(video: HTMLVideoElement, quality = 0.9): Promise<Blob> {
-  const w = video.videoWidth
-  const h = video.videoHeight
-  if (!w || !h) throw new Error('비디오 프레임이 아직 준비되지 않음')
+export async function captureFrame(
+  video: HTMLVideoElement,
+  roi?: Roi,
+  quality = 0.9,
+): Promise<CaptureResult> {
+  const vw = video.videoWidth
+  const vh = video.videoHeight
+  if (!vw || !vh) throw new Error('비디오 프레임이 아직 준비되지 않음')
+
+  // ROI(상대 0~1) → 소스 픽셀. 폭/높이가 0 이하면 전체 프레임.
+  const useRoi = roi && roi.width > 0 && roi.height > 0
+  const sx = useRoi ? Math.round(roi.x * vw) : 0
+  const sy = useRoi ? Math.round(roi.y * vh) : 0
+  const sw = useRoi ? Math.round(roi.width * vw) : vw
+  const sh = useRoi ? Math.round(roi.height * vh) : vh
 
   const canvas = document.createElement('canvas')
-  canvas.width = w
-  canvas.height = h
+  canvas.width = sw
+  canvas.height = sh
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('캔버스 2D 컨텍스트 획득 실패')
-  ctx.drawImage(video, 0, 0, w, h)
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh)
 
-  return await new Promise<Blob>((resolve, reject) => {
+  const sharpness = laplacianVariance(ctx.getImageData(0, 0, sw, sh).data, sw, sh)
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error('JPEG 인코딩 실패'))),
+      (b) => (b ? resolve(b) : reject(new Error('JPEG 인코딩 실패'))),
       'image/jpeg',
       quality,
     )
   })
+
+  return { blob, sharpness }
 }

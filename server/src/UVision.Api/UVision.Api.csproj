@@ -7,6 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- few-shot content 결선(BuildContent)을 테스트가 직접 검증하도록 노출(키 없이 wiring 확인). -->
+    <InternalsVisibleTo Include="UVision.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="DotNetEnv" Version="3.2.0" />
     <PackageReference Include="IronHive.Abstractions" Version="0.7.3" />
     <PackageReference Include="IronHive.Core" Version="0.7.3" />

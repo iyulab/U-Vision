@@ -2,9 +2,10 @@ import { useCallback, useRef, useState, type RefObject } from 'react'
 
 import { inspectImage } from '../lib/api'
 import { captureFrame } from '../lib/capture'
+import type { Roi } from '../lib/roi'
 import type { InspectResult } from '../lib/types'
 
-export type InspectionPhase = 'idle' | 'capturing' | 'uploading' | 'done' | 'error'
+export type InspectionPhase = 'idle' | 'capturing' | 'uploading' | 'done' | 'error' | 'rejected'
 
 export interface InspectionState {
   phase: InspectionPhase
@@ -20,12 +21,14 @@ const HISTORY_LIMIT = 20
 /**
  * 검사 1회의 수명주기 상태머신.
  *
- * C6: 업로드는 즉시 전송(온라인 가정). 오프라인 큐(IndexedDB)는 P3(C 후속)에서
- * 이 경로 앞단에 삽입한다.
+ * 흐림 거부: 캡처 선명도가 minSharpness 미만이면 업로드 없이 거부(VLM 호출 전 차단).
+ * 업로드는 즉시 전송(온라인 가정). 오프라인 큐(IndexedDB)는 Phase 3 에서 이 경로 앞단에 삽입한다.
  */
 export function useInspection(
   videoRef: RefObject<HTMLVideoElement | null>,
   scenarioId: string,
+  roi: Roi,
+  minSharpness: number,
 ): InspectionState {
   const [phase, setPhase] = useState<InspectionPhase>('idle')
   const [latest, setLatest] = useState<InspectResult | null>(null)
@@ -43,7 +46,13 @@ export function useInspection(
       setError(null)
       try {
         setPhase('capturing')
-        const blob = await captureFrame(video)
+        const { blob, sharpness } = await captureFrame(video, roi)
+        // 흐림 거부: VLM 호출 전 차단(토큰 절약). minSharpness<=0 이면 비활성.
+        if (minSharpness > 0 && sharpness < minSharpness) {
+          setError(`흐림 — 재시도 (선명도 ${Math.round(sharpness)} < ${minSharpness})`)
+          setPhase('rejected')
+          return
+        }
         setPhase('uploading')
         const result = await inspectImage(blob, scenarioId)
         setLatest(result)
@@ -56,7 +65,7 @@ export function useInspection(
         inFlight.current = false
       }
     })()
-  }, [videoRef, scenarioId])
+  }, [videoRef, scenarioId, roi, minSharpness])
 
   return { phase, latest, history, error, trigger }
 }
