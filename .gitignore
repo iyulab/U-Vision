@@ -1,0 +1,36 @@
+CALUDE.md
+claudedocs/
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Env (실제 비밀값 — .env.example만 커밋)
+.env
+.env.local
+
+# Data / uploads
+*.db
+*.sqlite
+server/uploads/
+
+# 벤치마크 샘플 이미지(현장/민감 이미지 — 커밋 금지)
+server/benchmark/sample-images/
+
+# Vite PWA dev artifacts
+client/dev-dist/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,4 @@
+# 개발/CI 전용 — 런타임 requirements.txt 와 분리
+-r requirements.txt
+pytest
+httpx
