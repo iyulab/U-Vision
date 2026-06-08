@@ -1,6 +1,7 @@
-import type { InspectResult, Reference, Scenario, ScenarioInput } from './types'
+import type { InspectResult, Reference, Scenario, ScenarioInput, StoredResult } from './types'
+import { resolveApiBase } from './runtimeConfig'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
+const API_BASE = resolveApiBase()
 
 /** API 오류 — HTTP 상태를 보존해 호출부가 401(PIN 불일치) 등을 구분할 수 있게 한다. */
 export class ApiError extends Error {
@@ -19,15 +20,47 @@ async function ensureOk(res: Response, what: string): Promise<void> {
   throw new ApiError(res.status, `${what} 실패 (${res.status}) ${detail}`.trim())
 }
 
-/** 캡처 이미지를 서버로 보내 판정 결과를 받는다. */
-export async function inspectImage(image: Blob, scenarioId: string): Promise<InspectResult> {
+/** 캡처 이미지를 서버로 보내 판정 결과를 받는다. device 식별자는 멀티태블릿 출처 구분용(additive). */
+export async function inspectImage(
+  image: Blob,
+  scenarioId: string,
+  deviceId: string,
+  deviceLabel: string,
+): Promise<InspectResult> {
   const form = new FormData()
   form.append('image', image, 'capture.jpg')
   form.append('scenario_id', scenarioId)
+  form.append('device_id', deviceId)
+  form.append('device_label', deviceLabel)
 
-  const res = await fetch(`${API_BASE}/api/inspect`, { method: 'POST', body: form })
+  const res = await fetch(`${API_BASE}/inspect`, { method: 'POST', body: form })
   await ensureOk(res, '판정 요청')
   return (await res.json()) as InspectResult
+}
+
+// --- 결과 조회 (무인증 읽기 — 서버 /api/results* 계약) --------------------
+
+/** 시나리오의 검사 날짜 목록(yyyy-MM-dd, 최신 먼저). 기록 없으면 빈 배열. */
+export async function listResultDates(scenarioId: string): Promise<string[]> {
+  const res = await fetch(
+    `${API_BASE}/results/dates?scenario_id=${encodeURIComponent(scenarioId)}`,
+  )
+  await ensureOk(res, '검사 날짜 목록')
+  return (await res.json()) as string[]
+}
+
+/** 시나리오·날짜의 검사 결과 레코드(image_id 순). */
+export async function listResults(scenarioId: string, date: string): Promise<StoredResult[]> {
+  const res = await fetch(
+    `${API_BASE}/results?scenario_id=${encodeURIComponent(scenarioId)}&date=${encodeURIComponent(date)}`,
+  )
+  await ensureOk(res, '검사 결과 목록')
+  return (await res.json()) as StoredResult[]
+}
+
+/** 저장된 캡처 이미지 서빙 URL(무인증, `<img src>` 직접 사용). */
+export function resultImageUrl(scenarioId: string, date: string, imageId: string): string {
+  return `${API_BASE}/results/image?scenario_id=${encodeURIComponent(scenarioId)}&date=${encodeURIComponent(date)}&image_id=${encodeURIComponent(imageId)}`
 }
 
 // --- 시나리오 CRUD (S-B 서버 계약) ---------------------------------------
@@ -37,14 +70,14 @@ const PIN_HEADER = 'X-Admin-Pin'
 
 /** 모든 시나리오 정의(무인증). */
 export async function listScenarios(): Promise<Scenario[]> {
-  const res = await fetch(`${API_BASE}/api/scenarios`)
+  const res = await fetch(`${API_BASE}/scenarios`)
   await ensureOk(res, '시나리오 목록')
   return (await res.json()) as Scenario[]
 }
 
 /** 시나리오 생성(PIN). 201 → 확정 id 포함 시나리오. */
 export async function createScenario(input: ScenarioInput, pin: string): Promise<Scenario> {
-  const res = await fetch(`${API_BASE}/api/scenarios`, {
+  const res = await fetch(`${API_BASE}/scenarios`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', [PIN_HEADER]: pin },
     body: JSON.stringify(input),
@@ -59,7 +92,7 @@ export async function updateScenario(
   input: ScenarioInput,
   pin: string,
 ): Promise<Scenario> {
-  const res = await fetch(`${API_BASE}/api/scenarios/${encodeURIComponent(id)}`, {
+  const res = await fetch(`${API_BASE}/scenarios/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', [PIN_HEADER]: pin },
     body: JSON.stringify(input),
@@ -70,7 +103,7 @@ export async function updateScenario(
 
 /** 시나리오 삭제(PIN). */
 export async function deleteScenario(id: string, pin: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/scenarios/${encodeURIComponent(id)}`, {
+  const res = await fetch(`${API_BASE}/scenarios/${encodeURIComponent(id)}`, {
     method: 'DELETE',
     headers: { [PIN_HEADER]: pin },
   })
@@ -81,12 +114,12 @@ export async function deleteScenario(id: string, pin: string): Promise<void> {
 
 /** 기준 이미지 서빙 URL(무인증, 미리보기용). */
 export function referenceUrl(scenarioId: string, label: 'ok' | 'ng', refId: string): string {
-  return `${API_BASE}/api/scenarios/${encodeURIComponent(scenarioId)}/references/${label}/${encodeURIComponent(refId)}`
+  return `${API_BASE}/scenarios/${encodeURIComponent(scenarioId)}/references/${label}/${encodeURIComponent(refId)}`
 }
 
 /** 시나리오의 기준 이미지 목록(무인증). */
 export async function listReferences(scenarioId: string): Promise<Reference[]> {
-  const res = await fetch(`${API_BASE}/api/scenarios/${encodeURIComponent(scenarioId)}/references`)
+  const res = await fetch(`${API_BASE}/scenarios/${encodeURIComponent(scenarioId)}/references`)
   await ensureOk(res, '기준 이미지 목록')
   return (await res.json()) as Reference[]
 }
@@ -104,7 +137,7 @@ export async function uploadReference(
   form.append('label', label)
   if (label === 'ng' && ngLabel) form.append('ng_label', ngLabel)
 
-  const res = await fetch(`${API_BASE}/api/scenarios/${encodeURIComponent(scenarioId)}/references`, {
+  const res = await fetch(`${API_BASE}/scenarios/${encodeURIComponent(scenarioId)}/references`, {
     method: 'POST',
     headers: { [PIN_HEADER]: pin },
     body: form,

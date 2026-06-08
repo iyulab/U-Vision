@@ -10,7 +10,7 @@
  *   ← { type: 'init', config: MotionConfig }
  *   ← { type: 'frame', bitmap: ImageBitmap }   // bitmap 은 transfer
  *   ← { type: 'reset' }
- *   → { type: 'motion', score, isStill, stillStreak, justBecameStill }
+ *   → { type: 'motion', score, isStill, stillStreak }
  */
 
 import {

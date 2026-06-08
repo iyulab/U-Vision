@@ -1,26 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 
-import {
-  ApiError,
-  deleteReference,
-  listReferences,
-  referenceUrl,
-  uploadReference,
-} from '../lib/api'
+import { deleteReference, listReferences, referenceUrl, uploadReference } from '../lib/api'
+import type { PinRunResult } from '../hooks/usePin'
 import type { Reference } from '../lib/types'
 
 interface ReferenceGalleryProps {
   scenarioId: string
-  pin: string
-  /** 401(PIN 불일치) 시 상위가 게이트로 복귀시킨다. */
-  onPinRejected: () => void
+  /** 변경(업로드·삭제)을 PIN 과 함께 실행하는 중앙 러너(콘솔 소유). */
+  runWithPin: (action: (pin: string) => Promise<void>) => Promise<PinRunResult>
 }
 
 /**
  * 기준 이미지 갤러리(S-D) — OK/NG 기준 이미지 업로드·미리보기·삭제.
  * few-shot 판정 결합은 서버가 inspect 시 수행한다(판정 효과는 M0.1 게이트).
+ * 변경은 시나리오 저장/삭제와 동일한 lazy-PIN 메커니즘({@link runWithPin})을 거친다.
  */
-export function ReferenceGallery({ scenarioId, pin, onPinRejected }: ReferenceGalleryProps) {
+export function ReferenceGallery({ scenarioId, runWithPin }: ReferenceGalleryProps) {
   const [refs, setRefs] = useState<Reference[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -38,17 +33,15 @@ export function ReferenceGallery({ scenarioId, pin, onPinRejected }: ReferenceGa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenarioId])
 
-  async function withPin(action: () => Promise<void>) {
+  async function mutate(action: (pin: string) => Promise<void>) {
     setBusy(true)
     setError(null)
     try {
-      await action()
-      await reload()
+      const result = await runWithPin(action)
+      if (result === 'ok') await reload()
+      else if (result === 'unauthorized') setError('PIN 이 올바르지 않습니다. 다시 시도하세요.')
+      // 'cancelled' → 조용히 무시
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401) {
-        onPinRejected()
-        return
-      }
       setError(e instanceof Error ? e.message : '요청 실패')
     } finally {
       setBusy(false)
@@ -69,8 +62,8 @@ export function ReferenceGallery({ scenarioId, pin, onPinRejected }: ReferenceGa
         items={ok}
         scenarioId={scenarioId}
         busy={busy}
-        onUpload={(file) => withPin(() => uploadReference(scenarioId, file, 'ok', undefined, pin).then(() => {}))}
-        onDelete={(refId) => withPin(() => deleteReference(scenarioId, 'ok', refId, pin))}
+        onUpload={(file) => mutate((pin) => uploadReference(scenarioId, file, 'ok', undefined, pin).then(() => {}))}
+        onDelete={(refId) => mutate((pin) => deleteReference(scenarioId, 'ok', refId, pin))}
       />
       <Group
         title="NG 기준"
@@ -80,9 +73,9 @@ export function ReferenceGallery({ scenarioId, pin, onPinRejected }: ReferenceGa
         busy={busy}
         withLabel
         onUpload={(file, ngLabel) =>
-          withPin(() => uploadReference(scenarioId, file, 'ng', ngLabel, pin).then(() => {}))
+          mutate((pin) => uploadReference(scenarioId, file, 'ng', ngLabel, pin).then(() => {}))
         }
-        onDelete={(refId) => withPin(() => deleteReference(scenarioId, 'ng', refId, pin))}
+        onDelete={(refId) => mutate((pin) => deleteReference(scenarioId, 'ng', refId, pin))}
       />
     </div>
   )

@@ -50,8 +50,9 @@ public class FewShotWiringTests
             content.OfType<TextMessageContent>(), t => t.Value.Contains("솔더 브릿지"));
     }
 
-    // grammar 강제 없이 프롬프트로만 JSON 을 지시하므로(특히 reasoning 모델) 응답에 코드펜스·머리말이
-    // 섞일 수 있다. ExtractJson 이 첫 '{' ~ 마지막 '}' 를 관용적으로 뽑는지 검증한다.
+    // 구조화 출력(json_schema grammar)이 content 를 강제하므로 보통 순수 JSON 이 오지만, reasoning
+    // 모델/백엔드가 코드펜스·머리말을 덧붙일 가능성에 대한 defense-in-depth. ExtractJson 이 첫 '{' ~
+    // 마지막 '}' 를 관용적으로 뽑는지 검증한다.
     [Theory]
     [InlineData("{\"verdict\":\"OK\"}", "{\"verdict\":\"OK\"}")]
     [InlineData("```json\n{\"verdict\":\"NG\"}\n```", "{\"verdict\":\"NG\"}")]
@@ -60,5 +61,21 @@ public class FewShotWiringTests
     public void ExtractJson_StripsFencesAndPreamble(string input, string expected)
     {
         Assert.Equal(expected, IronHiveVlmProvider.ExtractJson(input));
+    }
+
+    // 구조화 출력 스키마는 confidence 를 number 로만 강제하고 범위는 강제 못 한다 — 모델이 백분율(95.0)로
+    // 방출할 수 있다. 경계에서 0.0~1.0 불변식을 강제하는지 검증한다.
+    [Theory]
+    [InlineData(0.95, 0.95)]   // 이미 정상
+    [InlineData(0.0, 0.0)]
+    [InlineData(1.0, 1.0)]
+    [InlineData(95.0, 0.95)]   // 백분율 → 소수
+    [InlineData(100.0, 1.0)]
+    [InlineData(90.0, 0.90)]
+    [InlineData(150.0, 1.0)]   // 범위 밖 → clamp
+    [InlineData(-0.5, 0.0)]    // 음수 → clamp
+    public void NormalizeConfidence_EnforcesUnitRange(double input, double expected)
+    {
+        Assert.Equal(expected, IronHiveVlmProvider.NormalizeConfidence(input), 3);
     }
 }

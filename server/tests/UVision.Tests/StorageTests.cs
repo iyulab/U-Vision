@@ -96,6 +96,102 @@ public class StorageTests : IDisposable
     }
 
     [Fact]
+    public async Task InspectionStore_ReadImage_ReturnsBytes_NotResultJson()
+    {
+        var store = new FileInspectionStore(Paths);
+        var result = new StoredResult
+        {
+            ScenarioId = "demo",
+            ImageId = "img_test0001",
+            Verdict = Verdict.OK,
+            Findings = "",
+            Confidence = 0.9,
+            Timestamp = "2026-06-07T10:30:00.0000000Z",
+            ImageFile = "img_test0001.jpg",
+        };
+        await store.SaveAsync(new byte[] { 0xFF, 0xD8, 0xAB }, ".jpg", result);
+
+        var image = await store.ReadImageAsync("demo", "2026-06-07", "img_test0001");
+
+        Assert.NotNull(image);
+        // 같은 stem 의 {image_id}.json 이 아니라 이미지 바이트를 돌려줘야 한다.
+        Assert.Equal(new byte[] { 0xFF, 0xD8, 0xAB }, image!.Data);
+        Assert.Equal("image/jpeg", image.ContentType);
+    }
+
+    [Fact]
+    public async Task InspectionStore_ReadImage_ReturnsNull_WhenMissing()
+    {
+        var store = new FileInspectionStore(Paths);
+        Assert.Null(await store.ReadImageAsync("demo", "2099-01-01", "img_nope0001"));
+    }
+
+    [Fact]
+    public async Task InspectionStore_ListDates_ReturnsDatesDescending_ExcludingNonDates()
+    {
+        var store = new FileInspectionStore(Paths);
+        // 두 날짜에 레코드 저장 + references 디렉토리(날짜 아님)는 제외돼야 한다.
+        await store.SaveAsync(new byte[] { 1 }, ".jpg", Record("img_a", "2026-06-06T00:00:00Z"));
+        await store.SaveAsync(new byte[] { 2 }, ".jpg", Record("img_b", "2026-06-08T00:00:00Z"));
+        Directory.CreateDirectory(Path.Combine(Paths.ScenarioDir("demo"), "references"));
+
+        var dates = await store.ListDatesAsync("demo");
+
+        Assert.Equal(new[] { "2026-06-08", "2026-06-06" }, dates); // 최신 먼저, references 제외
+    }
+
+    [Fact]
+    public async Task InspectionStore_ListDates_ReturnsEmpty_WhenNoRecords()
+    {
+        var store = new FileInspectionStore(Paths);
+        Assert.Empty(await store.ListDatesAsync("never-inspected"));
+    }
+
+    [Fact]
+    public async Task StoredResult_RoundTrips_DeviceFields()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "uvision-dev-" + Guid.NewGuid().ToString("N"));
+        var paths = new StoragePaths(new StorageOptions { DataPath = dir }, AppContext.BaseDirectory);
+        var store = new FileInspectionStore(paths);
+        var stored = new StoredResult
+        {
+            ScenarioId = "demo", ImageId = "img_dev1", Verdict = Verdict.OK,
+            Findings = "", Confidence = 0.9, Timestamp = "2026-06-08T01:02:03.0000000+00:00",
+            ImageFile = "img_dev1.jpg", DeviceId = "uuid-abc", DeviceLabel = "라인 A 입구",
+        };
+        await store.SaveAsync(new byte[] { 1, 2, 3 }, ".jpg", stored);
+
+        var list = await store.ListAsync("demo", "2026-06-08");
+        var got = Assert.Single(list);
+        Assert.Equal("uuid-abc", got.DeviceId);
+        Assert.Equal("라인 A 입구", got.DeviceLabel);
+        Directory.Delete(dir, recursive: true);
+    }
+
+    [Fact]
+    public void StoredResult_DeserializesLegacyJson_WithoutDeviceFields()
+    {
+        const string legacy = """
+        {"scenario_id":"demo","image_id":"img_old1","verdict":"OK","findings":"",
+         "confidence":0.8,"timestamp":"2026-06-07T00:00:00.0000000+00:00","image_file":"img_old1.jpg"}
+        """;
+        var r = System.Text.Json.JsonSerializer.Deserialize<StoredResult>(legacy, StoragePaths.Json)!;
+        Assert.Equal("", r.DeviceId);
+        Assert.Equal("", r.DeviceLabel);
+    }
+
+    private static StoredResult Record(string imageId, string timestamp) => new()
+    {
+        ScenarioId = "demo",
+        ImageId = imageId,
+        Verdict = Verdict.OK,
+        Findings = "",
+        Confidence = 1.0,
+        Timestamp = timestamp,
+        ImageFile = imageId + ".jpg",
+    };
+
+    [Fact]
     public async Task ScenarioStore_GetUnknown_ReturnsNull()
     {
         var store = new FileScenarioStore(Paths);

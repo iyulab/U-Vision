@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/UVision.Api/UVision.Api.csproj" />
     <Project Path="src/UVision.Benchmark/UVision.Benchmark.csproj" />
+    <Project Path="src/UVision.Hosting/UVision.Hosting.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/UVision.Tests/UVision.Tests.csproj" />

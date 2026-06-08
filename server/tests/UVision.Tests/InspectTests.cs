@@ -38,6 +38,15 @@ public class InspectTests : IClassFixture<UVisionApiFactory>
         return form;
     }
 
+    private static MultipartFormDataContent FormWithDevice(
+        byte[] bytes, string scenarioId, string deviceId, string deviceLabel)
+    {
+        var form = Form(bytes, "image/jpeg", scenarioId);
+        form.Add(new StringContent(deviceId), "device_id");
+        form.Add(new StringContent(deviceLabel), "device_label");
+        return form;
+    }
+
     [Fact]
     public async Task MockProvider_IsDeterministic()
     {
@@ -57,7 +66,7 @@ public class InspectTests : IClassFixture<UVisionApiFactory>
     public async Task Health_ReturnsOk()
     {
         var client = _factory.CreateClient();
-        var resp = await client.GetAsync("/api/health");
+        var resp = await client.GetAsync("/api/u-vision/health");
 
         resp.EnsureSuccessStatusCode();
         var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
@@ -68,7 +77,7 @@ public class InspectTests : IClassFixture<UVisionApiFactory>
     public async Task Inspect_ReturnsVerdict()
     {
         var client = _factory.CreateClient();
-        var resp = await client.PostAsync("/api/inspect", Form(Jpeg, "image/jpeg", "demo"));
+        var resp = await client.PostAsync("/api/u-vision/inspect", Form(Jpeg, "image/jpeg", "demo"));
 
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
@@ -83,7 +92,7 @@ public class InspectTests : IClassFixture<UVisionApiFactory>
     {
         var client = _factory.CreateClient();
         var resp = await client.PostAsync(
-            "/api/inspect", Form(Encoding.UTF8.GetBytes("hello"), "text/plain", "demo"));
+            "/api/u-vision/inspect", Form(Encoding.UTF8.GetBytes("hello"), "text/plain", "demo"));
         Assert.Equal(HttpStatusCode.UnsupportedMediaType, resp.StatusCode); // 415
     }
 
@@ -91,7 +100,7 @@ public class InspectTests : IClassFixture<UVisionApiFactory>
     public async Task Inspect_RejectsUnknownScenario()
     {
         var client = _factory.CreateClient();
-        var resp = await client.PostAsync("/api/inspect", Form(Jpeg, "image/jpeg", "ghost"));
+        var resp = await client.PostAsync("/api/u-vision/inspect", Form(Jpeg, "image/jpeg", "ghost"));
         Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode); // 404
     }
 
@@ -99,7 +108,7 @@ public class InspectTests : IClassFixture<UVisionApiFactory>
     public async Task Inspect_RejectsEmptyImage()
     {
         var client = _factory.CreateClient();
-        var resp = await client.PostAsync("/api/inspect", Form([], "image/jpeg", "demo"));
+        var resp = await client.PostAsync("/api/u-vision/inspect", Form([], "image/jpeg", "demo"));
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode); // 400
     }
 
@@ -108,13 +117,13 @@ public class InspectTests : IClassFixture<UVisionApiFactory>
     {
         var client = _factory.CreateClient();
 
-        var inspectResp = await client.PostAsync("/api/inspect", Form(Jpeg, "image/jpeg", "demo"));
+        var inspectResp = await client.PostAsync("/api/u-vision/inspect", Form(Jpeg, "image/jpeg", "demo"));
         Assert.Equal(HttpStatusCode.OK, inspectResp.StatusCode);
         var inspectJson = await inspectResp.Content.ReadFromJsonAsync<JsonElement>();
         var imageId = inspectJson.GetProperty("image_id").GetString();
 
         var today = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-        var resultsResp = await client.GetAsync($"/api/results?scenario_id=demo&date={today}");
+        var resultsResp = await client.GetAsync($"/api/u-vision/results?scenario_id=demo&date={today}");
         Assert.Equal(HttpStatusCode.OK, resultsResp.StatusCode);
 
         var results = await resultsResp.Content.ReadFromJsonAsync<JsonElement>();
@@ -130,10 +139,10 @@ public class InspectTests : IClassFixture<UVisionApiFactory>
     public async Task Results_DefaultsToToday_WhenDateOmitted()
     {
         var client = _factory.CreateClient();
-        await client.PostAsync("/api/inspect", Form(Jpeg, "image/jpeg", "demo"));
+        await client.PostAsync("/api/u-vision/inspect", Form(Jpeg, "image/jpeg", "demo"));
 
         // date 생략 → 오늘(UTC). 방금 저장한 레코드가 보여야 한다.
-        var resp = await client.GetAsync("/api/results?scenario_id=demo");
+        var resp = await client.GetAsync("/api/u-vision/results?scenario_id=demo");
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         var results = await resp.Content.ReadFromJsonAsync<JsonElement>();
         Assert.True(results.GetArrayLength() >= 1);
@@ -144,7 +153,7 @@ public class InspectTests : IClassFixture<UVisionApiFactory>
     {
         var client = _factory.CreateClient();
         // 경로 주입 시도("../") → sanitize 거부 → 400(존재하지 않음 404 와 구분).
-        var resp = await client.PostAsync("/api/inspect", Form(Jpeg, "image/jpeg", "../etc"));
+        var resp = await client.PostAsync("/api/u-vision/inspect", Form(Jpeg, "image/jpeg", "../etc"));
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode); // 400
     }
 
@@ -156,8 +165,118 @@ public class InspectTests : IClassFixture<UVisionApiFactory>
             b.ConfigureTestServices(s =>
                 s.AddSingleton<IInspectionStore, ThrowingInspectionStore>())).CreateClient();
 
-        var resp = await client.PostAsync("/api/inspect", Form(Jpeg, "image/jpeg", "demo"));
+        var resp = await client.PostAsync("/api/u-vision/inspect", Form(Jpeg, "image/jpeg", "demo"));
         Assert.Equal(HttpStatusCode.InternalServerError, resp.StatusCode); // 500
+    }
+
+    // --- 결과 조회 UI 지원 엔드포인트(무인증 읽기) ---------------------------
+
+    [Fact]
+    public async Task ResultDates_ListsDates_AfterInspect()
+    {
+        var client = _factory.CreateClient();
+        await client.PostAsync("/api/u-vision/inspect", Form(Jpeg, "image/jpeg", "demo"));
+
+        var resp = await client.GetAsync("/api/u-vision/results/dates?scenario_id=demo");
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+
+        var dates = await resp.Content.ReadFromJsonAsync<string[]>();
+        var today = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        Assert.Contains(today, dates!);
+    }
+
+    [Fact]
+    public async Task ResultImage_ServesStoredCapture()
+    {
+        var client = _factory.CreateClient();
+        var inspectResp = await client.PostAsync("/api/u-vision/inspect", Form(Jpeg, "image/jpeg", "demo"));
+        var inspectJson = await inspectResp.Content.ReadFromJsonAsync<JsonElement>();
+        var imageId = inspectJson.GetProperty("image_id").GetString();
+        var today = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        var resp = await client.GetAsync(
+            $"/api/u-vision/results/image?scenario_id=demo&date={today}&image_id={imageId}");
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        Assert.Equal("image/jpeg", resp.Content.Headers.ContentType?.MediaType);
+        var bytes = await resp.Content.ReadAsByteArrayAsync();
+        Assert.Equal(Jpeg, bytes); // 업로드 원본 바이트 그대로 서빙
+    }
+
+    [Fact]
+    public async Task ResultImage_Returns404_WhenMissing()
+    {
+        var client = _factory.CreateClient();
+        var resp = await client.GetAsync(
+            "/api/u-vision/results/image?scenario_id=demo&date=2099-01-01&image_id=img_none0001");
+        Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode); // 404
+    }
+
+    [Fact]
+    public async Task ResultImage_Returns400_OnMalformedDate()
+    {
+        var client = _factory.CreateClient();
+        var resp = await client.GetAsync(
+            "/api/u-vision/results/image?scenario_id=demo&date=not-a-date&image_id=img_x");
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode); // 400
+    }
+
+    [Fact]
+    public async Task ResultDates_Returns400_OnMalformedScenarioId()
+    {
+        var client = _factory.CreateClient();
+        var resp = await client.GetAsync("/api/u-vision/results/dates?scenario_id=../etc");
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode); // 400 — 경로 주입 차단
+    }
+
+    [Fact]
+    public async Task Inspect_ImageId_IsFullGuid_AndUnique()
+    {
+        var client = _factory.CreateClient();
+        var r1 = await client.PostAsync("/api/u-vision/inspect", Form(Jpeg, "image/jpeg", "demo"));
+        var r2 = await client.PostAsync("/api/u-vision/inspect", Form(Jpeg, "image/jpeg", "demo"));
+        var id1 = (await r1.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("image_id").GetString()!;
+        var id2 = (await r2.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("image_id").GetString()!;
+
+        Assert.StartsWith("img_", id1);
+        Assert.Equal(36, id1.Length); // "img_"(4) + GUID:N(32 hex)
+        Assert.NotEqual(id1, id2);
+    }
+
+    [Fact]
+    public async Task Inspect_PersistsDeviceFields()
+    {
+        var client = _factory.CreateClient();
+        var resp = await client.PostAsync("/api/u-vision/inspect",
+            FormWithDevice(Jpeg, "demo", "uuid-xyz", "라인 B"));
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var imageId = (await resp.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("image_id").GetString();
+
+        var today = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var results = await (await client.GetAsync($"/api/u-vision/results?scenario_id=demo&date={today}"))
+            .Content.ReadFromJsonAsync<JsonElement>();
+        var match = results.EnumerateArray()
+            .First(r => r.GetProperty("image_id").GetString() == imageId);
+        Assert.Equal("uuid-xyz", match.GetProperty("device_id").GetString());
+        Assert.Equal("라인 B", match.GetProperty("device_label").GetString());
+    }
+
+    [Fact]
+    public async Task Inspect_WithoutDeviceFields_StillSucceeds_EmptyDevice()
+    {
+        var client = _factory.CreateClient();
+        var resp = await client.PostAsync("/api/u-vision/inspect", Form(Jpeg, "image/jpeg", "demo"));
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode); // 구 클라 호환(필드 누락)
+        var imageId = (await resp.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("image_id").GetString();
+
+        var today = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var results = await (await client.GetAsync($"/api/u-vision/results?scenario_id=demo&date={today}"))
+            .Content.ReadFromJsonAsync<JsonElement>();
+        var match = results.EnumerateArray()
+            .First(r => r.GetProperty("image_id").GetString() == imageId);
+        Assert.Equal("", match.GetProperty("device_id").GetString());
     }
 
     /// <summary>영속화가 항상 실패하는 stub — must-succeed 500 경로 검증용.</summary>
@@ -171,5 +290,14 @@ public class InspectTests : IClassFixture<UVisionApiFactory>
         public Task<IReadOnlyList<StoredResult>> ListAsync(
             string scenarioId, string date, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<StoredResult>>([]);
+
+        public Task<InspectionImage?> ReadImageAsync(
+            string scenarioId, string date, string imageId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<InspectionImage?>(null);
+
+        public Task<IReadOnlyList<string>> ListDatesAsync(
+            string scenarioId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<string>>([]);
     }
 }

@@ -39,23 +39,21 @@ export function meanAbsDiff(a: Uint8ClampedArray, b: Uint8ClampedArray): number 
 }
 
 export interface StillnessState {
-  /** 정지 확정 여부(streak >= stillFrames). */
+  /** 정지 확정 여부(streak >= stillFrames). 레벨 신호 — 정지 유지 중 계속 true. */
   isStill: boolean
   /** 현재 연속 정지 프레임 수. */
   stillStreak: number
-  /** 이번 push 에서 막 정지 확정된 순간인지(캡처 트리거 1회용). */
-  justBecameStill: boolean
 }
 
 /**
- * 모션 점수 스트림을 받아 정지 상태를 추적하는 상태머신.
+ * 모션 점수 스트림을 받아 정지 상태를 추적하는 상태머신(순수 레벨 신호).
  *
- * 재무장: 정지 확정 후 모션이 다시 감지되면(임계 이상) emitted 플래그가 풀려,
- * 다음 정지 때 justBecameStill 이 다시 한 번 true 가 된다. → 연속 검사 가능.
+ * edge(justBecameStill) 책임은 제거됐다 — "지금 캡처할까"는 검사기 free 상태와
+ * 조인해야 하는 정책이므로 capturePolicy/useContinuousCapture 가 소유한다.
+ * 이 클래스는 "정지인가?"만 답한다.
  */
 export class StillnessDetector {
   private streak = 0
-  private emitted = false
 
   constructor(private readonly config: MotionConfig) {}
 
@@ -64,20 +62,11 @@ export class StillnessDetector {
       this.streak++
     } else {
       this.streak = 0
-      this.emitted = false // 모션 재개 → 재무장
     }
-
-    const isStill = this.streak >= this.config.stillFrames
-    let justBecameStill = false
-    if (isStill && !this.emitted) {
-      justBecameStill = true
-      this.emitted = true
-    }
-    return { isStill, stillStreak: this.streak, justBecameStill }
+    return { isStill: this.streak >= this.config.stillFrames, stillStreak: this.streak }
   }
 
   reset(): void {
     this.streak = 0
-    this.emitted = false
   }
 }

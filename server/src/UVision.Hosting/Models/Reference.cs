@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace UVision.Api.Models;
 
 /// <summary>기준 이미지 분류 — OK 기준 / NG 기준. 닫힌 2값 집합(경로 <c>references/{ok|ng}/</c>).</summary>
@@ -12,12 +14,12 @@ public enum ReferenceLabel
 /// </summary>
 public sealed record ReferenceInfo
 {
-    public required string RefId { get; init; }
+    [JsonPropertyName("ref_id")] public required string RefId { get; init; }
 
-    public required ReferenceLabel Label { get; init; }
+    [JsonPropertyName("label")] public required ReferenceLabel Label { get; init; }
 
     /// <summary>NG 기준 이미지의 불량 유형명(scenario.json.ng_labels). OK 면 null.</summary>
-    public string? NgLabel { get; init; }
+    [JsonPropertyName("ng_label")] public string? NgLabel { get; init; }
 }
 
 /// <summary>

@@ -13,9 +13,9 @@ namespace UVision.Api.Endpoints;
 /// </summary>
 public static class ReferenceEndpoints
 {
-    public static void MapReferenceEndpoints(this IEndpointRouteBuilder app)
+    public static void MapReferenceEndpoints(this RouteGroupBuilder parent)
     {
-        var group = app.MapGroup("/api/scenarios/{id}/references");
+        var group = parent.MapGroup("/scenarios/{id}/references");
 
         group.MapGet("", ListAsync);
         group.MapGet("/{label}/{refId}", ServeAsync);
@@ -101,7 +101,7 @@ public static class ReferenceEndpoints
             if (parsed == ReferenceLabel.Ng && !string.IsNullOrWhiteSpace(ngLabel))
                 await scenarioStore.SetNgLabelAsync(id, refId, ngLabel.Trim(), ct);
 
-            return Results.Created($"/api/scenarios/{id}/references/{label}/{refId}",
+            return Results.Created($"/api/u-vision/scenarios/{id}/references/{label}/{refId}",
                 new ReferenceInfo { RefId = refId, Label = parsed, NgLabel = ngLabel?.Trim() });
         }
         catch (ArgumentException)

@@ -52,19 +52,19 @@ public sealed record InspectionResult
 /// <summary>
 /// <c>POST /api/inspect</c> 응답 — 도메인 결과 + API 메타데이터.
 /// 도메인(<see cref="InspectionResult"/>)과 분리: API 는 timestamp/image_id 를 덧붙인다.
-/// wire 계약(snake_case)은 전역 JSON 정책으로 보존 — image_id 등.
+/// wire 계약(snake_case)은 [JsonPropertyName] 으로 자기서술 — ambient JSON 정책 독립.
 /// </summary>
 public sealed record InspectResponse
 {
-    public required Verdict Verdict { get; init; }
+    [JsonPropertyName("verdict")] public required Verdict Verdict { get; init; }
 
-    public required string Findings { get; init; }
+    [JsonPropertyName("findings")] public required string Findings { get; init; }
 
-    public required double Confidence { get; init; }
+    [JsonPropertyName("confidence")] public required double Confidence { get; init; }
 
-    public required string Timestamp { get; init; }
+    [JsonPropertyName("timestamp")] public required string Timestamp { get; init; }
 
-    public required string ImageId { get; init; }
+    [JsonPropertyName("image_id")] public required string ImageId { get; init; }
 }
 
 /// <summary>
@@ -74,18 +74,24 @@ public sealed record InspectResponse
 /// </summary>
 public sealed record StoredResult
 {
-    public required string ScenarioId { get; init; }
+    [JsonPropertyName("scenario_id")] public required string ScenarioId { get; init; }
 
-    public required string ImageId { get; init; }
+    [JsonPropertyName("image_id")] public required string ImageId { get; init; }
 
-    public required Verdict Verdict { get; init; }
+    [JsonPropertyName("verdict")] public required Verdict Verdict { get; init; }
 
-    public required string Findings { get; init; }
+    [JsonPropertyName("findings")] public required string Findings { get; init; }
 
-    public required double Confidence { get; init; }
+    [JsonPropertyName("confidence")] public required double Confidence { get; init; }
 
-    public required string Timestamp { get; init; }
+    [JsonPropertyName("timestamp")] public required string Timestamp { get; init; }
 
-    /// <summary>짝 이미지 파일명(예: <c>img_ab12cd34.jpg</c>).</summary>
-    public required string ImageFile { get; init; }
+    /// <summary>짝 이미지 파일명(예: <c>img_{guid}.jpg</c>).</summary>
+    [JsonPropertyName("image_file")] public required string ImageFile { get; init; }
+
+    /// <summary>촬영 태블릿 안정 식별자(localStorage UUID). 구 레코드/누락 시 "".</summary>
+    [JsonPropertyName("device_id")] public string DeviceId { get; init; } = "";
+
+    /// <summary>운영자 지정 태블릿 라벨(예: "라인 A 입구"). 표시용. 구 레코드/누락 시 "".</summary>
+    [JsonPropertyName("device_label")] public string DeviceLabel { get; init; } = "";
 }

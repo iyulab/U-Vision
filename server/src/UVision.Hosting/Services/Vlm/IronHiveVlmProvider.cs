@@ -10,11 +10,13 @@ namespace UVision.Api.Services.Vlm;
 /// ironhive(IMessageService) 기반 VLM 어댑터 — openai/google/gpustack 모두 처리한다.
 /// ironhive 가 provider 추상화·비전 입력을 흡수하므로 provider 별 구현을 분리하지 않는다.
 ///
-/// 출력 계약은 <see cref="VlmPrompt"/> 의 프롬프트로 강제한다(JSON 한 객체). ironhive 의 구조화
-/// 출력(Output=typeof)은 쓰지 않는다 — JsonSchemaFactory 가 생성하는 json_schema 를 OpenAI 호환
-/// 셀프호스트(llama.cpp/GPUStack)가 grammar 로 강제하지 못해 산문 방출→서버 500 이 된다(M0.1 실측 확인).
-/// 명시적 JSON 지시 + 관용 파싱이 cloud·셀프호스트 양쪽에서 안정적이다.
-/// 상세: claudedocs/issues/ISSUE-ironhive-*-jsonschema-llamacpp.md
+/// 출력 계약은 ironhive 구조화 출력(<c>Output = typeof(InspectionResult)</c>)으로 강제한다 —
+/// JsonSchemaFactory 가 발행하는 json_schema 가 grammar 로 강제되어 모델이 스키마에 맞는 JSON 을 낸다.
+/// ironhive 0.7.4 가 셀프호스트 비호환(수치 union+pattern·type 없는 enum)을 정규화하기 전까지는
+/// 프롬프트로 JSON 을 강제하는 app-level 우회를 썼으나, 0.7.4 에서 GPUStack(llama.cpp) 라이브 검증 완료
+/// → 구조화 출력으로 복귀(우회 제거). 응답 파싱은 <see cref="ExtractJson"/> 으로 reasoning 모델의
+/// 머리말/펜스를 관용 처리한다(grammar 가 content 채널을 강제하나 방어적으로 유지).
+/// 상세: claudedocs/issues/closed/ISSUE-ironhive-*-jsonschema-llamacpp.md
 /// (원본: server/app/services/vlm/{openai,google}_provider.py 를 단일 어댑터로 통합)
 /// </summary>
 public sealed class IronHiveVlmProvider : IVlmProvider
@@ -57,6 +59,7 @@ public sealed class IronHiveVlmProvider : IVlmProvider
             [
                 new UserMessage { Content = BuildContent(image, scenario.References) },
             ],
+            Output = typeof(InspectionResult), // 구조화 출력(json_schema grammar 강제) — ironhive 0.7.4+
             MaxTokens = MaxOutputTokens,       // reasoning 모델 truncation 방지(위 주석)
         };
 
@@ -73,19 +76,36 @@ public sealed class IronHiveVlmProvider : IVlmProvider
                 $"VLM provider '{Name}' 가 텍스트 응답을 반환하지 않음.");
         }
 
-        return JsonSerializer.Deserialize<InspectionResult>(ExtractJson(json), DeserializeOptions)
+        var result = JsonSerializer.Deserialize<InspectionResult>(ExtractJson(json), DeserializeOptions)
             ?? throw new InvalidOperationException($"VLM 응답 역직렬화 실패: {json}");
+
+        return result with { Confidence = NormalizeConfidence(result.Confidence) };
     }
 
     /// <summary>
-    /// 모델 응답 텍스트에서 JSON 객체를 관용적으로 추출한다. grammar 강제가 없으므로(프롬프트로만 지시)
-    /// reasoning 모델이 코드펜스(```json)나 머리말을 덧붙일 수 있다 — 첫 '{' ~ 마지막 '}' 구간만 취한다.
+    /// 모델 응답 텍스트에서 JSON 객체를 관용적으로 추출한다(첫 '{' ~ 마지막 '}'). 구조화 출력의 grammar 가
+    /// content 채널을 강제하므로 보통 순수 JSON 이 오지만, reasoning 모델/백엔드가 펜스·머리말을 덧붙일
+    /// 가능성에 대한 defense-in-depth 다(우회 의존이 아니라 견고한 역직렬화).
     /// </summary>
     internal static string ExtractJson(string text)
     {
         var start = text.IndexOf('{');
         var end = text.LastIndexOf('}');
         return start >= 0 && end > start ? text[start..(end + 1)] : text.Trim();
+    }
+
+    /// <summary>
+    /// confidence 의 도메인 불변식(0.0~1.0)을 경계에서 강제한다. 구조화 출력 json_schema 는 타입(number)만
+    /// 강제하고 값 범위는 강제하지 못해, 모델이 백분율(예: 95.0)로 방출할 수 있다(프롬프트로 1차 억제하나
+    /// non-deterministic). 1 초과·100 이하는 백분율로 보고 /100, 그 외는 [0,1] 로 clamp 한다.
+    /// </summary>
+    internal static double NormalizeConfidence(double value)
+    {
+        if (value > 1.0 && value <= 100.0)
+        {
+            value /= 100.0;
+        }
+        return Math.Clamp(value, 0.0, 1.0);
     }
 
     /// <summary>

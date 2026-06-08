@@ -47,27 +47,27 @@ public class ReferenceTests : IClassFixture<PinFactory>
         var anon = _factory.CreateClient();
 
         // 업로드(OK 기준, png).
-        var up = await admin.PostAsync("/api/scenarios/demo/references", UploadForm(Png, "image/png", "ok"));
+        var up = await admin.PostAsync("/api/u-vision/scenarios/demo/references", UploadForm(Png, "image/png", "ok"));
         Assert.Equal(HttpStatusCode.Created, up.StatusCode);
         var refId = (await up.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("ref_id").GetString();
 
         // 목록(무인증).
-        var list = await (await anon.GetAsync("/api/scenarios/demo/references"))
+        var list = await (await anon.GetAsync("/api/u-vision/scenarios/demo/references"))
             .Content.ReadFromJsonAsync<JsonElement>();
         Assert.Contains(list.EnumerateArray(), r => r.GetProperty("ref_id").GetString() == refId);
 
         // 이미지 서빙(무인증) — content-type 보존.
-        var img = await anon.GetAsync($"/api/scenarios/demo/references/ok/{refId}");
+        var img = await anon.GetAsync($"/api/u-vision/scenarios/demo/references/ok/{refId}");
         Assert.Equal(HttpStatusCode.OK, img.StatusCode);
         Assert.Equal("image/png", img.Content.Headers.ContentType?.MediaType);
         Assert.Equal(Png, await img.Content.ReadAsByteArrayAsync());
 
         // 삭제(PIN).
-        var del = await admin.DeleteAsync($"/api/scenarios/demo/references/ok/{refId}");
+        var del = await admin.DeleteAsync($"/api/u-vision/scenarios/demo/references/ok/{refId}");
         Assert.Equal(HttpStatusCode.NoContent, del.StatusCode);
 
-        var after = await (await anon.GetAsync("/api/scenarios/demo/references"))
+        var after = await (await anon.GetAsync("/api/u-vision/scenarios/demo/references"))
             .Content.ReadFromJsonAsync<JsonElement>();
         Assert.DoesNotContain(after.EnumerateArray(), r => r.GetProperty("ref_id").GetString() == refId);
     }
@@ -78,24 +78,24 @@ public class ReferenceTests : IClassFixture<PinFactory>
         var admin = Admin();
 
         var up = await admin.PostAsync(
-            "/api/scenarios/demo/references", UploadForm(Png, "image/png", "ng", "솔더 브릿지"));
+            "/api/u-vision/scenarios/demo/references", UploadForm(Png, "image/png", "ng", "솔더 브릿지"));
         var refId = (await up.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("ref_id").GetString();
 
         // NG 레이블이 목록에 결합된다.
-        var list = await (await admin.GetAsync("/api/scenarios/demo/references"))
+        var list = await (await admin.GetAsync("/api/u-vision/scenarios/demo/references"))
             .Content.ReadFromJsonAsync<JsonElement>();
         var entry = list.EnumerateArray().First(r => r.GetProperty("ref_id").GetString() == refId);
         Assert.Equal("솔더 브릿지", entry.GetProperty("ng_label").GetString());
 
         // scenario.json 에 기록됐는지(GET 시나리오).
-        var scenario = await (await admin.GetAsync("/api/scenarios/demo"))
+        var scenario = await (await admin.GetAsync("/api/u-vision/scenarios/demo"))
             .Content.ReadFromJsonAsync<JsonElement>();
         Assert.True(scenario.GetProperty("ng_labels").TryGetProperty(refId!, out _));
 
         // 삭제 후 ng_labels orphan 제거.
-        await admin.DeleteAsync($"/api/scenarios/demo/references/ng/{refId}");
-        var after = await (await admin.GetAsync("/api/scenarios/demo"))
+        await admin.DeleteAsync($"/api/u-vision/scenarios/demo/references/ng/{refId}");
+        var after = await (await admin.GetAsync("/api/u-vision/scenarios/demo"))
             .Content.ReadFromJsonAsync<JsonElement>();
         Assert.False(after.GetProperty("ng_labels").TryGetProperty(refId!, out _));
     }
@@ -104,7 +104,7 @@ public class ReferenceTests : IClassFixture<PinFactory>
     public async Task Upload_InvalidLabel_Returns400()
     {
         var resp = await Admin().PostAsync(
-            "/api/scenarios/demo/references", UploadForm(Png, "image/png", "maybe"));
+            "/api/u-vision/scenarios/demo/references", UploadForm(Png, "image/png", "maybe"));
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
     }
 
@@ -112,7 +112,7 @@ public class ReferenceTests : IClassFixture<PinFactory>
     public async Task Upload_WithoutPin_Returns401()
     {
         var resp = await _factory.CreateClient().PostAsync(
-            "/api/scenarios/demo/references", UploadForm(Png, "image/png", "ok"));
+            "/api/u-vision/scenarios/demo/references", UploadForm(Png, "image/png", "ok"));
         Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
 
@@ -131,7 +131,7 @@ public class ReferenceTests : IClassFixture<PinFactory>
         form.Add(file, "image", "capture.jpg");
         form.Add(new StringContent("demo"), "scenario_id");
 
-        var resp = await client.PostAsync("/api/inspect", form);
+        var resp = await client.PostAsync("/api/u-vision/inspect", form);
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
     }
 

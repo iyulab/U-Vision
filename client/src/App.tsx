@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { AdminView } from './components/AdminView'
 import { CameraView } from './components/CameraView'
+import { Console } from './components/Console'
+import { ResultsBrowser } from './components/ResultsBrowser'
 import {
   clearStoredScenarioId,
   getStoredScenarioId,
@@ -9,6 +10,8 @@ import {
   setStoredScenarioId,
 } from './lib/activeScenario'
 import { listScenarios } from './lib/api'
+import { getCaptureMode, setCaptureMode, type CaptureMode } from './lib/captureMode'
+import { getDeviceLabel, setDeviceLabel } from './lib/deviceIdentity'
 import { DEFAULT_MOTION_CONFIG, type MotionConfig } from './lib/motion'
 import { fromScenarioRoi } from './lib/roi'
 import type { Scenario } from './lib/types'
@@ -27,6 +30,21 @@ export default function App() {
   const [activeId, setActiveId] = useState<string | null>(() => getStoredScenarioId())
   const [showAdmin, setShowAdmin] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [captureMode, setCaptureModeState] = useState<CaptureMode>(() => getCaptureMode())
+  const [deviceLabel, setDeviceLabelState] = useState<string>(() => getDeviceLabel())
+  const [showTodayList, setShowTodayList] = useState(false)
+  const todayUtc = new Date().toISOString().slice(0, 10) // 서버 date 버킷(UTC)과 정합
+
+  function toggleCaptureMode() {
+    const next: CaptureMode = captureMode === 'auto' ? 'manual' : 'auto'
+    setCaptureModeState(next)
+    setCaptureMode(next)
+  }
+
+  function updateDeviceLabel(label: string) {
+    setDeviceLabelState(label)
+    setDeviceLabel(label)
+  }
 
   const reload = useCallback(async () => {
     try {
@@ -59,17 +77,24 @@ export default function App() {
     }
   }, [loaded, scenarios, activeId])
 
-  if (showAdmin) {
-    return <AdminView onClose={() => setShowAdmin(false)} onChanged={reload} />
-  }
-
   const active = loaded ? resolveActiveScenario(scenarios, activeId) : null
   // worker 재생성을 막기 위해 config 객체를 active 기준으로 안정화.
+  // ⚠️ 모든 Hook 은 조건부 return 위에 둔다 — admin 전환 시 hook 수가 달라지면 안 된다(Rules of Hooks).
   const motionConfig = useMemo(() => (active ? toMotionConfig(active) : null), [active])
 
   function selectScenario(id: string) {
     setActiveId(id)
     setStoredScenarioId(id)
+  }
+
+  if (showAdmin) {
+    return (
+      <Console
+        onClose={() => setShowAdmin(false)}
+        onChanged={reload}
+        activeScenarioId={activeId}
+      />
+    )
   }
 
   return (
@@ -80,13 +105,26 @@ export default function App() {
           roi={fromScenarioRoi(active.roi)}
           motionConfig={motionConfig}
           minSharpness={active.min_sharpness}
+          captureMode={captureMode}
         />
       ) : (
         <NoScenario loaded={loaded} onAdmin={() => setShowAdmin(true)} />
       )}
 
-      {/* 우상단 컨트롤: 활성 시나리오 선택 + 관리 진입 */}
+      {/* 우상단 컨트롤: 촬영 모드 + 태블릿 라벨 + 활성 시나리오 선택 + 관리 진입 */}
       <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
+        <button
+          onClick={toggleCaptureMode}
+          className="rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur hover:bg-black/80"
+        >
+          {captureMode === 'auto' ? '자동' : '수동'}
+        </button>
+        <input
+          value={deviceLabel}
+          onChange={(e) => updateDeviceLabel(e.target.value)}
+          placeholder="이 태블릿"
+          className="w-28 rounded-full bg-black/60 px-3 py-2 text-sm text-white placeholder-white/50 backdrop-blur focus:outline-none"
+        />
         {scenarios.length > 1 && active && (
           <select
             value={active.scenario_id}
@@ -100,6 +138,14 @@ export default function App() {
             ))}
           </select>
         )}
+        {active && (
+          <button
+            onClick={() => setShowTodayList(true)}
+            className="rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur hover:bg-black/80"
+          >
+            오늘 이력
+          </button>
+        )}
         <button
           onClick={() => setShowAdmin(true)}
           className="rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur hover:bg-black/80"
@@ -107,6 +153,30 @@ export default function App() {
           관리
         </button>
       </div>
+
+      {showTodayList && active && (
+        <div className="fixed inset-0 z-30 flex flex-col bg-slate-900 text-slate-100">
+          <header className="flex items-center justify-between border-b border-slate-700 px-6 py-4">
+            <h1 className="text-lg font-semibold">
+              오늘 이력 — {active.name} · {todayUtc}
+            </h1>
+            <button
+              onClick={() => setShowTodayList(false)}
+              className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium hover:bg-slate-600"
+            >
+              운영 화면
+            </button>
+          </header>
+          <main className="flex-1 overflow-y-auto p-6">
+            <ResultsBrowser
+              scenarios={scenarios}
+              initialScenarioId={active.scenario_id}
+              lockedScenarioId={active.scenario_id}
+              lockedDate={todayUtc}
+            />
+          </main>
+        </div>
+      )}
     </div>
   )
 }

@@ -9,6 +9,22 @@ export interface InspectResult {
   image_id: string
 }
 
+/** 서버 `StoredResult`(영속 레코드, `{image_id}.json`) 미러 — 결과 조회용. */
+export interface StoredResult {
+  scenario_id: string
+  image_id: string
+  verdict: Verdict
+  findings: string
+  confidence: number
+  timestamp: string
+  /** 짝 이미지 파일명(예: `img_{guid}.jpg`). */
+  image_file: string
+  /** 촬영 태블릿 안정 식별자. 구 레코드/누락 시 "". */
+  device_id: string
+  /** 태블릿 표시 라벨(예: "라인 A 입구"). 구 레코드/누락 시 "". */
+  device_label: string
+}
+
 /**
  * 시나리오 ROI — 서버 wire 형식(**픽셀** 좌표 `w`/`h`).
  * ⚠️ 클라 내부 `lib/roi.ts` 의 `Roi`(0~1 상대 `width`/`height`)와 다르다.
@@ -30,6 +46,10 @@ export interface Scenario {
   motion_threshold: number
   still_frames: number
   min_sharpness: number
+  /** VLM 전송 이미지 longest-side 최대 px(다운스케일 레버). 0 = 축소 없음(원본). */
+  max_image_dimension: number
+  /** few-shot 기준 이미지 라벨당 최대 장수(레버). 0 = zero-shot. */
+  reference_cap: number
   ng_labels: Record<string, string>
 }
 
@@ -48,5 +68,7 @@ export interface ScenarioInput {
   motion_threshold?: number
   still_frames?: number
   min_sharpness?: number
+  max_image_dimension?: number
+  reference_cap?: number
   ng_labels?: Record<string, string>
 }

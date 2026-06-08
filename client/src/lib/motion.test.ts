@@ -36,40 +36,39 @@ describe('meanAbsDiff', () => {
 describe('StillnessDetector', () => {
   const config: MotionConfig = { motionThreshold: 6, stillFrames: 3, downscaleWidth: 64 }
 
-  it('연속 정지 프레임이 임계에 도달하면 정지 확정', () => {
+  it('연속 정지 프레임이 임계에 도달하면 isStill', () => {
     const d = new StillnessDetector(config)
     expect(d.push(2).isStill).toBe(false) // streak 1
     expect(d.push(2).isStill).toBe(false) // streak 2
-    const s = d.push(2) // streak 3
-    expect(s.isStill).toBe(true)
-    expect(s.justBecameStill).toBe(true)
+    expect(d.push(2).isStill).toBe(true) // streak 3
   })
 
-  it('justBecameStill 은 정지 구간당 한 번만', () => {
+  it('정지 유지 중 isStill은 레벨로 계속 true', () => {
     const d = new StillnessDetector(config)
     d.push(1)
     d.push(1)
-    expect(d.push(1).justBecameStill).toBe(true)
-    expect(d.push(1).justBecameStill).toBe(false) // 계속 정지지만 재발화 안 함
+    expect(d.push(1).isStill).toBe(true)
+    expect(d.push(1).isStill).toBe(true) // 레벨 — 계속 정지면 계속 true
   })
 
-  it('모션이 임계 이상이면 streak 리셋', () => {
+  it('모션이 임계 이상이면 streak·isStill 리셋', () => {
     const d = new StillnessDetector(config)
+    d.push(1)
     d.push(1)
     d.push(1)
     expect(d.push(100).stillStreak).toBe(0)
-    expect(d.push(1).isStill).toBe(false)
+    expect(d.push(100).isStill).toBe(false)
   })
 
-  it('모션 재개 후 다시 정지하면 재발화(연속 검사 재무장)', () => {
+  it('모션 재개 후 다시 정지하면 isStill 재진입', () => {
     const d = new StillnessDetector(config)
     d.push(1)
     d.push(1)
-    expect(d.push(1).justBecameStill).toBe(true) // 1차 정지
+    expect(d.push(1).isStill).toBe(true) // 1차 정지
     d.push(100) // 모션 재개
     d.push(1)
     d.push(1)
-    expect(d.push(1).justBecameStill).toBe(true) // 2차 정지 재발화
+    expect(d.push(1).isStill).toBe(true) // 2차 정지
   })
 
   it('reset 후 streak 초기화', () => {

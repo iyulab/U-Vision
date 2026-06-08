@@ -2,10 +2,12 @@ import { useCallback, useRef, useState, type RefObject } from 'react'
 
 import { inspectImage } from '../lib/api'
 import { captureFrame } from '../lib/capture'
+import { type InspectionPhase } from '../lib/capturePolicy'
+import { getDeviceId, getDeviceLabel } from '../lib/deviceIdentity'
 import type { Roi } from '../lib/roi'
 import type { InspectResult } from '../lib/types'
 
-export type InspectionPhase = 'idle' | 'capturing' | 'uploading' | 'done' | 'error' | 'rejected'
+export type { InspectionPhase } from '../lib/capturePolicy'
 
 export interface InspectionState {
   phase: InspectionPhase
@@ -54,7 +56,7 @@ export function useInspection(
           return
         }
         setPhase('uploading')
-        const result = await inspectImage(blob, scenarioId)
+        const result = await inspectImage(blob, scenarioId, getDeviceId(), getDeviceLabel())
         setLatest(result)
         setHistory((h) => [result, ...h].slice(0, HISTORY_LIMIT))
         setPhase('done')

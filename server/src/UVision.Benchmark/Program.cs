@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using UVision.Api.Configuration;
+using UVision.Api.Imaging;
 using UVision.Api.Models;
 using UVision.Api.Services.Vlm;
 
@@ -51,7 +52,16 @@ var endpoint = opts.GetValueOrDefault("endpoint")
 // 평가셋(--images-dir)과 다른 디렉토리(예: 학습셋)를 지정할 것. 미지정 시 zero-shot.
 var refsDir = opts.GetValueOrDefault("refs-dir");
 var refsCap = int.TryParse(opts.GetValueOrDefault("refs-cap"), out var rc) ? rc : 3;
+// --downscale <maxdim>: 설정 시 query·refs 를 longest-side maxdim 으로 축소 후 JPEG 재인코딩(측정 전용).
+// 0/미설정이면 원본 그대로(다운스케일 없음). latency/recall 절충 실험용.
+var downscale = int.TryParse(opts.GetValueOrDefault("downscale"), out var ds) && ds > 0 ? ds : 0;
 var references = refsDir is null ? [] : LoadReferences(refsDir, refsCap);
+if (downscale > 0)
+{
+    references = references
+        .Select(r => new ReferenceImage { Data = ImageDownscaler.Downscale(r.Data, downscale), Label = r.Label, NgLabel = r.NgLabel, IsPng = false })
+        .ToList();
+}
 
 var images = DiscoverImages(imagesDir);
 if (images.Count == 0)
@@ -81,13 +91,17 @@ var rows = new List<Row>();
 foreach (var (path, truth) in images)
 {
     var data = await File.ReadAllBytesAsync(path);
+    if (downscale > 0)
+    {
+        data = ImageDownscaler.Downscale(data, downscale);
+    }
     var sw = Stopwatch.StartNew();
     var result = await provider.InspectAsync(data, scenario);
     sw.Stop();
     rows.Add(new Row(Path.GetFileName(path), truth, result.Verdict, result.Confidence, sw.Elapsed.TotalMilliseconds));
 }
 
-var report = RenderReport(rows, provider.Name, model, pricing, references.Count);
+var report = RenderReport(rows, provider.Name, model, pricing, references.Count, downscale);
 Console.WriteLine(report);
 if (outPath is not null)
 {
@@ -163,7 +177,7 @@ List<(string Path, Verdict? Truth)> DiscoverImages(string dir)
     return items;
 }
 
-string RenderReport(List<Row> rs, string prov, string mdl, (string Model, double In, double Out)[] price, int refCount)
+string RenderReport(List<Row> rs, string prov, string mdl, (string Model, double In, double Out)[] price, int refCount, int downscaleDim)
 {
     var latencies = rs.Select(r => r.LatencyMs).OrderBy(x => x).ToList();
     var labeled = rs.Where(r => r.Truth is not null).ToList();
@@ -174,6 +188,7 @@ string RenderReport(List<Row> rs, string prov, string mdl, (string Model, double
     sb.AppendLine("# VLM 벤치마크 리포트").AppendLine();
     sb.AppendLine($"- provider: `{prov}` / model: `{mdl}`");
     sb.AppendLine($"- 모드: {(refCount > 0 ? $"**few-shot** (기준 이미지 {refCount}장)" : "**zero-shot** (criteria 텍스트만)")}");
+    sb.AppendLine($"- 다운스케일: {(downscaleDim > 0 ? $"longest-side **{downscaleDim}px** (JPEG q85)" : "없음(원본)")}");
     sb.AppendLine($"- 이미지 수: {rs.Count} (라벨됨 {labeled.Count})");
     sb.AppendLine(Inv($"- latency: p50 **{p50:F0} ms**, p95 **{p95:F0} ms**, min {latencies.Min():F0} / max {latencies.Max():F0}"));
 

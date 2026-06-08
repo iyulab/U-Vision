@@ -1,14 +1,20 @@
 import type { InspectResult } from '../lib/types'
 
-/** 현재 세션 검사 이력(최신순). 인메모리 — 새로고침 시 소멸(C6). */
+const RECENT_LIMIT = 5
+
+/**
+ * 최근 검사 스트립(인메모리·휘발). 영속 당일 목록("오늘 이력")이 진실 원천이며
+ * 이것은 연속 플로우 중 직전 몇 건의 즉각 피드백용 보조 표시다(새로고침 시 소멸).
+ */
 export function InspectionHistory({ items }: { items: InspectResult[] }) {
-  if (items.length === 0) return null
+  const recent = items.slice(0, RECENT_LIMIT)
+  if (recent.length === 0) return null
 
   return (
-    <div className="absolute bottom-4 right-4 max-h-[40vh] w-44 overflow-y-auto rounded-xl bg-black/60 p-2 text-xs text-white backdrop-blur">
-      <div className="px-1 pb-1 font-semibold text-white/70">세션 이력</div>
+    <div className="absolute bottom-4 right-4 w-44 rounded-xl bg-black/60 p-2 text-xs text-white backdrop-blur">
+      <div className="px-1 pb-1 font-semibold text-white/70">최근</div>
       <ul className="space-y-1">
-        {items.map((it) => (
+        {recent.map((it) => (
           <li
             key={it.image_id}
             className="flex items-center justify-between rounded-md bg-white/5 px-2 py-1"

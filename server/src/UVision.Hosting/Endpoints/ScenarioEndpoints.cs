@@ -10,9 +10,9 @@ namespace UVision.Api.Endpoints;
 /// </summary>
 public static class ScenarioEndpoints
 {
-    public static void MapScenarioEndpoints(this IEndpointRouteBuilder app)
+    public static void MapScenarioEndpoints(this RouteGroupBuilder parent)
     {
-        var group = app.MapGroup("/api/scenarios");
+        var group = parent.MapGroup("/scenarios");
 
         group.MapGet("", async (IScenarioStore store, CancellationToken ct) =>
             Results.Ok(await store.ListAsync(ct)));
@@ -32,7 +32,7 @@ public static class ScenarioEndpoints
                 return Results.Problem(statusCode: 400, detail: "name 은 필수");
 
             var created = await store.CreateAsync(input, ct);
-            return Results.Created($"/api/scenarios/{created.ScenarioId}", created);
+            return Results.Created($"/api/u-vision/scenarios/{created.ScenarioId}", created);
         }).RequireAdminPin();
 
         group.MapPut("/{id}",

@@ -157,7 +157,8 @@ dotnet run --project src/UVision.Api --urls http://0.0.0.0:8000
 
 ```env
 # client/.env
-VITE_API_BASE_URL=https://your-server.example.com
+# 값은 반드시 /api/u-vision 네임스페이스를 포함해야 한다(라우트 리터럴이 상대 경로이므로).
+VITE_API_BASE_URL=https://your-server.example.com/api/u-vision
 
 # server/.env
 VLM_PROVIDER=openai          # openai | google | vllm

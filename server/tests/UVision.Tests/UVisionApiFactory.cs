@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using UVision.Api;
 using UVision.Api.Configuration;
 using UVision.Api.Models;
 using UVision.Api.Storage;
@@ -29,7 +30,8 @@ public class UVisionApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         Directory.CreateDirectory(DataPath);
-        builder.UseSetting($"{StorageOptions.SectionName}:DataPath", DataPath);
+        builder.UseSetting(
+            $"{UVisionOptions.SectionName}:{StorageOptions.SectionName}:DataPath", DataPath);
 
         SeedScenario(new Scenario
         {
@@ -44,6 +46,14 @@ public class UVisionApiFactory : WebApplicationFactory<Program>
     {
         var path = Paths.ScenarioJson(scenario.ScenarioId);
         StoragePaths.AtomicWriteJsonAsync(path, scenario).GetAwaiter().GetResult();
+    }
+
+    /// <summary>기준 이미지 1장을 디스크에 직접 기록한다(테스트 준비용 — 호스트 불필요).</summary>
+    public void SeedReference(string scenarioId, ReferenceLabel label, ReadOnlyMemory<byte> image, string ext = ".jpg")
+    {
+        var refId = $"ref_{Guid.NewGuid():N}"[..12];
+        var path = Paths.ReferenceFile(scenarioId, label, refId, ext);
+        StoragePaths.AtomicWriteAsync(path, image).GetAwaiter().GetResult();
     }
 
     protected override void Dispose(bool disposing)
