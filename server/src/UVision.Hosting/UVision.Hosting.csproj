@@ -13,7 +13,7 @@
     <PackageProjectUrl>https://github.com/iyulab/U-Vision</PackageProjectUrl>
     <RepositoryUrl>https://github.com/iyulab/U-Vision</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <!-- TODO(라이선스): U-Vision은 독점 EULA(© 2026 iyulab). NuGet 라이선스 표현(PackageLicenseFile=LICENSE 또는 PackageLicenseExpression)을 추가할지 팀 결정 필요. -->
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>

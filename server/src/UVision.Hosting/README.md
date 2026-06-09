@@ -108,4 +108,4 @@ JSON wire 는 snake_case(`image_id`, `scenario_id`, `ng_label`), `verdict` 는 `
 
 ---
 
-소스·이슈: https://github.com/iyulab/U-Vision · © 2026 iyulab.
+소스·이슈: https://github.com/iyulab/U-Vision · MIT License · © 2026 iyulab.

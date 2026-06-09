@@ -219,7 +219,7 @@ MAX_UPLOAD_SIZE_MB=10
 
 ## 라이선스
 
-EULA License — © 2026 iyulab
+[MIT License](./LICENSE) — © 2026 iyulab
 
 ---
 
