@@ -111,4 +111,19 @@ public class LabelStoreTests
         Assert.Contains(all, l => l.ImageId == "img_a" && l.Label == "OK");
         Assert.Contains(all, l => l.ImageId == "img_b" && l.Label == "NG");
     }
+
+    [Fact]
+    public async Task Store_IsClassAgnostic_RoundTripsArbitraryLabel()
+    {
+        // 저장소는 라벨을 string 으로 보존한다 — 이진(OK/NG)에 묶이지 않는다.
+        // 다중분류 확장 시 허용집합(LabelSet)만 넓히면 저장/조회는 그대로 동작함을 증명.
+        // (v1 의 OK/NG 강제는 엔드포인트 책임이지 저장소 책임이 아니다.)
+        var paths = NewPaths(out _);
+        var store = new FileLabelStore(paths);
+        await store.WriteAsync("demo", "2026-06-09", new UVision.Api.Models.StoredLabel
+        { ImageId = "img_multi", Label = "SCRATCH_A", Timestamp = "t" });
+
+        var read = await store.ReadAsync("demo", "2026-06-09", "img_multi");
+        Assert.Equal("SCRATCH_A", read!.Label); // 임의 클래스 문자열 무손실 왕복
+    }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { deleteLabel, listLabels, listResultDates, listResults, putLabel, resultImageUrl } from '../lib/api'
 import { labelMapOf } from '../lib/labels'
@@ -32,6 +32,11 @@ export function ResultsBrowser({
   const [selected, setSelected] = useState<StoredResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // 현재 보고 있는 뷰(시나리오·날짜) 키 — 비동기 재동기화가 뷰 전환 후 stale 데이터를
+  // 현재 뷰에 덮어쓰지 않도록 가드한다(handleLabel 에러 경로).
+  const viewKeyRef = useRef('')
+  viewKeyRef.current = `${scenarioId}|${date}`
 
   // 시나리오 변경 → 날짜 목록 로드(최신 default).
   useEffect(() => {
@@ -85,6 +90,7 @@ export function ResultsBrowser({
   }, [scenarioId, date])
 
   async function handleLabel(imageId: string, label: string | null) {
+    const viewKey = `${scenarioId}|${date}` // 호출 시점의 뷰 — 재동기화 가드용
     // 낙관적 갱신.
     setLabels((prev) => {
       const others = prev.filter((l) => l.image_id !== imageId)
@@ -96,10 +102,13 @@ export function ResultsBrowser({
       if (label === null) await deleteLabel(scenarioId, date, imageId)
       else await putLabel(scenarioId, date, imageId, label)
     } catch (e) {
+      // 실패 시 서버 상태로 재동기화 — 단, 그 사이 뷰가 바뀌었으면 적용하지 않는다
+      // (옛 뷰의 라벨이 현재 뷰를 덮어쓰는 레이스 방지).
       setError(e instanceof Error ? e.message : '라벨 저장 실패')
-      // 서버 상태로 재동기화.
       listLabels(scenarioId, date)
-        .then(setLabels)
+        .then((l) => {
+          if (viewKeyRef.current === viewKey) setLabels(l)
+        })
         .catch(() => {})
     }
   }
