@@ -7,12 +7,21 @@
     <!-- RootNamespace=UVision.Api(어셈블리명과 다름): 임베드 리소스 논리명을 UVision.Api.wwwroot.* 로 고정 + 이동 코드의 네임스페이스 무변경 -->
     <RootNamespace>UVision.Api</RootNamespace>
     <PackageId>UVision.Hosting</PackageId>
-    <Version>0.1.0</Version>
-    <Description>U-Vision AI 비전 검사 — 임베드 가능한 ASP.NET Core 기능 라이브러리.</Description>
+    <Version>0.1.1</Version>
+    <Description>U-Vision AI 비전 검사 — 임베드 가능한 ASP.NET Core 기능 라이브러리(빌드된 PWA 임베드 + AddUVision/UseUVision).</Description>
+    <Authors>iyulab</Authors>
+    <PackageProjectUrl>https://github.com/iyulab/U-Vision</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/iyulab/U-Vision</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- TODO(라이선스): U-Vision은 독점 EULA(© 2026 iyulab). NuGet 라이선스 표현(PackageLicenseFile=LICENSE 또는 PackageLicenseExpression)을 추가할지 팀 결정 필요. -->
   </PropertyGroup>
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <!-- Web SDK implicit global usings 재현: Hosting은 Microsoft.NET.Sdk(라이브러리)이므로 Web SDK가 주입하는 ASP.NET/Extensions using을 수동 선언. -->

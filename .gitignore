@@ -27,6 +27,7 @@ venv/
 # Data — 파일시스템 저장소(시나리오·캡처·판정 결과 런타임 데이터, Storage:DataPath)
 server/data/
 server/src/UVision.Api/data/
+samples/**/uvision-data/
 # 레거시 잔재(순수 파일시스템 전환 전)
 *.db
 *.sqlite
@@ -43,3 +44,6 @@ client/dev-dist/
 Thumbs.db
 .vscode/
 .idea/
+
+# 브라우저 자동화 검증 스크래치(playwright MCP)
+.playwright-mcp/
