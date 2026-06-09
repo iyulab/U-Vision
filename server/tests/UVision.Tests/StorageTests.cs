@@ -180,6 +180,46 @@ public class StorageTests : IDisposable
         Assert.Equal("", r.DeviceLabel);
     }
 
+    [Fact]
+    public async Task ListResults_ExcludesLabelSidecars()
+    {
+        // 같은 날짜 디렉토리에 결과 json 하나 + 동일 image_id 의 라벨 사이드카가 공존할 때
+        // ListAsync 는 결과 레코드만 반환해야 한다(사이드카 누출 회귀 방지).
+        var inspectionStore = new FileInspectionStore(Paths);
+        var labelStore = new FileLabelStore(Paths);
+
+        const string scenario = "demo";
+        const string timestamp = "2026-06-09T08:00:00.0000000Z";
+        const string date = "2026-06-09";
+        const string imageId = "img_labeltest01";
+
+        var result = new StoredResult
+        {
+            ScenarioId = scenario,
+            ImageId = imageId,
+            Verdict = Verdict.NG,
+            Findings = "스크래치",
+            Confidence = 0.92,
+            Timestamp = timestamp,
+            ImageFile = imageId + ".jpg",
+        };
+
+        await inspectionStore.SaveAsync(new byte[] { 0xFF, 0xD8 }, ".jpg", result);
+        await labelStore.WriteAsync(scenario, date, new StoredLabel
+        {
+            ImageId = imageId,
+            Label = "OK",
+            Timestamp = "2026-06-09T08:01:00Z",
+        });
+
+        var listed = await inspectionStore.ListAsync(scenario, date);
+
+        // 사이드카(*.label.json)가 누출되면 count == 2 또는 역직렬화 오류가 발생한다.
+        var single = Assert.Single(listed);
+        Assert.Equal(imageId, single.ImageId);
+        Assert.Equal(Verdict.NG, single.Verdict);
+    }
+
     private static StoredResult Record(string imageId, string timestamp) => new()
     {
         ScenarioId = "demo",

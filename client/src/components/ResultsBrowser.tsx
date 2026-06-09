@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-import { listResultDates, listResults, resultImageUrl } from '../lib/api'
-import type { Scenario, StoredResult } from '../lib/types'
+import { deleteLabel, listLabels, listResultDates, listResults, putLabel, resultImageUrl } from '../lib/api'
+import { labelMapOf } from '../lib/labels'
+import { ResultsTable } from './ResultsTable'
+import type { Scenario, StoredLabel, StoredResult } from '../lib/types'
 
 /**
  * 결과 조회 — 영속화된 과거 검사 기록을 시나리오·날짜별로 본다(무인증 읽기).
@@ -26,9 +28,15 @@ export function ResultsBrowser({
   const [dates, setDates] = useState<string[]>([])
   const [date, setDate] = useState(lockedDate ?? '')
   const [results, setResults] = useState<StoredResult[]>([])
+  const [labels, setLabels] = useState<StoredLabel[]>([])
   const [selected, setSelected] = useState<StoredResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // 현재 보고 있는 뷰(시나리오·날짜) 키 — 비동기 재동기화가 뷰 전환 후 stale 데이터를
+  // 현재 뷰에 덮어쓰지 않도록 가드한다(handleLabel 에러 경로).
+  const viewKeyRef = useRef('')
+  viewKeyRef.current = `${scenarioId}|${date}`
 
   // 시나리오 변경 → 날짜 목록 로드(최신 default).
   useEffect(() => {
@@ -54,18 +62,21 @@ export function ResultsBrowser({
     }
   }, [scenarioId, lockedDate])
 
-  // 시나리오·날짜 변경 → 결과 목록 로드.
+  // 시나리오·날짜 변경 → 결과 + 라벨 목록 로드.
   useEffect(() => {
     if (!scenarioId || !date) {
       setResults([])
+      setLabels([])
       return
     }
     let cancelled = false
     setLoading(true)
     setError(null)
-    listResults(scenarioId, date)
-      .then((r) => {
-        if (!cancelled) setResults(r)
+    Promise.all([listResults(scenarioId, date), listLabels(scenarioId, date)])
+      .then(([r, l]) => {
+        if (cancelled) return
+        setResults(r)
+        setLabels(l)
       })
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : '결과 목록 로드 실패')
@@ -77,6 +88,30 @@ export function ResultsBrowser({
       cancelled = true
     }
   }, [scenarioId, date])
+
+  async function handleLabel(imageId: string, label: string | null) {
+    const viewKey = `${scenarioId}|${date}` // 호출 시점의 뷰 — 재동기화 가드용
+    // 낙관적 갱신.
+    setLabels((prev) => {
+      const others = prev.filter((l) => l.image_id !== imageId)
+      return label === null
+        ? others
+        : [...others, { image_id: imageId, label, timestamp: new Date().toISOString() }]
+    })
+    try {
+      if (label === null) await deleteLabel(scenarioId, date, imageId)
+      else await putLabel(scenarioId, date, imageId, label)
+    } catch (e) {
+      // 실패 시 서버 상태로 재동기화 — 단, 그 사이 뷰가 바뀌었으면 적용하지 않는다
+      // (옛 뷰의 라벨이 현재 뷰를 덮어쓰는 레이스 방지).
+      setError(e instanceof Error ? e.message : '라벨 저장 실패')
+      listLabels(scenarioId, date)
+        .then((l) => {
+          if (viewKeyRef.current === viewKey) setLabels(l)
+        })
+        .catch(() => {})
+    }
+  }
 
   if (scenarios.length === 0) {
     return (
@@ -137,30 +172,13 @@ export function ResultsBrowser({
           {date ? '이 날짜에 검사 기록이 없습니다.' : '검사 기록이 없습니다.'}
         </p>
       ) : (
-        <ul className="space-y-2">
-          {results.map((r) => (
-            <li key={r.image_id}>
-              <button
-                onClick={() => setSelected(r)}
-                className="flex w-full items-center justify-between rounded-xl bg-slate-800 px-4 py-3 text-left hover:bg-slate-700"
-              >
-                <span className="flex items-center gap-3">
-                  <VerdictPill verdict={r.verdict} />
-                  {r.verdict === 'NG' && r.findings && (
-                    <span className="line-clamp-1 max-w-md text-sm text-slate-300">
-                      {r.findings}
-                    </span>
-                  )}
-                </span>
-                <span className="flex shrink-0 items-center gap-4 text-xs text-slate-400">
-                  {r.device_label && <span className="text-slate-300">{r.device_label}</span>}
-                  <span>신뢰도 {(r.confidence * 100).toFixed(0)}%</span>
-                  <span>{formatTime(r.timestamp)}</span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <ResultsTable
+          results={results}
+          labels={labelMapOf(labels)}
+          date={date}
+          onLabel={handleLabel}
+          onSelect={setSelected}
+        />
       )}
 
       {selected && (
@@ -245,12 +263,6 @@ function VerdictPill({ verdict, large }: { verdict: 'OK' | 'NG'; large?: boolean
       {ng ? 'NG' : 'OK'}
     </span>
   )
-}
-
-function formatTime(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
 function formatDateTime(iso: string): string {

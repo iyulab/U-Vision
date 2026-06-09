@@ -26,6 +26,7 @@ public static class UVisionServiceExtensions
         services.AddSingleton<IScenarioStore, FileScenarioStore>();
         services.AddSingleton<IInspectionStore, FileInspectionStore>();
         services.AddSingleton<IReferenceStore, FileReferenceStore>();
+        services.AddSingleton<ILabelStore, FileLabelStore>();
 
         // 관리자 PIN.
         services.AddSingleton(new AdminPinOptions { Pin = options.AdminPin });
