@@ -44,6 +44,10 @@ public sealed partial class StoragePaths
     public string ResultFile(string scenarioId, string date, string imageId) =>
         Path.Combine(DateDir(scenarioId, date), Id(imageId) + ".json");
 
+    /// <summary>사람 라벨 사이드카 — 결과 json 옆 <c>{image_id}.label.json</c>(가변, 정정/삭제).</summary>
+    public string LabelJson(string scenarioId, string date, string imageId) =>
+        Path.Combine(DateDir(scenarioId, date), Id(imageId) + ".label.json");
+
     /// <summary>기준 이미지 디렉토리 — <c>references/{ok|ng}/</c>. label 은 enum(닫힌 집합).</summary>
     public string ReferenceDir(string scenarioId, Models.ReferenceLabel label) =>
         Path.Combine(ScenarioDir(scenarioId), "references", label.ToString().ToLowerInvariant());
