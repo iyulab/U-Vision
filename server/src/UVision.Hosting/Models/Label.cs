@@ -37,11 +37,11 @@ public static class LabelSet
 /// <summary><c>PUT {api}/results/label</c> 요청 본문(snake_case wire).</summary>
 public sealed record LabelInput
 {
-    [JsonPropertyName("scenario_id")] public string ScenarioId { get; init; } = "";
+    [JsonPropertyName("scenario_id")] public required string ScenarioId { get; init; }
 
-    [JsonPropertyName("date")] public string Date { get; init; } = "";
+    [JsonPropertyName("date")] public required string Date { get; init; }
 
-    [JsonPropertyName("image_id")] public string ImageId { get; init; } = "";
+    [JsonPropertyName("image_id")] public required string ImageId { get; init; }
 
-    [JsonPropertyName("label")] public string Label { get; init; } = "";
+    [JsonPropertyName("label")] public required string Label { get; init; }
 }
