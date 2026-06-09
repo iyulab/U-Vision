@@ -1,4 +1,4 @@
-import type { InspectResult, Reference, Scenario, ScenarioInput, StoredResult } from './types'
+import type { InspectResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult } from './types'
 import { resolveApiBase } from './runtimeConfig'
 
 const API_BASE = resolveApiBase()
@@ -61,6 +61,45 @@ export async function listResults(scenarioId: string, date: string): Promise<Sto
 /** 저장된 캡처 이미지 서빙 URL(무인증, `<img src>` 직접 사용). */
 export function resultImageUrl(scenarioId: string, date: string, imageId: string): string {
   return `${API_BASE}/results/image?scenario_id=${encodeURIComponent(scenarioId)}&date=${encodeURIComponent(date)}&image_id=${encodeURIComponent(imageId)}`
+}
+
+// --- 사람 라벨 (무인증 운영 데이터 — 서버 /results/label[s] 계약) -----------
+
+/** 시나리오·날짜의 사람 라벨 목록(표 병합용). */
+export async function listLabels(scenarioId: string, date: string): Promise<StoredLabel[]> {
+  const res = await fetch(
+    `${API_BASE}/results/labels?scenario_id=${encodeURIComponent(scenarioId)}&date=${encodeURIComponent(date)}`,
+  )
+  await ensureOk(res, '라벨 목록')
+  return (await res.json()) as StoredLabel[]
+}
+
+/** 사람 라벨 쓰기/정정(무인증). label 은 LABEL_SET 멤버('OK'|'NG'). */
+export async function putLabel(
+  scenarioId: string,
+  date: string,
+  imageId: string,
+  label: string,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/results/label`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scenario_id: scenarioId, date, image_id: imageId, label }),
+  })
+  await ensureOk(res, '라벨 저장')
+}
+
+/** 사람 라벨 삭제(무인증, 미라벨로 환원). */
+export async function deleteLabel(
+  scenarioId: string,
+  date: string,
+  imageId: string,
+): Promise<void> {
+  const res = await fetch(
+    `${API_BASE}/results/label?scenario_id=${encodeURIComponent(scenarioId)}&date=${encodeURIComponent(date)}&image_id=${encodeURIComponent(imageId)}`,
+    { method: 'DELETE' },
+  )
+  await ensureOk(res, '라벨 삭제')
 }
 
 // --- 시나리오 CRUD (S-B 서버 계약) ---------------------------------------
