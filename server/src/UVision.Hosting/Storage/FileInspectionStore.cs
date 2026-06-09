@@ -37,7 +37,9 @@ public sealed class FileInspectionStore : IInspectionStore
         if (!Directory.Exists(dir))
             return results;
 
-        foreach (var jsonPath in Directory.EnumerateFiles(dir, "*.json").OrderBy(p => p))
+        foreach (var jsonPath in Directory.EnumerateFiles(dir, "*.json")
+            .Where(p => !p.EndsWith(".label.json", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(p => p))
         {
             await using var stream = File.OpenRead(jsonPath);
             var result = await JsonSerializer.DeserializeAsync<StoredResult>(
