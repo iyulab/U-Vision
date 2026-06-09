@@ -31,6 +31,7 @@ public class AddUVisionTests
         Assert.NotNull(sp.GetRequiredService<IScenarioStore>());
         Assert.NotNull(sp.GetRequiredService<IInspectionStore>());
         Assert.NotNull(sp.GetRequiredService<IReferenceStore>());
+        Assert.NotNull(sp.GetRequiredService<ILabelStore>());
         Assert.NotNull(sp.GetRequiredService<UVisionOptions>());
         Assert.NotNull(sp.GetRequiredService<AdminPinOptions>());
         Assert.NotNull(sp.GetRequiredService<VlmOptions>());
