@@ -9,5 +9,6 @@ public static class UVisionEndpoints
         group.MapInspectEndpoints();
         group.MapScenarioEndpoints();
         group.MapReferenceEndpoints();
+        group.MapLabelEndpoints();
     }
 }
