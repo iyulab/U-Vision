@@ -72,3 +72,11 @@ export interface ScenarioInput {
   reference_cap?: number
   ng_labels?: Record<string, string>
 }
+
+/** 서버 `StoredLabel`(사이드카 `{image_id}.label.json`) 미러. */
+export interface StoredLabel {
+  image_id: string
+  /** 클래스 식별자(현재 'OK'|'NG'). string — 다중분류 대비 개방형. */
+  label: string
+  timestamp: string
+}
