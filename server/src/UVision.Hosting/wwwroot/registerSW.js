@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/u-vision/sw.js', { scope: '/u-vision/' })})}

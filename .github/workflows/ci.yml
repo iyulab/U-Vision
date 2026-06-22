@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+# CI 는 빌드·타입체크·임포트 검증만 수행한다.
+# artifact 업로드 금지 (리소스 정책) — 릴리즈 파이프라인에서만 업로드.
+jobs:
+  client:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+
+  server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+      # NuGet 캐시 — lock 파일 부재 시 csproj 해시, restore-keys OS prefix fallback
+      - uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('server/**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+      - run: dotnet restore UVision.slnx
+      - run: dotnet build UVision.slnx --no-restore --configuration Release
+      - run: dotnet test UVision.slnx --no-build --configuration Release
+
+      - name: Pack & Push UVision.Hosting (tag only)
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          dotnet pack src/UVision.Hosting/UVision.Hosting.csproj -c Release -o ${{ runner.temp }}/nupkg
+          dotnet nuget push "${{ runner.temp }}/nupkg/*.nupkg" -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate

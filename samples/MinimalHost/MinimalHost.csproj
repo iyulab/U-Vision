@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!-- 소비앱은 NuGet 패키지만 참조한다(글로벌 정책: ProjectReference로 로컬 소스 직접 참조 금지). -->
+  <ItemGroup>
+    <PackageReference Include="UVision.Hosting" Version="0.1.0" />
+  </ItemGroup>
+
+</Project>

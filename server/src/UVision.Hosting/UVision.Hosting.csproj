@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- RootNamespace=UVision.Api(어셈블리명과 다름): 임베드 리소스 논리명을 UVision.Api.wwwroot.* 로 고정 + 이동 코드의 네임스페이스 무변경 -->
+    <RootNamespace>UVision.Api</RootNamespace>
+    <PackageId>UVision.Hosting</PackageId>
+    <Version>0.1.1</Version>
+    <Description>U-Vision AI 비전 검사 — 임베드 가능한 ASP.NET Core 기능 라이브러리(빌드된 PWA 임베드 + AddUVision/UseUVision).</Description>
+    <Authors>iyulab</Authors>
+    <PackageProjectUrl>https://github.com/iyulab/U-Vision</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/iyulab/U-Vision</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- Web SDK implicit global usings 재현: Hosting은 Microsoft.NET.Sdk(라이브러리)이므로 Web SDK가 주입하는 ASP.NET/Extensions using을 수동 선언. -->
+  <ItemGroup>
+    <Using Include="Microsoft.AspNetCore.Builder" />
+    <Using Include="Microsoft.AspNetCore.Hosting" />
+    <Using Include="Microsoft.AspNetCore.Http" />
+    <Using Include="Microsoft.AspNetCore.Routing" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Hosting" />
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- few-shot content 결선(BuildContent)을 테스트가 직접 검증하도록 노출(키 없이 wiring 확인). -->
+    <InternalsVisibleTo Include="UVision.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <PackageReference Include="IronHive.Abstractions" Version="0.7.4" />
+    <PackageReference Include="IronHive.Core" Version="0.7.4" />
+    <PackageReference Include="IronHive.Providers.GoogleAI" Version="0.7.4" />
+    <PackageReference Include="IronHive.Providers.OpenAI" Version="0.7.4" />
+    <PackageReference Include="IronHive.Providers.OpenAI.Compatible" Version="0.7.4" />
+  </ItemGroup>
+
+  <!-- 빌드된 PWA(client/npm run build:embed 산출물)를 임베드. Task 9 에서 wwwroot 채움. -->
+  <ItemGroup>
+    <EmbeddedResource Include="wwwroot\**\*" />
+    <EmbeddedResource Remove="wwwroot\.gitkeep" />
+  </ItemGroup>
+
+</Project>

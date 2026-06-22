@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\UVision.Hosting\UVision.Hosting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Benchmark 가 .env 로딩에 직접 사용(Program.cs). Hosting 라이브러리는 DotNetEnv 미의존(소비자 오염 방지)이라 직접 선언. -->
+    <PackageReference Include="DotNetEnv" Version="3.2.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

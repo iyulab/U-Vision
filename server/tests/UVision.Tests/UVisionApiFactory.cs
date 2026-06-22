@@ -1,0 +1,65 @@
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using UVision.Api;
+using UVision.Api.Configuration;
+using UVision.Api.Models;
+using UVision.Api.Storage;
+
+namespace UVision.Tests;
+
+/// <summary>
+/// 통합 테스트용 팩토리 — <c>Storage:DataPath</c> 를 격리된 temp 디렉토리로 덮고
+/// <c>demo</c> 시나리오를 seed 한다. 저장소가 파일시스템이므로 테스트마다 깨끗한 루트가 필요하다.
+/// </summary>
+public class UVisionApiFactory : WebApplicationFactory<Program>
+{
+    static UVisionApiFactory()
+    {
+        // 테스트는 ambient .env(예: server/.env 의 gpustack 설정)에 의존하지 않는다 — provider 를
+        // mock 으로 고정한다. Program 의 DotNetEnv 는 NoClobber 이므로 미리 설정한 이 값이 .env 보다
+        // 우선한다. (호스트 빌드 전에 실행되도록 정적 생성자에 둔다.)
+        Environment.SetEnvironmentVariable("VLM_PROVIDER", "mock");
+    }
+
+    public string DataPath { get; } =
+        Path.Combine(Path.GetTempPath(), "uvision-tests-" + Guid.NewGuid().ToString("N"));
+
+    private StoragePaths Paths =>
+        new(new StorageOptions { DataPath = DataPath }, AppContext.BaseDirectory);
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        Directory.CreateDirectory(DataPath);
+        builder.UseSetting(
+            $"{UVisionOptions.SectionName}:{StorageOptions.SectionName}:DataPath", DataPath);
+
+        SeedScenario(new Scenario
+        {
+            ScenarioId = "demo",
+            Name = "데모 검사",
+            Criteria = "제품 표면에 외관 결함이 없어야 한다. 결함이 보이면 NG, 깨끗하면 OK.",
+        });
+    }
+
+    /// <summary>시나리오 정의를 디스크에 직접 기록한다(테스트 준비용).</summary>
+    public void SeedScenario(Scenario scenario)
+    {
+        var path = Paths.ScenarioJson(scenario.ScenarioId);
+        StoragePaths.AtomicWriteJsonAsync(path, scenario).GetAwaiter().GetResult();
+    }
+
+    /// <summary>기준 이미지 1장을 디스크에 직접 기록한다(테스트 준비용 — 호스트 불필요).</summary>
+    public void SeedReference(string scenarioId, ReferenceLabel label, ReadOnlyMemory<byte> image, string ext = ".jpg")
+    {
+        var refId = $"ref_{Guid.NewGuid():N}"[..12];
+        var path = Paths.ReferenceFile(scenarioId, label, refId, ext);
+        StoragePaths.AtomicWriteAsync(path, image).GetAwaiter().GetResult();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        if (disposing && Directory.Exists(DataPath))
+            Directory.Delete(DataPath, recursive: true);
+    }
+}
