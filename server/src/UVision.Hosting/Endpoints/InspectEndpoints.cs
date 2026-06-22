@@ -6,6 +6,7 @@ using UVision.Api.Models;
 using UVision.Api.Services.Confidence;
 using UVision.Api.Services.DualCheck;
 using UVision.Api.Services.Ml;
+using UVision.Api.Services.Posture;
 using UVision.Api.Services.Vlm;
 using UVision.Api.Storage;
 
@@ -111,22 +112,45 @@ public static class InspectEndpoints
         // ③ 2중체크: VLM(주 판정) 과 전용 ML(교차검증) 을 병렬 호출한다(Task.WhenAll).
         // ML 은 원본 `data` 로 분류한다(MLoop 자체 전처리; VLM 다운스케일 사본 아님).
         // ML 비활성(기본 none)이면 mlTask=null(MlOutcome 아님) → VLM 단독 경로(현재 동작 무변경).
+        // ③.5 E2: VLM 은 InspectSafelyAsync 로 래핑 — 예외가 unhandled 500 으로 새지 않고
+        // null(fail-closed 신호)로 흡수된다. `result is null` ↔ FailClosed 동치(컴파일러 흐름분석).
         var logger = loggerFactory.CreateLogger(typeof(InspectEndpoints));
-        var vlmTask = provider.InspectAsync(vlmImage, context, cancellationToken);
+        var vlmTask = InspectSafelyAsync(provider, vlmImage, context, logger, cancellationToken);
         // null = 비활성(none). MlOutcome 은 활성 경로에서만 생성 — 비활성은 outcome 자체가 null.
         Task<MlOutcome>? classifyTask = classifier.IsEnabled
             ? ClassifySafelyAsync(classifier, data, scenario.ScenarioId, logger, cancellationToken)
             : null;
         await Task.WhenAll(
             [vlmTask, .. (classifyTask is not null ? [classifyTask] : Array.Empty<Task>())]);
-        var result = await vlmTask;
+        var result = await vlmTask;            // null = VLM 실패(fail-closed)
         var outcome = classifyTask is not null ? await classifyTask : null;
 
-        // 비활성(outcome null) 과 실패(outcome.Failed) 를 구분 — degrade 는 명시적 신호(로그)로 표면화됨.
-        var ml = outcome?.Result;  // 분류 성공 시에만 비교
-        var dual = ml is null
-            ? null
-            : DualCheckEvaluator.Evaluate(result, ml, mlOptions.ReviewConfidenceThreshold, calibrator);
+        var ml = outcome?.Result;
+        var dual = (result is not null && ml is not null)
+            ? DualCheckEvaluator.Evaluate(result, ml, mlOptions.ReviewConfidenceThreshold, calibrator)
+            : null;
+
+        var decision = DegradeLadder.Evaluate(vlmSucceeded: result is not null, dual);
+
+        // fail-closed: 자동 판정 없음 → StoredResult 미저장, 503 반환(+ML 활성 시 메트릭).
+        // `result is null` 로 분기 — FailClosed ⟺ result null 동치이며, 이렇게 해야 컴파일러
+        // 흐름분석이 이후 코드에서 result 를 non-null 로 좁혀 기존 `result.Verdict` 접근에 경고가 없다.
+        if (result is null)
+        {
+            logger.LogWarning(
+                "판정 불가(fail-closed) — VLM 검출원 사용 불가, 사람 확인 필요 (scenario={ScenarioId}, reason={Reason})",
+                scenario.ScenarioId, decision.Reason);
+
+            if (classifier.IsEnabled)
+                await WriteFailClosedMetricSafelyAsync(
+                    metricsStore, scenario.ScenarioId, ml, logger, cancellationToken);
+
+            return Results.Json(new DetectionUnavailableResponse
+            {
+                Reason = decision.Reason!,
+                MlHint = ml is null ? null : new MlResult { Label = ml.Label, Confidence = ml.Confidence },
+            }, statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
 
         // image_id/timestamp 는 한 번 생성하여 영속화 stem 과 응답이 동일하도록 보장한다.
         var imageId = $"img_{Guid.NewGuid():N}"; // "img_" + 32 hex — 멀티태블릿 동일 dir 충돌 방지(절단 제거)
@@ -184,6 +208,59 @@ public static class InspectEndpoints
             Agreement = dual?.Agreement,
             RequiresReview = dual?.RequiresReview,
         });
+    }
+
+    /// <summary>
+    /// VLM 판정을 호출하되 실패를 삼킨다 — ML 과 대칭. 실패 시 경고 로그 + null 반환(fail-closed 신호).
+    /// VLM 은 must-succeed 검출원이나, 예외가 unhandled 500 로 새지 않도록 여기서 잡아 자세 사다리가
+    /// 정의된 503(판정 불가)으로 매핑하게 한다(③.5 E2).
+    /// </summary>
+    private static async Task<InspectionResult?> InspectSafelyAsync(
+        IVlmProvider provider, ReadOnlyMemory<byte> image, ScenarioContext context,
+        ILogger logger, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await provider.InspectAsync(image, context, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "VLM 판정 실패 — fail-closed(판정 불가) (provider={Provider}, scenario={ScenarioId})",
+                provider.Name, context.ScenarioId);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// fail-closed 메트릭 행을 기록하되 실패를 삼킨다(관측 — degrade-safe). verdict 없는 행이라
+    /// <c>posture="fail_closed"</c>·verdict/vlm_confidence=null. ML 활성 경로에서만 호출.
+    /// </summary>
+    private static async Task WriteFailClosedMetricSafelyAsync(
+        IMetricsStore metricsStore, string scenarioId, MlClassification? ml,
+        ILogger logger, CancellationToken cancellationToken)
+    {
+        var timestamp = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
+        var row = new MetricsRow
+        {
+            ImageId = $"img_{Guid.NewGuid():N}",
+            Timestamp = timestamp,
+            Verdict = null,
+            VlmConfidence = null,
+            MlLabel = ml?.Label,
+            MlConfidence = ml?.Confidence,
+            Posture = "fail_closed",
+            MlDegraded = false,
+        };
+        try
+        {
+            await metricsStore.AppendAsync(scenarioId, row, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "fail-closed 메트릭 기록 실패 — 관측만 누락 (scenario={ScenarioId})", scenarioId);
+        }
     }
 
     /// <summary>
