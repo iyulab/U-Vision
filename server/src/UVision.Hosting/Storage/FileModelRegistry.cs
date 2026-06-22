@@ -87,11 +87,62 @@ public sealed class FileModelRegistry : IModelRegistry
         return await JsonSerializer.DeserializeAsync<ModelPointer>(stream, StoragePaths.Json, ct);
     }
 
-    public Task PromoteAsync(string scenarioId, string version, string by, CancellationToken ct = default) =>
-        throw new NotImplementedException(); // Task 4
+    public async Task PromoteAsync(string scenarioId, string version, string by, CancellationToken ct = default)
+    {
+        // 버전 존재 검증 — 없으면 KeyNotFoundException(→ 엔드포인트 404).
+        _ = await ReadManifestAsync(scenarioId, version, ct)
+            ?? throw new KeyNotFoundException($"모델 버전 없음: {version}");
 
-    public Task<bool> RollbackAsync(string scenarioId, string by, CancellationToken ct = default) =>
-        throw new NotImplementedException(); // Task 4
+        await _writeLock.WaitAsync(ct);
+        try
+        {
+            var current = await ReadPointerAsync(scenarioId, ct);
+            var now = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
+
+            // 같은 버전 재격상 시 previous 를 자기 자신으로 만들지 않는다(기존 previous 보존).
+            var previous = current is null || current.ActiveVersion == version
+                ? current?.PreviousVersion
+                : current.ActiveVersion;
+
+            var pointer = new ModelPointer
+            {
+                ActiveVersion = version,
+                PreviousVersion = previous,
+                UpdatedAt = now,
+                UpdatedBy = by,
+            };
+            await StoragePaths.AtomicWriteJsonAsync(_paths.ModelPointerFile(scenarioId), pointer, ct);
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
+    public async Task<bool> RollbackAsync(string scenarioId, string by, CancellationToken ct = default)
+    {
+        await _writeLock.WaitAsync(ct);
+        try
+        {
+            var current = await ReadPointerAsync(scenarioId, ct);
+            if (current?.PreviousVersion is null) return false;
+
+            var now = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
+            var pointer = new ModelPointer
+            {
+                ActiveVersion = current.PreviousVersion,
+                PreviousVersion = current.ActiveVersion, // 스왑(토글)
+                UpdatedAt = now,
+                UpdatedBy = by,
+            };
+            await StoragePaths.AtomicWriteJsonAsync(_paths.ModelPointerFile(scenarioId), pointer, ct);
+            return true;
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
 
     private static int NextVersionNumber(string modelsDir)
     {

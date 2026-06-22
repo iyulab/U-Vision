@@ -73,6 +73,71 @@ public sealed class ModelRegistryTests : IDisposable
     public async Task ListVersions_EmptyWhenNone() =>
         Assert.Empty(await NewRegistry().ListVersionsAsync("chromate"));
 
+    [Fact]
+    public async Task Promote_SetsActiveAndRecordsPrevious()
+    {
+        var reg = NewRegistry();
+        await reg.RegisterAsync("chromate", new ModelRegistration { ModelName = "a" }); // v1
+        await reg.RegisterAsync("chromate", new ModelRegistration { ModelName = "b" }); // v2
+
+        await reg.PromoteAsync("chromate", "v1", "device-x");
+        await reg.PromoteAsync("chromate", "v2", "device-x");
+
+        var pointer = await reg.ReadPointerAsync("chromate");
+        Assert.Equal("v2", pointer!.ActiveVersion);
+        Assert.Equal("v1", pointer.PreviousVersion);
+    }
+
+    [Fact]
+    public async Task Promote_UnknownVersion_Throws()
+    {
+        var reg = NewRegistry();
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => reg.PromoteAsync("chromate", "v9", "x"));
+    }
+
+    [Fact]
+    public async Task Rollback_SwapsActiveAndPrevious()
+    {
+        var reg = NewRegistry();
+        await reg.RegisterAsync("chromate", new ModelRegistration { ModelName = "a" }); // v1
+        await reg.RegisterAsync("chromate", new ModelRegistration { ModelName = "b" }); // v2
+        await reg.PromoteAsync("chromate", "v1", "x");
+        await reg.PromoteAsync("chromate", "v2", "x"); // active=v2, prev=v1
+
+        var rolled = await reg.RollbackAsync("chromate", "x");
+        var pointer = await reg.ReadPointerAsync("chromate");
+
+        Assert.True(rolled);
+        Assert.Equal("v1", pointer!.ActiveVersion);
+        Assert.Equal("v2", pointer.PreviousVersion);
+    }
+
+    [Fact]
+    public async Task Rollback_TwiceReturnsToOriginal()
+    {
+        var reg = NewRegistry();
+        await reg.RegisterAsync("chromate", new ModelRegistration { ModelName = "a" });
+        await reg.RegisterAsync("chromate", new ModelRegistration { ModelName = "b" });
+        await reg.PromoteAsync("chromate", "v1", "x");
+        await reg.PromoteAsync("chromate", "v2", "x");
+
+        await reg.RollbackAsync("chromate", "x"); // active=v1
+        await reg.RollbackAsync("chromate", "x"); // active=v2 (토글 원복)
+
+        var pointer = await reg.ReadPointerAsync("chromate");
+        Assert.Equal("v2", pointer!.ActiveVersion);
+    }
+
+    [Fact]
+    public async Task Rollback_NoPrevious_ReturnsFalse()
+    {
+        var reg = NewRegistry();
+        await reg.RegisterAsync("chromate", new ModelRegistration { ModelName = "a" });
+        await reg.PromoteAsync("chromate", "v1", "x"); // active=v1, prev=null
+
+        Assert.False(await reg.RollbackAsync("chromate", "x"));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_dataPath)) Directory.Delete(_dataPath, recursive: true);
