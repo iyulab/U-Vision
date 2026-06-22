@@ -205,12 +205,7 @@ public class StorageTests : IDisposable
         };
 
         await inspectionStore.SaveAsync(new byte[] { 0xFF, 0xD8 }, ".jpg", result);
-        await labelStore.WriteAsync(scenario, date, new StoredLabel
-        {
-            ImageId = imageId,
-            Label = "OK",
-            Timestamp = "2026-06-09T08:01:00Z",
-        });
+        await labelStore.AppendLabelAsync(scenario, date, imageId, "OK", "dev");
 
         var listed = await inspectionStore.ListAsync(scenario, date);
 

@@ -8,11 +8,6 @@ namespace UVision.Api.Storage;
 /// </summary>
 public interface ILabelStore
 {
-    /// <summary>라벨 사이드카를 atomic 하게 쓴다(정정 = 덮어쓰기, last-write-wins).</summary>
-    Task WriteAsync(
-        string scenarioId, string date, StoredLabel label,
-        CancellationToken cancellationToken = default);
-
     /// <summary>
     /// operative 라벨(또는 해소)을 append 한다 — read-modify-append(이력 누적, 덮어쓰지 않음).
     /// 직전 audit 상태가 conflicted 면 이 쓰기가 resolved 로 전이시킨다(C1). <paramref name="by"/>=device id.

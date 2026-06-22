@@ -15,14 +15,6 @@ public sealed class FileLabelStore : ILabelStore
 
     public FileLabelStore(StoragePaths paths) => _paths = paths;
 
-    public Task WriteAsync(
-        string scenarioId, string date, StoredLabel label,
-        CancellationToken cancellationToken = default)
-    {
-        var path = _paths.LabelJson(scenarioId, date, label.ImageId); // 형식 위반 → ArgumentException(→400)
-        return StoragePaths.AtomicWriteJsonAsync(path, label, cancellationToken);
-    }
-
     public async Task AppendLabelAsync(
         string scenarioId, string date, string imageId, string label, string by,
         CancellationToken cancellationToken = default)

@@ -37,8 +37,7 @@ public class DatasetExportTests
             ScenarioId = Scenario, ImageId = imageId, Verdict = Verdict.OK,
             Findings = "", Confidence = 0.9, Timestamp = ts, ImageFile = imageId + ".jpg",
         });
-        await lab.WriteAsync(Scenario, date, new StoredLabel
-        { ImageId = imageId, Label = label, Timestamp = ts });
+        await lab.AppendLabelAsync(Scenario, date, imageId, label, "dev");
     }
 
     [Fact]
@@ -114,8 +113,7 @@ public class DatasetExportTests
         var (paths, ins, lab) = NewStores();
         await SeedLabeled(ins, lab, "2026-06-10", "img_real", "OK");
         // 이미지 없이 라벨 사이드카만 — orphan.
-        await lab.WriteAsync(Scenario, "2026-06-10", new StoredLabel
-        { ImageId = "img_orphan", Label = "NG", Timestamp = "2026-06-10T00:00:00Z" });
+        await lab.AppendLabelAsync(Scenario, "2026-06-10", "img_orphan", "NG", "dev");
         var exporter = new FileDatasetExporter(paths, ins, lab);
 
         var manifest = await exporter.ExportAsync(Scenario, ExportId);

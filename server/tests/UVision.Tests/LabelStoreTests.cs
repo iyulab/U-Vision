@@ -47,12 +47,8 @@ public class LabelStoreTests
     {
         var paths = NewPaths(out _);
         var store = new FileLabelStore(paths);
-        var label = new UVision.Api.Models.StoredLabel
-        {
-            ImageId = "img_abc", Label = "NG", Timestamp = "2026-06-09T00:00:00Z",
-        };
 
-        await store.WriteAsync("demo", "2026-06-09", label);
+        await store.AppendLabelAsync("demo", "2026-06-09", "img_abc", "NG", "dev");
         var read = await store.ReadAsync("demo", "2026-06-09", "img_abc");
 
         Assert.NotNull(read);
@@ -61,14 +57,12 @@ public class LabelStoreTests
     }
 
     [Fact]
-    public async Task Write_Overwrites_LastWriteWins()
+    public async Task AppendLabel_LastIsOperative()
     {
         var paths = NewPaths(out _);
         var store = new FileLabelStore(paths);
-        await store.WriteAsync("demo", "2026-06-09", new UVision.Api.Models.StoredLabel
-        { ImageId = "img_abc", Label = "OK", Timestamp = "t1" });
-        await store.WriteAsync("demo", "2026-06-09", new UVision.Api.Models.StoredLabel
-        { ImageId = "img_abc", Label = "NG", Timestamp = "t2" });
+        await store.AppendLabelAsync("demo", "2026-06-09", "img_abc", "OK", "dev");
+        await store.AppendLabelAsync("demo", "2026-06-09", "img_abc", "NG", "dev");
 
         var read = await store.ReadAsync("demo", "2026-06-09", "img_abc");
         Assert.Equal("NG", read!.Label); // 마지막 쓰기가 이긴다
@@ -87,8 +81,7 @@ public class LabelStoreTests
     {
         var paths = NewPaths(out _);
         var store = new FileLabelStore(paths);
-        await store.WriteAsync("demo", "2026-06-09", new UVision.Api.Models.StoredLabel
-        { ImageId = "img_abc", Label = "OK", Timestamp = "t" });
+        await store.AppendLabelAsync("demo", "2026-06-09", "img_abc", "OK", "dev");
 
         await store.DeleteAsync("demo", "2026-06-09", "img_abc");
         Assert.Null(await store.ReadAsync("demo", "2026-06-09", "img_abc"));
@@ -102,10 +95,8 @@ public class LabelStoreTests
     {
         var paths = NewPaths(out _);
         var store = new FileLabelStore(paths);
-        await store.WriteAsync("demo", "2026-06-09", new UVision.Api.Models.StoredLabel
-        { ImageId = "img_a", Label = "OK", Timestamp = "t" });
-        await store.WriteAsync("demo", "2026-06-09", new UVision.Api.Models.StoredLabel
-        { ImageId = "img_b", Label = "NG", Timestamp = "t" });
+        await store.AppendLabelAsync("demo", "2026-06-09", "img_a", "OK", "dev");
+        await store.AppendLabelAsync("demo", "2026-06-09", "img_b", "NG", "dev");
 
         var all = await store.ListAsync("demo", "2026-06-09");
         Assert.Equal(2, all.Count);
@@ -121,8 +112,7 @@ public class LabelStoreTests
         // (v1 의 OK/NG 강제는 엔드포인트 책임이지 저장소 책임이 아니다.)
         var paths = NewPaths(out _);
         var store = new FileLabelStore(paths);
-        await store.WriteAsync("demo", "2026-06-09", new UVision.Api.Models.StoredLabel
-        { ImageId = "img_multi", Label = "SCRATCH_A", Timestamp = "t" });
+        await store.AppendLabelAsync("demo", "2026-06-09", "img_multi", "SCRATCH_A", "dev");
 
         var read = await store.ReadAsync("demo", "2026-06-09", "img_multi");
         Assert.Equal("SCRATCH_A", read!.Label); // 임의 클래스 문자열 무손실 왕복

@@ -43,6 +43,9 @@ public static class UVisionServiceExtensions
         // 데이터셋 export(신뢰성 플라이휠 ② — 전용 ML 빌드 데이터 준비).
         services.AddSingleton<Services.Dataset.IDatasetExporter, Services.Dataset.FileDatasetExporter>();
 
+        // 라벨 감사(C1) 옵션.
+        services.Configure<LabelAuditOptions>(configuration.GetSection("UVision:LabelAudit"));
+
         // 관리자 PIN.
         services.AddSingleton(new AdminPinOptions { Pin = options.AdminPin });
 

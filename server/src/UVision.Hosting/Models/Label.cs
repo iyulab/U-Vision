@@ -101,3 +101,13 @@ public sealed record LabelInput
     /// <summary>라벨러 식별 = device UUID(D4). 선택적 — 누락 시 "".</summary>
     [JsonPropertyName("by")] public string? By { get; init; }
 }
+
+/// <summary><c>POST {api}/results/audit</c> 블라인드 재라벨 제출 본문(C1).</summary>
+public sealed record AuditInput
+{
+    [JsonPropertyName("scenario_id")] public required string ScenarioId { get; init; }
+    [JsonPropertyName("date")] public required string Date { get; init; }
+    [JsonPropertyName("image_id")] public required string ImageId { get; init; }
+    [JsonPropertyName("label")] public required string Label { get; init; }
+    [JsonPropertyName("by")] public string? By { get; init; }
+}
