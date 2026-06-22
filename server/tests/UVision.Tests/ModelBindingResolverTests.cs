@@ -53,6 +53,32 @@ public sealed class ModelBindingResolverTests : IDisposable
         Assert.Null(await resolver.ResolveAsync("chromate"));
     }
 
+    [Fact]
+    public async Task Resolve_RegistryThrows_ReturnsNull()
+    {
+        var resolver = new ModelBindingResolver(
+            new ThrowingModelRegistry(), NullLogger<ModelBindingResolver>.Instance);
+
+        Assert.Null(await resolver.ResolveAsync("chromate"));
+    }
+
+    /// <summary>해석 중 I/O 예외가 나도 degrade-safe(null 폴백)임을 검증하기 위한 스텁.</summary>
+    private sealed class ThrowingModelRegistry : IModelRegistry
+    {
+        public Task<string> RegisterAsync(string scenarioId, ModelRegistration registration, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+        public Task<IReadOnlyList<ModelVersionManifest>> ListVersionsAsync(string scenarioId, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+        public Task<ModelVersionManifest?> ReadManifestAsync(string scenarioId, string version, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+        public Task<ModelPointer?> ReadPointerAsync(string scenarioId, CancellationToken ct = default) =>
+            throw new InvalidOperationException("simulated I/O failure");
+        public Task PromoteAsync(string scenarioId, string version, string by, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+        public Task<bool> RollbackAsync(string scenarioId, string by, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_dataPath)) Directory.Delete(_dataPath, recursive: true);
