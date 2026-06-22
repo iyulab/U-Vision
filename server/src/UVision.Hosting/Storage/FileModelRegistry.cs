@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Threading;
 using UVision.Api.Models;
 
 namespace UVision.Api.Storage;
@@ -11,6 +12,9 @@ namespace UVision.Api.Storage;
 public sealed class FileModelRegistry : IModelRegistry
 {
     private readonly StoragePaths _paths;
+    // 채번(read-max → write)·포인터 전이(read → write)의 원자성 보장 — 싱글톤 인스턴스 직렬화.
+    // 단일 호스트 단일 프로세스 전제(멀티프로세스 경합은 비대상).
+    private readonly SemaphoreSlim _writeLock = new(1, 1);
 
     public FileModelRegistry(StoragePaths paths) => _paths = paths;
 
@@ -20,24 +24,32 @@ public sealed class FileModelRegistry : IModelRegistry
         StoragePaths.Id(registration.ModelName); // 화이트리스트 거부 → ArgumentException(→400)
         if (registration.ExportId is not null) StoragePaths.Id(registration.ExportId);
 
-        var modelsDir = _paths.ModelsDir(scenarioId); // scenarioId 검증
-        var version = "v" + NextVersionNumber(modelsDir);
-        var now = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
-
-        var manifest = new ModelVersionManifest
+        await _writeLock.WaitAsync(ct);
+        try
         {
-            Version = version,
-            ScenarioId = scenarioId,
-            ModelName = registration.ModelName,
-            Endpoint = registration.Endpoint,
-            ExportId = registration.ExportId,
-            Metrics = registration.Metrics,
-            CreatedAt = now,
-            CreatedBy = registration.By,
-            Note = registration.Note,
-        };
-        await StoragePaths.AtomicWriteJsonAsync(_paths.ModelManifest(scenarioId, version), manifest, ct);
-        return version;
+            var modelsDir = _paths.ModelsDir(scenarioId); // scenarioId 검증
+            var version = "v" + NextVersionNumber(modelsDir);
+            var now = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
+
+            var manifest = new ModelVersionManifest
+            {
+                Version = version,
+                ScenarioId = scenarioId,
+                ModelName = registration.ModelName,
+                Endpoint = registration.Endpoint,
+                ExportId = registration.ExportId,
+                Metrics = registration.Metrics,
+                CreatedAt = now,
+                CreatedBy = registration.By,
+                Note = registration.Note,
+            };
+            await StoragePaths.AtomicWriteJsonAsync(_paths.ModelManifest(scenarioId, version), manifest, ct);
+            return version;
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
     }
 
     public async Task<IReadOnlyList<ModelVersionManifest>> ListVersionsAsync(
