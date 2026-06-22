@@ -12,10 +12,17 @@ export type InspectionPhase =
   | 'done'
   | 'error'
   | 'rejected'
+  | 'unavailable'
 
 /** 검사기가 새 트리거를 받을 수 있는 상태인가(VLM in-flight 아님). */
 export function isInspectionFree(phase: InspectionPhase): boolean {
-  return phase === 'idle' || phase === 'done' || phase === 'error' || phase === 'rejected'
+  return (
+    phase === 'idle' ||
+    phase === 'done' ||
+    phase === 'error' ||
+    phase === 'rejected' ||
+    phase === 'unavailable'
+  )
 }
 
 export interface CaptureDecisionInput {

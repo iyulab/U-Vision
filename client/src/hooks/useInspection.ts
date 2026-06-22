@@ -4,8 +4,9 @@ import { inspectImage } from '../lib/api'
 import { captureFrame } from '../lib/capture'
 import { type InspectionPhase } from '../lib/capturePolicy'
 import { getDeviceId, getDeviceLabel } from '../lib/deviceIdentity'
+import { classifyTriggerError } from '../lib/inspectionError'
 import type { Roi } from '../lib/roi'
-import type { InspectResult } from '../lib/types'
+import type { InspectResult, MlResult } from '../lib/types'
 
 export type { InspectionPhase } from '../lib/capturePolicy'
 
@@ -14,6 +15,8 @@ export interface InspectionState {
   latest: InspectResult | null
   history: InspectResult[]
   error: string | null
+  /** 판정 불가(fail-closed) — VLM 검출원 사용 불가(③.5 E2). 정상 시 null. */
+  unavailable: { reason: string; mlHint?: MlResult } | null
   /** 캡처→업로드→판정 1회 실행. 진행 중이면 무시(중복 트리거 방지). */
   trigger: () => void
 }
@@ -36,6 +39,7 @@ export function useInspection(
   const [latest, setLatest] = useState<InspectResult | null>(null)
   const [history, setHistory] = useState<InspectResult[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [unavailable, setUnavailable] = useState<{ reason: string; mlHint?: MlResult } | null>(null)
   const inFlight = useRef(false)
 
   const trigger = useCallback(() => {
@@ -46,6 +50,7 @@ export function useInspection(
 
     void (async () => {
       setError(null)
+      setUnavailable(null)
       try {
         setPhase('capturing')
         const { blob, sharpness } = await captureFrame(video, roi)
@@ -61,13 +66,15 @@ export function useInspection(
         setHistory((h) => [result, ...h].slice(0, HISTORY_LIMIT))
         setPhase('done')
       } catch (e) {
-        setError(e instanceof Error ? e.message : '판정 실패')
-        setPhase('error')
+        const c = classifyTriggerError(e)
+        setUnavailable(c.unavailable)
+        setError(c.error)
+        setPhase(c.phase)
       } finally {
         inFlight.current = false
       }
     })()
   }, [videoRef, scenarioId, roi, minSharpness])
 
-  return { phase, latest, history, error, trigger }
+  return { phase, latest, history, error, unavailable, trigger }
 }

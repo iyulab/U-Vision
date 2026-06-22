@@ -12,6 +12,9 @@ describe('isInspectionFree', () => {
     expect(isInspectionFree('capturing')).toBe(false)
     expect(isInspectionFree('uploading')).toBe(false)
   })
+  it('unavailable은 free (라인 계속, 작업자 물리 보류)', () => {
+    expect(isInspectionFree('unavailable')).toBe(true)
+  })
 })
 
 describe('shouldTriggerCapture', () => {
