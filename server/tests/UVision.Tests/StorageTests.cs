@@ -215,6 +215,29 @@ public class StorageTests : IDisposable
         Assert.Equal(Verdict.NG, single.Verdict);
     }
 
+    [Fact]
+    public void ModelPaths_AreUnderScenarioModelsDir()
+    {
+        var paths = new StoragePaths(
+            new StorageOptions { DataPath = Path.Combine(Path.GetTempPath(), "uv-" + Guid.NewGuid().ToString("N")) },
+            AppContext.BaseDirectory);
+
+        Assert.EndsWith(Path.Combine("chromate", "models"), paths.ModelsDir("chromate"));
+        Assert.EndsWith(Path.Combine("chromate", "models", "v2"), paths.ModelVersionDir("chromate", "v2"));
+        Assert.EndsWith(Path.Combine("chromate", "models", "v2", "manifest.json"), paths.ModelManifest("chromate", "v2"));
+        Assert.EndsWith(Path.Combine("chromate", "models", "active.json"), paths.ModelPointerFile("chromate"));
+    }
+
+    [Fact]
+    public void ModelVersionDir_RejectsTraversalVersion()
+    {
+        var paths = new StoragePaths(
+            new StorageOptions { DataPath = Path.Combine(Path.GetTempPath(), "uv-" + Guid.NewGuid().ToString("N")) },
+            AppContext.BaseDirectory);
+
+        Assert.Throws<ArgumentException>(() => paths.ModelVersionDir("chromate", "../escape"));
+    }
+
     private static StoredResult Record(string imageId, string timestamp) => new()
     {
         ScenarioId = "demo",

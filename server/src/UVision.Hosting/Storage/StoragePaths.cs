@@ -96,6 +96,28 @@ public sealed partial class StoragePaths
     public string MetricsJsonl(string scenarioId, string date) =>
         Path.Combine(MetricsDir(scenarioId), Date(date) + ".jsonl");
 
+    // --- 모델 버저닝 (신뢰성 플라이휠 B1) ----------------------------------
+    // 모델 바이너리는 MLoop serve 소유. 여기서는 참조·provenance manifest + active 포인터만.
+    // <c>models</c> 는 날짜로 파싱되지 않으므로 ListDatesAsync 가 자연 제외한다(references·datasets·metrics 와 동일).
+
+    private const string ModelsSegment = "models";
+
+    /// <summary>시나리오의 모델 디렉터리 <c>{scenario}/models</c>.</summary>
+    public string ModelsDir(string scenarioId) =>
+        Path.Combine(ScenarioDir(scenarioId), ModelsSegment);
+
+    /// <summary>단일 모델 버전 디렉터리 <c>{scenario}/models/{version}</c>.</summary>
+    public string ModelVersionDir(string scenarioId, string version) =>
+        Path.Combine(ModelsDir(scenarioId), Id(version));
+
+    /// <summary>버전 manifest <c>{scenario}/models/{version}/manifest.json</c>(불변).</summary>
+    public string ModelManifest(string scenarioId, string version) =>
+        Path.Combine(ModelVersionDir(scenarioId, version), "manifest.json");
+
+    /// <summary>active 포인터 <c>{scenario}/models/active.json</c>(가변·atomic 교체).</summary>
+    public string ModelPointerFile(string scenarioId) =>
+        Path.Combine(ModelsDir(scenarioId), "active.json");
+
     // --- sanitize (거부) ---------------------------------------------------
 
     [GeneratedRegex(@"^[A-Za-z0-9._-]+$")]
