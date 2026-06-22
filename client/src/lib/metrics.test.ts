@@ -1,6 +1,32 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatPercent, fraction, recallLead } from './metrics'
+import { formatPercent, fraction, hasNoMetricData, recallLead } from './metrics'
+import type { MetricsSummary } from './types'
+
+/** 최소 MetricsSummary 픽스처 — 필수 필드만 채움. */
+function makeSummary(overrides: Partial<MetricsSummary>): MetricsSummary {
+  return {
+    scenario_id: 'demo',
+    date: '2026-06-22',
+    inspections: 0,
+    ml_degraded: 0,
+    agreements: 0,
+    reviews_required: 0,
+    labeled: 0,
+    labeled_ng: 0,
+    vlm_ng_hits: 0,
+    ml_ng_scored: 0,
+    ml_ng_hits: 0,
+    agreement_rate: null,
+    review_rate: null,
+    degrade_rate: null,
+    vlm_ng_recall: null,
+    ml_ng_recall: null,
+    fail_closed: 0,
+    fail_closed_rate: null,
+    ...overrides,
+  }
+}
 
 describe('formatPercent', () => {
   it('비율을 퍼센트로 — 0자리 기본', () => {
@@ -22,6 +48,20 @@ describe('formatPercent', () => {
 describe('fraction', () => {
   it('n/d 표기', () => {
     expect(fraction(2, 3)).toBe('2/3')
+  })
+})
+
+describe('hasNoMetricData', () => {
+  it('inspections=0·fail_closed=0 → 데이터 없음(true)', () => {
+    expect(hasNoMetricData(makeSummary({}))).toBe(true)
+  })
+
+  it('inspections=0·fail_closed=2 → 데이터 있음(false) — 회귀 케이스', () => {
+    expect(hasNoMetricData(makeSummary({ fail_closed: 2 }))).toBe(false)
+  })
+
+  it('inspections=3·fail_closed=0 → 데이터 있음(false)', () => {
+    expect(hasNoMetricData(makeSummary({ inspections: 3 }))).toBe(false)
   })
 })
 

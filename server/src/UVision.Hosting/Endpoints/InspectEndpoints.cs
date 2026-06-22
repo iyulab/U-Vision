@@ -249,7 +249,7 @@ public static class InspectEndpoints
             VlmConfidence = null,
             MlLabel = ml?.Label,
             MlConfidence = ml?.Confidence,
-            Posture = "fail_closed",
+            Posture = MetricsRow.PostureFailClosed,
             MlDegraded = false,
         };
         try

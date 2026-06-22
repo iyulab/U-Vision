@@ -165,7 +165,7 @@ public class MetricsAggregatorTests
     private static MetricsRow FailClosedRow(string id) => new()
     {
         ImageId = id, Timestamp = "t", Verdict = null, VlmConfidence = null,
-        Posture = "fail_closed", MlDegraded = false,
+        Posture = MetricsRow.PostureFailClosed, MlDegraded = false,
     };
 
     private static MetricsRow OkRow(string id) => new()

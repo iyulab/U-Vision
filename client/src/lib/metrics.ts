@@ -1,7 +1,9 @@
 /**
- * 메트릭 표시 순수 로직(B3 대시보드) — 비율 포맷·NG recall 비교.
+ * 메트릭 표시 순수 로직(B3 대시보드) — 비율 포맷·NG recall 비교·empty-state 판정.
  * 분모 0(null) 을 "0%" 로 위장하지 않고 "—"(데이터 없음)로 정직히 표시한다.
  */
+
+import type { MetricsSummary } from './types'
 
 /** 비율(0~1, null=undefined) → 퍼센트 문자열. null 이면 '—'(데이터 없음). */
 export function formatPercent(rate: number | null, digits = 0): string {
@@ -12,6 +14,11 @@ export function formatPercent(rate: number | null, digits = 0): string {
 /** 분자/분모 카운트 → "n/d" 보조 표기. */
 export function fraction(numerator: number, denominator: number): string {
   return `${numerator}/${denominator}`
+}
+
+/** 메트릭 데이터(2중체크 또는 fail-closed)가 한 건도 없는가 — 대시보드 empty-state 판정. */
+export function hasNoMetricData(summary: MetricsSummary): boolean {
+  return summary.inspections + summary.fail_closed === 0
 }
 
 /**

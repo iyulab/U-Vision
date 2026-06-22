@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { getMetrics, listResultDates } from '../lib/api'
-import { formatPercent, fraction, recallLead } from '../lib/metrics'
+import { formatPercent, fraction, hasNoMetricData, recallLead } from '../lib/metrics'
 import type { MetricsSummary, Scenario } from '../lib/types'
 
 /**
@@ -111,7 +111,7 @@ export function MetricsDashboard({
 
       {summary === null ? (
         <p className="text-sm text-slate-400">시나리오·날짜를 선택하세요.</p>
-      ) : summary.inspections === 0 ? (
+      ) : hasNoMetricData(summary) ? (
         <p className="rounded-xl border border-slate-700 bg-slate-800/50 px-5 py-8 text-center text-sm text-slate-400">
           이 날짜에 ML 2중체크 검사 데이터가 없습니다.
           <br />

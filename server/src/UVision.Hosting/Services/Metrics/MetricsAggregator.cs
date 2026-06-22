@@ -29,7 +29,7 @@ public static class MetricsAggregator
 
         foreach (var r in rows)
         {
-            if (r.Posture == "fail_closed")
+            if (r.Posture == MetricsRow.PostureFailClosed)
             {
                 failClosed++;
                 continue;  // verdict 없는 행 — 기존 집계 제외

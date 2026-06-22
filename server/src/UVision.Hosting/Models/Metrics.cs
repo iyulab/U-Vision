@@ -19,6 +19,9 @@ namespace UVision.Api.Models;
 /// </summary>
 public sealed record MetricsRow
 {
+    /// <summary>posture 값 단일 출처 — fail-closed 행 식별자.</summary>
+    public const string PostureFailClosed = "fail_closed";
+
     [JsonPropertyName("image_id")] public required string ImageId { get; init; }
 
     /// <summary>inspect 시각(ISO-8601 UTC) — 짝 <see cref="StoredResult"/> 와 동일 값(조인 키).</summary>
@@ -71,7 +74,7 @@ public sealed record MetricsSummary
 
     [JsonPropertyName("date")] public required string Date { get; init; }
 
-    /// <summary>ML 활성 inspect 총건(메트릭 row 수).</summary>
+    /// <summary>ML 활성 inspect 건(비-fail-closed — fail-closed 행 제외). 기존 비율의 분모.</summary>
     [JsonPropertyName("inspections")] public required int Inspections { get; init; }
 
     /// <summary>ML 분류 실패(degrade)로 2중체크 못 한 건.</summary>
