@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using UVision.Api.Services.Label;
 
 namespace UVision.Api.Models;
 
@@ -18,6 +19,58 @@ public sealed record StoredLabel
 
     /// <summary>라벨 기록(또는 정정) 시각. ISO-8601 UTC. 결과의 날짜 버킷과는 별개.</summary>
     [JsonPropertyName("timestamp")] public required string Timestamp { get; init; }
+
+    /// <summary>
+    /// append-only 이벤트 이력(C1 provenance) — 운영 라벨·블라인드 감사 재라벨의 시간순 로그.
+    /// 없으면(구 사이드카) <see cref="Normalized"/> 가 단일 label 이벤트로 합성한다(하위호환).
+    /// </summary>
+    [JsonPropertyName("history")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<LabelEvent>? History { get; init; }
+
+    /// <summary>감사 상태(C1) — 블라인드 재라벨과 operative 라벨의 일관성. 없으면 unaudited.</summary>
+    [JsonPropertyName("audit")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LabelAudit? Audit { get; init; }
+
+    /// <summary>
+    /// 구 사이드카(history 없음)를 단일 <see cref="LabelMode.Label"/> 이벤트로 합성(하위호환 읽기).
+    /// 이미 history 가 있으면 그대로 반환한다. 디스크에 쓰지 않는 순수 in-memory 변환.
+    /// </summary>
+    public StoredLabel Normalized() =>
+        History is { Count: > 0 }
+            ? this
+            : this with
+            {
+                History = [new LabelEvent { Label = Label, By = "", At = Timestamp, Mode = LabelMode.Label }],
+                Audit = Audit ?? new LabelAudit { Status = LabelAuditStatus.Unaudited },
+            };
+}
+
+/// <summary>라벨 이력의 단위 이벤트(C1 provenance) — append-only.</summary>
+public sealed record LabelEvent
+{
+    [JsonPropertyName("label")] public required string Label { get; init; }
+
+    /// <summary>라벨러 식별 = device UUID(cycle-35 재사용, D4). 구 이벤트/불가 시 "".</summary>
+    [JsonPropertyName("by")] public required string By { get; init; }
+
+    /// <summary>이벤트 시각. ISO-8601 UTC.</summary>
+    [JsonPropertyName("at")] public required string At { get; init; }
+
+    /// <summary><see cref="LabelMode"/> — label/audit(/oracle 미구현).</summary>
+    [JsonPropertyName("mode")] public required string Mode { get; init; }
+}
+
+/// <summary>감사 상태 요약(C1) — <see cref="LabelAuditStatus"/>.</summary>
+public sealed record LabelAudit
+{
+    [JsonPropertyName("status")] public required string Status { get; init; }
+
+    /// <summary>최근 감사 평가 시각. unaudited 면 null.</summary>
+    [JsonPropertyName("at")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? At { get; init; }
 }
 
 /// <summary>
@@ -44,4 +97,7 @@ public sealed record LabelInput
     [JsonPropertyName("image_id")] public required string ImageId { get; init; }
 
     [JsonPropertyName("label")] public required string Label { get; init; }
+
+    /// <summary>라벨러 식별 = device UUID(D4). 선택적 — 누락 시 "".</summary>
+    [JsonPropertyName("by")] public string? By { get; init; }
 }
