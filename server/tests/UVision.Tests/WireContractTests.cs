@@ -60,4 +60,31 @@ public class WireContractTests
         Assert.Contains("\"label\":1", json);   // numeric (0/1) — value 직렬화 불변 보존
         Assert.Contains("\"ng_label\":\"scratch\"", json);
     }
+
+    [Fact]
+    public void DetectionUnavailableResponse_Serializes_SnakeCase_WithHint()
+    {
+        var json = JsonSerializer.Serialize(new DetectionUnavailableResponse
+        {
+            Reason = "vlm_unavailable",
+            MlHint = new MlResult { Label = "ng", Confidence = 0.8 },
+        }, Plain);
+
+        Assert.Contains("\"detection_unavailable\":true", json);
+        Assert.Contains("\"reason\":\"vlm_unavailable\"", json);
+        Assert.Contains("\"ml_hint\":", json);
+        Assert.Contains("\"label\":\"ng\"", json);
+    }
+
+    [Fact]
+    public void DetectionUnavailableResponse_OmitsHint_WhenNull()
+    {
+        var json = JsonSerializer.Serialize(new DetectionUnavailableResponse
+        {
+            Reason = "vlm_unavailable",
+        }, Plain);
+
+        Assert.Contains("\"detection_unavailable\":true", json);
+        Assert.DoesNotContain("ml_hint", json);
+    }
 }

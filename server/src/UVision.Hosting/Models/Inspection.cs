@@ -142,3 +142,24 @@ public sealed record StoredResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? RequiresReview { get; init; }
 }
+
+/// <summary>
+/// <c>POST /api/inspect</c> fail-closed(503) 본문 — 주 검출원(VLM) 사용 불가 시 반환(③.5 E2).
+/// 성공(200) 응답과 별개 타입 — 성공 wire 는 byte-identical 보존, 503 은 현재 미정의 500 자리를 정의한다.
+/// <para>
+/// <c>ml_hint</c> 는 VLM-down·ML-up 일 때 ML 의견을 advisory 로 싣는다(verdict 아님 — 사람 확인 보조).
+/// 에러 본문이므로 안정 계약이 아니다(additive·nullable).
+/// </para>
+/// </summary>
+public sealed record DetectionUnavailableResponse
+{
+    [JsonPropertyName("detection_unavailable")] public bool DetectionUnavailable { get; init; } = true;
+
+    /// <summary>fail-closed 사유(예: "vlm_unavailable") — 진단·클라 표시용.</summary>
+    [JsonPropertyName("reason")] public required string Reason { get; init; }
+
+    /// <summary>ML 참고 의견(VLM-down·ML-up 시에만). verdict 아님.</summary>
+    [JsonPropertyName("ml_hint")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MlResult? MlHint { get; init; }
+}
