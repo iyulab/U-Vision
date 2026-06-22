@@ -58,6 +58,11 @@ public sealed record MlResult
     [JsonPropertyName("label")] public required string Label { get; init; }
 
     [JsonPropertyName("confidence")] public required double Confidence { get; init; }
+
+    /// <summary>판정 모델 버전(B1, mloop active 바인딩 시). 미바인딩/none/mock 이면 null → 생략.</summary>
+    [JsonPropertyName("model_version")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ModelVersion { get; init; }
 }
 
 /// <summary>

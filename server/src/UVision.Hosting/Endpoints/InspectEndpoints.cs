@@ -159,7 +159,7 @@ public static class InspectEndpoints
 
         var mlResult = dual is null
             ? null
-            : new MlResult { Label = dual.MlLabel, Confidence = dual.MlConfidence };
+            : new MlResult { Label = dual.MlLabel, Confidence = dual.MlConfidence, ModelVersion = ml?.ModelVersion };
 
         var stored = new StoredResult
         {
