@@ -1,5 +1,6 @@
 using System;
 using UVision.Api.Configuration;
+using UVision.Api.Services.Label;
 using UVision.Api.Storage;
 using Xunit;
 
@@ -125,5 +126,79 @@ public class LabelStoreTests
 
         var read = await store.ReadAsync("demo", "2026-06-09", "img_multi");
         Assert.Equal("SCRATCH_A", read!.Label); // 임의 클래스 문자열 무손실 왕복
+    }
+
+    [Fact]
+    public async Task AppendLabel_AccumulatesHistory_OperativeIsLast()
+    {
+        var paths = NewPaths(out _);
+        var store = new FileLabelStore(paths);
+        await store.AppendLabelAsync("demo", "2026-06-09", "img_a", "OK", "dev");
+        await store.AppendLabelAsync("demo", "2026-06-09", "img_a", "NG", "dev");
+
+        var read = await store.ReadAsync("demo", "2026-06-09", "img_a");
+        Assert.Equal("NG", read!.Label);          // 최신 operative
+        Assert.Equal(2, read.History!.Count);     // 이력 누적(덮어쓰지 않음)
+    }
+
+    [Fact]
+    public async Task AppendAudit_SameLabel_IsConsistent_OperativeUnchanged()
+    {
+        var paths = NewPaths(out _);
+        var store = new FileLabelStore(paths);
+        await store.AppendLabelAsync("demo", "2026-06-09", "img_a", "NG", "dev");
+
+        var outcome = await store.AppendAuditAsync("demo", "2026-06-09", "img_a", "NG", "dev");
+
+        Assert.Equal(LabelAuditStatus.Consistent, outcome.Status);
+        Assert.Equal("NG", outcome.PriorLabel);
+        var read = await store.ReadAsync("demo", "2026-06-09", "img_a");
+        Assert.Equal("NG", read!.Label);                          // operative 불변
+        Assert.Equal(LabelAuditStatus.Consistent, read.Audit!.Status);
+        Assert.Equal(2, read.History!.Count);                     // label + audit
+        Assert.Equal(LabelMode.Audit, read.History[1].Mode);
+    }
+
+    [Fact]
+    public async Task AppendAudit_DifferentLabel_IsConflicted_ThenResolvedByLabel()
+    {
+        var paths = NewPaths(out _);
+        var store = new FileLabelStore(paths);
+        await store.AppendLabelAsync("demo", "2026-06-09", "img_a", "OK", "dev");
+
+        var outcome = await store.AppendAuditAsync("demo", "2026-06-09", "img_a", "NG", "dev");
+        Assert.Equal(LabelAuditStatus.Conflicted, outcome.Status);
+        Assert.Equal("OK", outcome.PriorLabel);                   // 블라인드였던 직전 라벨 공개
+
+        // 사람 해소 = 일반 라벨 쓰기 → resolved.
+        await store.AppendLabelAsync("demo", "2026-06-09", "img_a", "NG", "dev");
+        var read = await store.ReadAsync("demo", "2026-06-09", "img_a");
+        Assert.Equal("NG", read!.Label);
+        Assert.Equal(LabelAuditStatus.Resolved, read.Audit!.Status);
+    }
+
+    [Fact]
+    public async Task AppendAudit_UnlabeledImage_Throws()
+    {
+        var paths = NewPaths(out _);
+        var store = new FileLabelStore(paths);
+        // 라벨 없는 이미지는 감사 대상이 아님.
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => store.AppendAuditAsync("demo", "2026-06-09", "img_missing", "NG", "dev"));
+    }
+
+    [Fact]
+    public async Task ReadAsync_LegacySidecar_NormalizesHistory()
+    {
+        // 구 사이드카를 직접 디스크에 쓴 뒤 읽으면 history 가 합성된다.
+        var paths = NewPaths(out _);
+        var path = paths.LabelJson("demo", "2026-06-09", "img_legacy");
+        await StoragePaths.AtomicWriteJsonAsync(path,
+            new UVision.Api.Models.StoredLabel { ImageId = "img_legacy", Label = "NG", Timestamp = "2026-06-09T00:00:00Z" });
+
+        var store = new FileLabelStore(paths);
+        var read = await store.ReadAsync("demo", "2026-06-09", "img_legacy");
+        Assert.Single(read!.History!);
+        Assert.Equal(LabelAuditStatus.Unaudited, read.Audit!.Status);
     }
 }
