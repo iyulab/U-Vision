@@ -39,6 +39,7 @@ public static class UVisionServiceExtensions
 
         // 모델 버저닝(신뢰성 플라이휠 B1) — 시나리오별 모델 참조·이력 레지스트리.
         services.AddSingleton<IModelRegistry, FileModelRegistry>();
+        services.AddSingleton<Services.Models.ModelBindingResolver>();
 
         // 관측성 메트릭(신뢰성 플라이휠 B3) — inspect 예측 신호의 append-only 시계열.
         services.AddSingleton<IMetricsStore, FileMetricsStore>();
