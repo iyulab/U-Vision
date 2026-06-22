@@ -24,11 +24,11 @@ public sealed record MetricsRow
     /// <summary>inspect 시각(ISO-8601 UTC) — 짝 <see cref="StoredResult"/> 와 동일 값(조인 키).</summary>
     [JsonPropertyName("timestamp")] public required string Timestamp { get; init; }
 
-    /// <summary>VLM 주 판정 — agreement rate·NG recall 집계의 예측 축.</summary>
-    [JsonPropertyName("verdict")] public required Verdict Verdict { get; init; }
+    /// <summary>VLM 주 판정 — agreement rate·NG recall 집계의 예측 축. fail-closed(VLM-down) 행은 null.</summary>
+    [JsonPropertyName("verdict")] public Verdict? Verdict { get; init; }
 
-    /// <summary>VLM self-report 신뢰도(raw, miscalibrated) — calibration 추이의 입력.</summary>
-    [JsonPropertyName("vlm_confidence")] public required double VlmConfidence { get; init; }
+    /// <summary>VLM self-report 신뢰도(raw). fail-closed 행은 null.</summary>
+    [JsonPropertyName("vlm_confidence")] public double? VlmConfidence { get; init; }
 
     /// <summary>ML 분류 라벨. degrade(분류 실패) 시 null.</summary>
     [JsonPropertyName("ml_label")] public string? MlLabel { get; init; }
@@ -44,6 +44,14 @@ public sealed record MetricsRow
 
     /// <summary>ML enabled 인데 분류가 실패(degrade — VLM 단독 진행)했는가. degrade율 집계의 신호.</summary>
     [JsonPropertyName("ml_degraded")] public required bool MlDegraded { get; init; }
+
+    /// <summary>
+    /// 운영 자세(③.5 E2) — fail-closed(VLM-down) 행만 "fail_closed". null=비-fail-closed(Proceed/ReviewHold,
+    /// 구 행 포함). verdict 기반 집계는 이 행을 제외하고 <c>fail_closed</c>로 별도 카운트한다.
+    /// </summary>
+    [JsonPropertyName("posture")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Posture { get; init; }
 }
 
 /// <summary>
@@ -68,6 +76,9 @@ public sealed record MetricsSummary
 
     /// <summary>ML 분류 실패(degrade)로 2중체크 못 한 건.</summary>
     [JsonPropertyName("ml_degraded")] public required int MlDegraded { get; init; }
+
+    /// <summary>주 검출원(VLM) 사용 불가로 자동 판정 못 한 건(fail-closed).</summary>
+    [JsonPropertyName("fail_closed")] public required int FailClosed { get; init; }
 
     /// <summary>VLM·ML 일치 건(비-degrade 중).</summary>
     [JsonPropertyName("agreements")] public required int Agreements { get; init; }
@@ -106,4 +117,7 @@ public sealed record MetricsSummary
 
     /// <summary>ML NG recall = ml_ng_hits / ml_ng_scored. ML 라벨된 NG 0 건이면 null.</summary>
     [JsonPropertyName("ml_ng_recall")] public double? MlNgRecall { get; init; }
+
+    /// <summary>fail-closed율 = fail_closed / (inspections + fail_closed). 총 시도 0 이면 null.</summary>
+    [JsonPropertyName("fail_closed_rate")] public double? FailClosedRate { get; init; }
 }

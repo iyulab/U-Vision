@@ -159,4 +159,49 @@ public class MetricsAggregatorTests
         Assert.Equal(1, s.Labeled);
         Assert.Equal(1, s.LabeledNg);
     }
+
+    // --- fail-closed posture 집계 (③.5 E2) ---
+
+    private static MetricsRow FailClosedRow(string id) => new()
+    {
+        ImageId = id, Timestamp = "t", Verdict = null, VlmConfidence = null,
+        Posture = "fail_closed", MlDegraded = false,
+    };
+
+    private static MetricsRow OkRow(string id) => new()
+    {
+        ImageId = id, Timestamp = "t", Verdict = Verdict.OK, VlmConfidence = 0.9,
+        MlLabel = "ok", MlConfidence = 0.9, Agreement = true, RequiresReview = false,
+        MlDegraded = false,
+    };
+
+    [Fact]
+    public void FailClosed_CountedSeparately_InspectionsExcludeThem()
+    {
+        var rows = new[] { OkRow("a"), OkRow("b"), FailClosedRow("c") };
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, []);
+
+        Assert.Equal(2, s.Inspections);      // 비-fail-closed 만
+        Assert.Equal(1, s.FailClosed);
+        Assert.Equal(2, s.Agreements);       // fail-closed 는 agreement 집계 제외
+        Assert.Equal(1.0 / 3.0, s.FailClosedRate); // 1 / (2+1) 총 시도
+    }
+
+    [Fact]
+    public void FailClosedRate_Null_WhenNoAttempts()
+    {
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], []);
+        Assert.Equal(0, s.FailClosed);
+        Assert.Null(s.FailClosedRate);
+    }
+
+    [Fact]
+    public void LegacyRow_NullPosture_TreatedAsNonFailClosed()
+    {
+        // posture 없는 구 행(OkRow 는 Posture 미설정 → null) 은 inspections 에 포함.
+        var rows = new[] { OkRow("a") };
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, []);
+        Assert.Equal(1, s.Inspections);
+        Assert.Equal(0, s.FailClosed);
+    }
 }

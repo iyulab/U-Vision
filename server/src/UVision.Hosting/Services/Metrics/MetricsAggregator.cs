@@ -22,12 +22,20 @@ public static class MetricsAggregator
         foreach (var l in labels)
             labelOf[l.ImageId] = l.Label;
 
-        int inspections = rows.Count;
+        int failClosed = 0;
+        int inspections = 0;  // 비-fail-closed (rows.Count 대신)
         int degraded = 0, agreements = 0, reviews = 0;
         int labeled = 0, labeledNg = 0, vlmNgHits = 0, mlNgScored = 0, mlNgHits = 0;
 
         foreach (var r in rows)
         {
+            if (r.Posture == "fail_closed")
+            {
+                failClosed++;
+                continue;  // verdict 없는 행 — 기존 집계 제외
+            }
+            inspections++;
+
             if (r.MlDegraded)
                 degraded++;
             else
@@ -71,6 +79,8 @@ public static class MetricsAggregator
             VlmNgHits = vlmNgHits,
             MlNgScored = mlNgScored,
             MlNgHits = mlNgHits,
+            FailClosed = failClosed,
+            FailClosedRate = Rate(failClosed, inspections + failClosed),
             AgreementRate = Rate(agreements, nonDegraded),
             ReviewRate = Rate(reviews, nonDegraded),
             DegradeRate = Rate(degraded, inspections),
