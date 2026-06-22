@@ -151,6 +151,12 @@ function Cards({ summary }: { summary: MetricsSummary }) {
           sub={`${fraction(summary.ml_degraded, summary.inspections)} 분류 실패`}
           warn={summary.ml_degraded > 0}
         />
+        <Stat
+          label="판정 불가"
+          value={formatPercent(summary.fail_closed_rate)}
+          sub={`${fraction(summary.fail_closed, summary.inspections + summary.fail_closed)} fail-closed`}
+          warn={summary.fail_closed > 0}
+        />
       </div>
 
       {/* NG recall 비교 — 플라이휠의 핵심 질문: ML 이 VLM 이 놓친 불량을 잡는가. */}

@@ -139,4 +139,8 @@ export interface MetricsSummary {
   vlm_ng_recall: number | null
   /** ML NG recall = ml_ng_hits / ml_ng_scored. */
   ml_ng_recall: number | null
+  /** 주 검출원(VLM) 사용 불가로 자동 판정 못 한 건(fail-closed, ③.5 E2). */
+  fail_closed: number
+  /** fail-closed율 = fail_closed / (inspections + fail_closed). 총 시도 0 이면 null. */
+  fail_closed_rate: number | null
 }
