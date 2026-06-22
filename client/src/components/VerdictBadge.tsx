@@ -1,5 +1,6 @@
 import type { InspectionPhase } from '../hooks/useInspection'
 import type { InspectResult } from '../lib/types'
+import { reviewBandText } from './verdictBadgeText'
 
 /**
  * 판정 결과 대형 배지 — 작업자가 멀리서도 OK/NG 를 즉시 인식하도록.
@@ -45,6 +46,11 @@ export function VerdictBadge({
         <p className="mt-2 text-sm text-white/80">
           신뢰도 {(result.confidence * 100).toFixed(0)}%
         </p>
+        {reviewBandText(result) && (
+          <p className="mt-3 rounded-full bg-amber-500/90 px-4 py-1 text-sm font-semibold text-white">
+            {reviewBandText(result)}
+          </p>
+        )}
       </div>
     </div>
   )
