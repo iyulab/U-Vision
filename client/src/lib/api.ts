@@ -1,4 +1,4 @@
-import type { InspectResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult } from './types'
+import type { InspectResult, MetricsSummary, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult } from './types'
 import { resolveApiBase } from './runtimeConfig'
 
 const API_BASE = resolveApiBase()
@@ -100,6 +100,17 @@ export async function deleteLabel(
     { method: 'DELETE' },
   )
   await ensureOk(res, '라벨 삭제')
+}
+
+// --- 메트릭/관측성 (B3, 무인증 읽기 — 서버 /api/metrics 계약) ---------------
+
+/** 시나리오·날짜의 메트릭 집계(agreement·degrade·검토율·NG recall). 데이터 없으면 0 집계. */
+export async function getMetrics(scenarioId: string, date: string): Promise<MetricsSummary> {
+  const res = await fetch(
+    `${API_BASE}/metrics?scenario_id=${encodeURIComponent(scenarioId)}&date=${encodeURIComponent(date)}`,
+  )
+  await ensureOk(res, '메트릭 조회')
+  return (await res.json()) as MetricsSummary
 }
 
 // --- 시나리오 CRUD (S-B 서버 계약) ---------------------------------------

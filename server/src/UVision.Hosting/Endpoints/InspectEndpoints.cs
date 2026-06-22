@@ -43,6 +43,7 @@ public static class InspectEndpoints
         IScenarioStore scenarioStore,
         IInspectionStore inspectionStore,
         IReferenceStore referenceStore,
+        IMetricsStore metricsStore,
         VlmOptions options,
         MlOptions mlOptions,
         ILoggerFactory loggerFactory,
@@ -164,6 +165,14 @@ public static class InspectEndpoints
             return Results.Problem(statusCode: 500, detail: "검사 결과 저장 실패");
         }
 
+        // B3 관측성: ML 활성(②~③ 결선)일 때만 예측 신호를 메트릭 시계열로 흘린다.
+        // 비활성(none=①단계)이면 메트릭도 없음 → inspect 부수효과가 ② 이전과 동일.
+        // 영속화(must-succeed) 후 기록 — 메트릭은 관측이지 system-of-record 아니므로 실패는 degrade.
+        if (classifier.IsEnabled)
+            await WriteMetricsSafelyAsync(
+                metricsStore, scenario.ScenarioId, imageId, timestamp, result, outcome, dual,
+                logger, cancellationToken);
+
         return Results.Ok(new InspectResponse
         {
             Verdict = result.Verdict,
@@ -196,6 +205,46 @@ public static class InspectEndpoints
                 "ML 분류 실패 — 2중체크 없이 VLM 단독 진행(degrade) (provider={Provider}, scenario={ScenarioId})",
                 classifier.Name, scenarioId);
             return MlOutcome.Failure(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// B3 메트릭 row 를 기록하되 실패를 삼킨다(degrade) — 영속화(must-succeed)와 달리 메트릭은 관측이라
+    /// 쓰기 실패가 판정·응답(이미 확정·영속됨)을 막지 않는다. 실패 시 경고 로그만 남긴다.
+    /// <para>
+    /// row 는 <paramref name="outcome"/> 에서 구성한다: 분류 성공(<c>outcome.Result</c>)이면 dual 의
+    /// ml/agreement/review 를 채우고, degrade(<c>outcome.Failed</c>)면 ml_* 를 null·<c>ml_degraded=true</c>.
+    /// 이 메서드는 ML enabled 경로에서만 호출된다(비활성은 outcome 이 null → 호출 안 함).
+    /// </para>
+    /// </summary>
+    private static async Task WriteMetricsSafelyAsync(
+        IMetricsStore metricsStore, string scenarioId, string imageId, string timestamp,
+        InspectionResult result, MlOutcome? outcome, DualCheckResult? dual,
+        ILogger logger, CancellationToken cancellationToken)
+    {
+        var degraded = outcome?.Failed ?? false;
+        var row = new MetricsRow
+        {
+            ImageId = imageId,
+            Timestamp = timestamp,
+            Verdict = result.Verdict,
+            VlmConfidence = result.Confidence,
+            MlLabel = dual?.MlLabel,
+            MlConfidence = dual?.MlConfidence,
+            Agreement = dual?.Agreement,
+            RequiresReview = dual?.RequiresReview,
+            MlDegraded = degraded,
+        };
+
+        try
+        {
+            await metricsStore.AppendAsync(scenarioId, row, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "메트릭 기록 실패 — 관측만 누락(판정·영속은 정상) (scenario={ScenarioId}, image={ImageId})",
+                scenarioId, imageId);
         }
     }
 

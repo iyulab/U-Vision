@@ -11,5 +11,6 @@ public static class UVisionEndpoints
         group.MapReferenceEndpoints();
         group.MapLabelEndpoints();
         group.MapDatasetEndpoints();
+        group.MapMetricsEndpoints();
     }
 }

@@ -37,6 +37,9 @@ public static class UVisionServiceExtensions
         services.AddSingleton<IReferenceStore, FileReferenceStore>();
         services.AddSingleton<ILabelStore, FileLabelStore>();
 
+        // 관측성 메트릭(신뢰성 플라이휠 B3) — inspect 예측 신호의 append-only 시계열.
+        services.AddSingleton<IMetricsStore, FileMetricsStore>();
+
         // 데이터셋 export(신뢰성 플라이휠 ② — 전용 ML 빌드 데이터 준비).
         services.AddSingleton<Services.Dataset.IDatasetExporter, Services.Dataset.FileDatasetExporter>();
 

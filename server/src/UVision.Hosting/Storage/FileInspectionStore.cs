@@ -20,7 +20,7 @@ public sealed class FileInspectionStore : IInspectionStore
         StoredResult result,
         CancellationToken cancellationToken = default)
     {
-        var date = DateOf(result.Timestamp);
+        var date = StoragePaths.DateBucketOf(result.Timestamp);
         var imagePath = _paths.ImageFile(result.ScenarioId, date, result.ImageId, ext);
         var resultPath = _paths.ResultFile(result.ScenarioId, date, result.ImageId);
 
@@ -88,11 +88,6 @@ public sealed class FileInspectionStore : IInspectionStore
             .ToList();
         return Task.FromResult<IReadOnlyList<string>>(dates!);
     }
-
-    /// <summary>ISO-8601 timestamp 에서 UTC 날짜(yyyy-MM-dd) 도출.</summary>
-    private static string DateOf(string timestamp) =>
-        DateTimeOffset.Parse(timestamp, CultureInfo.InvariantCulture)
-            .UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     private static string ContentTypeOf(string file) =>
         Path.GetExtension(file).Equals(".png", StringComparison.OrdinalIgnoreCase)

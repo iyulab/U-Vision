@@ -82,6 +82,20 @@ public sealed partial class StoragePaths
     public string DatasetManifest(string scenarioId, string exportId) =>
         Path.Combine(DatasetDir(scenarioId, exportId), "manifest.json");
 
+    // --- 관측성 메트릭 (신뢰성 플라이휠 B3) ---------------------------------
+    // inspect 예측 신호를 날짜별 jsonl 시계열로. <c>metrics</c> 는 날짜로 파싱되지 않으므로
+    // ListDatesAsync 가 자연 제외한다(references·datasets 와 동일).
+
+    private const string MetricsSegment = "metrics";
+
+    /// <summary>시나리오의 메트릭 디렉토리 <c>{scenario}/metrics</c>.</summary>
+    public string MetricsDir(string scenarioId) =>
+        Path.Combine(ScenarioDir(scenarioId), MetricsSegment);
+
+    /// <summary>날짜 버킷 메트릭 jsonl <c>{scenario}/metrics/{yyyy-MM-dd}.jsonl</c>(append-only).</summary>
+    public string MetricsJsonl(string scenarioId, string date) =>
+        Path.Combine(MetricsDir(scenarioId), Date(date) + ".jsonl");
+
     // --- sanitize (거부) ---------------------------------------------------
 
     [GeneratedRegex(@"^[A-Za-z0-9._-]+$")]
@@ -112,6 +126,14 @@ public sealed partial class StoragePaths
         }
         return value;
     }
+
+    /// <summary>
+    /// ISO-8601 timestamp 에서 날짜 버킷(yyyy-MM-dd, UTC)을 도출한다 — 캡처·결과·메트릭이 같은 날짜
+    /// 디렉토리/파일에 모이도록 보장하는 유일 규약. 경로 버킷팅은 경로 지식이므로 여기(StoragePaths)가 소유.
+    /// </summary>
+    public static string DateBucketOf(string timestamp) =>
+        DateTimeOffset.Parse(timestamp, CultureInfo.InvariantCulture)
+            .UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     // --- 파일시스템 메커니즘 ------------------------------------------------
 

@@ -101,3 +101,31 @@ export interface StoredLabel {
   label: string
   timestamp: string
 }
+
+/**
+ * 서버 `MetricsSummary`(B3 집계, `GET /api/metrics`) 미러 — 시나리오·날짜 관측 신호.
+ * 원시 카운트 + 파생 비율(분모 0 → null = 데이터 없음, 0% 위장 아님). NG recall 은 사람 라벨 조인.
+ */
+export interface MetricsSummary {
+  scenario_id: string
+  date: string
+  inspections: number
+  ml_degraded: number
+  agreements: number
+  reviews_required: number
+  labeled: number
+  labeled_ng: number
+  vlm_ng_hits: number
+  ml_ng_scored: number
+  ml_ng_hits: number
+  /** 일치율 = agreements / 비-degrade. 비-degrade 0 건이면 null. */
+  agreement_rate: number | null
+  /** 검토율 = reviews_required / 비-degrade. */
+  review_rate: number | null
+  /** degrade율 = ml_degraded / inspections. */
+  degrade_rate: number | null
+  /** VLM NG recall = vlm_ng_hits / labeled_ng. 라벨된 NG 0 건이면 null. */
+  vlm_ng_recall: number | null
+  /** ML NG recall = ml_ng_hits / ml_ng_scored. */
+  ml_ng_recall: number | null
+}

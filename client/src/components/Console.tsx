@@ -5,6 +5,7 @@ import { usePin, type PinRunResult } from '../hooks/usePin'
 import { DEFAULT_MOTION_CONFIG } from '../lib/motion'
 import { DEFAULT_ROI, fromScenarioRoi, toScenarioRoi, type Roi } from '../lib/roi'
 import type { Scenario } from '../lib/types'
+import { MetricsDashboard } from './MetricsDashboard'
 import { ReferenceGallery } from './ReferenceGallery'
 import { ResultsBrowser } from './ResultsBrowser'
 import { RoiEditor } from './RoiEditor'
@@ -23,7 +24,7 @@ const RESOLUTION_PRESETS: { value: number; label: string }[] = [
   { value: 128, label: '128' },
 ]
 
-type Tab = 'scenarios' | 'results'
+type Tab = 'scenarios' | 'results' | 'metrics'
 
 interface ConsoleProps {
   /** 운영 화면으로 복귀. */
@@ -82,6 +83,9 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
           <TabButton active={tab === 'results'} onClick={() => setTab('results')}>
             결과 조회
           </TabButton>
+          <TabButton active={tab === 'metrics'} onClick={() => setTab('metrics')}>
+            메트릭
+          </TabButton>
         </div>
         <button
           onClick={onClose}
@@ -96,8 +100,10 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
       <main className="p-6">
         {tab === 'scenarios' ? (
           <ScenarioManager scenarios={scenarios} reload={reload} runWithPin={runWithPin} />
-        ) : (
+        ) : tab === 'results' ? (
           <ResultsBrowser scenarios={scenarios} initialScenarioId={activeScenarioId} />
+        ) : (
+          <MetricsDashboard scenarios={scenarios} initialScenarioId={activeScenarioId} />
         )}
       </main>
 
