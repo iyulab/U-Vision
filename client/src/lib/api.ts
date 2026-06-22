@@ -93,17 +93,18 @@ export async function listLabels(scenarioId: string, date: string): Promise<Stor
   return (await res.json()) as StoredLabel[]
 }
 
-/** 사람 라벨 쓰기/정정(무인증). label 은 LABEL_SET 멤버('OK'|'NG'). */
+/** 사람 라벨 쓰기/정정(무인증). label 은 LABEL_SET 멤버. by=라벨러 device id(C1 provenance). */
 export async function putLabel(
   scenarioId: string,
   date: string,
   imageId: string,
   label: string,
+  by?: string,
 ): Promise<void> {
   const res = await fetch(`${API_BASE}/results/label`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ scenario_id: scenarioId, date, image_id: imageId, label }),
+    body: JSON.stringify({ scenario_id: scenarioId, date, image_id: imageId, label, by }),
   })
   await ensureOk(res, '라벨 저장')
 }
@@ -119,6 +120,34 @@ export async function deleteLabel(
     { method: 'DELETE' },
   )
   await ensureOk(res, '라벨 삭제')
+}
+
+// --- 라벨 감사 (C1 — 블라인드 재라벨, 무인증 운영 데이터) --------------------
+
+/** 블라인드 재감사 표본(image_id 배열 — 직전 라벨 미포함). */
+export async function listAuditSample(scenarioId: string, date: string): Promise<string[]> {
+  const res = await fetch(
+    `${API_BASE}/results/audit-sample?scenario_id=${encodeURIComponent(scenarioId)}&date=${encodeURIComponent(date)}`,
+  )
+  await ensureOk(res, '감사 표본')
+  return (await res.json()) as string[]
+}
+
+/** 블라인드 재라벨 제출 → 일관성 결과 + 공개된 직전 라벨(C1). by=라벨러 device id. */
+export async function putAudit(
+  scenarioId: string,
+  date: string,
+  imageId: string,
+  label: string,
+  by?: string,
+): Promise<{ status: string; prior_label: string }> {
+  const res = await fetch(`${API_BASE}/results/audit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scenario_id: scenarioId, date, image_id: imageId, label, by }),
+  })
+  await ensureOk(res, '감사 제출')
+  return (await res.json()) as { status: string; prior_label: string }
 }
 
 // --- 메트릭/관측성 (B3, 무인증 읽기 — 서버 /api/metrics 계약) ---------------

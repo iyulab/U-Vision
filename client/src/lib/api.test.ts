@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { DetectionUnavailableError, inspectImage } from './api'
+import { DetectionUnavailableError, inspectImage, listAuditSample, putAudit } from './api'
 
 function mockFetch(status: number, body: unknown) {
   return vi.fn().mockResolvedValue({
@@ -36,5 +36,29 @@ describe('inspectImage', () => {
 
     const result = await inspectImage(new Blob(), 's', 'd', 'l')
     expect(result.verdict).toBe('OK')
+  })
+})
+
+describe('audit api', () => {
+  it('putAudit → {status, prior_label}', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ status: 'conflicted', prior_label: 'OK' }),
+      text: async () => '',
+    } as Response))
+
+    const out = await putAudit('s', '2026-06-09', 'img_a', 'NG', 'dev')
+    expect(out.status).toBe('conflicted')
+    expect(out.prior_label).toBe('OK')
+  })
+
+  it('listAuditSample → image_id 배열', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ['img_a', 'img_b'],
+      text: async () => '',
+    } as Response))
+
+    expect(await listAuditSample('s', '2026-06-09')).toEqual(['img_a', 'img_b'])
   })
 })
