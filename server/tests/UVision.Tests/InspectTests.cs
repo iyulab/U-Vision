@@ -7,6 +7,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using UVision.Api.Models;
+using UVision.Api.Services.Ml;
 using UVision.Api.Services.Vlm;
 using UVision.Api.Storage;
 using Xunit;
@@ -279,6 +280,25 @@ public class InspectTests : IClassFixture<UVisionApiFactory>
         Assert.Equal("", match.GetProperty("device_id").GetString());
     }
 
+    // A3 degrade 가시성: ML enabled 인데 분류 실패 → VLM 단독 진행(degrade), wire 무변경.
+    // ml/agreement/requires_review 는 생략(비활성과 동일한 응답 형태)이되, 실패는 삼켜져 200.
+    [Fact]
+    public async Task Inspect_MlClassifierThrows_DegradesToVlmOnly_Wire200()
+    {
+        await using var factory = UVisionApiFactory.Create(mlClassifier: new ThrowingMlClassifier());
+        var client = factory.CreateClient();
+
+        var resp = await client.PostAsync("/api/u-vision/inspect", Form(Jpeg, "image/jpeg", "demo"));
+
+        resp.EnsureSuccessStatusCode(); // degrade 는 판정을 막지 않는다(200).
+        var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(body.TryGetProperty("verdict", out _));        // VLM verdict 정상
+        // wire 계약(WhenWritingNull): degrade 시 ml/agreement/requires_review 필드가 아예 부재해야 한다(null 값 아님).
+        Assert.False(body.TryGetProperty("ml", out _));               // degrade: ml field omitted from wire
+        Assert.False(body.TryGetProperty("agreement", out _));        // degrade: agreement field omitted
+        Assert.False(body.TryGetProperty("requires_review", out _));  // degrade: requires_review field omitted
+    }
+
     // A3: ML mock(저신뢰) + 임계>0 + 일치라도 VLM 은 게이팅 제외, ML 저신뢰가 검토 유발.
     // calibrator 가 라이브 inspect 경로에 실제 배선됐는지 검증(배선 회귀).
     // (xUnit IClassFixture 는 단일 생성자를 요구하므로 UVisionApiFactory.Create() 팩토리 메서드 사용.)
@@ -294,6 +314,16 @@ public class InspectTests : IClassFixture<UVisionApiFactory>
         var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
 
         Assert.True(body.GetProperty("requires_review").GetBoolean());
+    }
+
+    /// <summary>IsEnabled=true 이지만 분류 시 항상 throw — degrade 경로 검증용.</summary>
+    private sealed class ThrowingMlClassifier : IMlClassifier
+    {
+        public string Name => "throwing";
+        public bool IsEnabled => true;
+        public Task<MlClassification> ClassifyAsync(
+            ReadOnlyMemory<byte> image, string scenarioId, CancellationToken ct = default) =>
+            throw new InvalidOperationException("simulated mloop 401");
     }
 
     /// <summary>영속화가 항상 실패하는 stub — must-succeed 500 경로 검증용.</summary>

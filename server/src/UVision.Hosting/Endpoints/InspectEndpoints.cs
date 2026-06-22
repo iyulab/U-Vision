@@ -109,17 +109,20 @@ public static class InspectEndpoints
 
         // ③ 2중체크: VLM(주 판정) 과 전용 ML(교차검증) 을 병렬 호출한다(Task.WhenAll).
         // ML 은 원본 `data` 로 분류한다(MLoop 자체 전처리; VLM 다운스케일 사본 아님).
-        // ML 비활성(기본 none)이면 mlTask=null → VLM 단독 경로(현재 동작 무변경).
+        // ML 비활성(기본 none)이면 mlTask=null(MlOutcome 아님) → VLM 단독 경로(현재 동작 무변경).
         var logger = loggerFactory.CreateLogger(typeof(InspectEndpoints));
         var vlmTask = provider.InspectAsync(vlmImage, context, cancellationToken);
-        var mlTask = classifier.IsEnabled
+        // null = 비활성(none). MlOutcome 은 활성 경로에서만 생성 — 비활성은 outcome 자체가 null.
+        Task<MlOutcome>? classifyTask = classifier.IsEnabled
             ? ClassifySafelyAsync(classifier, data, scenario.ScenarioId, logger, cancellationToken)
-            : Task.FromResult<MlClassification?>(null);
-        await Task.WhenAll(vlmTask, mlTask);
+            : null;
+        await Task.WhenAll(
+            [vlmTask, .. (classifyTask is not null ? [classifyTask] : Array.Empty<Task>())]);
         var result = await vlmTask;
-        var ml = await mlTask;
+        var outcome = classifyTask is not null ? await classifyTask : null;
 
-        // ML 결과가 있으면 교차검증 산출(없으면 — 비활성/실패 — additive 필드 생략 = VLM 단독).
+        // 비활성(outcome null) 과 실패(outcome.Failed) 를 구분 — degrade 는 명시적 신호(로그)로 표면화됨.
+        var ml = outcome?.Result;  // 분류 성공 시에만 비교
         var dual = ml is null
             ? null
             : DualCheckEvaluator.Evaluate(result, ml, mlOptions.ReviewConfidenceThreshold, calibrator);
@@ -176,22 +179,23 @@ public static class InspectEndpoints
 
     /// <summary>
     /// ML 분류를 호출하되 실패를 삼킨다(degrade) — references 로드와 동일 규율: ML 오류가 판정을
-    /// 막지 않는다. 실패 시 경고 로그 + null 반환 → 호출 측은 VLM 단독으로 진행한다.
+    /// 막지 않는다. 실패 시 경고 로그 + <see cref="MlOutcome.Failed"/> 반환(비활성과 구분).
     /// </summary>
-    private static async Task<MlClassification?> ClassifySafelyAsync(
+    private static async Task<MlOutcome> ClassifySafelyAsync(
         IMlClassifier classifier, ReadOnlyMemory<byte> image, string scenarioId,
         ILogger logger, CancellationToken cancellationToken)
     {
         try
         {
-            return await classifier.ClassifyAsync(image, scenarioId, cancellationToken);
+            var c = await classifier.ClassifyAsync(image, scenarioId, cancellationToken);
+            return MlOutcome.Success(c);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex,
-                "ML 분류 실패 — 2중체크 없이 VLM 단독 진행 (provider={Provider}, scenario={ScenarioId})",
+                "ML 분류 실패 — 2중체크 없이 VLM 단독 진행(degrade) (provider={Provider}, scenario={ScenarioId})",
                 classifier.Name, scenarioId);
-            return null;
+            return MlOutcome.Failure(ex.Message);
         }
     }
 

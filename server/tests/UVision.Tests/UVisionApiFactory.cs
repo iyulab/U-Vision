@@ -37,6 +37,9 @@ public class UVisionApiFactory : WebApplicationFactory<Program>
     /// <summary>ML 분류기 고정 신뢰도(null = MockMlClassifier 결정론적 해시).</summary>
     protected double? MlConfidence { get; init; }
 
+    /// <summary>직접 주입할 ML 분류기(null = mlProvider 문자열로 결정).</summary>
+    protected IMlClassifier? MlClassifierOverride { get; init; }
+
     public string DataPath { get; } =
         Path.Combine(Path.GetTempPath(), "uvision-tests-" + Guid.NewGuid().ToString("N"));
 
@@ -45,12 +48,21 @@ public class UVisionApiFactory : WebApplicationFactory<Program>
 
     /// <summary>
     /// A3 배선 검증용 팩토리를 생성한다(xUnit IClassFixture 와 달리 명시적 파라미터 전달).
+    /// <paramref name="mlClassifier"/> 를 지정하면 DI 에 직접 주입해 mlProvider 문자열 해석을 우회한다
+    /// (ThrowingMlClassifier 등 테스트 전용 stub 삽입용).
     /// </summary>
     public static UVisionApiFactory Create(
         string? mlProvider = null,
         double? reviewThreshold = null,
-        double? mlConfidence = null) =>
-        new() { MlProvider = mlProvider, ReviewThreshold = reviewThreshold, MlConfidence = mlConfidence };
+        double? mlConfidence = null,
+        IMlClassifier? mlClassifier = null) =>
+        new()
+        {
+            MlProvider = mlProvider,
+            ReviewThreshold = reviewThreshold,
+            MlConfidence = mlConfidence,
+            MlClassifierOverride = mlClassifier,
+        };
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -66,8 +78,15 @@ public class UVisionApiFactory : WebApplicationFactory<Program>
                 $"{UVisionOptions.SectionName}:Ml:ReviewConfidenceThreshold",
                 ReviewThreshold.Value.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
 
+        // 직접 주입 분류기(override) 가 있으면 우선 적용(MlConfidence 보다 높은 우선순위).
+        if (MlClassifierOverride is not null)
+        {
+            var classifier = MlClassifierOverride;
+            builder.ConfigureTestServices(s =>
+                s.AddSingleton<IMlClassifier>(classifier));
+        }
         // 고정 신뢰도: DI 등록 이후 override(ConfigureTestServices 는 ConfigureServices 다음에 실행).
-        if (MlConfidence is not null)
+        else if (MlConfidence is not null)
         {
             var conf = MlConfidence.Value;
             builder.ConfigureTestServices(s =>
