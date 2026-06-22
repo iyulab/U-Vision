@@ -43,7 +43,7 @@ public class LabelStoreTests
     }
 
     [Fact]
-    public async Task WriteThenRead_RoundTrips()
+    public async Task AppendThenRead_RoundTrips()
     {
         var paths = NewPaths(out _);
         var store = new FileLabelStore(paths);

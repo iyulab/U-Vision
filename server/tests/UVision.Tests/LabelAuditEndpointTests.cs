@@ -26,9 +26,13 @@ public class LabelAuditEndpointTests
         resp.EnsureSuccessStatusCode();
         var raw = await resp.Content.ReadAsStringAsync();
 
-        // 블라인드: 응답 어디에도 라벨 값이 없어야 한다(image_id 만).
+        // 블라인드: 응답 어디에도 라벨 필드가 없어야 한다(image_id 문자열 배열만).
         Assert.DoesNotContain("\"label\"", raw);
-        Assert.DoesNotContain("NG", raw);
+        // 응답을 string[] 로 역직렬화해 각 원소가 image_id 임을 확인(OK/NG 라벨 토큰이 아님).
+        var ids = JsonSerializer.Deserialize<string[]>(raw);
+        Assert.NotNull(ids);
+        Assert.DoesNotContain("OK", ids!);
+        Assert.DoesNotContain("NG", ids!);
     }
 
     [Fact]

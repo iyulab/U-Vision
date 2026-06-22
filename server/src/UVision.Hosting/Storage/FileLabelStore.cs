@@ -33,6 +33,7 @@ public sealed class FileLabelStore : ILabelStore
             ? new LabelAudit { Status = LabelAuditStatus.Resolved, At = now }
             : existing?.Audit ?? new LabelAudit { Status = LabelAuditStatus.Unaudited };
 
+        // 향후 StoredLabel 에 carry-forward 필드가 추가되면 여기서 명시적으로 설정해야 한다(new 는 with 와 달리 보존 안 함).
         var updated = new StoredLabel
         {
             ImageId = imageId, Label = label, Timestamp = now, History = history, Audit = audit,
