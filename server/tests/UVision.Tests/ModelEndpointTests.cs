@@ -28,6 +28,22 @@ public sealed class ModelEndpointTests : IClassFixture<PinFactory>
     }
 
     [Fact]
+    public async Task Promote_RequiresPin()
+    {
+        var anon = _factory.CreateClient();
+        var resp = await anon.PostAsync($"{Base}/v1/promote", null);
+        Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task Rollback_RequiresPin()
+    {
+        var anon = _factory.CreateClient();
+        var resp = await anon.PostAsync($"{Base}/rollback", null);
+        Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
+    }
+
+    [Fact]
     public async Task Register_Promote_List_Flow()
     {
         // 격리: 전용 시나리오로 버전 채번 충돌 방지.
