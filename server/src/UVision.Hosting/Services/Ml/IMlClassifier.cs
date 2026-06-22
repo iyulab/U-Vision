@@ -16,6 +16,9 @@ public sealed record MlClassification
     /// <summary>클래스별 확률(있으면). 없으면 빈 맵.</summary>
     public IReadOnlyDictionary<string, double> Scores { get; init; } =
         new Dictionary<string, double>();
+
+    /// <summary>판정에 사용된 모델 버전(B1, mloop active 바인딩 해석 시). 미등록/mock/none 이면 null.</summary>
+    public string? ModelVersion { get; init; }
 }
 
 /// <summary>

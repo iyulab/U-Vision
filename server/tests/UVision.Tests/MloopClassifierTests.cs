@@ -3,8 +3,12 @@ using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging.Abstractions;
 using UVision.Api.Configuration;
+using UVision.Api.Models;
 using UVision.Api.Services.Ml;
+using UVision.Api.Services.Models;
+using UVision.Api.Storage;
 using Xunit;
 
 namespace UVision.Tests;
@@ -126,5 +130,90 @@ public class MloopClassifierTests
         await Build(handler).ClassifyAsync(Image, "demo");
         var after = Directory.GetFiles(Path.GetTempPath(), "uvision-ml-*").Length;
         Assert.Equal(before, after);
+    }
+
+    // B1: resolver 결선 계약 테스트 ------------------------------------
+
+    [Fact]
+    public async Task Classify_UsesResolvedModelNameAndStampsVersion()
+    {
+        // active 바인딩(v1 → "chromate-special")을 가진 레지스트리.
+        var dataPath = Path.Combine(Path.GetTempPath(), "uv-mloop-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var paths = new StoragePaths(new StorageOptions { DataPath = dataPath }, AppContext.BaseDirectory);
+            var registry = new FileModelRegistry(paths);
+            await registry.RegisterAsync("chromate", new ModelRegistration { ModelName = "chromate-special" });
+            await registry.PromoteAsync("chromate", "v1", "x");
+            var resolver = new ModelBindingResolver(registry, NullLogger<ModelBindingResolver>.Instance);
+
+            // /predict?name= 의 name 을 포착하는 fake handler.
+            string? capturedQuery = null;
+            var handler = new CapturingHandler(req =>
+            {
+                capturedQuery = req.RequestUri!.Query;
+                return """{"predictions":[{"predictedLabel":"ng","probabilities":{"ng":0.9,"ok":0.1}}]}""";
+            });
+            var http = new HttpClient(handler) { BaseAddress = new Uri("http://fake/") };
+            var classifier = new MloopClassifier(
+                http, new MlOptions { Provider = "mloop", Model = "default" }, resolver);
+
+            var result = await classifier.ClassifyAsync(new byte[] { 1, 2, 3 }, "chromate");
+
+            // 전역 "default" 가 아닌 active 바인딩 사용
+            Assert.Contains("name=chromate-special", capturedQuery);
+            Assert.Equal("v1", result.ModelVersion);
+        }
+        finally
+        {
+            if (Directory.Exists(dataPath)) Directory.Delete(dataPath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Classify_NoBinding_FallsBackToGlobalModel()
+    {
+        var dataPath = Path.Combine(Path.GetTempPath(), "uv-mloop-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var paths = new StoragePaths(new StorageOptions { DataPath = dataPath }, AppContext.BaseDirectory);
+            var resolver = new ModelBindingResolver(new FileModelRegistry(paths), NullLogger<ModelBindingResolver>.Instance);
+
+            string? capturedQuery = null;
+            var handler = new CapturingHandler(req =>
+            {
+                capturedQuery = req.RequestUri!.Query;
+                return """{"predictions":[{"predictedLabel":"ok","probabilities":{"ok":0.8,"ng":0.2}}]}""";
+            });
+            var http = new HttpClient(handler) { BaseAddress = new Uri("http://fake/") };
+            var classifier = new MloopClassifier(
+                http, new MlOptions { Provider = "mloop", Model = "default" }, resolver);
+
+            var result = await classifier.ClassifyAsync(new byte[] { 1 }, "chromate");
+
+            Assert.Contains("name=default", capturedQuery); // 미등록 → 전역 폴백
+            Assert.Null(result.ModelVersion);
+        }
+        finally
+        {
+            if (Directory.Exists(dataPath)) Directory.Delete(dataPath, recursive: true);
+        }
+    }
+
+    /// <summary>요청을 캡처하고 응답 본문을 동적으로 결정하는 테스트용 핸들러.</summary>
+    private sealed class CapturingHandler : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, string> _respond;
+        public CapturingHandler(Func<HttpRequestMessage, string> respond) => _respond = respond;
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var json = _respond(request);
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json"),
+            });
+        }
     }
 }

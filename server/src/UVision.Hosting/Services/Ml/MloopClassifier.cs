@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using UVision.Api.Configuration;
+using UVision.Api.Services.Models;
 
 namespace UVision.Api.Services.Ml;
 
@@ -25,14 +26,17 @@ public sealed class MloopClassifier : IMlClassifier
 {
     private readonly HttpClient _http;
     private readonly MlOptions _options;
+    private readonly ModelBindingResolver? _resolver;
 
     private static readonly JsonSerializerOptions JsonOpts =
         new() { PropertyNameCaseInsensitive = true };
 
-    public MloopClassifier(HttpClient http, MlOptions options)
+    public MloopClassifier(
+        HttpClient http, MlOptions options, ModelBindingResolver? resolver = null)
     {
         _http = http;
         _options = options;
+        _resolver = resolver;
     }
 
     public string Name => "mloop";
@@ -42,6 +46,10 @@ public sealed class MloopClassifier : IMlClassifier
     public async Task<MlClassification> ClassifyAsync(
         ReadOnlyMemory<byte> image, string scenarioId, CancellationToken cancellationToken = default)
     {
+        // B1: active 바인딩 해석 → 모델명. 미등록/해석 실패 시 전역 MlOptions.Model 폴백(현재 동작 보존).
+        var binding = _resolver is null ? null : await _resolver.ResolveAsync(scenarioId, cancellationToken);
+        var modelName = binding?.ModelName ?? _options.Model;
+
         // mloop 는 파일 경로를 받으므로 임시 파일로 쓴다(같은 호스트 가정). 항상 정리.
         var tempPath = Path.Combine(
             Path.GetTempPath(), $"uvision-ml-{Guid.NewGuid():N}.jpg");
@@ -52,7 +60,7 @@ public sealed class MloopClassifier : IMlClassifier
             var rows = new[] { new Dictionary<string, string> { [_options.ImageColumn] = tempPath } };
 
             using var request = new HttpRequestMessage(
-                HttpMethod.Post, $"predict?name={Uri.EscapeDataString(_options.Model)}")
+                HttpMethod.Post, $"predict?name={Uri.EscapeDataString(modelName)}")
             {
                 Content = JsonContent.Create(rows),
             };
@@ -78,6 +86,7 @@ public sealed class MloopClassifier : IMlClassifier
                 Label = row.PredictedLabel,
                 Confidence = ConfidenceOf(row),
                 Scores = row.Probabilities ?? new Dictionary<string, double>(),
+                ModelVersion = binding?.Version,
             };
         }
         finally

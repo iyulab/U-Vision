@@ -1,4 +1,5 @@
 using UVision.Api.Configuration;
+using UVision.Api.Services.Models;
 
 namespace UVision.Api.Services.Ml;
 
@@ -8,7 +9,7 @@ namespace UVision.Api.Services.Ml;
 /// </summary>
 public static class MlClassifierFactory
 {
-    public static IMlClassifier Create(MlOptions options)
+    public static IMlClassifier Create(MlOptions options, ModelBindingResolver? resolver = null)
     {
         switch (options.Provider.ToLowerInvariant())
         {
@@ -23,7 +24,7 @@ public static class MlClassifierFactory
                     throw new ArgumentException("mloop provider 는 Endpoint(mloop serve base URL) 설정이 필요합니다");
                 // 상대 경로(predict?name=) 해석을 위해 base URL 에 trailing slash 보장.
                 var http = new HttpClient { BaseAddress = new Uri(options.Endpoint.TrimEnd('/') + "/") };
-                return new MloopClassifier(http, options);
+                return new MloopClassifier(http, options, resolver);
 
             default:
                 throw new ArgumentException($"알 수 없는 ML provider: {options.Provider}");

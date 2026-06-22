@@ -23,8 +23,9 @@ public static class UVisionServiceExtensions
 
         // 전용 ML 분류기(신뢰성 플라이휠 ②~③) — 기본 none(VLM 단독, 현재 동작 무변경).
         services.AddSingleton(options.Ml);
-        services.AddSingleton<Services.Ml.IMlClassifier>(
-            _ => Services.Ml.MlClassifierFactory.Create(options.Ml));
+        services.AddSingleton<Services.Ml.IMlClassifier>(sp =>
+            Services.Ml.MlClassifierFactory.Create(
+                options.Ml, sp.GetService<Services.Models.ModelBindingResolver>()));
 
         // A3: confidence 표준화 — 콜드스타트 정적 변환(데이터 쌓이면 캘리브레이션 맵으로 교체).
         services.AddSingleton<Services.Confidence.IConfidenceCalibrator,
