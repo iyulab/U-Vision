@@ -157,6 +157,12 @@ function Cards({ summary }: { summary: MetricsSummary }) {
           sub={`${fraction(summary.fail_closed, summary.inspections + summary.fail_closed)} fail-closed`}
           warn={summary.fail_closed > 0}
         />
+        <Stat
+          label="라벨 일관성"
+          value={formatPercent(summary.label_consistency_rate)}
+          sub={`${summary.label_consistent}/${summary.audited} 감사 · 충돌 ${summary.label_conflicts_open}`}
+          warn={summary.label_conflicts_open > 0}
+        />
       </div>
 
       {/* NG recall 비교 — 플라이휠의 핵심 질문: ML 이 VLM 이 놓친 불량을 잡는가. */}
