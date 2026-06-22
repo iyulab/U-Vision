@@ -105,12 +105,31 @@ export interface ScenarioInput {
   ng_labels?: Record<string, string>
 }
 
+/** 라벨 이력 이벤트(C1 provenance) — 서버 `LabelEvent` 미러. */
+export interface LabelEvent {
+  label: string
+  /** 라벨러 = device UUID(cycle-35). 구 이벤트 시 ''. */
+  by: string
+  at: string
+  mode: 'label' | 'audit' | 'oracle'
+}
+
+/** 감사 상태(C1) — 서버 `LabelAudit` 미러. */
+export interface LabelAudit {
+  status: 'unaudited' | 'consistent' | 'conflicted' | 'resolved'
+  at?: string
+}
+
 /** 서버 `StoredLabel`(사이드카 `{image_id}.label.json`) 미러. */
 export interface StoredLabel {
   image_id: string
   /** 클래스 식별자(현재 'OK'|'NG'). string — 다중분류 대비 개방형. */
   label: string
   timestamp: string
+  /** append-only 이력(C1). 구 사이드카엔 부재(서버가 합성). */
+  history?: LabelEvent[]
+  /** 감사 상태(C1). 없으면 unaudited. */
+  audit?: LabelAudit
 }
 
 /**
@@ -143,4 +162,12 @@ export interface MetricsSummary {
   fail_closed: number
   /** fail-closed율 = fail_closed / (inspections + fail_closed). 총 시도 0 이면 null. */
   fail_closed_rate: number | null
+  /** 블라인드 감사된 라벨 수(C1). */
+  audited: number
+  /** 감사 일관 라벨 수. */
+  label_consistent: number
+  /** 미해소 충돌 라벨 수(검토 큐). */
+  label_conflicts_open: number
+  /** 라벨 일관성률 = label_consistent / audited. 감사 0 건이면 null. */
+  label_consistency_rate: number | null
 }

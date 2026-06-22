@@ -24,6 +24,10 @@ function makeSummary(overrides: Partial<MetricsSummary>): MetricsSummary {
     ml_ng_recall: null,
     fail_closed: 0,
     fail_closed_rate: null,
+    audited: 0,
+    label_consistent: 0,
+    label_conflicts_open: 0,
+    label_consistency_rate: null,
     ...overrides,
   }
 }
