@@ -24,6 +24,8 @@ export function VerdictBadge({
     )
   }
 
+  if (phase === 'unavailable') return null
+
   if (!result) return null
 
   const ng = result.verdict === 'NG'

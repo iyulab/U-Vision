@@ -7,6 +7,7 @@ import { useContinuousCapture } from '../hooks/useContinuousCapture'
 import { useInspection } from '../hooks/useInspection'
 import { useMotionDetection } from '../hooks/useMotionDetection'
 import { useWakeLock } from '../hooks/useWakeLock'
+import { unavailableHintText } from './unavailablePanel'
 import { InspectionHistory } from './InspectionHistory'
 import { RoiOverlay } from './RoiOverlay'
 import { VerdictBadge } from './VerdictBadge'
@@ -90,6 +91,19 @@ export function CameraView({ scenarioId, roi, motionConfig, minSharpness, captur
             className="h-20 w-20 rounded-full border-4 border-white bg-white/90 shadow-xl disabled:opacity-40"
             aria-label="촬영"
           />
+        </div>
+      )}
+
+      {inspection.phase === 'unavailable' && (
+        <div className="absolute inset-x-0 top-16 flex justify-center">
+          <div className="flex flex-col items-center rounded-xl bg-amber-500/90 px-6 py-4 text-center text-white">
+            <span className="text-lg font-bold">⚠️ 판정 불가 — 사람 확인 필요</span>
+            {unavailableHintText(inspection.unavailable?.mlHint) && (
+              <span className="mt-1 text-sm text-white/90">
+                {unavailableHintText(inspection.unavailable?.mlHint)}
+              </span>
+            )}
+          </div>
         </div>
       )}
 
