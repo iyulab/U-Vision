@@ -1,4 +1,4 @@
-import type { InspectResult, MetricsSummary, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult } from './types'
+import type { DetectionUnavailable, InspectResult, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult } from './types'
 import { resolveApiBase } from './runtimeConfig'
 
 const API_BASE = resolveApiBase()
@@ -11,6 +11,20 @@ export class ApiError extends Error {
   ) {
     super(message)
     this.name = 'ApiError'
+  }
+}
+
+/**
+ * 판정 불가(fail-closed, 503) — 주 검출원(VLM) 사용 불가(③.5 E2). transient 네트워크 오류(ApiError)와
+ * 구분해 운영 화면이 '판정 불가 — 사람 확인 필요'를 띄우게 한다. mlHint 는 advisory 참고 의견(verdict 아님).
+ */
+export class DetectionUnavailableError extends Error {
+  constructor(
+    readonly reason: string,
+    readonly mlHint?: MlResult,
+  ) {
+    super('판정 불가 — 사람 확인 필요')
+    this.name = 'DetectionUnavailableError'
   }
 }
 
@@ -34,6 +48,11 @@ export async function inspectImage(
   form.append('device_label', deviceLabel)
 
   const res = await fetch(`${API_BASE}/inspect`, { method: 'POST', body: form })
+  if (res.status === 503) {
+    const body = (await res.json().catch(() => null)) as DetectionUnavailable | null
+    if (body?.detection_unavailable)
+      throw new DetectionUnavailableError(body.reason, body.ml_hint)
+  }
   await ensureOk(res, '판정 요청')
   return (await res.json()) as InspectResult
 }

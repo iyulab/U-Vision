@@ -24,6 +24,17 @@ export interface InspectResult {
   requires_review?: boolean
 }
 
+/**
+ * 서버 `DetectionUnavailableResponse`(503) 미러 — 주 검출원(VLM) 사용 불가 시 본문(③.5 E2).
+ * 200 성공 응답과 별개 — fail-closed 운영 자세를 클라가 '판정 불가'로 표면화한다.
+ */
+export interface DetectionUnavailable {
+  detection_unavailable: true
+  reason: string
+  /** ML 참고 의견(VLM-down·ML-up 시). verdict 아님. */
+  ml_hint?: MlResult
+}
+
 /** 서버 `StoredResult`(영속 레코드, `{image_id}.json`) 미러 — 결과 조회용. */
 export interface StoredResult {
   scenario_id: string
