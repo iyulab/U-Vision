@@ -1,4 +1,5 @@
 using UVision.Api.Models;
+using UVision.Api.Services.Label;
 using UVision.Api.Services.Metrics;
 using Xunit;
 
@@ -203,5 +204,40 @@ public class MetricsAggregatorTests
         var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, []);
         Assert.Equal(1, s.Inspections);
         Assert.Equal(0, s.FailClosed);
+    }
+
+    // --- 라벨 일관성 집계 (C1) ---
+
+    private static StoredLabel Labeled(string id, string label, string? auditStatus) => new()
+    {
+        ImageId = id, Label = label, Timestamp = "t",
+        Audit = new LabelAudit { Status = auditStatus ?? LabelAuditStatus.Unaudited },
+    };
+
+    [Fact]
+    public void Consistency_CountsAuditedAndRate_FlagOnly()
+    {
+        var labels = new[]
+        {
+            Labeled("a", "NG", LabelAuditStatus.Consistent),
+            Labeled("b", "NG", LabelAuditStatus.Conflicted),
+            Labeled("c", "OK", LabelAuditStatus.Resolved),
+            Labeled("d", "OK", LabelAuditStatus.Unaudited), // 미감사 — audited 제외
+        };
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], labels);
+
+        Assert.Equal(3, s.Audited);              // consistent+conflicted+resolved
+        Assert.Equal(1, s.LabelConsistent);
+        Assert.Equal(1, s.LabelConflictsOpen);   // 미해소 충돌만
+        Assert.Equal(1.0 / 3.0, s.LabelConsistencyRate); // 1 / 3
+    }
+
+    [Fact]
+    public void ConsistencyRate_Null_WhenNothingAudited()
+    {
+        var labels = new[] { Labeled("a", "NG", LabelAuditStatus.Unaudited) };
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], labels);
+        Assert.Equal(0, s.Audited);
+        Assert.Null(s.LabelConsistencyRate); // 분모 0 → null(0% 위장 금지)
     }
 }

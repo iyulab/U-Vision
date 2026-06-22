@@ -1,4 +1,5 @@
 using UVision.Api.Models;
+using UVision.Api.Services.Label;
 
 namespace UVision.Api.Services.Metrics;
 
@@ -17,6 +18,19 @@ public static class MetricsAggregator
         string scenarioId, string date,
         IReadOnlyList<MetricsRow> rows, IReadOnlyList<StoredLabel> labels)
     {
+        // 라벨 일관성 집계(C1) — audit 상태별 카운팅. NG recall 루프와 독립.
+        int audited = 0, labelConsistent = 0, labelConflictsOpen = 0;
+        foreach (var l in labels)
+        {
+            switch (l.Audit?.Status ?? LabelAuditStatus.Unaudited)
+            {
+                case LabelAuditStatus.Consistent: audited++; labelConsistent++; break;
+                case LabelAuditStatus.Conflicted: audited++; labelConflictsOpen++; break;
+                case LabelAuditStatus.Resolved: audited++; break;
+                // unaudited → 집계 제외
+            }
+        }
+
         // image_id → 사람 라벨(정답). 마지막 값 우선(라벨은 last-write-wins 사이드카).
         var labelOf = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var l in labels)
@@ -74,6 +88,9 @@ public static class MetricsAggregator
             MlDegraded = degraded,
             Agreements = agreements,
             ReviewsRequired = reviews,
+            Audited = audited,
+            LabelConsistent = labelConsistent,
+            LabelConflictsOpen = labelConflictsOpen,
             Labeled = labeled,
             LabeledNg = labeledNg,
             VlmNgHits = vlmNgHits,
@@ -86,6 +103,7 @@ public static class MetricsAggregator
             DegradeRate = Rate(degraded, inspections),
             VlmNgRecall = Rate(vlmNgHits, labeledNg),
             MlNgRecall = Rate(mlNgHits, mlNgScored),
+            LabelConsistencyRate = Rate(labelConsistent, audited),
         };
     }
 

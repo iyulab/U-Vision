@@ -89,6 +89,15 @@ public sealed record MetricsSummary
     /// <summary>검토 필요(불일치/저신뢰) 건(비-degrade 중).</summary>
     [JsonPropertyName("reviews_required")] public required int ReviewsRequired { get; init; }
 
+    /// <summary>블라인드 감사된 라벨 수(consistent+conflicted+resolved) — 일관성 분모.</summary>
+    [JsonPropertyName("audited")] public required int Audited { get; init; }
+
+    /// <summary>감사에서 일관(consistent)된 라벨 수.</summary>
+    [JsonPropertyName("label_consistent")] public required int LabelConsistent { get; init; }
+
+    /// <summary>미해소 충돌(conflicted) 라벨 수 — 검토 액션 큐.</summary>
+    [JsonPropertyName("label_conflicts_open")] public required int LabelConflictsOpen { get; init; }
+
     /// <summary>사람 라벨이 붙은 건(정답 조인 성공).</summary>
     [JsonPropertyName("labeled")] public required int Labeled { get; init; }
 
@@ -123,4 +132,7 @@ public sealed record MetricsSummary
 
     /// <summary>fail-closed율 = fail_closed / (inspections + fail_closed). 총 시도 0 이면 null.</summary>
     [JsonPropertyName("fail_closed_rate")] public double? FailClosedRate { get; init; }
+
+    /// <summary>라벨 일관성률 = label_consistent / audited. 감사 0 건이면 null(소표본 정직). (C1)</summary>
+    [JsonPropertyName("label_consistency_rate")] public double? LabelConsistencyRate { get; init; }
 }
