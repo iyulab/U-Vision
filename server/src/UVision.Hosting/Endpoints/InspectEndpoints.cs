@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using UVision.Api.Configuration;
 using UVision.Api.Imaging;
 using UVision.Api.Models;
+using UVision.Api.Services.Confidence;
 using UVision.Api.Services.DualCheck;
 using UVision.Api.Services.Ml;
 using UVision.Api.Services.Vlm;
@@ -38,6 +39,7 @@ public static class InspectEndpoints
         [FromForm(Name = "device_label")] string? deviceLabel,
         IVlmProvider provider,
         IMlClassifier classifier,
+        IConfidenceCalibrator calibrator,
         IScenarioStore scenarioStore,
         IInspectionStore inspectionStore,
         IReferenceStore referenceStore,
@@ -120,7 +122,7 @@ public static class InspectEndpoints
         // ML 결과가 있으면 교차검증 산출(없으면 — 비활성/실패 — additive 필드 생략 = VLM 단독).
         var dual = ml is null
             ? null
-            : DualCheckEvaluator.Evaluate(result, ml, mlOptions.ReviewConfidenceThreshold);
+            : DualCheckEvaluator.Evaluate(result, ml, mlOptions.ReviewConfidenceThreshold, calibrator);
 
         // image_id/timestamp 는 한 번 생성하여 영속화 stem 과 응답이 동일하도록 보장한다.
         var imageId = $"img_{Guid.NewGuid():N}"; // "img_" + 32 hex — 멀티태블릿 동일 dir 충돌 방지(절단 제거)

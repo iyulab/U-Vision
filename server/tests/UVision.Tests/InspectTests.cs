@@ -279,6 +279,23 @@ public class InspectTests : IClassFixture<UVisionApiFactory>
         Assert.Equal("", match.GetProperty("device_id").GetString());
     }
 
+    // A3: ML mock(저신뢰) + 임계>0 + 일치라도 VLM 은 게이팅 제외, ML 저신뢰가 검토 유발.
+    // calibrator 가 라이브 inspect 경로에 실제 배선됐는지 검증(배선 회귀).
+    // (xUnit IClassFixture 는 단일 생성자를 요구하므로 UVisionApiFactory.Create() 팩토리 메서드 사용.)
+    [Fact]
+    public async Task Inspect_MlLowConfidence_WithThreshold_RequiresReview()
+    {
+        await using var factory = UVisionApiFactory.Create(
+            mlProvider: "mock", reviewThreshold: 0.80, mlConfidence: 0.50);
+        var client = factory.CreateClient();
+
+        var resp = await client.PostAsync("/api/u-vision/inspect", Form(Jpeg, "image/jpeg", "demo"));
+        resp.EnsureSuccessStatusCode();
+        var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.True(body.GetProperty("requires_review").GetBoolean());
+    }
+
     /// <summary>영속화가 항상 실패하는 stub — must-succeed 500 경로 검증용.</summary>
     private sealed class ThrowingInspectionStore : IInspectionStore
     {

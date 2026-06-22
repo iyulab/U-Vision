@@ -26,6 +26,10 @@ public static class UVisionServiceExtensions
         services.AddSingleton<Services.Ml.IMlClassifier>(
             _ => Services.Ml.MlClassifierFactory.Create(options.Ml));
 
+        // A3: confidence 표준화 — 콜드스타트 정적 변환(데이터 쌓이면 캘리브레이션 맵으로 교체).
+        services.AddSingleton<Services.Confidence.IConfidenceCalibrator,
+            Services.Confidence.StaticConfidenceCalibrator>();
+
         // 파일시스템 저장소.
         services.AddSingleton(new StoragePaths(options.Storage, contentRoot));
         services.AddSingleton<IScenarioStore, FileScenarioStore>();

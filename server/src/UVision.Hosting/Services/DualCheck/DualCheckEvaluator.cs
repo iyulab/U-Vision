@@ -1,4 +1,5 @@
 using UVision.Api.Models;
+using UVision.Api.Services.Confidence;
 using UVision.Api.Services.Ml;
 
 namespace UVision.Api.Services.DualCheck;
@@ -33,20 +34,22 @@ public static class DualCheckEvaluator
     /// 신뢰도 검토 임계값(서버 레버). 0(기본)이면 신뢰도 게이팅 비활성 — 불일치만 검토 유발.
     /// </param>
     public static DualCheckResult Evaluate(
-        InspectionResult vlm, MlClassification ml, double reviewThreshold)
+        InspectionResult vlm, MlClassification ml, double reviewThreshold,
+        IConfidenceCalibrator calibrator)
     {
-        // 일치 = 대소문자 무시 문자열 비교(client 의 agreementOf 와 동일 의미, class-agnostic).
-        // VLM verdict 는 "OK"/"NG", ML 라벨은 "ok"/"ng" 등 — 같은 클래스면 일치.
+        // 일치 = 대소문자 무시 문자열 비교(class-agnostic).
         var agreement = string.Equals(
             ml.Label, vlm.Verdict.ToString(), StringComparison.OrdinalIgnoreCase);
 
-        var lowConfidence = reviewThreshold > 0
-            && (vlm.Confidence < reviewThreshold || ml.Confidence < reviewThreshold);
+        // A3: 비교 불가능한 척도를 per-source 표준화 후 게이팅(콜드스타트엔 VLM 제외=1.0).
+        var vlmStd = calibrator.Standardize(ConfidenceSource.Vlm, vlm.Confidence);
+        var mlStd = calibrator.Standardize(ConfidenceSource.Ml, ml.Confidence);
+        var lowConfidence = reviewThreshold > 0 && (vlmStd < reviewThreshold || mlStd < reviewThreshold);
 
         return new DualCheckResult
         {
             MlLabel = ml.Label,
-            MlConfidence = ml.Confidence,
+            MlConfidence = ml.Confidence,  // raw 유지(표준화는 내부 게이팅에만)
             Agreement = agreement,
             RequiresReview = !agreement || lowConfidence,
         };
