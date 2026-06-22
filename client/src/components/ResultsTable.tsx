@@ -2,6 +2,7 @@ import { resultImageUrl } from '../lib/api'
 import { LABEL_SET, agreementOf } from '../lib/labels'
 import { reviewStateOf, type ReviewState } from '../lib/review'
 import type { MlResult, StoredLabel, StoredResult, Verdict } from '../lib/types'
+import { conflictBadgeLabel } from './conflictBadge'
 
 /**
  * 결과 표 — 썸네일 + VLM 판정 + ML 교차검증(③) + 검토 상태(④-A) + 사람 라벨(인라인 OK/NOK).
@@ -97,6 +98,11 @@ export function ResultsTable({
                       </button>
                     ))}
                   </div>
+                  {conflictBadgeLabel(labels.get(r.image_id)) && (
+                    <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-bold text-amber-300">
+                      {conflictBadgeLabel(labels.get(r.image_id))}
+                    </span>
+                  )}
                 </td>
                 <td className="px-2 py-2">
                   <AgreementMark verdict={r.verdict} label={current} />

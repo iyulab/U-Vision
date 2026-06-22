@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { deleteLabel, listLabels, listResultDates, listResults, putLabel, resultImageUrl } from '../lib/api'
+import { getDeviceId } from '../lib/deviceIdentity'
 import { labelMapOf } from '../lib/labels'
 import { pendingReviewCount, reviewStateOf } from '../lib/review'
 import { ResultsTable } from './ResultsTable'
@@ -102,7 +103,7 @@ export function ResultsBrowser({
     })
     try {
       if (label === null) await deleteLabel(scenarioId, date, imageId)
-      else await putLabel(scenarioId, date, imageId, label)
+      else await putLabel(scenarioId, date, imageId, label, getDeviceId())
     } catch (e) {
       // 실패 시 서버 상태로 재동기화 — 단, 그 사이 뷰가 바뀌었으면 적용하지 않는다
       // (옛 뷰의 라벨이 현재 뷰를 덮어쓰는 레이스 방지).
