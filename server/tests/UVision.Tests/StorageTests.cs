@@ -238,6 +238,17 @@ public class StorageTests : IDisposable
         Assert.Throws<ArgumentException>(() => paths.ModelVersionDir("chromate", "../escape"));
     }
 
+    [Fact]
+    public void ModelsDir_RejectsTraversalScenarioId()
+    {
+        var paths = new StoragePaths(
+            new StorageOptions { DataPath = Path.Combine(Path.GetTempPath(), "uv-" + Guid.NewGuid().ToString("N")) },
+            AppContext.BaseDirectory);
+
+        Assert.Throws<ArgumentException>(() => paths.ModelsDir("../escape"));
+        Assert.Throws<ArgumentException>(() => paths.ModelPointerFile("../escape"));
+    }
+
     private static StoredResult Record(string imageId, string timestamp) => new()
     {
         ScenarioId = "demo",
