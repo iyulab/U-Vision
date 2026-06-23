@@ -135,4 +135,12 @@ public sealed record MetricsSummary
 
     /// <summary>라벨 일관성률 = label_consistent / audited. 감사 0 건이면 null(소표본 정직). (C1)</summary>
     [JsonPropertyName("label_consistency_rate")] public double? LabelConsistencyRate { get; init; }
+
+    /// <summary>
+    /// 격상 자격 신호(A1) — inspections≥MinWindow AND ml_ng_recall≥vlm_ng_recall AND ≥RecallFloor
+    /// AND agreement_rate≥AgreementFloor. 데이터 불충분(필수값 null·표본 미달)이면 null. 확정은 사람 PIN.
+    /// </summary>
+    [JsonPropertyName("promotion_eligible")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? PromotionEligible { get; init; }
 }

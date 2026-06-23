@@ -45,6 +45,11 @@ public static class UVisionServiceExtensions
         // 권한 이양 사다리(신뢰성 플라이휠 A1) — per-scenario 단계 상태.
         services.AddSingleton<IAuthorityStore, FileAuthorityStore>();
 
+        // 권한 사다리 레버(A1) — 격상 신호·자동격하 임계.
+        var authorityOptions = configuration.GetSection("UVision:Authority").Get<AuthorityOptions>()
+            ?? new AuthorityOptions();
+        services.AddSingleton(authorityOptions);
+
         // 관측성 메트릭(신뢰성 플라이휠 B3) — inspect 예측 신호의 append-only 시계열.
         services.AddSingleton<IMetricsStore, FileMetricsStore>();
 

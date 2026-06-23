@@ -1,3 +1,4 @@
+using UVision.Api.Configuration;
 using UVision.Api.Models;
 using UVision.Api.Services.Label;
 using UVision.Api.Services.Metrics;
@@ -35,7 +36,7 @@ public class MetricsAggregatorTests
     [Fact]
     public void Empty_YieldsZeroCounts_NullRates()
     {
-        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], []);
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], [], new AuthorityOptions());
 
         Assert.Equal(0, s.Inspections);
         Assert.Null(s.AgreementRate);
@@ -55,7 +56,7 @@ public class MetricsAggregatorTests
             Row("c", Verdict.OK, null, agreement: false, requiresReview: false, degraded: true),
         };
 
-        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, []);
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, [], new AuthorityOptions());
 
         Assert.Equal(3, s.Inspections);
         Assert.Equal(1, s.MlDegraded);
@@ -84,7 +85,7 @@ public class MetricsAggregatorTests
             Label("a", "NG"), Label("b", "NG"), Label("c", "NG"), Label("d", "OK"),
         };
 
-        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, labels);
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, labels, new AuthorityOptions());
 
         Assert.Equal(4, s.Labeled);
         Assert.Equal(3, s.LabeledNg);
@@ -106,7 +107,7 @@ public class MetricsAggregatorTests
         };
         var labels = new[] { Label("a", "NG"), Label("b", "NG") };
 
-        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, labels);
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, labels, new AuthorityOptions());
 
         Assert.Equal(2, s.LabeledNg);
         Assert.Equal(2, s.VlmNgHits);   // VLM 은 둘 다 NG
@@ -122,7 +123,7 @@ public class MetricsAggregatorTests
         var rows = new[] { Row("a", Verdict.NG, "ng", true, false) };
         var labels = new[] { Label("a", "OK") }; // 정답이 OK 뿐 → NG recall 분모 0.
 
-        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, labels);
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, labels, new AuthorityOptions());
 
         Assert.Equal(1, s.Labeled);
         Assert.Equal(0, s.LabeledNg);
@@ -137,7 +138,7 @@ public class MetricsAggregatorTests
         var rows = new[] { Row("a", Verdict.NG, "NG", true, false) };
         var labels = new[] { Label("a", "ng") };
 
-        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, labels);
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, labels, new AuthorityOptions());
 
         Assert.Equal(1, s.LabeledNg);
         Assert.Equal(1.0, s.VlmNgRecall);
@@ -154,7 +155,7 @@ public class MetricsAggregatorTests
         };
         var labels = new[] { Label("a", "NG") }; // b 는 미라벨.
 
-        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, labels);
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, labels, new AuthorityOptions());
 
         Assert.Equal(2, s.Inspections);
         Assert.Equal(1, s.Labeled);
@@ -180,7 +181,7 @@ public class MetricsAggregatorTests
     public void FailClosed_CountedSeparately_InspectionsExcludeThem()
     {
         var rows = new[] { OkRow("a"), OkRow("b"), FailClosedRow("c") };
-        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, []);
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, [], new AuthorityOptions());
 
         Assert.Equal(2, s.Inspections);      // 비-fail-closed 만
         Assert.Equal(1, s.FailClosed);
@@ -191,7 +192,7 @@ public class MetricsAggregatorTests
     [Fact]
     public void FailClosedRate_Null_WhenNoAttempts()
     {
-        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], []);
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], [], new AuthorityOptions());
         Assert.Equal(0, s.FailClosed);
         Assert.Null(s.FailClosedRate);
     }
@@ -201,7 +202,7 @@ public class MetricsAggregatorTests
     {
         // posture 없는 구 행(OkRow 는 Posture 미설정 → null) 은 inspections 에 포함.
         var rows = new[] { OkRow("a") };
-        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, []);
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, [], new AuthorityOptions());
         Assert.Equal(1, s.Inspections);
         Assert.Equal(0, s.FailClosed);
     }
@@ -224,7 +225,7 @@ public class MetricsAggregatorTests
             Labeled("c", "OK", LabelAuditStatus.Resolved),
             Labeled("d", "OK", LabelAuditStatus.Unaudited), // 미감사 — audited 제외
         };
-        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], labels);
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], labels, new AuthorityOptions());
 
         Assert.Equal(3, s.Audited);              // consistent+conflicted+resolved
         Assert.Equal(1, s.LabelConsistent);
@@ -236,8 +237,40 @@ public class MetricsAggregatorTests
     public void ConsistencyRate_Null_WhenNothingAudited()
     {
         var labels = new[] { Labeled("a", "NG", LabelAuditStatus.Unaudited) };
-        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], labels);
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], labels, new AuthorityOptions());
         Assert.Equal(0, s.Audited);
         Assert.Null(s.LabelConsistencyRate); // 분모 0 → null(0% 위장 금지)
+    }
+
+    // --- 격상 자격 신호(A1) ---
+
+    [Fact]
+    public void PromotionEligible_TrueWhenAllConditionsMet()
+    {
+        var rows = new List<MetricsRow>();
+        var labels = new List<StoredLabel>();
+        for (int i = 0; i < 60; i++)
+        {
+            var id = $"img{i}";
+            // 모두 NG 라벨, VLM·ML 둘 다 NG 적중, 일치 → ml_ng_recall=1, vlm=1, agreement=1
+            rows.Add(new MetricsRow { ImageId = id, Timestamp = "t", Verdict = Verdict.NG,
+                MlLabel = "NG", MlConfidence = 0.9, Agreement = true, RequiresReview = false, MlDegraded = false });
+            labels.Add(new StoredLabel { ImageId = id, Label = "NG", Timestamp = "t" });
+        }
+        var s = MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions());
+        Assert.True(s.PromotionEligible);
+    }
+
+    [Fact]
+    public void PromotionEligible_NullWhenWindowTooSmall()
+    {
+        var rows = new List<MetricsRow>
+        {
+            new() { ImageId = "a", Timestamp = "t", Verdict = Verdict.NG, MlLabel = "NG",
+                MlConfidence = 0.9, Agreement = true, RequiresReview = false, MlDegraded = false },
+        };
+        var labels = new List<StoredLabel> { new() { ImageId = "a", Label = "NG", Timestamp = "t" } };
+        var s = MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions());
+        Assert.Null(s.PromotionEligible); // inspections(1) < MinWindow(50)
     }
 }

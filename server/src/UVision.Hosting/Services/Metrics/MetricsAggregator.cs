@@ -1,3 +1,4 @@
+using UVision.Api.Configuration;
 using UVision.Api.Models;
 using UVision.Api.Services.Label;
 
@@ -14,9 +15,11 @@ public static class MetricsAggregator
 
     /// <param name="rows">해당 시나리오·날짜의 메트릭 row(예측 신호).</param>
     /// <param name="labels">같은 날짜 버킷의 사람 라벨(정답) — image_id 로 조인.</param>
+    /// <param name="options">권한 이양 레버(A1) — 격상 자격 임계.</param>
     public static MetricsSummary Summarize(
         string scenarioId, string date,
-        IReadOnlyList<MetricsRow> rows, IReadOnlyList<StoredLabel> labels)
+        IReadOnlyList<MetricsRow> rows, IReadOnlyList<StoredLabel> labels,
+        AuthorityOptions options)
     {
         // 라벨 일관성 집계(C1) — audit 상태별 카운팅. NG recall 루프와 독립.
         int audited = 0, labelConsistent = 0, labelConflictsOpen = 0;
@@ -80,6 +83,19 @@ public static class MetricsAggregator
         }
 
         int nonDegraded = inspections - degraded;
+        var vlmRecall = Rate(vlmNgHits, labeledNg);
+        var mlRecall = Rate(mlNgHits, mlNgScored);
+        var agreementRate = Rate(agreements, nonDegraded);
+
+        // 격상 자격 신호(A1): 표본 충분 + 조건 전부 충족 → true; 표본 충분·계산 가능·조건 미달 → false; 데이터 불충분 → null.
+        bool? eligible = (inspections >= options.MinWindow
+            && vlmRecall is { } vr && mlRecall is { } mr && agreementRate is { } ar
+            && mr >= vr && mr >= options.RecallFloor && ar >= options.AgreementFloor)
+            ? true
+            : (inspections >= options.MinWindow && vlmRecall is not null && mlRecall is not null && agreementRate is not null
+                ? false      // 표본 충분·계산 가능하나 조건 미달 → 명시 false
+                : null);     // 데이터 불충분 → null(위장 금지)
+
         return new MetricsSummary
         {
             ScenarioId = scenarioId,
@@ -98,12 +114,13 @@ public static class MetricsAggregator
             MlNgHits = mlNgHits,
             FailClosed = failClosed,
             FailClosedRate = Rate(failClosed, inspections + failClosed),
-            AgreementRate = Rate(agreements, nonDegraded),
+            AgreementRate = agreementRate,
             ReviewRate = Rate(reviews, nonDegraded),
             DegradeRate = Rate(degraded, inspections),
-            VlmNgRecall = Rate(vlmNgHits, labeledNg),
-            MlNgRecall = Rate(mlNgHits, mlNgScored),
+            VlmNgRecall = vlmRecall,
+            MlNgRecall = mlRecall,
             LabelConsistencyRate = Rate(labelConsistent, audited),
+            PromotionEligible = eligible,
         };
     }
 

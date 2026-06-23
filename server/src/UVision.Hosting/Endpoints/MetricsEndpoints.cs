@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
+using UVision.Api.Configuration;
 using UVision.Api.Services.Metrics;
 using UVision.Api.Storage;
 
@@ -24,6 +25,7 @@ public static class MetricsEndpoints
         [FromQuery(Name = "scenario_id")] string scenarioId,
         IMetricsStore metricsStore,
         ILabelStore labelStore,
+        AuthorityOptions authorityOptions,
         CancellationToken cancellationToken,
         [FromQuery(Name = "date")] string? date = null)
     {
@@ -35,7 +37,7 @@ public static class MetricsEndpoints
             var rows = await metricsStore.ReadAsync(scenarioId, date, cancellationToken);
             var labels = await labelStore.ListAsync(scenarioId, date, cancellationToken);
             // 메트릭 없음(ML 비활성·미검사)도 200 빈 집계 — "데이터 없음"을 404 가 아니라 0 으로 정직히.
-            return Results.Ok(MetricsAggregator.Summarize(scenarioId, date, rows, labels));
+            return Results.Ok(MetricsAggregator.Summarize(scenarioId, date, rows, labels, authorityOptions));
         }
         catch (ArgumentException) // 형식 위반 scenario_id/date → 400
         {
