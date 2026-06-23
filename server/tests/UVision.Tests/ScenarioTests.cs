@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using UVision.Api.Auth;
+using UVision.Api.Models;
 using Xunit;
 
 namespace UVision.Tests;
@@ -182,5 +183,14 @@ public class ScenarioTests : IClassFixture<PinFactory>
         Assert.NotNull(scenario);
         Assert.Equal(0, scenario!.MaxImageDimension);   // 축소 없음
         Assert.Equal(4, scenario.ReferenceCap);         // 종전 동작
+    }
+
+    [Fact]
+    public void AllowCloudEgress_DefaultsFalse_AndRoundtrips()
+    {
+        var input = new ScenarioInput { Name = "n", AllowCloudEgress = true };
+        var s = input.ToScenario("sc");
+        Assert.True(s.AllowCloudEgress);
+        Assert.False(new ScenarioInput { Name = "n" }.ToScenario("sc2").AllowCloudEgress);
     }
 }

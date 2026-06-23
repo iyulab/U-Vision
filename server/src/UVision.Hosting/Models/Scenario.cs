@@ -58,6 +58,12 @@ public sealed record Scenario
 
     /// <summary>NG 기준 이미지 레이블: ref_id → 불량 유형명.</summary>
     [JsonPropertyName("ng_labels")] public Dictionary<string, string> NgLabels { get; init; } = new();
+
+    /// <summary>
+    /// cloud 오라클(④-B·egress) 허용 여부 — per-scenario opt-in(기본 false=deny). 온프레미스 주권 가드.
+    /// 로컬 오라클(gpustack)은 egress 아니므로 이 값과 무관. cloud provider 결선 전까지는 가드만 선재.
+    /// </summary>
+    [JsonPropertyName("allow_cloud_egress")] public bool AllowCloudEgress { get; init; }
 }
 
 /// <summary>
@@ -84,6 +90,12 @@ public sealed record ScenarioInput
 
     [JsonPropertyName("ng_labels")] public Dictionary<string, string> NgLabels { get; init; } = new();
 
+    /// <summary>
+    /// cloud 오라클(④-B·egress) 허용 여부 — per-scenario opt-in(기본 false=deny). 온프레미스 주권 가드.
+    /// 로컬 오라클(gpustack)은 egress 아니므로 이 값과 무관. cloud provider 결선 전까지는 가드만 선재.
+    /// </summary>
+    [JsonPropertyName("allow_cloud_egress")] public bool AllowCloudEgress { get; init; }
+
     /// <summary>입력 + 확정 id → 영속 시나리오.</summary>
     public Scenario ToScenario(string scenarioId) => new()
     {
@@ -97,5 +109,6 @@ public sealed record ScenarioInput
         MaxImageDimension = MaxImageDimension,
         ReferenceCap = ReferenceCap,
         NgLabels = NgLabels,
+        AllowCloudEgress = AllowCloudEgress,
     };
 }
