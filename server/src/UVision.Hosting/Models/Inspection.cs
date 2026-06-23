@@ -100,6 +100,11 @@ public sealed record InspectResponse
     [JsonPropertyName("requires_review")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? RequiresReview { get; init; }
+
+    /// <summary>운영 자세(A1) — 차단형 확인 게이트일 때만 "review_block". 그 외 생략(advisory byte-identical).</summary>
+    [JsonPropertyName("posture")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Posture { get; init; }
 }
 
 /// <summary>
@@ -146,6 +151,11 @@ public sealed record StoredResult
     [JsonPropertyName("requires_review")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? RequiresReview { get; init; }
+
+    /// <summary>운영 자세(A1) — 차단형 확인 게이트일 때만 "review_block". 그 외 생략(advisory byte-identical).</summary>
+    [JsonPropertyName("posture")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Posture { get; init; }
 }
 
 /// <summary>

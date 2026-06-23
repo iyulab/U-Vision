@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.Mvc;
 using UVision.Api.Configuration;
 using UVision.Api.Imaging;
 using UVision.Api.Models;
+using UVision.Api.Services.Authority;
 using UVision.Api.Services.Confidence;
 using UVision.Api.Services.DualCheck;
+using UVision.Api.Services.Metrics;
 using UVision.Api.Services.Ml;
 using UVision.Api.Services.Posture;
 using UVision.Api.Services.Vlm;
@@ -45,6 +47,7 @@ public static class InspectEndpoints
         IInspectionStore inspectionStore,
         IReferenceStore referenceStore,
         IMetricsStore metricsStore,
+        IAuthorityStore authorityStore,
         VlmOptions options,
         MlOptions mlOptions,
         ILoggerFactory loggerFactory,
@@ -113,7 +116,7 @@ public static class InspectEndpoints
         // ML 은 원본 `data` 로 분류한다(MLoop 자체 전처리; VLM 다운스케일 사본 아님).
         // ML 비활성(기본 none)이면 mlTask=null(MlOutcome 아님) → VLM 단독 경로(현재 동작 무변경).
         // ③.5 E2: VLM 은 InspectSafelyAsync 로 래핑 — 예외가 unhandled 500 으로 새지 않고
-        // null(fail-closed 신호)로 흡수된다. `result is null` ↔ FailClosed 동치(컴파일러 흐름분석).
+        // null(fail-closed 신호)로 흡수된다.
         var logger = loggerFactory.CreateLogger(typeof(InspectEndpoints));
         var vlmTask = InspectSafelyAsync(provider, vlmImage, context, logger, cancellationToken);
         // null = 비활성(none). MlOutcome 은 활성 경로에서만 생성 — 비활성은 outcome 자체가 null.
@@ -130,15 +133,24 @@ public static class InspectEndpoints
             ? DualCheckEvaluator.Evaluate(result, ml, mlOptions.ReviewConfidenceThreshold, calibrator)
             : null;
 
-        var decision = DegradeLadder.Evaluate(vlmSucceeded: result is not null, dual);
+        // A1: per-scenario 권한 단계 해석(degrade-safe — 읽기 실패 시 Advisory=현재 동작).
+        AuthorityState? authorityState = null;
+        try { authorityState = await authorityStore.ReadAsync(scenario.ScenarioId, cancellationToken); }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "권한 단계 읽기 실패 — Advisory 폴백 (scenario={ScenarioId})", scenario.ScenarioId);
+        }
+        var stage = AuthorityResolver.Resolve(authorityState);
+
+        var decision = AuthorityLadder.Evaluate(
+            stage, vlmSucceeded: result is not null, mlSucceeded: ml is not null, dual);
 
         // fail-closed: 자동 판정 없음 → StoredResult 미저장, 503 반환(+ML 활성 시 메트릭).
-        // `result is null` 로 분기 — FailClosed ⟺ result null 동치이며, 이렇게 해야 컴파일러
-        // 흐름분석이 이후 코드에서 result 를 non-null 로 좁혀 기존 `result.Verdict` 접근에 경고가 없다.
-        if (result is null)
+        // posture == FailClosed 로 분기: ml-primary 에서 ML-down 도 포함하는 일반 게이트.
+        if (decision.Posture == InspectionPosture.FailClosed)
         {
             logger.LogWarning(
-                "판정 불가(fail-closed) — VLM 검출원 사용 불가, 사람 확인 필요 (scenario={ScenarioId}, reason={Reason})",
+                "판정 불가(fail-closed) (scenario={ScenarioId}, reason={Reason})",
                 scenario.ScenarioId, decision.Reason);
 
             if (classifier.IsEnabled)
@@ -148,33 +160,45 @@ public static class InspectEndpoints
             return Results.Json(new DetectionUnavailableResponse
             {
                 Reason = decision.Reason!,
-                MlHint = ml is null ? null : new MlResult { Label = ml.Label, Confidence = ml.Confidence },
+                MlHint = decision.VerdictSource == VerdictSource.Ml
+                    ? (result is null ? null : new MlResult { Label = result.Verdict.ToString(), Confidence = result.Confidence })
+                    : (ml is null ? null : new MlResult { Label = ml.Label, Confidence = ml.Confidence }),
             }, statusCode: StatusCodes.Status503ServiceUnavailable);
         }
 
-        // image_id/timestamp 는 한 번 생성하여 영속화 stem 과 응답이 동일하도록 보장한다.
-        var imageId = $"img_{Guid.NewGuid():N}"; // "img_" + 32 hex — 멀티태블릿 동일 dir 충돌 방지(절단 제거)
+        // verdict 출처 — ml-primary 만 ML, 그 외 VLM. fail-closed 통과 후이므로 출처 측은 non-null.
+        var useMl = decision.VerdictSource == VerdictSource.Ml;
+        var verdict = useMl ? ParseVerdict(ml!.Label) : result!.Verdict;
+        var findings = useMl ? "" : result!.Findings;
+        var confidence = useMl ? ml!.Confidence : result!.Confidence;
+
+        var imageId = $"img_{Guid.NewGuid():N}";
         var timestamp = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
         var ext = ImageUpload.ExtensionFor(image.ContentType);
 
-        var mlResult = dual is null
-            ? null
-            : new MlResult { Label = dual.MlLabel, Confidence = dual.MlConfidence, ModelVersion = ml?.ModelVersion };
+        // SurfaceMl=false(shadow)면 ml/agreement/review 생략 → 응답 byte-identical.
+        var mlResult = decision.SurfaceMl && dual is not null
+            ? new MlResult { Label = dual.MlLabel, Confidence = dual.MlConfidence, ModelVersion = ml?.ModelVersion }
+            : null;
+        var agreement = decision.SurfaceMl ? dual?.Agreement : null;
+        var requiresReview = decision.SurfaceMl ? dual?.RequiresReview : null;
+        var posture = decision.Posture == InspectionPosture.ReviewBlock ? "review_block" : null;
 
         var stored = new StoredResult
         {
             ScenarioId = scenario.ScenarioId,
             ImageId = imageId,
-            Verdict = result.Verdict,
-            Findings = result.Findings,
-            Confidence = result.Confidence,
+            Verdict = verdict,
+            Findings = findings,
+            Confidence = confidence,
             Timestamp = timestamp,
             ImageFile = imageId + ext,
             DeviceId = deviceId ?? "",
             DeviceLabel = deviceLabel ?? "",
             Ml = mlResult,
-            Agreement = dual?.Agreement,
-            RequiresReview = dual?.RequiresReview,
+            Agreement = agreement,
+            RequiresReview = requiresReview,
+            Posture = posture,
         };
 
         // must-succeed: system-of-record 이므로 영속화 실패 시 200 위장 금지(→500).
@@ -194,19 +218,20 @@ public static class InspectEndpoints
         // 영속화(must-succeed) 후 기록 — 메트릭은 관측이지 system-of-record 아니므로 실패는 degrade.
         if (classifier.IsEnabled)
             await WriteMetricsSafelyAsync(
-                metricsStore, scenario.ScenarioId, imageId, timestamp, result, outcome, dual,
-                logger, cancellationToken);
+                metricsStore, scenario.ScenarioId, imageId, timestamp, verdict, confidence, outcome, dual,
+                posture, logger, cancellationToken);
 
         return Results.Ok(new InspectResponse
         {
-            Verdict = result.Verdict,
-            Findings = result.Findings,
-            Confidence = result.Confidence,
+            Verdict = verdict,
+            Findings = findings,
+            Confidence = confidence,
             Timestamp = timestamp,
             ImageId = imageId,
             Ml = mlResult,
-            Agreement = dual?.Agreement,
-            RequiresReview = dual?.RequiresReview,
+            Agreement = agreement,
+            RequiresReview = requiresReview,
+            Posture = posture,
         });
     }
 
@@ -296,34 +321,34 @@ public static class InspectEndpoints
     /// </summary>
     private static async Task WriteMetricsSafelyAsync(
         IMetricsStore metricsStore, string scenarioId, string imageId, string timestamp,
-        InspectionResult result, MlOutcome? outcome, DualCheckResult? dual,
-        ILogger logger, CancellationToken cancellationToken)
+        Verdict verdict, double confidence, MlOutcome? outcome, DualCheckResult? dual,
+        string? posture, ILogger logger, CancellationToken cancellationToken)
     {
         var degraded = outcome?.Failed ?? false;
         var row = new MetricsRow
         {
             ImageId = imageId,
             Timestamp = timestamp,
-            Verdict = result.Verdict,
-            VlmConfidence = result.Confidence,
+            Verdict = verdict,
+            VlmConfidence = confidence,
             MlLabel = dual?.MlLabel,
             MlConfidence = dual?.MlConfidence,
             Agreement = dual?.Agreement,
             RequiresReview = dual?.RequiresReview,
             MlDegraded = degraded,
+            Posture = posture, // review_block 관측(B3) — null 이면 생략, 집계는 비-fail_closed 로 카운트
         };
-
-        try
-        {
-            await metricsStore.AppendAsync(scenarioId, row, cancellationToken);
-        }
+        try { await metricsStore.AppendAsync(scenarioId, row, cancellationToken); }
         catch (Exception ex)
         {
             logger.LogWarning(ex,
-                "메트릭 기록 실패 — 관측만 누락(판정·영속은 정상) (scenario={ScenarioId}, image={ImageId})",
-                scenarioId, imageId);
+                "메트릭 기록 실패 — 관측만 누락 (scenario={ScenarioId}, image={ImageId})", scenarioId, imageId);
         }
     }
+
+    /// <summary>ML 라벨(class-agnostic 문자열) → Verdict. "ng"(대소문자 무시)=NG, 그 외=OK.</summary>
+    private static Verdict ParseVerdict(string label) =>
+        string.Equals(label, "NG", StringComparison.OrdinalIgnoreCase) ? Verdict.NG : Verdict.OK;
 
     private static async Task<IResult> ListResultsAsync(
         [FromQuery(Name = "scenario_id")] string scenarioId,
