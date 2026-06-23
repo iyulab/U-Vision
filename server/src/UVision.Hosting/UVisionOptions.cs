@@ -15,6 +15,9 @@ public sealed class UVisionOptions
     /// <summary>전용 ML 분류기 설정(신뢰성 플라이휠 ②~③). 기본 none(VLM 단독).</summary>
     public MlOptions Ml { get; set; } = new();
 
+    /// <summary>오라클(2차 의견 VLM, ④-B) 설정. 기본 none = 비활성(스윕 미동작).</summary>
+    public OracleOptions Oracle { get; set; } = new();
+
     public StorageOptions Storage { get; set; } = new();
 
     /// <summary>관리자 PIN(미설정 시 관리 엔드포인트 503, 운영은 정상).</summary>

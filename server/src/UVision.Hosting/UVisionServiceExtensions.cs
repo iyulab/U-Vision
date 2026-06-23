@@ -27,6 +27,13 @@ public static class UVisionServiceExtensions
             Services.Ml.MlClassifierFactory.Create(
                 options.Ml, sp.GetService<Services.Models.ModelBindingResolver>()));
 
+        // 오라클(2차 의견 VLM, ④-B) — 기본 none(스윕 BackgroundService 즉시 종료, 동작 무변경).
+        services.AddSingleton(options.Oracle);
+        services.AddSingleton<Services.Oracle.IOracleProvider>(_ =>
+            Services.Oracle.OracleProviderFactory.Create(options.Oracle));
+        services.AddSingleton<Services.Oracle.OracleSweepService>();
+        services.AddHostedService<Services.Oracle.OracleSweepBackgroundService>();
+
         // A3: confidence 표준화 — 콜드스타트 정적 변환(데이터 쌓이면 캘리브레이션 맵으로 교체).
         services.AddSingleton<Services.Confidence.IConfidenceCalibrator,
             Services.Confidence.StaticConfidenceCalibrator>();
