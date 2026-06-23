@@ -48,8 +48,10 @@ public static class InspectEndpoints
         IReferenceStore referenceStore,
         IMetricsStore metricsStore,
         IAuthorityStore authorityStore,
+        ILabelStore labelStore,
         VlmOptions options,
         MlOptions mlOptions,
+        AuthorityOptions authorityOptions,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
@@ -221,6 +223,38 @@ public static class InspectEndpoints
                 metricsStore, scenario.ScenarioId, imageId, timestamp, verdict, confidence, outcome, dual,
                 posture, logger, cancellationToken);
 
+        // A1 자동격하: ML 영향 단계(co-primary/ml-primary)에서 N건마다 재집계 → 열화 시 안전쪽 1단계 하향.
+        // degrade-safe — 실패는 관측만 누락, 판정·응답 무차단. 격상은 사람(PIN)이라 여기서 안 함.
+        if (classifier.IsEnabled
+            && (stage == AuthorityStage.CoPrimary || stage == AuthorityStage.MlPrimary))
+        {
+            try
+            {
+                var dateBucket = StoragePaths.DateBucketOf(timestamp);
+                var rows = await metricsStore.ReadAsync(scenario.ScenarioId, dateBucket, cancellationToken);
+                if (ShouldCheckAutoDemote(rows.Count, authorityOptions.AutoDemoteCheckEvery))
+                {
+                    var labels = await labelStore.ListAsync(scenario.ScenarioId, dateBucket, cancellationToken);
+                    var summary = MetricsAggregator.Summarize(
+                        scenario.ScenarioId, dateBucket, rows, labels, authorityOptions);
+                    var target = Services.Authority.AutoDemoteEvaluator.Evaluate(stage, summary, authorityOptions);
+                    if (target is { } t)
+                    {
+                        await authorityStore.SetStageAsync(
+                            scenario.ScenarioId, t, "system", "demote-auto",
+                            $"ml_ng_recall={summary.MlNgRecall} below floor/vlm", cancellationToken);
+                        logger.LogWarning(
+                            "자동격하 — ML 열화 감지 (scenario={ScenarioId}, {From}→{To})",
+                            scenario.ScenarioId, stage, t);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "자동격하 체크 실패 — 관측만 누락 (scenario={ScenarioId})", scenario.ScenarioId);
+            }
+        }
+
         return Results.Ok(new InspectResponse
         {
             Verdict = verdict,
@@ -349,6 +383,11 @@ public static class InspectEndpoints
                 "메트릭 기록 실패 — 관측만 누락 (scenario={ScenarioId}, image={ImageId})", scenarioId, imageId);
         }
     }
+
+    /// <summary>자동격하 안전체크를 이번 inspect 에서 수행할지(암종화 — N건마다 1회). 0건/비배수는 skip.
+    /// 테스트 가시성 위해 public(InternalsVisibleTo 미설정 가정).</summary>
+    public static bool ShouldCheckAutoDemote(int todayRowCount, int checkEvery) =>
+        todayRowCount > 0 && checkEvery > 0 && todayRowCount % checkEvery == 0;
 
     /// <summary>ML 라벨(class-agnostic 문자열) → Verdict. "ng"(대소문자 무시)=NG, 그 외=OK.</summary>
     private static Verdict ParseVerdict(string label) =>
