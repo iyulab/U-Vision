@@ -118,6 +118,12 @@ public sealed partial class StoragePaths
     public string ModelPointerFile(string scenarioId) =>
         Path.Combine(ModelsDir(scenarioId), "active.json");
 
+    // --- 권한 이양 단계 (신뢰성 플라이휠 A1) --------------------------------
+
+    /// <summary>권한 이양 단계 상태 <c>{scenario}/authority.json</c>(가변·atomic 교체, A1).</summary>
+    public string AuthorityFile(string scenarioId) =>
+        Path.Combine(ScenarioDir(scenarioId), "authority.json");
+
     // --- sanitize (거부) ---------------------------------------------------
 
     [GeneratedRegex(@"^[A-Za-z0-9._-]+$")]
