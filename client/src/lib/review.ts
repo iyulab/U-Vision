@@ -1,3 +1,4 @@
+import { operativeLabel } from './labels'
 import type { StoredLabel, StoredResult } from './types'
 
 /**
@@ -14,7 +15,7 @@ export type ReviewState = 'auto' | 'pending' | 'reviewed'
 
 export function reviewStateOf(result: StoredResult, label: StoredLabel | undefined): ReviewState {
   if (result.requires_review !== true) return 'auto'
-  return label === undefined ? 'pending' : 'reviewed'
+  return operativeLabel(label) !== undefined ? 'reviewed' : 'pending'
 }
 
 /** 검토 대기(미해소) 건수 — 큐 배지·필터용. */

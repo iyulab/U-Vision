@@ -85,6 +85,8 @@ export interface Scenario {
   /** few-shot 기준 이미지 라벨당 최대 장수(레버). 0 = zero-shot. */
   reference_cap: number
   ng_labels: Record<string, string>
+  /** 클라우드 egress 허용 여부(④-B 오라클 게이트). 부재=false로 취급. */
+  allow_cloud_egress?: boolean
 }
 
 /** 기준 이미지 메타데이터 — 서버 `ReferenceInfo` 미러. */
@@ -125,8 +127,8 @@ export interface LabelAudit {
 /** 서버 `StoredLabel`(사이드카 `{image_id}.label.json`) 미러. */
 export interface StoredLabel {
   image_id: string
-  /** 클래스 식별자(현재 'OK'|'NG'). string — 다중분류 대비 개방형. */
-  label: string
+  /** operative(사람) 라벨. oracle-only/미라벨 사이드카엔 부재. */
+  label?: string
   timestamp: string
   /** append-only 이력(C1). 구 사이드카엔 부재(서버가 합성). */
   history?: LabelEvent[]

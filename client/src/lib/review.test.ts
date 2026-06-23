@@ -54,4 +54,14 @@ describe('review', () => {
     const results = [result({ image_id: 'a' }), result({ image_id: 'b' })]
     expect(pendingReviewCount(results, labelMapOf([]))).toBe(0)
   })
+
+  it('oracle-only sidecar(operative 라벨 없음)는 여전히 pending', () => {
+    const r = result({ image_id: 'a', requires_review: true })
+    const oracleOnly: StoredLabel = {
+      image_id: 'a',
+      timestamp: 't',
+      history: [{ label: 'NG', by: 'oracle', at: 't', mode: 'oracle' }],
+    }
+    expect(reviewStateOf(r, oracleOnly)).toBe('pending')
+  })
 })

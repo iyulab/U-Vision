@@ -6,6 +6,13 @@ import type { StoredLabel, Verdict } from './types'
  */
 export const LABEL_SET = ['OK', 'NG'] as const
 
+/** operative(사람) 라벨 = history 최신 mode:'label' 이벤트, 없으면 flat label, 둘 다 없으면 undefined. */
+export function operativeLabel(l: StoredLabel | undefined): string | undefined {
+  if (!l) return undefined
+  const fromHistory = [...(l.history ?? [])].reverse().find((e) => e.mode === 'label')?.label
+  return fromHistory ?? l.label
+}
+
 export function isValidLabel(label: string): boolean {
   return (LABEL_SET as readonly string[]).includes(label)
 }
