@@ -22,6 +22,8 @@ export interface InspectResult {
   agreement?: boolean
   /** 불일치/저신뢰 → 사람·오라클 검토 필요(③→④). ML 없으면 부재. */
   requires_review?: boolean
+  /** 운영 자세(A1) — 차단형 확인 게이트일 때만 'review_block'. 그 외 부재. */
+  posture?: 'review_block'
 }
 
 /**
@@ -170,4 +172,26 @@ export interface MetricsSummary {
   label_conflicts_open: number
   /** 라벨 일관성률 = label_consistent / audited. 감사 0 건이면 null. */
   label_consistency_rate: number | null
+  /** 격상 자격 신호(A1). 데이터 불충분/조건 미달이면 부재 또는 false. */
+  promotion_eligible?: boolean
+}
+
+/** 단계 전이 이력(A1 provenance) — 서버 `AuthorityTransition` 미러. */
+export interface AuthorityTransition {
+  from: string
+  to: string
+  at: string
+  by: string
+  mode: string
+  reason?: string | null
+}
+
+/** 권한 단계 상태(A1) — 서버 `AuthorityState` 미러. */
+export interface AuthorityState {
+  stage: import('./authority').AuthorityStage
+  previous_stage?: import('./authority').AuthorityStage | null
+  updated_at: string
+  updated_by: string
+  reason?: string | null
+  history: AuthorityTransition[]
 }

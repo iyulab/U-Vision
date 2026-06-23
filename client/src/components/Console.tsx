@@ -5,6 +5,7 @@ import { usePin, type PinRunResult } from '../hooks/usePin'
 import { DEFAULT_MOTION_CONFIG } from '../lib/motion'
 import { DEFAULT_ROI, fromScenarioRoi, toScenarioRoi, type Roi } from '../lib/roi'
 import type { Scenario } from '../lib/types'
+import { AuthorityPanel } from './AuthorityPanel'
 import { LabelAudit } from './LabelAudit'
 import { MetricsDashboard } from './MetricsDashboard'
 import { ReferenceGallery } from './ReferenceGallery'
@@ -25,7 +26,7 @@ const RESOLUTION_PRESETS: { value: number; label: string }[] = [
   { value: 128, label: '128' },
 ]
 
-type Tab = 'scenarios' | 'results' | 'metrics' | 'audit'
+type Tab = 'scenarios' | 'results' | 'metrics' | 'audit' | 'authority'
 
 interface ConsoleProps {
   /** 운영 화면으로 복귀. */
@@ -90,6 +91,9 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
           <TabButton active={tab === 'audit'} onClick={() => setTab('audit')}>
             라벨 감사
           </TabButton>
+          <TabButton active={tab === 'authority'} onClick={() => setTab('authority')}>
+            권한 단계
+          </TabButton>
         </div>
         <button
           onClick={onClose}
@@ -108,8 +112,14 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
           <ResultsBrowser scenarios={scenarios} initialScenarioId={activeScenarioId} />
         ) : tab === 'metrics' ? (
           <MetricsDashboard scenarios={scenarios} initialScenarioId={activeScenarioId} />
-        ) : (
+        ) : tab === 'audit' ? (
           <LabelAudit scenarios={scenarios} initialScenarioId={activeScenarioId} />
+        ) : (
+          <AuthorityPanel
+            scenarios={scenarios}
+            initialScenarioId={activeScenarioId}
+            runWithPin={runWithPin}
+          />
         )}
       </main>
 

@@ -1,4 +1,5 @@
-import type { DetectionUnavailable, InspectResult, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult } from './types'
+import type { AuthorityState, DetectionUnavailable, InspectResult, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult } from './types'
+import type { AuthorityStage } from './authority'
 import { resolveApiBase } from './runtimeConfig'
 
 const API_BASE = resolveApiBase()
@@ -161,10 +162,50 @@ export async function getMetrics(scenarioId: string, date: string): Promise<Metr
   return (await res.json()) as MetricsSummary
 }
 
+const PIN_HEADER = 'X-Admin-Pin'
+
+// --- 권한 이양 사다리 (A1 — get 무인증·promote/demote PIN) --------------------
+
+/** 시나리오의 현재 권한 단계 + 이력(무인증). 부재면 서버가 advisory 합성. */
+export async function getAuthority(scenarioId: string): Promise<AuthorityState> {
+  const res = await fetch(`${API_BASE}/scenarios/${encodeURIComponent(scenarioId)}/authority`)
+  await ensureOk(res, '권한 단계 조회')
+  return (await res.json()) as AuthorityState
+}
+
+/** 단계 격상(PIN, 단조 상향). */
+export async function promoteAuthority(
+  scenarioId: string,
+  stage: AuthorityStage,
+  pin: string,
+  by?: string,
+  reason?: string,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/scenarios/${encodeURIComponent(scenarioId)}/authority/promote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', [PIN_HEADER]: pin },
+    body: JSON.stringify({ stage, by, reason }),
+  })
+  await ensureOk(res, '단계 격상')
+}
+
+/** 단계 격하(PIN, 1단계 하향). */
+export async function demoteAuthority(
+  scenarioId: string,
+  pin: string,
+  by?: string,
+  reason?: string,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/scenarios/${encodeURIComponent(scenarioId)}/authority/demote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', [PIN_HEADER]: pin },
+    body: JSON.stringify({ by, reason }),
+  })
+  await ensureOk(res, '단계 격하')
+}
+
 // --- 시나리오 CRUD (S-B 서버 계약) ---------------------------------------
 // 읽기(목록)는 무인증, 변경(생성/수정/삭제)은 관리자 PIN 헤더(X-Admin-Pin).
-
-const PIN_HEADER = 'X-Admin-Pin'
 
 /** 모든 시나리오 정의(무인증). */
 export async function listScenarios(): Promise<Scenario[]> {
