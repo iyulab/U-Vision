@@ -17,12 +17,9 @@ public sealed class AuthorityInspectTests : IClassFixture<MlEnabledFactory>
     {
         var client = _factory.CreateClient();
         var resp = await client.PostAsync("/api/u-vision/inspect", InspectForm("demo"));
-        // 503(fail-closed)가 아니면 200 본문에 posture 키 부재.
-        if (resp.StatusCode == HttpStatusCode.OK)
-        {
-            var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-            Assert.False(doc.RootElement.TryGetProperty("posture", out _));
-        }
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        Assert.False(doc.RootElement.TryGetProperty("posture", out _));
     }
 
     // Shadow: ml 필드가 응답에서 생략돼야 한다(침묵 수집).
@@ -35,10 +32,55 @@ public sealed class AuthorityInspectTests : IClassFixture<MlEnabledFactory>
         await store.SetStageAsync(scenarioId, AuthorityStage.Shadow, "test", "promote", null, default);
 
         var resp = await _factory.CreateClient().PostAsync("/api/u-vision/inspect", InspectForm(scenarioId));
-        if (resp.StatusCode == HttpStatusCode.OK)
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        Assert.False(doc.RootElement.TryGetProperty("ml", out _));
+    }
+
+    // CoPrimary: VLM·ML 불일치(requires_review=true)이면 posture=="review_block".
+    //            일치(requires_review=false/absent)이면 posture 필드 자체가 없어야 한다.
+    //            mock ML 라벨은 이미지 해시 기반이라 불일치 여부를 강제할 수 없으므로
+    //            양쪽 케이스 모두 유효하도록 조건부로 단정한다.
+    [Fact]
+    public async Task CoPrimary_PostureWire_ReviewBlockOrAbsent()
+    {
+        var scenarioId = $"copri_{Guid.NewGuid():N}"[..12];
+        _factory.SeedScenario(new Scenario { ScenarioId = scenarioId, Name = "cp", Criteria = "c" });
+        var store = (IAuthorityStore)_factory.Services.GetService(typeof(IAuthorityStore))!;
+        await store.SetStageAsync(scenarioId, AuthorityStage.CoPrimary, "test", "promote", null, default);
+
+        var resp = await _factory.CreateClient().PostAsync("/api/u-vision/inspect", InspectForm(scenarioId));
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+
+        var body = await resp.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(body);
+        var root = doc.RootElement;
+
+        // ml オブジェクト有無で分岐: ML が動いた(dual-check 実行)場合のみ posture を検証.
+        if (root.TryGetProperty("ml", out _))
         {
-            var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-            Assert.False(doc.RootElement.TryGetProperty("ml", out _));
+            // requires_review が true なら VLM·ML 불일치 → review_block.
+            // false/absent なら 일치 → Proceed → posture 필드 없음.
+            var requiresReview = root.TryGetProperty("requires_review", out var rrEl)
+                && rrEl.ValueKind == JsonValueKind.True;
+
+            if (requiresReview)
+            {
+                Assert.True(root.TryGetProperty("posture", out var postureEl),
+                    $"requires_review=true 인데 posture 필드가 없음. body={body}");
+                Assert.Equal("review_block", postureEl.GetString());
+            }
+            else
+            {
+                Assert.False(root.TryGetProperty("posture", out _),
+                    $"requires_review=false/absent 인데 posture 필드가 있음. body={body}");
+            }
+        }
+        // ml 없음(비활성 경로): posture 도 없어야 한다.
+        else
+        {
+            Assert.False(root.TryGetProperty("posture", out _),
+                $"ML 비활성인데 posture 필드가 있음. body={body}");
         }
     }
 

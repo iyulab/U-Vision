@@ -318,6 +318,10 @@ public static class InspectEndpoints
     /// ml/agreement/review 를 채우고, degrade(<c>outcome.Failed</c>)면 ml_* 를 null·<c>ml_degraded=true</c>.
     /// 이 메서드는 ML enabled 경로에서만 호출된다(비활성은 outcome 이 null → 호출 안 함).
     /// </para>
+    /// <para>
+    /// Shadow 단계(<c>SurfaceMl=false</c>)에서는 응답에서 <c>dual?.MlLabel</c>·<c>Agreement</c>·
+    /// <c>RequiresReview</c> 가 생략되지만, 메트릭에는 그대로 기록된다 — 침묵 플라이휠 데이터 수집.
+    /// </para>
     /// </summary>
     private static async Task WriteMetricsSafelyAsync(
         IMetricsStore metricsStore, string scenarioId, string imageId, string timestamp,
