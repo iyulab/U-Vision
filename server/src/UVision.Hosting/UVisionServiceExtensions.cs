@@ -42,6 +42,9 @@ public static class UVisionServiceExtensions
         services.AddSingleton<IModelRegistry, FileModelRegistry>();
         services.AddSingleton<Services.Models.ModelBindingResolver>();
 
+        // 권한 이양 사다리(신뢰성 플라이휠 A1) — per-scenario 단계 상태.
+        services.AddSingleton<IAuthorityStore, FileAuthorityStore>();
+
         // 관측성 메트릭(신뢰성 플라이휠 B3) — inspect 예측 신호의 append-only 시계열.
         services.AddSingleton<IMetricsStore, FileMetricsStore>();
 
