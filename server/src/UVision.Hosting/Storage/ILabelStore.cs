@@ -29,6 +29,14 @@ public interface ILabelStore
         string scenarioId, string date, string imageId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// 오라클 2차 의견(④-B)을 history 에 mode:"oracle" 이벤트로 append 한다 — operative 라벨·audit 불변.
+    /// 사이드카 없으면(미라벨) Label=null 로 신규 생성. 멱등성(중복 oracle 방지)은 호출 측(스윕)이 보장.
+    /// </summary>
+    Task AppendOracleAsync(
+        string scenarioId, string date, string imageId, string label, string by,
+        CancellationToken cancellationToken = default);
+
     /// <summary>라벨 사이드카를 삭제한다(미라벨로 환원). 없으면 no-op.</summary>
     Task DeleteAsync(
         string scenarioId, string date, string imageId,

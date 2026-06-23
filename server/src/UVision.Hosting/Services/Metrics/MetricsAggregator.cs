@@ -34,10 +34,14 @@ public static class MetricsAggregator
             }
         }
 
-        // image_id → 사람 라벨(정답). 마지막 값 우선(라벨은 last-write-wins 사이드카).
+        // image_id → 사람 라벨(정답). operative 라벨만(oracle-only 제외 — GT 없음).
+        // 마지막 값 우선(라벨은 last-write-wins 사이드카).
         var labelOf = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var l in labels)
-            labelOf[l.ImageId] = l.Label;
+        {
+            if (l.OperativeLabel is { } op)
+                labelOf[l.ImageId] = op;
+        }
 
         int failClosed = 0;
         int inspections = 0;  // 비-fail-closed (rows.Count 대신)

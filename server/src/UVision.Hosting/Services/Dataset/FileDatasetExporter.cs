@@ -50,7 +50,15 @@ public sealed class FileDatasetExporter : IDatasetExporter
                     continue;
                 }
 
-                var classDir = label.Label.ToLowerInvariant();
+                // operative 라벨이 없으면(oracle-only 또는 미라벨) 데이터셋에서 제외.
+                var operative = label.OperativeLabel;
+                if (operative is null)
+                {
+                    missing++;
+                    continue;
+                }
+
+                var classDir = operative.ToLowerInvariant();
                 var ext = ExtOf(image.ContentType);
                 var dest = Path.Combine(
                     _paths.DatasetClassDir(scenarioId, exportId, classDir), label.ImageId + ext);
@@ -60,7 +68,7 @@ public sealed class FileDatasetExporter : IDatasetExporter
                 {
                     ImageId = label.ImageId,
                     Date = date,
-                    Label = label.Label,
+                    Label = operative,
                     ClassDir = classDir,
                     ImageFile = $"images/{classDir}/{label.ImageId}{ext}",
                 });

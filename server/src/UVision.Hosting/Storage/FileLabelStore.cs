@@ -41,6 +41,30 @@ public sealed class FileLabelStore : ILabelStore
         await StoragePaths.AtomicWriteJsonAsync(path, updated, cancellationToken);
     }
 
+    public async Task AppendOracleAsync(
+        string scenarioId, string date, string imageId, string label, string by,
+        CancellationToken cancellationToken = default)
+    {
+        var path = _paths.LabelJson(scenarioId, date, imageId);
+        var now = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
+        var existing = await ReadNormalizedAsync(path, cancellationToken);
+
+        var history = new List<LabelEvent>(existing?.History ?? [])
+        {
+            new() { Label = label, By = by, At = now, Mode = LabelMode.Oracle },
+        };
+        // operative(Label)·Audit 불변 — 오라클은 비operative 2차 의견(D2 위계).
+        var updated = new StoredLabel
+        {
+            ImageId = imageId,
+            Label = existing?.OperativeLabel,                 // 미라벨이면 null
+            Timestamp = existing?.Timestamp ?? now,
+            History = history,
+            Audit = existing?.Audit,
+        };
+        await StoragePaths.AtomicWriteJsonAsync(path, updated, cancellationToken);
+    }
+
     public async Task<AuditOutcome> AppendAuditAsync(
         string scenarioId, string date, string imageId, string auditLabel, string by,
         CancellationToken cancellationToken = default)
@@ -48,8 +72,10 @@ public sealed class FileLabelStore : ILabelStore
         var path = _paths.LabelJson(scenarioId, date, imageId); // 형식 위반 → ArgumentException(→400)
         var existing = await ReadNormalizedAsync(path, cancellationToken)
             ?? throw new InvalidOperationException("감사 대상 라벨이 없습니다.");
+        var operative = existing.OperativeLabel
+            ?? throw new InvalidOperationException("operative 라벨이 없어 감사할 수 없습니다(oracle-only).");
         var now = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
-        var status = LabelAuditEvaluator.EvaluateAuditStatus(existing.Label, auditLabel);
+        var status = LabelAuditEvaluator.EvaluateAuditStatus(operative, auditLabel);
 
         var history = new List<LabelEvent>(existing.History!)
         {
@@ -62,7 +88,7 @@ public sealed class FileLabelStore : ILabelStore
             Audit = new LabelAudit { Status = status, At = now },
         };
         await StoragePaths.AtomicWriteJsonAsync(path, updated, cancellationToken);
-        return new AuditOutcome { Status = status, PriorLabel = existing.Label };
+        return new AuditOutcome { Status = status, PriorLabel = operative };
     }
 
     public async Task<StoredLabel?> ReadAsync(
