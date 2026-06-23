@@ -36,3 +36,12 @@ describe('shouldTriggerCapture', () => {
     expect(shouldTriggerCapture({ ...base, enabled: false })).toBe(false)
   })
 })
+
+describe('capturePolicy blocked gate', () => {
+  it('blocked is NOT free (holds continuous capture)', () => {
+    expect(isInspectionFree('blocked')).toBe(false)
+  })
+  it('done remains free', () => {
+    expect(isInspectionFree('done')).toBe(true)
+  })
+})

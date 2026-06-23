@@ -94,6 +94,23 @@ export function CameraView({ scenarioId, roi, motionConfig, minSharpness, captur
         </div>
       )}
 
+      {inspection.phase === 'blocked' && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-4 rounded-2xl bg-amber-500/95 px-8 py-6 text-center text-white">
+            <span className="text-xl font-bold">🔍 검토 필요 — 확인 후 진행</span>
+            <span className="text-sm text-white/90">
+              VLM·ML 판정이 불일치합니다. 품목을 확인·분리한 뒤 계속하세요.
+            </span>
+            <button
+              onClick={inspection.acknowledge}
+              className="rounded-full bg-white px-8 py-3 text-base font-semibold text-amber-700 shadow"
+            >
+              확인 — 다음 품목
+            </button>
+          </div>
+        </div>
+      )}
+
       {inspection.phase === 'unavailable' && (
         <div className="absolute inset-x-0 top-16 flex justify-center">
           <div className="flex flex-col items-center rounded-xl bg-amber-500/90 px-6 py-4 text-center text-white">

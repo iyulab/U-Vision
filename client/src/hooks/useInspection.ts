@@ -19,6 +19,8 @@ export interface InspectionState {
   unavailable: { reason: string; mlHint?: MlResult } | null
   /** 캡처→업로드→판정 1회 실행. 진행 중이면 무시(중복 트리거 방지). */
   trigger: () => void
+  /** 차단 게이트(co-primary 불일치) 해제 — 작업자 명시 확인. blocked → done. */
+  acknowledge: () => void
 }
 
 const HISTORY_LIMIT = 20
@@ -64,7 +66,8 @@ export function useInspection(
         const result = await inspectImage(blob, scenarioId, getDeviceId(), getDeviceLabel())
         setLatest(result)
         setHistory((h) => [result, ...h].slice(0, HISTORY_LIMIT))
-        setPhase('done')
+        // co-primary 불일치 = 차단 게이트: 명시 확인 전까지 다음 캡처 차단(blocked).
+        setPhase(result.posture === 'review_block' ? 'blocked' : 'done')
       } catch (e) {
         const c = classifyTriggerError(e)
         setUnavailable(c.unavailable)
@@ -76,5 +79,9 @@ export function useInspection(
     })()
   }, [videoRef, scenarioId, roi, minSharpness])
 
-  return { phase, latest, history, error, unavailable, trigger }
+  const acknowledge = useCallback(() => {
+    setPhase((p) => (p === 'blocked' ? 'done' : p))
+  }, [])
+
+  return { phase, latest, history, error, unavailable, trigger, acknowledge }
 }

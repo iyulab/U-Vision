@@ -13,6 +13,7 @@ export type InspectionPhase =
   | 'error'
   | 'rejected'
   | 'unavailable'
+  | 'blocked'
 
 /** 검사기가 새 트리거를 받을 수 있는 상태인가(VLM in-flight 아님). */
 export function isInspectionFree(phase: InspectionPhase): boolean {
