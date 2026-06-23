@@ -25,7 +25,7 @@ public static class VlmProviderFactory
 
             case "openai":
                 return new IronHiveVlmProvider(
-                    BuildMessageService(b => b.AddOpenAIProviders(
+                    IronHiveBuilders.BuildMessageService(b => b.AddOpenAIProviders(
                         "openai",
                         new OpenAIConfig { ApiKey = options.ApiKey },
                         OpenAIServiceType.ChatCompletion)),
@@ -34,7 +34,7 @@ public static class VlmProviderFactory
 
             case "google":
                 return new IronHiveVlmProvider(
-                    BuildMessageService(b => b.AddGoogleAIProviders(
+                    IronHiveBuilders.BuildMessageService(b => b.AddGoogleAIProviders(
                         "google",
                         new GoogleAIConfig { ApiKey = options.ApiKey })),
                     "google",
@@ -44,10 +44,7 @@ public static class VlmProviderFactory
                 // GPUStack — OpenAI 호환 셀프호스트(/v1-openai/). ironhive 1급 provider 가 base URL·경로를 흡수.
                 // Endpoint 는 경로 없는 서버 base URL(예: http://host:8080) — GpuStackConfig 가 /v1-openai/ 를 붙인다.
                 return new IronHiveVlmProvider(
-                    BuildMessageService(b => b.AddGpuStackProviders(
-                        "gpustack",
-                        new GpuStackConfig { BaseUrl = options.Endpoint, ApiKey = options.ApiKey },
-                        GpuStackServiceType.Language)),
+                    IronHiveBuilders.GpuStack(options.Endpoint, options.ApiKey),
                     "gpustack",
                     options.Model);
 
@@ -60,10 +57,4 @@ public static class VlmProviderFactory
         }
     }
 
-    private static IMessageService BuildMessageService(Action<HiveServiceBuilder> register)
-    {
-        var builder = new HiveServiceBuilder();
-        register(builder);
-        return builder.Build().Services.GetRequiredService<IMessageService>();
-    }
 }
