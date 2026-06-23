@@ -15,7 +15,9 @@ public sealed record StoredLabel
 {
     [JsonPropertyName("image_id")] public required string ImageId { get; init; }
 
-    [JsonPropertyName("label")] public required string Label { get; init; }
+    [JsonPropertyName("label")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Label { get; init; }
 
     /// <summary>라벨 기록(또는 정정) 시각. ISO-8601 UTC. 결과의 날짜 버킷과는 별개.</summary>
     [JsonPropertyName("timestamp")] public required string Timestamp { get; init; }
@@ -34,17 +36,29 @@ public sealed record StoredLabel
     public LabelAudit? Audit { get; init; }
 
     /// <summary>
+    /// operative(사람) 라벨 = history 의 최신 <see cref="LabelMode.Label"/> 이벤트.
+    /// 없으면 flat <see cref="Label"/>(구 사이드카), 둘 다 없으면 null(oracle-only 또는 미라벨).
+    /// 표·검토큐·감사는 이 값을 GT 로 읽는다(oracle 이벤트는 operative 가 아니다 — D2 위계).
+    /// </summary>
+    [JsonIgnore]
+    public string? OperativeLabel =>
+        History?.LastOrDefault(e => e.Mode == LabelMode.Label)?.Label ?? Label;
+
+    /// <summary>
     /// 구 사이드카(history 없음)를 단일 <see cref="LabelMode.Label"/> 이벤트로 합성(하위호환 읽기).
     /// 이미 history 가 있으면 그대로 반환한다. 디스크에 쓰지 않는 순수 in-memory 변환.
+    /// label=null+history 없음은 합성하지 않는다(oracle-only 또는 미라벨 — 이론상 미발생).
     /// </summary>
     public StoredLabel Normalized() =>
         History is { Count: > 0 }
             ? this
-            : this with
-            {
-                History = [new LabelEvent { Label = Label, By = "", At = Timestamp, Mode = LabelMode.Label }],
-                Audit = Audit ?? new LabelAudit { Status = LabelAuditStatus.Unaudited },
-            };
+            : Label is not null
+                ? this with
+                {
+                    History = [new LabelEvent { Label = Label, By = "", At = Timestamp, Mode = LabelMode.Label }],
+                    Audit = Audit ?? new LabelAudit { Status = LabelAuditStatus.Unaudited },
+                }
+                : this; // label·history 둘 다 없음(이론상 미발생) — 합성 안 함.
 }
 
 /// <summary>라벨 이력의 단위 이벤트(C1 provenance) — append-only.</summary>

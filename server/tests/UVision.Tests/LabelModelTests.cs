@@ -61,4 +61,37 @@ public class LabelModelTests
         Assert.Equal(LabelMode.Audit, back.History![0].Mode);
         Assert.Equal(LabelAuditStatus.Conflicted, back.Audit!.Status);
     }
+
+    [Fact]
+    public void OperativeLabel_LegacySidecar_UsesFlatLabel()
+    {
+        var l = new StoredLabel { ImageId = "i", Label = "NG", Timestamp = "t" }.Normalized();
+        Assert.Equal("NG", l.OperativeLabel);
+    }
+
+    [Fact]
+    public void OperativeLabel_OracleOnly_IsNull()
+    {
+        var l = new StoredLabel
+        {
+            ImageId = "i", Label = null, Timestamp = "t",
+            History = [new LabelEvent { Label = "OK", By = "oracle", At = "t", Mode = LabelMode.Oracle }],
+        };
+        Assert.Null(l.OperativeLabel);
+    }
+
+    [Fact]
+    public void OperativeLabel_PrefersLatestLabelEvent_OverOracle()
+    {
+        var l = new StoredLabel
+        {
+            ImageId = "i", Label = "OK", Timestamp = "t",
+            History =
+            [
+                new LabelEvent { Label = "OK", By = "d1", At = "t1", Mode = LabelMode.Label },
+                new LabelEvent { Label = "NG", By = "oracle", At = "t2", Mode = LabelMode.Oracle },
+            ],
+        };
+        Assert.Equal("OK", l.OperativeLabel);
+    }
 }
