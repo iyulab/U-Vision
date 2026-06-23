@@ -13,5 +13,6 @@ public static class UVisionEndpoints
         group.MapDatasetEndpoints();
         group.MapMetricsEndpoints();
         group.MapModelEndpoints();
+        group.MapAuthorityEndpoints();
     }
 }
