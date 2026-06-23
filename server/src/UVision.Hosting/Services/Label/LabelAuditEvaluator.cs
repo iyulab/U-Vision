@@ -1,11 +1,11 @@
 namespace UVision.Api.Services.Label;
 
-/// <summary>라벨 이벤트 모드 — 단일 출처(C1 provenance). 오라클은 D0 seam(미구현).</summary>
+/// <summary>라벨 이벤트 모드 — 단일 출처(C1 provenance).</summary>
 public static class LabelMode
 {
     public const string Label = "label";   // 운영 라벨/해소(operative)
     public const string Audit = "audit";   // 블라인드 재라벨(측정 — operative 안 덮음)
-    public const string Oracle = "oracle"; // ④-B 자리만, 코드 없음
+    public const string Oracle = "oracle"; // ④-B 오라클 2차 의견 — 비operative 이벤트(operative 라벨 안 덮음)
 }
 
 /// <summary>감사 상태 — 단일 출처(C1).</summary>
