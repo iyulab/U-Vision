@@ -18,6 +18,7 @@ public sealed class OracleSweepService
     private readonly ILabelStore _labels;
     private readonly OracleOptions _options;
     private readonly ILogger _log;
+    private int _sweeps; // 틱 카운터(싱글톤) — 시나리오 시작점 회전용. 호출은 타이머가 직렬화.
 
     public OracleSweepService(
         IOracleProvider oracle, IScenarioStore scenarios, IInspectionStore inspections,
@@ -34,7 +35,8 @@ public sealed class OracleSweepService
             return 0;
 
         var processed = 0;
-        var scenarios = await _scenarios.ListAsync(ct);
+        // 틱마다 시작 시나리오를 회전 → BatchCap order-bias 완화(뒤쪽 시나리오 기아 방지).
+        var scenarios = OracleSweepPlanner.Rotated(await _scenarios.ListAsync(ct), _sweeps++);
         foreach (var scenario in scenarios)
         {
             if (processed >= _options.BatchCap)

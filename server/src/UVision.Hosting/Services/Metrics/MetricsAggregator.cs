@@ -22,7 +22,9 @@ public static class MetricsAggregator
         AuthorityOptions options)
     {
         // 라벨 일관성 집계(C1) — audit 상태별 카운팅. NG recall 루프와 독립.
+        // 오라클↔사람 비교(④-B) — operative·oracle 둘 다 있는 건만(순수 파생, 항상 최신). 같은 패스에서 집계.
         int audited = 0, labelConsistent = 0, labelConflictsOpen = 0;
+        int oracleEvaluated = 0, oracleConflicts = 0;
         foreach (var l in labels)
         {
             switch (l.Audit?.Status ?? LabelAuditStatus.Unaudited)
@@ -32,20 +34,30 @@ public static class MetricsAggregator
                 case LabelAuditStatus.Resolved: audited++; break;
                 // unaudited → 집계 제외
             }
+
+            if (l.OperativeLabel is { } op && l.LatestOracleOpinion is { } oracle)
+            {
+                oracleEvaluated++;
+                if (!string.Equals(op, oracle, StringComparison.OrdinalIgnoreCase))
+                    oracleConflicts++;
+            }
         }
 
         // image_id → 사람 라벨(정답). operative 라벨만(oracle-only 제외 — GT 없음).
         // 마지막 값 우선(라벨은 last-write-wins 사이드카).
         var labelOf = new Dictionary<string, string>(StringComparer.Ordinal);
+        var oracledImages = new HashSet<string>(StringComparer.Ordinal); // 오라클 소견이 기록된 image_id(커버리지 조인).
         foreach (var l in labels)
         {
             if (l.OperativeLabel is { } op)
                 labelOf[l.ImageId] = op;
+            if (l.LatestOracleOpinion is not null)
+                oracledImages.Add(l.ImageId);
         }
 
         int failClosed = 0;
         int inspections = 0;  // 비-fail-closed (rows.Count 대신)
-        int degraded = 0, agreements = 0, reviews = 0;
+        int degraded = 0, agreements = 0, reviews = 0, oraclePending = 0;
         int labeled = 0, labeledNg = 0, vlmNgHits = 0, mlNgScored = 0, mlNgHits = 0;
 
         foreach (var r in rows)
@@ -62,7 +74,11 @@ public static class MetricsAggregator
             else
             {
                 if (r.Agreement == true) agreements++;
-                if (r.RequiresReview == true) reviews++;
+                if (r.RequiresReview == true)
+                {
+                    reviews++;
+                    if (!oracledImages.Contains(r.ImageId)) oraclePending++; // 검토 대상인데 오라클 미처리 = 백로그.
+                }
             }
 
             if (!labelOf.TryGetValue(r.ImageId, out var truth))
@@ -111,6 +127,9 @@ public static class MetricsAggregator
             Audited = audited,
             LabelConsistent = labelConsistent,
             LabelConflictsOpen = labelConflictsOpen,
+            OracleEvaluated = oracleEvaluated,
+            OracleConflicts = oracleConflicts,
+            OraclePending = oraclePending,
             Labeled = labeled,
             LabeledNg = labeledNg,
             VlmNgHits = vlmNgHits,
@@ -124,6 +143,8 @@ public static class MetricsAggregator
             VlmNgRecall = vlmRecall,
             MlNgRecall = mlRecall,
             LabelConsistencyRate = Rate(labelConsistent, audited),
+            OracleConsistencyRate = Rate(oracleEvaluated - oracleConflicts, oracleEvaluated),
+            OracleCoverageRate = Rate(reviews - oraclePending, reviews),
             PromotionEligible = eligible,
         };
     }

@@ -242,6 +242,100 @@ public class MetricsAggregatorTests
         Assert.Null(s.LabelConsistencyRate); // 분모 0 → null(0% 위장 금지)
     }
 
+    // --- 오라클↔사람 불일치 집계 (④-B 후속 — 계통편향 flag-only) ---
+
+    private static StoredLabel WithOracle(string id, string? operativeLabel, string oracleOpinion)
+    {
+        var history = new List<LabelEvent>();
+        if (operativeLabel is not null)
+            history.Add(new LabelEvent { Label = operativeLabel, By = "dev", At = "t1", Mode = LabelMode.Label });
+        history.Add(new LabelEvent { Label = oracleOpinion, By = "oracle", At = "t2", Mode = LabelMode.Oracle });
+        return new StoredLabel { ImageId = id, Label = operativeLabel, Timestamp = "t", History = history };
+    }
+
+    [Fact]
+    public void Oracle_CountsConflictsAndRate_FlagOnly()
+    {
+        // 계통편향 신호: 오라클(독립 2차의견)이 사람 operative 라벨과 얼마나 불일치하는가.
+        var labels = new[]
+        {
+            WithOracle("a", "OK", "OK"),  // 일치
+            WithOracle("b", "OK", "NG"),  // 불일치 — 사람 누락 의심
+            WithOracle("c", "NG", "ng"),  // 일치(대소문자 무시 — 코드베이스 규약)
+        };
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], labels, new AuthorityOptions());
+
+        Assert.Equal(3, s.OracleEvaluated);
+        Assert.Equal(1, s.OracleConflicts);
+        Assert.Equal(2.0 / 3.0, s.OracleConsistencyRate);
+    }
+
+    [Fact]
+    public void Oracle_OnlyOpinion_NoOperative_NotEvaluated()
+    {
+        // oracle-only(사람 미라벨) — operative 없으니 비교 불가(분모 제외).
+        var labels = new[] { WithOracle("a", null, "NG") };
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], labels, new AuthorityOptions());
+
+        Assert.Equal(0, s.OracleEvaluated);
+        Assert.Null(s.OracleConsistencyRate); // 분모 0 → null(0% 위장 금지)
+    }
+
+    [Fact]
+    public void Oracle_NoOpinion_NotEvaluated()
+    {
+        // 사람 라벨만, 오라클 소견 없음 — 비교 대상 아님.
+        var labels = new[] { Label("a", "NG") };
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], labels, new AuthorityOptions());
+
+        Assert.Equal(0, s.OracleEvaluated);
+        Assert.Equal(0, s.OracleConflicts);
+        Assert.Null(s.OracleConsistencyRate);
+    }
+
+    // --- 오라클 스윕 커버리지/백로그 (④-B 후속 — 호출율 축) ---
+
+    [Fact]
+    public void Oracle_Coverage_PendingAndRate()
+    {
+        // requires_review 3건: a 오라클 처리됨(소견 존재), b·c 미처리(스윕 백로그). d 는 검토 아님.
+        var rows = new[]
+        {
+            Row("a", Verdict.NG, "ok", agreement: false, requiresReview: true),
+            Row("b", Verdict.NG, "ok", agreement: false, requiresReview: true),
+            Row("c", Verdict.NG, "ok", agreement: false, requiresReview: true),
+            Row("d", Verdict.OK, "ok", agreement: true, requiresReview: false),
+        };
+        var labels = new[] { WithOracle("a", null, "NG") }; // a 만 오라클 소견 있음
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, labels, new AuthorityOptions());
+
+        Assert.Equal(3, s.ReviewsRequired);
+        Assert.Equal(2, s.OraclePending);              // b, c (미처리 백로그)
+        Assert.Equal(1.0 / 3.0, s.OracleCoverageRate); // 1 covered / 3 review
+    }
+
+    [Fact]
+    public void Oracle_Coverage_NullRate_WhenNoReviews()
+    {
+        var rows = new[] { Row("a", Verdict.OK, "ok", true, false) }; // 검토 0건
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, [], new AuthorityOptions());
+
+        Assert.Equal(0, s.OraclePending);
+        Assert.Null(s.OracleCoverageRate); // 분모 0 → null
+    }
+
+    [Fact]
+    public void Oracle_Coverage_DegradedReview_NotCounted()
+    {
+        // degrade 행은 requires_review=null → 검토/커버리지 분모 제외(못 본 건 ≠ 검토 대상).
+        var rows = new[] { Row("a", Verdict.NG, null, false, false, degraded: true) };
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, [], new AuthorityOptions());
+
+        Assert.Equal(0, s.ReviewsRequired);
+        Assert.Equal(0, s.OraclePending);
+        Assert.Null(s.OracleCoverageRate);
+    }
+
     // --- 격상 자격 신호(A1) ---
 
     [Fact]
@@ -259,6 +353,26 @@ public class MetricsAggregatorTests
         }
         var s = MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions());
         Assert.True(s.PromotionEligible);
+    }
+
+    [Fact]
+    public void PromotionEligible_FalseWhenWindowMet_ButConditionsUnmet()
+    {
+        // 표본 충분·계산 가능하나 ML recall 이 VLM 미만 → 명시 false(null 아님 — 데이터는 있는데 조건 미달).
+        var rows = new List<MetricsRow>();
+        var labels = new List<StoredLabel>();
+        for (int i = 0; i < 60; i++)
+        {
+            var id = $"img{i}";
+            // 정답 NG. VLM 은 NG 적중(recall 1.0), ML 은 OK 놓침(recall 0.0) → ml < vlm.
+            rows.Add(new MetricsRow { ImageId = id, Timestamp = "t", Verdict = Verdict.NG,
+                MlLabel = "OK", MlConfidence = 0.9, Agreement = false, RequiresReview = true, MlDegraded = false });
+            labels.Add(new StoredLabel { ImageId = id, Label = "NG", Timestamp = "t" });
+        }
+        var s = MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions());
+        Assert.False(s.PromotionEligible);  // null 아님 — 표본 충분(60≥50)·계산 가능·조건 미달
+        Assert.Equal(0.0, s.MlNgRecall);
+        Assert.Equal(1.0, s.VlmNgRecall);
     }
 
     [Fact]

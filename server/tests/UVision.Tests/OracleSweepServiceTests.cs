@@ -121,4 +121,56 @@ public class OracleSweepServiceTests : IDisposable
         public Task<InspectionResult> SecondOpinionAsync(ReadOnlyMemory<byte> i, ScenarioContext s, CancellationToken c)
             => throw new InvalidOperationException("테스트 오라클 오류");
     }
+
+    // --- BatchCap order-bias 회전(④-B 후속) ---
+
+    [Theory]
+    [InlineData(0, new[] { "a", "b", "c" })]
+    [InlineData(1, new[] { "b", "c", "a" })]
+    [InlineData(2, new[] { "c", "a", "b" })]
+    [InlineData(3, new[] { "a", "b", "c" })]   // 한 바퀴
+    [InlineData(-1, new[] { "c", "a", "b" })]  // 음수 안전
+    public void Rotated_RoundRobinStart(int offset, string[] expected)
+    {
+        var rotated = OracleSweepPlanner.Rotated(new[] { "a", "b", "c" }, offset);
+        Assert.Equal(expected, rotated);
+    }
+
+    [Fact]
+    public void Rotated_EmptyOrSingle_Unchanged()
+    {
+        Assert.Equal(new[] { "x" }, OracleSweepPlanner.Rotated(new[] { "x" }, 5));
+        Assert.Empty(OracleSweepPlanner.Rotated(Array.Empty<string>(), 5));
+    }
+
+    [Fact]
+    public async Task Sweep_RotatesStart_LaterScenarioNotStarvedByBusyEarlier()
+    {
+        // s0(검토 2건)·s1(검토 1건), BatchCap=1. 고정 순서면 s1 은 s0 백로그(2건) 뒤라 3틱째에야 처리.
+        // 회전이면 2틱째에 s1 이 시작점이 되어 처리된다 — 공정성 회복.
+        var paths = Paths();
+        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var s0 = await SeedReviewResultAsync(paths, "sc-a", today, "a1");
+        await AddReviewResultAsync(paths, s0, today, "a2");
+        var s1 = await SeedReviewResultAsync(paths, "sc-b", today, "b1");
+        var svc = Service(paths, new FakeOracle(Verdict.NG), new OracleOptions { Provider = "gpustack", BatchCap = 1, LookbackDays = 1 });
+
+        await svc.SweepOnceAsync(default); // tick0: 시작 s0 → a1
+        await svc.SweepOnceAsync(default); // tick1: 회전 시작 s1 → b1
+
+        var b1 = await new FileLabelStore(paths).ReadAsync(s1, today, "b1");
+        Assert.Contains(b1!.History!, e => e.Mode == LabelMode.Oracle); // 2틱 내 s1 처리됨(기아 아님)
+    }
+
+    private static async Task AddReviewResultAsync(StoragePaths paths, string scenarioId, string date, string imageId)
+    {
+        var store = new FileInspectionStore(paths);
+        var stored = new StoredResult
+        {
+            ScenarioId = scenarioId, ImageId = imageId, Verdict = Verdict.OK, Findings = "", Confidence = 0.9,
+            Timestamp = $"{date}T00:00:00.000Z", ImageFile = imageId + ".jpg",
+            DeviceId = "", DeviceLabel = "", RequiresReview = true,
+        };
+        await store.SaveAsync(new byte[] { 1, 2, 3 }, ".jpg", stored, default);
+    }
 }

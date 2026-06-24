@@ -104,9 +104,10 @@ public sealed class MloopClassifier : IMlClassifier
     /// </summary>
     private static double ConfidenceOf(PredictRow row)
     {
-        if (row.Probabilities is { Count: > 0 } probs)
-            return probs.Values.Max();
-        return row.Score ?? 0.0;
+        double raw = row.Probabilities is { Count: > 0 } probs ? probs.Values.Max() : (row.Score ?? 0.0);
+        // trust boundary(A3): 외부 모델 응답의 비정상 값(NaN/Infinity/[0,1] 범위 밖)을 여기서 정규화한다.
+        // calibrator 가 아니라 경계에서 차단해야 하류(calibrator·DualCheck 게이팅) 오염을 근본 방지(raw Scores 는 보존).
+        return double.IsFinite(raw) ? Math.Clamp(raw, 0.0, 1.0) : 0.0;
     }
 
     // --- mloop /predict 응답 계약(camelCase, MLoop.API 소스 확인) ---------

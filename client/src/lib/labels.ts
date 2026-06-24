@@ -13,6 +13,15 @@ export function operativeLabel(l: StoredLabel | undefined): string | undefined {
   return fromHistory ?? l.label
 }
 
+/**
+ * 오라클(④-B) 최신 2차 소견 = history 최신 mode:'oracle' 이벤트, 없으면 undefined.
+ * operative 가 아니다(D2 위계) — operativeLabel 과 대조해 사람 라벨러 계통편향을 표면화한다.
+ */
+export function latestOracleOpinion(l: StoredLabel | undefined): string | undefined {
+  if (!l) return undefined
+  return [...(l.history ?? [])].reverse().find((e) => e.mode === 'oracle')?.label
+}
+
 export function isValidLabel(label: string): boolean {
   return (LABEL_SET as readonly string[]).includes(label)
 }

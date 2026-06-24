@@ -200,6 +200,40 @@ function Cards({ summary }: { summary: MetricsSummary }) {
         )}
       </div>
 
+      {/* 오라클 2차 검증(④-B) — 활동이 있을 때만(none 기본 비활성이면 숨김 = 이전과 동일). */}
+      {(summary.oracle_evaluated > 0 || summary.oracle_pending > 0) && (
+        <div className="rounded-2xl border border-slate-700 bg-slate-800/50 p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-200">오라클 2차 검증 (④-B)</h2>
+            <span className="text-xs text-slate-500">독립 고성능 모델의 비동기 소견 — 라벨 신뢰성 교차검증</span>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <Stat
+              label="오라클↔사람 일관성"
+              value={formatPercent(summary.oracle_consistency_rate)}
+              sub={`${fraction(summary.oracle_evaluated - summary.oracle_conflicts, summary.oracle_evaluated)} 일치`}
+              warn={summary.oracle_conflicts > 0}
+            />
+            <Stat
+              label="오라클 커버리지"
+              value={formatPercent(summary.oracle_coverage_rate)}
+              sub={`${fraction(summary.reviews_required - summary.oracle_pending, summary.reviews_required)} 처리`}
+            />
+            <Stat
+              label="오라클 대기"
+              value={String(summary.oracle_pending)}
+              sub="검토 큐 미처리(스윕 백로그)"
+              warn={summary.oracle_pending > 0}
+            />
+          </div>
+          {summary.oracle_conflicts > 0 && (
+            <p className="mt-3 text-xs text-slate-500">
+              ⚠ 오라클이 사람 라벨과 {summary.oracle_conflicts}건 불일치 — 계통편향 가능성(기록만, 자동 정정 안 함).
+            </p>
+          )}
+        </div>
+      )}
+
       <p className="text-xs text-slate-500">
         라벨 진척 {fraction(summary.labeled, summary.inspections)} · 미라벨 검사는 NG recall 분모에서 제외됩니다.
       </p>

@@ -48,6 +48,11 @@
     <PackageReference Include="IronHive.Providers.GoogleAI" Version="0.7.4" />
     <PackageReference Include="IronHive.Providers.OpenAI" Version="0.7.4" />
     <PackageReference Include="IronHive.Providers.OpenAI.Compatible" Version="0.7.4" />
+    <!-- 보안 transitive pin: ironhive 가 끌어오는 MessagePack 3.1.5 의 CVE-2026-48109(GHSA-hv8m-jj95-wg3x,
+         LZ4 decompress AccessViolation/DoS, high)을 패치된 3.1.7 로 올린다. 직접 사용처 없음 — CVE 완화 전용.
+         근본은 업스트림(ironhive 의존성) — claudedocs/issues 이슈 초안 참조. SQLitePCLRaw CVE-2025-6965 은
+         패치 번들 미출시(저심각도·미사용)라 가시성 유지(이슈 초안). -->
+    <PackageReference Include="MessagePack" Version="3.1.7" />
   </ItemGroup>
 
   <!-- 빌드된 PWA(client/npm run build:embed 산출물)를 임베드. Task 9 에서 wwwroot 채움. -->

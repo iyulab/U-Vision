@@ -81,6 +81,28 @@ public class LabelModelTests
     }
 
     [Fact]
+    public void LatestOracleOpinion_ReturnsLatestOracleEvent()
+    {
+        var l = new StoredLabel
+        {
+            ImageId = "i", Label = "OK", Timestamp = "t",
+            History =
+            [
+                new LabelEvent { Label = "OK", By = "d1", At = "t1", Mode = LabelMode.Label },
+                new LabelEvent { Label = "NG", By = "oracle", At = "t2", Mode = LabelMode.Oracle },
+            ],
+        };
+        Assert.Equal("NG", l.LatestOracleOpinion);
+    }
+
+    [Fact]
+    public void LatestOracleOpinion_NullWhenNoOracleEvent()
+    {
+        var l = new StoredLabel { ImageId = "i", Label = "NG", Timestamp = "t" }.Normalized();
+        Assert.Null(l.LatestOracleOpinion);
+    }
+
+    [Fact]
     public void OperativeLabel_PrefersLatestLabelEvent_OverOracle()
     {
         var l = new StoredLabel

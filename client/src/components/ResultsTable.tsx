@@ -1,5 +1,5 @@
 import { resultImageUrl } from '../lib/api'
-import { LABEL_SET, agreementOf } from '../lib/labels'
+import { LABEL_SET, agreementOf, latestOracleOpinion } from '../lib/labels'
 import { reviewStateOf, type ReviewState } from '../lib/review'
 import type { MlResult, StoredLabel, StoredResult, Verdict } from '../lib/types'
 import { conflictBadgeLabel } from './conflictBadge'
@@ -25,6 +25,8 @@ export function ResultsTable({
 }) {
   // ③ ML 교차검증이 하나라도 있을 때만 ML/검토 컬럼을 띄운다(ML 비활성 = 기존 표와 동일).
   const hasMl = results.some((r) => r.ml != null)
+  // ④-B 오라클 소견이 하나라도 있을 때만 오라클 컬럼(none 기본 비활성 = 기존 표와 동일).
+  const hasOracle = results.some((r) => latestOracleOpinion(labels.get(r.image_id)) != null)
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-sm">
@@ -35,6 +37,7 @@ export function ResultsTable({
             <th className="px-2 py-2">AI 판정</th>
             <th className="px-2 py-2">신뢰도</th>
             {hasMl && <th className="px-2 py-2">ML 교차검증</th>}
+            {hasOracle && <th className="px-2 py-2">오라클</th>}
             {hasMl && <th className="px-2 py-2">검토</th>}
             <th className="px-2 py-2">태블릿</th>
             <th className="px-2 py-2">사람 라벨</th>
@@ -72,6 +75,11 @@ export function ResultsTable({
                 {hasMl && (
                   <td className="px-2 py-2">
                     <MlCheck ml={r.ml} verdict={r.verdict} agreement={r.agreement} />
+                  </td>
+                )}
+                {hasOracle && (
+                  <td className="px-2 py-2">
+                    <OracleCell opinion={latestOracleOpinion(labels.get(r.image_id))} verdict={r.verdict} />
                   </td>
                 )}
                 {hasMl && (
@@ -142,6 +150,29 @@ function MlCheck({
         </span>
       ) : (
         <span className="text-amber-400" title="VLM 판정과 불일치(검토 가치)">
+          ✗
+        </span>
+      )}
+    </span>
+  )
+}
+
+/**
+ * ④-B 오라클 2차소견 셀 — 독립 고성능 모델의 비동기 소견 + VLM 과의 일치(✓/✗).
+ * 오라클 미처리(소견 부재)는 "—". operative 라벨이 아니므로 큐 해소엔 영향 없음(표시 전용).
+ */
+function OracleCell({ opinion, verdict }: { opinion: string | undefined; verdict: Verdict }) {
+  if (opinion == null) return <span className="text-slate-600">—</span>
+  const agree = opinion.toUpperCase() === verdict
+  return (
+    <span className="inline-flex items-center gap-1 font-mono text-xs">
+      <span className={agree ? 'text-slate-300' : 'text-amber-300'}>{opinion.toUpperCase()}</span>
+      {agree ? (
+        <span className="text-emerald-400" title="VLM 판정과 일치">
+          ✓
+        </span>
+      ) : (
+        <span className="text-amber-400" title="VLM 판정과 불일치(2차 검증 가치)">
           ✗
         </span>
       )}

@@ -37,4 +37,13 @@ public class StaticConfidenceCalibratorTests
     {
         Assert.Equal(expected, _cal.Standardize(ConfidenceSource.Ml, raw));
     }
+
+    [Theory]
+    [InlineData(0.10)]
+    [InlineData(0.90)]
+    public void Oracle_ExcludedFromGating_LikeVlm(double raw)
+    {
+        // 오라클 = 고성능 VLM 계열 self-report → ML softmax 가 아니라 VLM 처럼 게이팅 제외(1.0).
+        Assert.Equal(1.0, _cal.Standardize(ConfidenceSource.Oracle, raw));
+    }
 }

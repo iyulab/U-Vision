@@ -45,6 +45,15 @@ public sealed record StoredLabel
         History?.LastOrDefault(e => e.Mode == LabelMode.Label)?.Label ?? Label;
 
     /// <summary>
+    /// 오라클(④-B)의 최신 2차 소견 = history 의 최신 <see cref="LabelMode.Oracle"/> 이벤트.
+    /// 없으면 null. operative 가 아니다(D2 위계) — <see cref="OperativeLabel"/> 과 대조해
+    /// 사람 라벨러의 계통편향(systematic bias)을 flag-only 로 관측한다(메트릭 집계 입력).
+    /// </summary>
+    [JsonIgnore]
+    public string? LatestOracleOpinion =>
+        History?.LastOrDefault(e => e.Mode == LabelMode.Oracle)?.Label;
+
+    /// <summary>
     /// 구 사이드카(history 없음)를 단일 <see cref="LabelMode.Label"/> 이벤트로 합성(하위호환 읽기).
     /// 이미 history 가 있으면 그대로 반환한다. 디스크에 쓰지 않는 순수 in-memory 변환.
     /// label=null+history 없음은 합성하지 않는다(oracle-only 또는 미라벨 — 이론상 미발생).
@@ -72,7 +81,7 @@ public sealed record LabelEvent
     /// <summary>이벤트 시각. ISO-8601 UTC.</summary>
     [JsonPropertyName("at")] public required string At { get; init; }
 
-    /// <summary><see cref="LabelMode"/> — label/audit(/oracle 미구현).</summary>
+    /// <summary><see cref="LabelMode"/> — label(operative)/audit(블라인드)/oracle(④-B 2차의견·비operative).</summary>
     [JsonPropertyName("mode")] public required string Mode { get; init; }
 }
 

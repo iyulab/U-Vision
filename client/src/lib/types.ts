@@ -174,6 +174,16 @@ export interface MetricsSummary {
   label_conflicts_open: number
   /** 라벨 일관성률 = label_consistent / audited. 감사 0 건이면 null. */
   label_consistency_rate: number | null
+  /** ④-B 오라클↔사람 비교 대상 건(operative+oracle 소견 모두 존재). */
+  oracle_evaluated: number
+  /** 오라클 ≠ 사람 operative 불일치 건 — 라벨러 계통편향 신호(flag-only·기록만). */
+  oracle_conflicts: number
+  /** requires_review인데 오라클 미처리 건 — 스윕 백로그 깊이. */
+  oracle_pending: number
+  /** 오라클↔사람 일관성률 = (oracle_evaluated−oracle_conflicts)/oracle_evaluated. 비교 0건이면 null. */
+  oracle_consistency_rate: number | null
+  /** 오라클 커버리지율 = (reviews_required−oracle_pending)/reviews_required. 검토 0건이면 null. */
+  oracle_coverage_rate: number | null
   /** 격상 자격 신호(A1). 데이터 불충분/조건 미달이면 부재 또는 false. */
   promotion_eligible?: boolean
 }

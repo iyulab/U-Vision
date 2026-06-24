@@ -321,9 +321,11 @@ public class InspectTests : IClassFixture<UVisionApiFactory>
     {
         public string Name => "throwing";
         public bool IsEnabled => true;
+        // 실 비동기 실패(faulted task)를 모사 — 동기 throw 가 아니라 Task.FromException(호출부가
+        // Task.WhenAll 로 await 하는 실제 degrade 경로와 동형).
         public Task<MlClassification> ClassifyAsync(
             ReadOnlyMemory<byte> image, string scenarioId, CancellationToken ct = default) =>
-            throw new InvalidOperationException("simulated mloop 401");
+            Task.FromException<MlClassification>(new InvalidOperationException("simulated mloop 401"));
     }
 
     /// <summary>영속화가 항상 실패하는 stub — must-succeed 500 경로 검증용.</summary>

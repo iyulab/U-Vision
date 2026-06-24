@@ -98,6 +98,15 @@ public sealed record MetricsSummary
     /// <summary>미해소 충돌(conflicted) 라벨 수 — 검토 액션 큐.</summary>
     [JsonPropertyName("label_conflicts_open")] public required int LabelConflictsOpen { get; init; }
 
+    /// <summary>오라클 2차 소견과 operative 라벨을 모두 가진 건(④-B 계통편향 비교 분모). 둘 중 하나라도 없으면 제외.</summary>
+    [JsonPropertyName("oracle_evaluated")] public required int OracleEvaluated { get; init; }
+
+    /// <summary>오라클 소견이 사람 operative 라벨과 불일치한 건 — 라벨러 계통편향 신호(flag-only·기록만).</summary>
+    [JsonPropertyName("oracle_conflicts")] public required int OracleConflicts { get; init; }
+
+    /// <summary>검토 필요(requires_review)인데 아직 오라클 2차 소견이 없는 건 — 스윕 백로그 깊이(④-B 호출율 축).</summary>
+    [JsonPropertyName("oracle_pending")] public required int OraclePending { get; init; }
+
     /// <summary>사람 라벨이 붙은 건(정답 조인 성공).</summary>
     [JsonPropertyName("labeled")] public required int Labeled { get; init; }
 
@@ -135,6 +144,18 @@ public sealed record MetricsSummary
 
     /// <summary>라벨 일관성률 = label_consistent / audited. 감사 0 건이면 null(소표본 정직). (C1)</summary>
     [JsonPropertyName("label_consistency_rate")] public double? LabelConsistencyRate { get; init; }
+
+    /// <summary>
+    /// 오라클↔사람 일관성률 = (oracle_evaluated − oracle_conflicts) / oracle_evaluated. 비교 0 건이면 null.
+    /// 낮을수록 사람 라벨러의 계통편향 의심(④-B — C1 단일라벨러 자기감사가 못 잡는 축). 확정 아님·관측 신호.
+    /// </summary>
+    [JsonPropertyName("oracle_consistency_rate")] public double? OracleConsistencyRate { get; init; }
+
+    /// <summary>
+    /// 오라클 커버리지율 = (reviews_required − oracle_pending) / reviews_required. 검토 0 건이면 null.
+    /// 스윕이 검토 큐를 따라잡는 정도(낮으면 백로그 누적). ⑤ 오라클 학습데이터 축적 속도 관측.
+    /// </summary>
+    [JsonPropertyName("oracle_coverage_rate")] public double? OracleCoverageRate { get; init; }
 
     /// <summary>
     /// 격상 자격 신호(A1) — inspections≥MinWindow AND ml_ng_recall≥vlm_ng_recall AND ≥RecallFloor

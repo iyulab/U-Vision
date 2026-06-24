@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { LABEL_SET, agreementOf, isValidLabel, labelMapOf } from './labels'
+import { LABEL_SET, agreementOf, isValidLabel, labelMapOf, latestOracleOpinion } from './labels'
 import type { StoredLabel } from './types'
 
 describe('labels', () => {
@@ -31,5 +31,23 @@ describe('labels', () => {
     expect(agreementOf('OK', 'OK')).toBe('match')
     expect(agreementOf('OK', 'NG')).toBe('mismatch')
     expect(agreementOf('NG', 'NG')).toBe('match')
+  })
+
+  it('latestOracleOpinion extracts latest oracle event, ignores label/audit modes', () => {
+    const l: StoredLabel = {
+      image_id: 'a',
+      label: 'OK',
+      timestamp: 't',
+      history: [
+        { label: 'OK', by: 'dev', at: 't1', mode: 'label' },
+        { label: 'NG', by: 'oracle', at: 't2', mode: 'oracle' },
+      ],
+    }
+    expect(latestOracleOpinion(l)).toBe('NG')
+  })
+
+  it('latestOracleOpinion is undefined when no oracle event (or no label)', () => {
+    expect(latestOracleOpinion(undefined)).toBeUndefined()
+    expect(latestOracleOpinion({ image_id: 'a', label: 'NG', timestamp: 't' })).toBeUndefined()
   })
 })

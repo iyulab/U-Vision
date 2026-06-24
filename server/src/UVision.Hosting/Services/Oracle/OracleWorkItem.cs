@@ -26,4 +26,24 @@ public static class OracleSweepPlanner
     /// <summary>egress 게이트(E4) — 로컬(IsCloud=false)은 항상 허용, cloud 는 per-scenario opt-in.</summary>
     public static bool EgressAllowed(bool providerIsCloud, bool scenarioAllowsEgress) =>
         !providerIsCloud || scenarioAllowsEgress;
+
+    /// <summary>
+    /// 틱별 시작점 회전 — BatchCap order-bias 완화(④-B 후속). 고정 순서 스윕은 앞쪽 고볼륨
+    /// 시나리오가 budget 을 매 틱 선점해 뒤쪽 시나리오 백로그 처리가 지연된다. offset(스윕 횟수)으로
+    /// 시작 시나리오를 round-robin 회전시켜 공정성을 best-effort 로 회복한다(부호·범위 안전).
+    /// 시나리오 내 날짜는 recent-first 우선순위 유지(의도적).
+    /// </summary>
+    public static IReadOnlyList<T> Rotated<T>(IReadOnlyList<T> items, int offset)
+    {
+        int n = items.Count;
+        if (n <= 1)
+            return items;
+        int start = ((offset % n) + n) % n; // 음수 offset 안전
+        if (start == 0)
+            return items;
+        var rotated = new List<T>(n);
+        for (int i = 0; i < n; i++)
+            rotated.Add(items[(start + i) % n]);
+        return rotated;
+    }
 }

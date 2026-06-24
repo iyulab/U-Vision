@@ -122,6 +122,25 @@ public class MloopClassifierTests
     }
 
     [Fact]
+    public async Task Classify_ClampsOutOfRangeConfidence_AtBoundary()
+    {
+        // 비정상 확률(>1)을 그대로 흘리면 calibrator·DualCheck 게이팅이 오염된다 — 경계에서 [0,1] 정규화.
+        var handler = new FakeHandler(HttpStatusCode.OK,
+            """{"predictions":[{"predictedLabel":"ng","probabilities":{"ng":1.5,"ok":0.2}}]}""");
+        var result = await Build(handler).ClassifyAsync(Image, "demo");
+        Assert.Equal(1.0, result.Confidence); // raw 1.5 → clamp 1.0
+    }
+
+    [Fact]
+    public async Task Classify_NegativeScore_ClampedToZero_AtBoundary()
+    {
+        var handler = new FakeHandler(HttpStatusCode.OK,
+            """{"predictions":[{"predictedLabel":"ng","probabilities":null,"score":-0.5}]}""");
+        var result = await Build(handler).ClassifyAsync(Image, "demo");
+        Assert.Equal(0.0, result.Confidence); // raw -0.5 → clamp 0.0
+    }
+
+    [Fact]
     public async Task Classify_DeletesTempFile()
     {
         // 임시 파일이 남지 않는다(요청 전후 temp 디렉토리의 uvision-ml-* 수 불변).

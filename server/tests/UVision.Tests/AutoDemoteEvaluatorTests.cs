@@ -12,6 +12,7 @@ public class AutoDemoteEvaluatorTests
         ScenarioId = "demo", Date = "2026-06-23",
         Inspections = inspections, MlDegraded = 0, FailClosed = 0, Agreements = 0, ReviewsRequired = 0,
         Audited = 0, LabelConsistent = 0, LabelConflictsOpen = 0,
+        OracleEvaluated = 0, OracleConflicts = 0, OraclePending = 0,
         Labeled = inspections, LabeledNg = inspections, VlmNgHits = 0, MlNgScored = inspections, MlNgHits = 0,
         MlNgRecall = mlRecall, VlmNgRecall = vlmRecall,
     };

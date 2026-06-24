@@ -28,6 +28,11 @@ function makeSummary(overrides: Partial<MetricsSummary>): MetricsSummary {
     label_consistent: 0,
     label_conflicts_open: 0,
     label_consistency_rate: null,
+    oracle_evaluated: 0,
+    oracle_conflicts: 0,
+    oracle_pending: 0,
+    oracle_consistency_rate: null,
+    oracle_coverage_rate: null,
     ...overrides,
   }
 }

@@ -151,8 +151,9 @@ public class MetricsEndpointTests
     {
         public string Name => "throwing";
         public bool IsEnabled => true;
+        // 실 비동기 실패(faulted task) 모사 — 동기 throw 가 아니라 Task.FromException(실제 degrade 경로 동형).
         public Task<MlClassification> ClassifyAsync(
             ReadOnlyMemory<byte> image, string scenarioId, CancellationToken ct = default) =>
-            throw new InvalidOperationException("simulated mloop 401");
+            Task.FromException<MlClassification>(new InvalidOperationException("simulated mloop 401"));
     }
 }
