@@ -140,6 +140,41 @@ public class MloopClassifierTests
         Assert.Equal(0.0, result.Confidence); // raw -0.5 → clamp 0.0
     }
 
+    // MLoop confidence 계약 소비(MLoop 0.19.0 예정, [Unreleased]) --------
+    // 서버가 정규화 confidence ∈ [0,1] 를 직접 주면 그것을 단일 권위로 소비하고,
+    // 구버전 서버(null)는 기존 max-prob/score 파생으로 폴백한다(하위호환).
+
+    [Fact]
+    public async Task Classify_PrefersServerConfidence_OverDerivedMaxProb()
+    {
+        // 파생 max-prob(0.82)와 다른 값(0.6)으로 서버 confidence 우선을 증명.
+        var handler = new FakeHandler(HttpStatusCode.OK,
+            """{"predictions":[{"predictedLabel":"ng","probabilities":{"ok":0.18,"ng":0.82},"confidence":0.6}]}""");
+        var result = await Build(handler).ClassifyAsync(Image, "demo");
+        Assert.Equal(0.6, result.Confidence, precision: 3);
+    }
+
+    [Fact]
+    public async Task Classify_ClampsServerConfidence_AtBoundary()
+    {
+        // 서버 confidence 도 trust boundary(A3) 정규화 대상 — 1.5 → 1.0 (파생 0.4 로 폴백하지 않음).
+        var handler = new FakeHandler(HttpStatusCode.OK,
+            """{"predictions":[{"predictedLabel":"ng","probabilities":{"ng":0.4,"ok":0.3},"confidence":1.5}]}""");
+        var result = await Build(handler).ClassifyAsync(Image, "demo");
+        Assert.Equal(1.0, result.Confidence);
+    }
+
+    [Fact]
+    public async Task Classify_NonFiniteServerConfidence_BecomesZero_NotFallback()
+    {
+        // 1e999 → STJ 가 double.PositiveInfinity 로 파싱. 서버가 confidence 를 '줬으나 오염'이면
+        // 파생 폴백(0.9)이 아니라 0 — 오염 응답의 신뢰도 주장을 신뢰하지 않는다.
+        var handler = new FakeHandler(HttpStatusCode.OK,
+            """{"predictions":[{"predictedLabel":"ng","probabilities":{"ng":0.9,"ok":0.1},"confidence":1e999}]}""");
+        var result = await Build(handler).ClassifyAsync(Image, "demo");
+        Assert.Equal(0.0, result.Confidence);
+    }
+
     [Fact]
     public async Task Classify_DeletesTempFile()
     {

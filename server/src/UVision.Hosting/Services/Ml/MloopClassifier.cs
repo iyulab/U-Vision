@@ -97,13 +97,18 @@ public sealed class MloopClassifier : IMlClassifier
     }
 
     /// <summary>
-    /// 예측 클래스의 신뢰도. argmax 분류이므로 확률맵의 최댓값이 예측 클래스 확률이다.
-    /// 확률맵이 없으면(이진 등) Score, 그것도 없으면 0.
-    /// (MLoop 응답은 확률을 class_0/class_1 키로 주고 PredictedLabel 은 별도라 직접 매핑이 없어
-    /// max 를 쓴다 — 보수적이고 단조적인 선택.)
+    /// 예측 클래스의 신뢰도. MLoop 0.19.0+ 는 정규화 confidence ∈ [0,1] 를 계약으로 직접 준다
+    /// (단일 권위 = MLoop <c>ConfidencePolicy</c>) — 있으면 그대로 소비한다. 서버가 줬으나 비유한이면
+    /// 파생 폴백이 아닌 0(오염 응답의 신뢰도 주장은 신뢰하지 않음).
+    /// 구버전 서버(confidence null)는 기존 파생으로 폴백: argmax 분류이므로 확률맵 최댓값,
+    /// 없으면(이진 등) Score, 그것도 없으면 0. 이 폴백은 MLoop min 버전을 강제하기 전까지 삭제 금지
+    /// (0.19.0 은 아직 [Unreleased] — 배포된 구버전 serve 와의 하위호환).
     /// </summary>
     private static double ConfidenceOf(PredictRow row)
     {
+        if (row.Confidence is double c)
+            return double.IsFinite(c) ? Math.Clamp(c, 0.0, 1.0) : 0.0;
+
         double raw = row.Probabilities is { Count: > 0 } probs ? probs.Values.Max() : (row.Score ?? 0.0);
         // trust boundary(A3): 외부 모델 응답의 비정상 값(NaN/Infinity/[0,1] 범위 밖)을 여기서 정규화한다.
         // calibrator 가 아니라 경계에서 차단해야 하류(calibrator·DualCheck 게이팅) 오염을 근본 방지(raw Scores 는 보존).
@@ -123,5 +128,7 @@ public sealed class MloopClassifier : IMlClassifier
         [JsonPropertyName("predictedLabel")] public string? PredictedLabel { get; init; }
         [JsonPropertyName("probabilities")] public Dictionary<string, double>? Probabilities { get; init; }
         [JsonPropertyName("score")] public double? Score { get; init; }
+        // MLoop 0.19.0+ 정규화 신뢰도(nullable additive — 구버전 serve 는 null).
+        [JsonPropertyName("confidence")] public double? Confidence { get; init; }
     }
 }
