@@ -66,8 +66,11 @@ public static class UVisionServiceExtensions
         // 라벨 감사(C1) 옵션.
         services.Configure<LabelAuditOptions>(configuration.GetSection("UVision:LabelAudit"));
 
-        // 관리자 PIN.
+        // 관리자 PIN — config(평문) 우선, 미설정 시 파일시스템 부트스트랩(admin-pin.json).
         services.AddSingleton(new AdminPinOptions { Pin = options.AdminPin });
+        services.AddSingleton<AdminPinService>();
+        // 부팅 시 setup-token 준비(config PIN 설정 시 no-op → 기존 동작 보존).
+        services.AddHostedService<AdminSetupBootstrapService>();
 
         // ⚠️ 전역 ConfigureHttpJsonOptions 를 등록하지 않는다(프로세스 전역 오염 방지).
         // wire snake_case 는 Task 4B 의 [JsonPropertyName] 으로 DTO 자체가 보유 → ambient 정책 무관.

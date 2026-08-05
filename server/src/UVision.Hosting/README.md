@@ -68,7 +68,7 @@ app.Run();
       "ReviewConfidenceThreshold": 0.0  // ③ 2중체크: VLM/ML 신뢰도가 이 값 미만이면 requires_review(0=불일치만)
     },
     "Storage": { "DataPath": "data" },   // 상대경로는 호스트 ContentRoot 기준
-    "AdminPin": null,                     // 미설정 시 관리(쓰기) 엔드포인트는 503, 운영(읽기)은 정상
+    "AdminPin": null,                     // 미설정 시 관리(쓰기)는 503 + 파일시스템 부트스트랩으로 최초 설정(아래 참고)
     "BasePath": "/u-vision",              // PWA 마운트 경로 (⚠️ 아래 제약 참고)
     "ApiBasePath": "/api/u-vision",       // API 네임스페이스
     "Title": "U-Vision"                   // 런타임 config로 SPA에 주입
@@ -104,11 +104,26 @@ VLM verdict 가 여전히 주 판정이고 ML 은 교차검증이다. ML 호출 
 - **관리/쓰기는 PIN**: 시나리오 생성·수정·삭제, 기준이미지 업로드·삭제는 헤더 `X-Admin-Pin` 필요.
 - `UVision:AdminPin` 미설정 → 관리 엔드포인트는 **503**(운영은 정상). 계정·세션·역할 시스템은 의도적으로 없다.
 
+### 관리자 PIN 최초 설정 (first-run bootstrap)
+
+계정 시스템이 없으므로 신규 설치가 서버 파일 수정·재시작 없이 UI 만으로 첫 PIN 을 정할 수 있게 한다.
+**우선순위**: 명시적 config PIN(`UVision:AdminPin`/`ADMIN_PIN`) **>** 파일 부트스트랩(`{DataPath}/admin-pin.json`).
+
+- **config PIN 설정 시**: 부트스트랩 완전 비활성 — setup-token 미생성, `POST /admin/setup` 은 410, 파일 미조회.
+  기존 동작과 **byte-identical**.
+- **config PIN 미설정 시**: 부팅 시 일회용 setup-token 을 `{DataPath}/admin-setup-token.txt` 에 생성하고 경로를
+  로그에 남긴다. 서버 머신 파일시스템 접근 = 신뢰 루트(네트워크상 선점 탈취 방지). 관리 콘솔이 PIN 미설정을
+  감지하면 **최초 설정 화면**을 띄운다 — 토큰과 새 PIN 을 제출하면 PBKDF2 해시를 `admin-pin.json` 에 원자적
+  기록하고 토큰을 삭제한다. 이후 재시작 없이 즉시 관리 기능 사용 가능.
+- **PIN 분실 복구**: 서버에서 `{DataPath}/admin-pin.json` 삭제 → 재시작 → 재부트스트랩(새 setup-token 생성).
+
 ## API 표면 (`{ApiBasePath}` 하위, 기본 `/api/u-vision`)
 
 | 메서드 | 경로 | 인증 |
 |---|---|---|
 | GET | `/health` | - |
+| GET | `/admin/status` (PIN 설정 상태) | - |
+| POST | `/admin/setup` (최초 PIN 설정) | setup-token |
 | POST | `/inspect` (multipart) | - |
 | GET | `/results`, `/results/dates`, `/results/image` | - |
 | GET | `/scenarios`, `/scenarios/{id}` | - |

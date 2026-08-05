@@ -26,6 +26,9 @@ public class UVisionApiFactory : WebApplicationFactory<Program>
         // mock 으로 고정한다. Program 의 DotNetEnv 는 NoClobber 이므로 미리 설정한 이 값이 .env 보다
         // 우선한다. (호스트 빌드 전에 실행되도록 정적 생성자에 둔다.)
         Environment.SetEnvironmentVariable("VLM_PROVIDER", "mock");
+        // 관리자 PIN 부트스트랩 테스트 격리 — 머신 환경/.env 의 ADMIN_PIN 이 config PIN 으로 새지 않도록
+        // 명시적으로 비운다. PIN 이 필요한 테스트는 PinFactory 가 AdminPinOptions 를 DI 로 직접 주입한다.
+        Environment.SetEnvironmentVariable("ADMIN_PIN", null);
     }
 
     /// <summary>ML provider 이름 override(null = none, VLM 단독).</summary>

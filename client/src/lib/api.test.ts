@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { DetectionUnavailableError, inspectImage, listAuditSample, putAudit } from './api'
+import { ApiError, DetectionUnavailableError, getAdminStatus, inspectImage, listAuditSample, putAudit, setupAdmin } from './api'
 
 function mockFetch(status: number, body: unknown) {
   return vi.fn().mockResolvedValue({
@@ -60,5 +60,26 @@ describe('audit api', () => {
     } as Response))
 
     expect(await listAuditSample('s', '2026-06-09')).toEqual(['img_a', 'img_b'])
+  })
+})
+
+describe('admin setup api', () => {
+  it('getAdminStatus → setup_required 반영', async () => {
+    vi.stubGlobal('fetch', mockFetch(200, { pin_configured: false, setup_required: true }))
+    const status = await getAdminStatus()
+    expect(status.setup_required).toBe(true)
+    expect(status.pin_configured).toBe(false)
+  })
+
+  it('setupAdmin 204 → 성공(무예외)', async () => {
+    vi.stubGlobal('fetch', mockFetch(204, null))
+    await expect(setupAdmin('tok', '9999')).resolves.toBeUndefined()
+  })
+
+  it('setupAdmin 401 → ApiError(상태 보존)', async () => {
+    vi.stubGlobal('fetch', mockFetch(401, { detail: 'bad token' }))
+    const err = await setupAdmin('wrong', '9999').catch((e) => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err.status).toBe(401)
   })
 })

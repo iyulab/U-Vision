@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 
-import { createScenario, deleteScenario, listScenarios, updateScenario } from '../lib/api'
+import { createScenario, deleteScenario, getAdminStatus, listScenarios, updateScenario } from '../lib/api'
 import { usePin, type PinRunResult } from '../hooks/usePin'
+import { AdminSetup } from './AdminSetup'
 import { DEFAULT_MOTION_CONFIG } from '../lib/motion'
 import { DEFAULT_ROI, fromScenarioRoi, toScenarioRoi, type Roi } from '../lib/roi'
 import type { Scenario } from '../lib/types'
@@ -60,6 +61,8 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
   const [tab, setTab] = useState<Tab>('scenarios')
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [error, setError] = useState<string | null>(null)
+  // 최초 설정 필요 여부(null = 확인 중). setup_required 면 관리 콘솔 대신 부트스트랩 화면을 띄운다.
+  const [setupRequired, setSetupRequired] = useState<boolean | null>(null)
   const { runWithPin, prompting, submitPin, cancelPin } = usePin()
 
   const reload = useCallback(async () => {
@@ -74,6 +77,33 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
   useEffect(() => {
     void reload()
   }, [reload])
+
+  // PIN 미설정 상태를 감지해 최초 설정 화면 노출 여부를 결정한다(부트스트랩). 조회 실패 시엔
+  // 게이트하지 않는다(콘솔 정상 진입 — 변경 시점의 PIN 프롬프트/503 이 fallback).
+  useEffect(() => {
+    getAdminStatus()
+      .then((s) => setSetupRequired(s.setup_required))
+      .catch(() => setSetupRequired(false))
+  }, [])
+
+  if (setupRequired === null) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-slate-900 text-slate-400">
+        불러오는 중…
+      </div>
+    )
+  }
+
+  if (setupRequired) {
+    return (
+      <AdminSetup
+        onDone={() => {
+          setSetupRequired(false)
+          void reload()
+        }}
+      />
+    )
+  }
 
   return (
     <div className="min-h-screen w-full bg-slate-900 text-slate-100">

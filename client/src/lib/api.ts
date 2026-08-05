@@ -1,4 +1,4 @@
-import type { AuthorityState, DetectionUnavailable, InspectResult, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult } from './types'
+import type { AdminStatus, AuthorityState, DetectionUnavailable, InspectResult, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult } from './types'
 import type { AuthorityStage } from './authority'
 import { resolveApiBase } from './runtimeConfig'
 
@@ -160,6 +160,27 @@ export async function getMetrics(scenarioId: string, date: string): Promise<Metr
   )
   await ensureOk(res, '메트릭 조회')
   return (await res.json()) as MetricsSummary
+}
+
+// --- 관리자 PIN 최초 설정 (first-run bootstrap — 서버 /admin/* 계약) ----------
+// 계정 시스템 없는 셀프호스트에서 신규 설치가 서버 파일 수정·재시작 없이 PIN 을 정하게 한다.
+// status 는 무인증, setup 은 서버 데이터 폴더의 일회용 setup-token(파일시스템 = 신뢰 루트)으로 게이트.
+
+/** PIN 설정 상태(무인증). setup_required 면 콘솔이 최초 설정 화면을 띄운다. */
+export async function getAdminStatus(): Promise<AdminStatus> {
+  const res = await fetch(`${API_BASE}/admin/status`)
+  await ensureOk(res, '관리자 상태 조회')
+  return (await res.json()) as AdminStatus
+}
+
+/** 최초 PIN 설정(토큰 게이트). 204 성공, 401=토큰 불일치·400=PIN 형식·409=이미 설정·410=비활성. */
+export async function setupAdmin(setupToken: string, newPin: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/admin/setup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ setup_token: setupToken, new_pin: newPin }),
+  })
+  await ensureOk(res, '최초 PIN 설정')
 }
 
 const PIN_HEADER = 'X-Admin-Pin'

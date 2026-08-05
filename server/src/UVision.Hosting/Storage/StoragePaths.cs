@@ -124,6 +124,19 @@ public sealed partial class StoragePaths
     public string AuthorityFile(string scenarioId) =>
         Path.Combine(ScenarioDir(scenarioId), "authority.json");
 
+    // --- 관리자 PIN 부트스트랩 (first-run) ----------------------------------
+    // 파일시스템을 신뢰 루트로 삼는 최초 PIN 설정. 두 파일 모두 데이터 루트 직속(시나리오 무관 전역
+    // 상태). authority.json·active.json 과 동일한 소유권 모델(atomic 교체).
+
+    /// <summary>부트스트랩된 관리자 PIN 해시 <c>{DataPath}/admin-pin.json</c>(가변·atomic 교체).</summary>
+    public string AdminPinFile() => Path.Combine(_root, "admin-pin.json");
+
+    /// <summary>
+    /// 일회용 최초 설정 토큰 <c>{DataPath}/admin-setup-token.txt</c> — 서버 머신 파일시스템 접근을
+    /// 관리 권한 부트스트랩의 신뢰 루트로 삼는다(네트워크상 선점 탈취 방지). 설정 완료 시 삭제.
+    /// </summary>
+    public string AdminSetupTokenFile() => Path.Combine(_root, "admin-setup-token.txt");
+
     // --- sanitize (거부) ---------------------------------------------------
 
     [GeneratedRegex(@"^[A-Za-z0-9._-]+$")]

@@ -198,6 +198,14 @@ export interface AuthorityTransition {
   reason?: string | null
 }
 
+/** 관리자 PIN 설정 상태(최초 설정 부트스트랩) — 서버 `AdminStatusResponse` 미러. */
+export interface AdminStatus {
+  /** PIN 이 어떤 경로로든(config 또는 파일) 설정됨. */
+  pin_configured: boolean
+  /** 부트스트랩 활성 && 미설정 — 콘솔이 최초 설정 화면을 띄워야 함. */
+  setup_required: boolean
+}
+
 /** 권한 단계 상태(A1) — 서버 `AuthorityState` 미러. */
 export interface AuthorityState {
   stage: import('./authority').AuthorityStage
