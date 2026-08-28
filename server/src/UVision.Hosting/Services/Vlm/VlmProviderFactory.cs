@@ -28,7 +28,7 @@ public static class VlmProviderFactory
                     IronHiveBuilders.BuildMessageService(b => b.AddOpenAIProviders(
                         "openai",
                         new OpenAIConfig { ApiKey = options.ApiKey },
-                        OpenAIServiceType.ChatCompletion)),
+                        OpenAIServiceType.Messages)),
                     "openai",
                     options.Model);
 

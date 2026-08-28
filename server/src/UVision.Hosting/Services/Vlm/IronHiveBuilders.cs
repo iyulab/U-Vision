@@ -2,7 +2,6 @@ using IronHive.Abstractions;
 using IronHive.Abstractions.Messages;
 using IronHive.Core;
 using IronHive.Providers.OpenAI.Compatible.GpuStack;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace UVision.Api.Services.Vlm;
 
@@ -13,7 +12,7 @@ public static class IronHiveBuilders
     {
         var builder = new HiveServiceBuilder();
         register(builder);
-        return builder.Build().Services.GetRequiredService<IMessageService>();
+        return builder.Build().Messages;
     }
 
     /// <summary>GPUStack(OpenAI 호환 셀프호스트) IMessageService — VLM·로컬 오라클 공용.</summary>

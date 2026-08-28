@@ -1,7 +1,6 @@
 using System.Text.Json;
 using IronHive.Abstractions.Messages;
 using IronHive.Abstractions.Messages.Content;
-using IronHive.Abstractions.Messages.Roles;
 using UVision.Api.Models;
 
 namespace UVision.Api.Services.Vlm;
@@ -57,15 +56,15 @@ public sealed class IronHiveVlmProvider : IVlmProvider
             System = VlmPrompt.BuildSystemPrompt(scenario),
             Messages =
             [
-                new UserMessage { Content = BuildContent(image, scenario.References) },
+                Message.User([.. BuildContent(image, scenario.References)]),
             ],
-            Output = typeof(InspectionResult), // 구조화 출력(json_schema grammar 강제) — ironhive 0.7.4+
+            OutputFormat = OutputFormat.For<InspectionResult>(), // 구조화 출력(json_schema grammar 강제)
             MaxTokens = MaxOutputTokens,       // reasoning 모델 truncation 방지(위 주석)
         };
 
         var response = await _messageService.GenerateMessageAsync(request, cancellationToken);
 
-        var json = response.Message.Content
+        var json = (response.Message?.Content ?? [])
             .OfType<TextMessageContent>()
             .Select(c => c.Value)
             .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
