@@ -4,6 +4,7 @@ using HoneAI.Routing;
 using UVision.Api.Configuration;
 using UVision.Api.Models;
 using UVision.Api.Services.Ml;
+using UVision.Api.Services.Scenarios;
 using UVision.Api.Services.Vlm;
 using UVision.Api.Storage;
 
@@ -26,15 +27,20 @@ public sealed class DecisionLedger(
     VlmOptions vlmOptions,
     ILogger<DecisionLedger> logger)
 {
-    /// <summary>조각 키 정의 — 조각 = 시나리오 하나(가장 거친 단위, 조각 키 결정 전 보수 기본값).</summary>
-    public static readonly ISliceKey<LedgerSubject> Slices = SliceKey.From<LedgerSubject>("scenario-v1", s => s.ScenarioId);
+    /// <summary>
+    /// 조각 키 체계 — 유효 시나리오의 <c>trust.slice_key</c>. 지금 지어진 체계는 «시나리오 하나가 조각»뿐이다.
+    /// </summary>
+    public static ISliceKey<LedgerSubject> SlicesFor(EffectiveScenario scenario) =>
+        SliceKey.From<LedgerSubject>(scenario.SliceKey, s => s.Scenario.ScenarioId);
 
     /// <summary>
-    /// 아래 단이 확정할 수 있는 값은 OK 뿐이다. NG 는 언제나 꼭대기로 간다(놓치면 안 되는 값).
-    /// 라벨은 대소문자를 가리지 않는다(ML 라벨은 class-agnostic 문자열).
+    /// 확정 정책 — 유효 시나리오의 클래스에서. 아래 단은 settleable 값만 확정하고, must_catch 값은 언제나 꼭대기로
+    /// 간다. 라벨은 대소문자를 가리지 않는다(ML 라벨은 class-agnostic 문자열).
     /// </summary>
-    public static readonly ISettlementPolicy<string> Policy = SettlementPolicy.Categorical(
-        settleable: ["OK"], mustCatch: ["NG"], comparer: StringComparer.OrdinalIgnoreCase);
+    public static ISettlementPolicy<string> PolicyFor(EffectiveScenario scenario) => SettlementPolicy.Categorical(
+        settleable: [.. scenario.Classes.Where(c => c.Settleable).Select(c => c.Id)],
+        mustCatch: [.. scenario.Classes.Where(c => c.MustCatch).Select(c => c.Id)],
+        comparer: StringComparer.OrdinalIgnoreCase);
 
     private readonly ConcurrentDictionary<string, JsonlProvenanceSink> _sinks = new(StringComparer.Ordinal);
 
@@ -46,8 +52,9 @@ public sealed class DecisionLedger(
     {
         try
         {
+            var slices = SlicesFor(subject.Scenario);
             var router = new TieredRouter<LedgerSubject, string>(
-                Judges(subject), Policy, Slices, s => s.DecisionId, snapshot: () => null);
+                Judges(subject), PolicyFor(subject.Scenario), slices, s => s.DecisionId, snapshot: () => null);
 
             PredictionProvenance provenance;
             try
@@ -60,7 +67,7 @@ public sealed class DecisionLedger(
                 provenance = new PredictionProvenance
                 {
                     Kind = JudgeKind.Vlm,
-                    SliceKey = Slices.KeyOf(subject),
+                    SliceKey = slices.KeyOf(subject),
                     Path = ex.Path,
                     Rationale = "no tier settled",
                 };
@@ -68,35 +75,42 @@ public sealed class DecisionLedger(
 
             var record = provenance with { Annotations = operative.ToAnnotations() };
             var date = StoragePaths.DateBucketOf(subject.Timestamp);
-            var sink = _sinks.GetOrAdd(paths.LedgerJsonl(subject.ScenarioId, date), p => new JsonlProvenanceSink(p));
+            var sink = _sinks.GetOrAdd(paths.LedgerJsonl(subject.Scenario.ScenarioId, date), p => new JsonlProvenanceSink(p));
             await sink.AppendAsync(subject.DecisionId, record, cancellationToken);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex,
                 "결정 장부 기록 실패 — 관측만 누락 (scenario={ScenarioId}, decision={DecisionId})",
-                subject.ScenarioId, subject.DecisionId);
+                subject.Scenario.ScenarioId, subject.DecisionId);
         }
     }
 
+    /// <summary>유효 시나리오의 단 순서대로 — 비용 순(아래 → 꼭대기).</summary>
     private IEnumerable<IJudge<LedgerSubject, string>> Judges(LedgerSubject subject)
     {
-        // ML 비활성이면 단이 없다(VLM 하나짜리 사다리). 활성인데 실패했으면 기권한 단으로 남는다.
-        if (subject.Ml is { } ml)
+        // 비용 순위는 단의 종류가 정한다(배열 위치가 아니다) — 같은 단은 시나리오가 달라도 같은 값으로 기록된다.
+        foreach (var tier in subject.Scenario.Tiers)
         {
-            var version = ml.Result?.ModelVersion ?? classifier.Name;
-            yield return new AnsweredJudge(
-                new Tier { Id = "ml", Kind = JudgeKind.Ml, Version = version, CostRank = 1 },
-                ml.Result is { } c
-                    ? JudgeVerdict<string>.Answer(c.Label, c.Confidence)
-                    : JudgeVerdict<string>.Abstain("ml failed: " + ml.FailureReason));
+            switch (tier)
+            {
+                // ML 비활성이면 그 단은 없다(구성에 적혀 있어도). 활성인데 실패했으면 기권한 단으로 남는다.
+                case ScenarioVocabulary.MlTier when subject.Ml is { } ml:
+                    yield return new AnsweredJudge(
+                        new Tier { Id = tier, Kind = JudgeKind.Ml, Version = ml.Result?.ModelVersion ?? classifier.Name, CostRank = 1 },
+                        ml.Result is { } c
+                            ? JudgeVerdict<string>.Answer(c.Label, c.Confidence)
+                            : JudgeVerdict<string>.Abstain("ml failed: " + ml.FailureReason));
+                    break;
+                case ScenarioVocabulary.VlmTier:
+                    yield return new AnsweredJudge(
+                        new Tier { Id = tier, Kind = JudgeKind.Vlm, Version = $"{provider.Name}:{vlmOptions.Model}", CostRank = 2 },
+                        subject.Vlm is { } v
+                            ? JudgeVerdict<string>.Answer(v.Verdict.ToString(), v.Confidence, v.Findings)
+                            : JudgeVerdict<string>.Abstain("vlm unavailable"));
+                    break;
+            }
         }
-
-        yield return new AnsweredJudge(
-            new Tier { Id = "vlm", Kind = JudgeKind.Vlm, Version = $"{provider.Name}:{vlmOptions.Model}", CostRank = 2 },
-            subject.Vlm is { } v
-                ? JudgeVerdict<string>.Answer(v.Verdict.ToString(), v.Confidence, v.Findings)
-                : JudgeVerdict<string>.Abstain("vlm unavailable"));
     }
 
     /// <summary>파이프라인이 이미 받은 답을 그대로 돌려주는 judge — 판정원을 다시 부르지 않는다.</summary>
@@ -112,12 +126,12 @@ public sealed class DecisionLedger(
 
 /// <summary>장부에 적을 판정 한 건 — 판정원이 낸 답들.</summary>
 /// <param name="DecisionId">판정 식별자(레코드가 있으면 그 image_id).</param>
-/// <param name="ScenarioId">시나리오(= 조각).</param>
+/// <param name="Scenario">유효 시나리오 — 정책 · 조각 키 · 단 순서의 출처.</param>
 /// <param name="Timestamp">판정 시각(ISO 8601 UTC) — 장부 날짜 버킷.</param>
 /// <param name="Vlm">VLM 답(null = 실패).</param>
 /// <param name="Ml">ML 결과(null = 비활성).</param>
 public sealed record LedgerSubject(
-    string DecisionId, string ScenarioId, string Timestamp, InspectionResult? Vlm, MlOutcome? Ml);
+    string DecisionId, EffectiveScenario Scenario, string Timestamp, InspectionResult? Vlm, MlOutcome? Ml);
 
 /// <summary>실제로 쓴 결정 — 장부에서 라우터의 결정과 나란히 비교하기 위해 남긴다.</summary>
 /// <param name="Verdict">응답한 판정(null = fail-closed).</param>

@@ -1,5 +1,6 @@
 using UVision.Api.Auth;
 using UVision.Api.Models;
+using UVision.Api.Services.Scenarios;
 using UVision.Api.Storage;
 
 namespace UVision.Api.Endpoints;
@@ -30,6 +31,8 @@ public static class ScenarioEndpoints
         {
             if (string.IsNullOrWhiteSpace(input.Name))
                 return Results.Problem(statusCode: 400, detail: "name 은 필수");
+            if (EffectiveScenario.Validate(input) is { } invalid)
+                return Results.Problem(statusCode: 400, detail: invalid);
 
             var created = await store.CreateAsync(input, ct);
             return Results.Created(ApiLocation.For(request, options, $"scenarios/{created.ScenarioId}"), created);
@@ -41,6 +44,8 @@ public static class ScenarioEndpoints
             {
                 if (string.IsNullOrWhiteSpace(input.Name))
                     return Results.Problem(statusCode: 400, detail: "name 은 필수");
+                if (EffectiveScenario.Validate(input) is { } invalid)
+                    return Results.Problem(statusCode: 400, detail: invalid);
 
                 var updated = await store.UpdateAsync(id, input, ct);
                 return updated is null

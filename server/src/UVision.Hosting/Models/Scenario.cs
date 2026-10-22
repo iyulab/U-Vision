@@ -64,6 +64,34 @@ public sealed record Scenario
     /// 로컬 오라클(gpustack)은 egress 아니므로 이 값과 무관. cloud provider 결선 전까지는 가드만 선재.
     /// </summary>
     [JsonPropertyName("allow_cloud_egress")] public bool AllowCloudEgress { get; init; }
+
+    // --- v2 (nullable · additive) — 없으면 v1 에서 파생한다(EffectiveScenario). 비어 있으면 쓰지 않아
+    // v1 scenario.json · 응답이 byte 그대로다.
+
+    /// <summary>결과 모양 — 없으면 <c>inspection</c>(OK/NG 검사).</summary>
+    [JsonPropertyName("type")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Type { get; init; }
+
+    /// <summary>사건 원천 — 없으면 <c>still</c>(정지 촬영).</summary>
+    [JsonPropertyName("trigger")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Trigger { get; init; }
+
+    /// <summary>판정 값과 위험 등급 — 없으면 OK(확정 가능) · NG(꼭 잡을 값).</summary>
+    [JsonPropertyName("classes")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ScenarioClass>? Classes { get; init; }
+
+    /// <summary>판정 단 순서 — 없으면 ML 활성일 때 [ml, vlm], 아니면 [vlm].</summary>
+    [JsonPropertyName("judges")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ScenarioJudge>? Judges { get; init; }
+
+    /// <summary>조각 키 · 관문 목표 — 없으면 시나리오 하나가 조각, 목표는 기본값(<see cref="ScenarioTargets.Default"/>).</summary>
+    [JsonPropertyName("trust")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ScenarioTrust? Trust { get; init; }
 }
 
 /// <summary>
@@ -96,6 +124,19 @@ public sealed record ScenarioInput
     /// </summary>
     [JsonPropertyName("allow_cloud_egress")] public bool AllowCloudEgress { get; init; }
 
+    // --- v2 — 생략(null)하면 수정 시 기존 값을 보존한다(FileScenarioStore.UpdateAsync). 관리 화면이
+    // v2 필드를 모르는 동안 다른 필드를 고치다 v2 구성을 지우지 않게.
+
+    [JsonPropertyName("type")] public string? Type { get; init; }
+
+    [JsonPropertyName("trigger")] public string? Trigger { get; init; }
+
+    [JsonPropertyName("classes")] public List<ScenarioClass>? Classes { get; init; }
+
+    [JsonPropertyName("judges")] public List<ScenarioJudge>? Judges { get; init; }
+
+    [JsonPropertyName("trust")] public ScenarioTrust? Trust { get; init; }
+
     /// <summary>입력 + 확정 id → 영속 시나리오.</summary>
     public Scenario ToScenario(string scenarioId) => new()
     {
@@ -110,5 +151,10 @@ public sealed record ScenarioInput
         ReferenceCap = ReferenceCap,
         NgLabels = NgLabels,
         AllowCloudEgress = AllowCloudEgress,
+        Type = Type,
+        Trigger = Trigger,
+        Classes = Classes,
+        Judges = Judges,
+        Trust = Trust,
     };
 }

@@ -8,6 +8,7 @@ using UVision.Api.Services.DualCheck;
 using UVision.Api.Services.Metrics;
 using UVision.Api.Services.Ml;
 using UVision.Api.Services.Posture;
+using UVision.Api.Services.Scenarios;
 using UVision.Api.Services.Vlm;
 using UVision.Api.Storage;
 
@@ -51,6 +52,7 @@ public sealed class InspectionPipeline(
     public async Task<InspectionOutcome> RunAsync(
         Scenario scenario, InspectionCapture capture, CancellationToken cancellationToken)
     {
+        var effective = EffectiveScenario.Resolve(scenario, classifier.IsEnabled);
         var evidence = await GatherAsync(scenario, capture.Image, cancellationToken);
         var (stage, decision, dual) = await DecideAsync(scenario, evidence, cancellationToken);
         var result = evidence.Vlm;
@@ -68,7 +70,7 @@ public sealed class InspectionPipeline(
             if (classifier.IsEnabled)
                 await WriteFailClosedMetricSafelyAsync(scenario.ScenarioId, ml, failedAt, cancellationToken);
             await ledger.RecordAsync(
-                new LedgerSubject($"dec_{Guid.NewGuid():N}", scenario.ScenarioId, failedAt, result, evidence.Ml),
+                new LedgerSubject($"dec_{Guid.NewGuid():N}", effective, failedAt, result, evidence.Ml),
                 new OperativeDecision(null, SourceName(decision), AuthorityStageJsonConverter.ToWire(stage), MetricsRow.PostureFailClosed),
                 cancellationToken);
 
@@ -130,7 +132,7 @@ public sealed class InspectionPipeline(
 
         // 결정 장부(관찰 전용) — 레코드가 생긴 뒤에 적어 장부가 없는 레코드를 가리키지 않게 한다.
         await ledger.RecordAsync(
-            new LedgerSubject(imageId, scenario.ScenarioId, timestamp, result, evidence.Ml),
+            new LedgerSubject(imageId, effective, timestamp, result, evidence.Ml),
             new OperativeDecision(verdict, SourceName(decision), AuthorityStageJsonConverter.ToWire(stage), posture),
             cancellationToken);
 

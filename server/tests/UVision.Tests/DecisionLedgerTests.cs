@@ -79,6 +79,24 @@ public class DecisionLedgerTests
     }
 
     [Fact]
+    public async Task ScenarioJudges_DecideTheLadder_EvenWhenMlIsOn()
+    {
+        using var factory = new MlEnabledFactory();
+        var client = factory.CreateClient(); // 호스트가 뜨며 demo 시나리오를 심는다
+        // 시나리오 v2 가 단을 [vlm] 으로 정하면 ML 이 켜져 있어도 장부 사다리에 ML 단이 없다.
+        var path = Path.Combine(factory.DataPath, "demo", "scenario.json");
+        var scenario = JsonSerializer.Deserialize<Scenario>(await File.ReadAllTextAsync(path), Api.Storage.StoragePaths.Json)!
+            with { Judges = [new() { Tier = "vlm" }] };
+        await File.WriteAllTextAsync(path, JsonSerializer.Serialize(scenario, Api.Storage.StoragePaths.Json));
+
+        var resp = await client.PostAsync("/api/u-vision/inspect", Form());
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+
+        var p = Assert.Single(await ReadLedgerAsync(factory)).Provenance;
+        Assert.Equal([("vlm", StepOutcome.Settled)], p.Path!.Select(s => (s.TierId, s.Outcome)));
+    }
+
+    [Fact]
     public async Task VlmDown_RecordsUnsettledPath_WithFailClosedPosture()
     {
         using var factory = new MlEnabledFactory();

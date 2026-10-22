@@ -65,7 +65,16 @@ public sealed partial class FileScenarioStore : IScenarioStore
         if (!File.Exists(path))
             return null;
 
-        var scenario = input.ToScenario(scenarioId); // id 불변
+        // v2 필드는 생략(null)하면 기존 값을 보존한다 — v2 를 모르는 관리 화면이 다른 필드를 고치다 지우지 않게.
+        var existing = await GetAsync(scenarioId, cancellationToken);
+        var scenario = input.ToScenario(scenarioId) with // id 불변
+        {
+            Type = input.Type ?? existing?.Type,
+            Trigger = input.Trigger ?? existing?.Trigger,
+            Classes = input.Classes ?? existing?.Classes,
+            Judges = input.Judges ?? existing?.Judges,
+            Trust = input.Trust ?? existing?.Trust,
+        };
         await StoragePaths.AtomicWriteJsonAsync(path, scenario, cancellationToken);
         return scenario;
     }
