@@ -7,6 +7,7 @@ import { pendingReviewCount, reviewStateOf } from '../lib/review'
 import { ResultsTable } from './ResultsTable'
 import type { Scenario, StoredLabel, StoredResult } from '../lib/types'
 import { termOf } from '../lib/verification'
+import { csvFileName, downloadCsv, resultsToCsv } from '../lib/csvExport'
 
 /**
  * 결과 조회 — 영속화된 과거 검사 기록을 시나리오·날짜별로 본다(무인증 읽기).
@@ -176,6 +177,14 @@ export function ResultsBrowser({
               )}
             </select>
           </label>
+        )}
+        {shown.length > 0 && (
+          <button
+            onClick={() => downloadCsv(csvFileName(scenarioId, date), resultsToCsv(shown, labelMap, scenarioType))}
+            className="ml-auto self-end rounded-lg bg-slate-700 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-600"
+          >
+            CSV 내보내기 ({shown.length}건)
+          </button>
         )}
       </div>
 
