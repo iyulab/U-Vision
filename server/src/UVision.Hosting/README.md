@@ -100,9 +100,9 @@ VLM verdict 가 여전히 주 판정이고 ML 은 교차검증이다. ML 호출 
 
 ## 인증 모델
 
-- **운영/읽기 무인증**: `GET /api/u-vision/scenarios`, 결과·기준이미지 조회·서빙, `POST /api/u-vision/inspect`.
+- **운영/읽기 무인증**: `GET /api/u-vision/scenarios`, 결과·기준이미지 조회·서빙, `POST /api/u-vision/inspect` · `POST /api/u-vision/v2/inspect`.
 - **관리/쓰기는 PIN**: 시나리오 생성·수정·삭제, 기준이미지 업로드·삭제는 헤더 `X-Admin-Pin` 필요.
-- `UVision:AdminPin` 미설정 → 관리 엔드포인트는 **503**(운영은 정상). 계정·세션·역할 시스템은 의도적으로 없다.
+- `UVision:AdminPin` 미설정 → 관리 엔드포인트는 **503** `{setup_required}`(운영은 정상)이고, 데이터 디렉토리의 일회용 `admin-setup-token.txt` 로 `POST /admin/setup` 에서 첫 PIN 을 정한다(PBKDF2 해시 저장). 설정값 PIN 이 있으면 이 경로는 꺼진다. 계정·세션·역할 시스템은 의도적으로 없다.
 
 ### 관리자 PIN 최초 설정 (first-run bootstrap)
 
@@ -125,6 +125,7 @@ VLM verdict 가 여전히 주 판정이고 ML 은 교차검증이다. ML 호출 
 | GET | `/admin/status` (PIN 설정 상태) | - |
 | POST | `/admin/setup` (최초 PIN 설정) | setup-token |
 | POST | `/inspect` (multipart) | - |
+| POST | `/v2/inspect` (multipart, 결과 v2 — 오투입 확인은 `expected_part` · `observed_code`) | - |
 | GET | `/results`, `/results/dates`, `/results/image` | - |
 | GET | `/scenarios`, `/scenarios/{id}` | - |
 | POST/PUT/DELETE | `/scenarios...` | PIN |
