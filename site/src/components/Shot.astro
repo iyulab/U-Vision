@@ -1,0 +1,33 @@
+---
+// A screen of the product inside viewfinder brackets — a camera's framing marks, the page's one repeated device. Dashed brackets mark a screen of something on the roadmap. The picture links to its full size,
+// since a whole console screen drawn in a column is too small to read.
+import { SLOTS, SMALL_WIDTH, mediaPath, type SlotId } from '../media';
+import type { Locale } from '../copy';
+
+interface Props {
+  slot: SlotId;
+  locale: Locale;
+  roadmap?: boolean;
+  /** the `sizes` attribute: how wide the picture is drawn at each viewport width */
+  sizes: string;
+}
+
+const { slot, locale, roadmap = false, sizes } = Astro.props;
+const s = SLOTS[slot];
+---
+
+<figure class:list={['shot', { roadmap }]}>
+  <span class="vf" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+  <a href={mediaPath(`${slot}.webp`)}>
+    <img
+      src={mediaPath(`${slot}.webp`)}
+      srcset={`${mediaPath(`${slot}-${SMALL_WIDTH}.webp`)} ${SMALL_WIDTH}w, ${mediaPath(`${slot}.webp`)} ${s.width}w`}
+      sizes={sizes}
+      width={s.width}
+      height={s.height}
+      alt={s.alt[locale]}
+      loading="lazy"
+      decoding="async"
+    />
+  </a>
+</figure>

@@ -1,6 +1,9 @@
 ---
 import Page from './Page.astro';
-import { COPY, QUICKSTART_URL, SOURCE_URL, type Locale } from '../copy';
+import Shot from './Shot.astro';
+import Diagram from './Diagram.astro';
+import { COPY, CONTACT_URL, SOURCE_URL, API_URL, NUGET_URL, QUICKSTART_URL, type Locale, type Point } from '../copy';
+import { SLOTS, mediaPath } from '../media';
 
 interface Props {
   locale: Locale;
@@ -8,41 +11,176 @@ interface Props {
 
 const { locale } = Astro.props;
 const c = COPY[locale];
+const hero = SLOTS.hero;
+const roadmapPoint = (p: Point) => p.roadmap === true;
 ---
 
 <Page locale={locale} page="home" title={c.title} description={c.description}>
-  <section class="hero">
-    <h1>{c.headline}</h1>
-    <p class="lede" data-claim={c.lede.claim}>{c.lede.text}</p>
-    <p class="actions">
-      <a class="primary" href={QUICKSTART_URL}>{c.start}</a>
-      <a class="secondary" href={SOURCE_URL}>{c.readSource}</a>
-    </p>
+  <section class="hero" aria-labelledby="hero-heading">
+    <div class="hero-inner">
+      <div class="hero-copy">
+        <h1 id="hero-heading">{c.hero.headline}</h1>
+        <p class="lede" data-claim={c.hero.lede.claim}>{c.hero.lede.text}</p>
+        <p class="actions">
+          <a class="button primary" href={CONTACT_URL}>{c.hero.cta}</a>
+          <a class="button quiet" href="#operator">{c.hero.secondary}</a>
+        </p>
+      </div>
+      <div class="hero-media">
+        <span class="vf still" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <div class="tablet">
+          <video
+            id="hero-video"
+            muted
+            loop
+            playsinline
+            preload="metadata"
+            width={hero.width}
+            height={hero.height}
+            poster={mediaPath('hero-poster.webp')}
+            aria-label={hero.alt[locale]}
+          >
+            <source src={mediaPath('hero.webm')} type="video/webm" />
+            <source src={mediaPath('hero.mp4')} type="video/mp4" />
+          </video>
+          <button class="playback" type="button" hidden data-pause={c.hero.pause} data-play={c.hero.play}>
+            {c.hero.pause}
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 
-  <section class="facts">
-    {
-      c.sections.map(s => (
-        <article data-claim={s.claim}>
-          <h2>{s.heading}</h2>
-          <p>{s.body}</p>
-        </article>
-      ))
-    }
+  <section class="values" aria-labelledby="values-heading">
+    <h2 id="values-heading">{c.values.heading}</h2>
+    <div class="values-grid">
+      {
+        c.values.items.map(item => (
+          <article data-claim={item.claim}>
+            <h3>{item.heading}</h3>
+            <p>{item.body}</p>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  {
+    c.features.map((f, i) => (
+      <section class:list={['feature', { flip: i % 2 === 1 }]} id={f.id} aria-labelledby={`${f.id}-heading`}>
+        <Shot slot={f.media} locale={locale} sizes="(min-width: 60rem) 40rem, 100vw" />
+        <div class="feature-copy">
+          <h2 id={`${f.id}-heading`}>{f.heading}</h2>
+          <p data-claim={f.body.claim}>{f.body.text}</p>
+          {f.points.length > 0 && (
+            <ul class="points">
+              {f.points.map(p => (
+                <li data-claim={p.claim} class:list={{ roadmap: roadmapPoint(p) }}>
+                  {roadmapPoint(p) && <span class="chip">{c.roadmapLabel}</span>}
+                  {p.text}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+    ))
+  }
+
+  <section class="scenarios" id="roadmap" aria-labelledby="scenarios-heading">
+    <div class="scenarios-inner">
+      <div class="scenarios-head">
+        <span class="chip">{c.roadmapLabel}</span>
+        <h2 id="scenarios-heading">{c.scenarios.heading}</h2>
+        <p data-claim={c.scenarios.intro.claim}>{c.scenarios.intro.text}</p>
+        <p data-claim={c.scenarios.edge.claim}>{c.scenarios.edge.text}</p>
+      </div>
+      <div class="scenario-grid">
+        {
+          c.scenarios.items.map((s, i) => (
+            <article data-claim={s.claim}>
+              <Shot
+                slot={s.media}
+                locale={locale}
+                roadmap
+                sizes={i === 0 ? '(min-width: 60rem) 40rem, 100vw' : '(min-width: 48rem) 34rem, 100vw'}
+              />
+              <h3>{s.heading}</h3>
+              <p>{s.body}</p>
+            </article>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="integration" aria-labelledby="integration-heading">
+    <div class="integration-copy">
+      <h2 id="integration-heading">{c.integration.heading}</h2>
+      <p data-claim={c.integration.body.claim}>{c.integration.body.text}</p>
+      <ul class="points">
+        {
+          c.integration.points.map(p => (
+            <li data-claim={p.claim} class:list={{ roadmap: roadmapPoint(p) }}>
+              {roadmapPoint(p) && <span class="chip">{c.roadmapLabel}</span>}
+              {p.text}
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+    <Diagram locale={locale} />
   </section>
 
   <section class="delivery" aria-labelledby="delivery-heading">
     <h2 id="delivery-heading">{c.delivery.heading}</h2>
-    <dl>
+    <div class="delivery-grid">
       {
         c.delivery.items.map(item => (
-          <div data-claim={item.claim}>
-            <dt>{item.heading}</dt>
-            <dd>{item.body}</dd>
-          </div>
+          <article data-claim={item.claim}>
+            <h3>{item.heading}</h3>
+            <p>{item.body}</p>
+          </article>
         ))
       }
-    </dl>
+    </div>
+  </section>
+
+  <section class="adoption" id="start" aria-labelledby="adoption-heading">
+    <h2 id="adoption-heading">{c.adoption.heading}</h2>
+    <ol data-claim={c.adoption.claim}>
+      {
+        c.adoption.steps.map(step => (
+          <li>
+            <h3>{step.heading}</h3>
+            <p>{step.body}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  <section class="demand" id="contact" aria-labelledby="demand-heading">
+    <div class="demand-inner">
+      <h2 id="demand-heading">{c.demand.heading}</h2>
+      <p>{c.demand.body}</p>
+      <p class="actions">
+        <a class="button primary" href={CONTACT_URL}>{c.demand.cta}</a>
+      </p>
+    </div>
+  </section>
+
+  <section class="tech" aria-labelledby="tech-heading">
+    <div>
+      <h2 id="tech-heading">{c.tech.heading}</h2>
+      <p data-claim={c.tech.claim}>{c.tech.body}</p>
+    </div>
+    <ul>
+      <li><a href={QUICKSTART_URL}>{c.tech.start}</a></li>
+      <li><a href={SOURCE_URL}>{c.tech.source}</a></li>
+      <li><a href={API_URL}>{c.tech.api}</a></li>
+      <li><a href={NUGET_URL}>{c.tech.nuget}</a></li>
+    </ul>
   </section>
 
   <section class="not" aria-labelledby="not-heading">
@@ -57,9 +195,23 @@ const c = COPY[locale];
       }
     </ul>
   </section>
-
-  <section class="license" data-claim={c.license.claim}>
-    <h2>{c.license.heading}</h2>
-    <p>{c.license.body}</p>
-  </section>
 </Page>
+
+<script>
+  // The hero video plays on its own only for people who have not asked for reduced motion, and can always be
+  // paused (it loops, so it needs a control).
+  const video = document.getElementById('hero-video') as HTMLVideoElement | null;
+  const button = document.querySelector<HTMLButtonElement>('.playback');
+  if (video && button) {
+    const label = () => {
+      button.textContent = video.paused ? button.dataset.play! : button.dataset.pause!;
+      button.setAttribute('aria-pressed', String(video.paused));
+    };
+    button.hidden = false;
+    button.addEventListener('click', () => (video.paused ? video.play() : video.pause()));
+    video.addEventListener('play', label);
+    video.addEventListener('pause', label);
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) video.play().catch(() => {});
+    label();
+  }
+</script>

@@ -1,19 +1,37 @@
 # Every statement the site makes about U-Vision, its status, and where this repository backs it.
 # Not published: it sits outside public/ and the build never reads it. test/claims.test.ts matches its ids against
-# the claim ids in src/ (both ways) and checks that every ref exists. Change a sentence, change its row in the same commit.
+# the claim ids in src/ (both ways), checks that every ref exists, and that the page marks exactly the vision rows
+# as roadmap. Change a sentence, change its row in the same commit.
 # status: works = works today · design = how it is built (a principle or a boundary) · vision = a goal, not built yet · promise = an operating commitment
-# ref: one or more repository paths, joined with " · ".
+# ref: one or more repository paths, joined with " · ". A vision row points at the roadmap section of README.md.
 claim	status	ref	context
-lede	works	README.md · client/src/workers/motionWorker.ts · server/src/UVision.Hosting/Services/Inspection/InspectionPipeline.cs	Still-triggered capture, judged by the server's vision model against scenario criteria and reference images; browser app
+lede	works	README.md · client/src/workers/motionWorker.ts · server/src/UVision.Hosting/Services/Inspection/InspectionPipeline.cs · server/src/UVision.Hosting/Models/ScenarioV2.cs	Still-triggered capture, judged by the server's vision model against scenario criteria and reference images, with defect type and finding; browser app
+value-criteria	works	server/src/UVision.Hosting/Models/Scenario.cs · server/src/UVision.Hosting/Storage/FileReferenceStore.cs	Criteria written per scenario as text and OK/NG reference images
+value-record	works	server/src/UVision.Hosting/Storage/StoragePaths.cs · server/src/UVision.Hosting/Storage/FileInspectionStore.cs	Every decision stored with its image, finding and confidence, filed by date
+value-learn	works	server/src/UVision.Hosting/Services/Dataset/FileDatasetExporter.cs · server/src/UVision.Hosting/Services/Posture/AuthorityLadder.cs	Human-confirmed results become training data; the dedicated model takes over by authority stages
 capture	works	client/src/workers/motionWorker.ts · client/src/lib/sharpness.ts · client/src/hooks/useInspection.ts	On-device motion detection, blur rejection before upload, manual shutter
-verify	works	client/src/lib/barcode.ts · client/src/lib/verification.ts · server/src/UVision.Hosting/Models/InspectV2.cs	Expected part number, match/mismatch, code read on the device compared first
-offline	works	client/src/lib/captureQueue.ts · client/src/lib/queueSender.ts · server/src/UVision.Hosting/Models/CaptureTime.cs	Device-first capture queue, sent oldest first on reconnect, capture time stored
-crosscheck	works	server/src/UVision.Hosting/Services/DualCheck/DualCheckEvaluator.cs · client/src/lib/review.ts · server/src/UVision.Hosting/Services/Dataset/FileDatasetExporter.cs	Optional ML classifier alongside the VLM, review list, labels exported as training data
+defect-type	works	server/src/UVision.Hosting/Models/ScenarioV2.cs · client/src/lib/defectClasses.ts	NG split into the defect types a scenario declares, with a finding
 failclosed	works	client/src/lib/inspectionError.ts · server/src/UVision.Hosting/Services/Inspection/InspectionPipeline.cs	VLM unavailable means "unable to decide", never an automatic OK
-selfhost	design	server/src/UVision.Hosting/Storage/StoragePaths.cs	File system storage, no database server
-models	works	server/src/UVision.Hosting/Services/Vlm/VlmProviderFactory.cs	Self-hosted OpenAI-compatible model server (GPUStack provider)
-embed	works	server/src/UVision.Hosting/UVisionMiddleware.cs · samples/MinimalHost	Standalone server or a NuGet package mounted in an ASP.NET Core app
+verify	works	client/src/lib/barcode.ts · client/src/lib/verification.ts · server/src/UVision.Hosting/Models/InspectV2.cs	Expected part number, match/mismatch, code read on the device compared first
+offline	works	client/src/lib/captureQueue.ts · client/src/lib/queueSender.ts · server/src/UVision.Hosting/Models/CaptureTime.cs	Device-first capture queue, sent oldest first on reconnect, judged once (Idempotency-Key), capture time stored
+review	works	client/src/lib/review.ts · client/src/components/ResultsBrowser.tsx · server/src/UVision.Hosting/Services/DualCheck/DualCheckEvaluator.cs	Results by date and scenario, a review-only view; review list for disagreement or low confidence; human OK/NG labels
+export	works	client/src/lib/csvExport.ts · client/src/lib/resultSummary.ts	Day summary with counts by defect type; CSV download
+readiness	works	server/src/UVision.Hosting/Services/Training/TrainingSet.cs · client/src/lib/training.ts · server/src/UVision.Hosting/Endpoints/DatasetEndpoints.cs	Training readiness signal from human-confirmed labels per class; rule-selected dataset export through the API
+crosscheck	works	server/src/UVision.Hosting/Services/DualCheck/DualCheckEvaluator.cs · client/src/lib/review.ts	Optional ML classifier alongside the VLM; disagreements go to the review list
+authority	works	server/src/UVision.Hosting/Services/Posture/AuthorityLadder.cs · server/src/UVision.Hosting/Services/Authority/AutoDemoteEvaluator.cs · client/src/lib/authority.ts	Four authority stages; promotion by admin, automatic demotion
+memory	vision	README.md	Confirmed-case memory judging similar items without training (roadmap)
+scenarios	vision	README.md	Fixed-camera video scenarios, including early fire and smoke warning (roadmap)
+edge	vision	README.md	Edge device processing video, sending events and crops, buffering offline (roadmap)
+scenario-counting	vision	README.md	Line-crossing counting against the work order plan (roadmap)
+scenario-safety	vision	README.md	Hard-hat watch with duration-based alerts, no face judgment (roadmap)
+scenario-anomaly	vision	README.md	Anomaly detection from normal images only, explained by the VLM (roadmap)
 integrate	works	server/openapi/u-vision.json · server/src/UVision.Hosting/Services/Events/WebhookDispatcher.cs	OpenAPI document, signed CloudEvents webhooks
+mes-in	vision	README.md	Work orders, lots and expected part numbers taken in from the MES (roadmap)
+industrial-protocols	vision	README.md	MQTT and OPC UA output (roadmap)
+models	works	server/src/UVision.Hosting/Services/Vlm/VlmProviderFactory.cs	Self-hosted OpenAI-compatible model server (GPUStack provider)
+selfhost	design	server/src/UVision.Hosting/Storage/StoragePaths.cs	File system storage, no database server
+embed	works	server/src/UVision.Hosting/UVisionMiddleware.cs · samples/MinimalHost	Standalone server or a NuGet package mounted in an ASP.NET Core app
+adoption	design	README.md · client/src/lib/authority.ts · server/src/UVision.Hosting/Services/Metrics/MetricsAggregator.cs	Adoption path: one scenario, one tablet with human checks, measured from the record, hand over to a dedicated model
 no-accuracy-promise	design	server/src/UVision.Hosting/Services/Metrics/MetricsAggregator.cs · client/src/lib/review.ts	No accuracy claim; human labels and metrics for on-site measurement
 no-accounts	design	server/src/UVision.Hosting/Auth/AdminPin.cs	Single organization, open operator screen, admin PIN for changes
 no-cookies	promise	site/src/components/Page.astro · site/public/_headers	This site sets no cookies and loads no tracking scripts

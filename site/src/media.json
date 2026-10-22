@@ -1,0 +1,95 @@
+{
+  "$comment": "Every picture and video the site shows. origin: studio = rendered by studio/capture.py from studio/scenes/<id>.html; field = a real photo or recording from a site. capture.py never overwrites a field slot. To replace one with the real thing, put the file at the same path and set origin to field.",
+  "slots": {
+    "hero": {
+      "kind": "video",
+      "origin": "studio",
+      "width": 1600,
+      "height": 1000,
+      "alt": {
+        "ko": "작업자 태블릿 화면: 검사대에 부품을 놓자 정지를 감지해 촬영하고, 첫 부품은 긁힘 NG, 다음 부품은 OK 로 판정한다",
+        "en": "The operator's tablet: a part is set on the tray, the screen waits for it to hold still, shoots, and judges the first part NG with a scratch and the next one OK"
+      }
+    },
+    "operator": {
+      "kind": "image",
+      "origin": "studio",
+      "width": 1500,
+      "height": 980,
+      "alt": {
+        "ko": "작업자 화면: 플랜지 부품 위에 NG 판정, 불량 유형 긁힘, 위치와 길이를 적은 소견, 신뢰도 94%",
+        "en": "Operator screen: an NG verdict over a flange part, defect type scratch, a finding giving its place and length, 94% confidence"
+      }
+    },
+    "verify": {
+      "kind": "image",
+      "origin": "studio",
+      "width": 1500,
+      "height": 980,
+      "alt": {
+        "ko": "오투입 확인 화면: 기대 품번 HS-2210-B 와 부품 라벨의 바코드가 일치",
+        "en": "Wrong-part check: the expected part number HS-2210-B matches the barcode on the part's label"
+      }
+    },
+    "offline": {
+      "kind": "image",
+      "origin": "studio",
+      "width": 1500,
+      "height": 980,
+      "alt": {
+        "ko": "서버 연결이 끊긴 작업자 화면: 캡처는 저장됐다는 안내와, 판정 대기 3건과 연결 복구 뒤 늦게 판정된 건이 보이는 오늘 이력",
+        "en": "Operator screen with the server unreachable: a notice that the capture is saved, and today's history with three waiting and two judged late after the connection came back"
+      }
+    },
+    "console": {
+      "kind": "image",
+      "origin": "studio",
+      "width": 1600,
+      "height": 740,
+      "alt": {
+        "ko": "검사 콘솔의 결과 조회: NG 와 검토 필요 건 목록, 사람 확인 버튼, 오늘 요약과 불량 유형별 건수",
+        "en": "Results in the inspection console: NG and needs-review rows, the buttons a person uses to confirm, today's summary and counts by defect type"
+      }
+    },
+    "learning": {
+      "kind": "image",
+      "origin": "studio",
+      "width": 1600,
+      "height": 700,
+      "alt": {
+        "ko": "메트릭 화면: 재빌드 제안, 일치율과 검토 대기율, 비전 모델과 전용 모델의 불량 검출률 비교, 격상 가능 신호",
+        "en": "Metrics: a suggestion to rebuild, the agreement and review rates, NG recall of the vision model beside the dedicated model, and the signal that the dedicated model can be promoted"
+      }
+    },
+    "counting": {
+      "kind": "image",
+      "origin": "studio",
+      "width": 1600,
+      "height": 1000,
+      "alt": {
+        "ko": "고정 카메라 수량 세기: 컨베이어의 상자가 통과선을 지날 때마다 번호가 붙고, 오늘 통과 수량과 작업지시 계획이 나란히 보인다",
+        "en": "Fixed-camera counting: each box on the conveyor gets a number as it crosses the line, with today's count beside the work order's plan"
+      }
+    },
+    "safety": {
+      "kind": "image",
+      "origin": "studio",
+      "width": 1600,
+      "height": 1000,
+      "alt": {
+        "ko": "안전모 감시: 통로 감시 구역 안 작업자 세 명의 안전모 착용 표시와 사건 목록",
+        "en": "Hard-hat watch: three workers in the aisle's watched zone marked as wearing hard hats, with the event list"
+      }
+    },
+    "anomaly": {
+      "kind": "image",
+      "origin": "studio",
+      "width": 1600,
+      "height": 1000,
+      "alt": {
+        "ko": "이상 감지: 샤프트 사진과 정상과 다른 곳을 표시한 열 지도, 이상 정도 0.82 와 설명",
+        "en": "Anomaly detection: a shaft photo and a heat map of where it differs from normal, an anomaly score of 0.82 and an explanation"
+      }
+    }
+  }
+}

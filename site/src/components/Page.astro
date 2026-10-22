@@ -1,9 +1,10 @@
 ---
 // The frame every page shares: the head (title, description, language alternates, link preview), the bar at
-// the top and the footer. The site sets no cookies and loads no tracking scripts — the only script is the
-// U-Platform affiliation element, which makes no network requests.
+// the top and the footer. The site sets no cookies and loads no tracking scripts — the only scripts are the
+// U-Platform affiliation element, which makes no network requests, and the home page's video play/pause control.
 import '../styles/site.css';
 import { COPY, PATHS, SITE_URL, SOURCE_URL, API_URL, NUGET_URL, CONTACT_URL, type Locale, type PageId } from '../copy';
+import { mediaPath } from '../media';
 
 interface Props {
   locale: Locale;
@@ -37,14 +38,24 @@ const canonical = url(PATHS[page][locale]);
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:locale" content={locale === 'ko' ? 'ko_KR' : 'en_US'} />
+    <meta property="og:image" content={url(mediaPath('hero-poster.webp'))} />
+    <meta name="theme-color" content="#1b2229" />
   </head>
   <body>
     <header class="bar">
-      <a class="mark" href={PATHS.home[locale]}>U-Vision</a>
-      <nav aria-label={locale === 'ko' ? '바로가기' : 'Shortcuts'}>
-        <a href={SOURCE_URL}>{c.footer.source}</a>
-        <a href={PATHS[page][other]} hreflang={other} lang={other}>{c.otherLanguage}</a>
-      </nav>
+      <div class="bar-inner">
+        <a class="mark" href={PATHS.home[locale]}>U-Vision</a>
+        <nav class="anchors" aria-label={locale === 'ko' ? '이 페이지' : 'On this page'}>
+          <a href="#operator">{c.nav.screens}</a>
+          <a href="#learning">{c.nav.learning}</a>
+          <a href="#roadmap">{c.nav.roadmap}</a>
+          <a href="#start">{c.nav.start}</a>
+        </nav>
+        <nav class="bar-end" aria-label={locale === 'ko' ? '바로가기' : 'Shortcuts'}>
+          <a href={PATHS[page][other]} hreflang={other} lang={other}>{c.otherLanguage}</a>
+          <a class="button primary small" href={CONTACT_URL}>{c.nav.contact}</a>
+        </nav>
+      </div>
     </header>
 
     <main>

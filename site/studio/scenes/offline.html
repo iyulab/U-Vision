@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>offline</title>
+<link rel="stylesheet" href="../studio.css" />
+<style>
+  #shot { width: 1500px; height: 980px; }
+  .screen { width: 100%; height: 100%; }
+  .drawer { position: absolute; top: 0; right: 0; bottom: 0; width: 400px; z-index: 7; background: rgb(15 23 42 / 0.94); backdrop-filter: blur(16px); color: var(--slate-100); padding: 26px 22px; border-left: 1px solid var(--slate-700); }
+  .drawer h3 { margin: 0 0 4px; font-size: 21px; }
+  .drawer .sub { margin: 0 0 18px; font-size: 14px; }
+  .row { display: grid; grid-template-columns: 64px 1fr auto; gap: 12px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--slate-800); }
+  .row img { width: 64px; height: 46px; object-fit: cover; border-radius: 7px; }
+  .row .t { font-size: 15px; font-weight: 600; }
+  .row .m { font-size: 13px; }
+  .feed.dim { filter: saturate(0.85); }
+</style>
+</head>
+<body>
+<div id="shot" class="device">
+  <div class="screen">
+    <img class="feed dim" src="../assets/flange.webp" alt="" style="right:400px;width:auto;" />
+    <div class="topbar left stack">
+      <span class="pill"><span class="dot" style="background:#fbbf24"></span>움직임 감지 중</span>
+      <span class="pill" style="background:rgb(51 65 85 / 0.9)">판정 대기 3건</span>
+    </div>
+    <div class="verdict-wrap" style="right:400px">
+      <div class="verdict queued">
+        <div style="font-size:24px;font-weight:700">오프라인 — 캡처 저장됨</div>
+        <div style="margin-top:6px;font-size:16px;color:rgb(255 255 255 / 0.82)">연결되면 자동으로 판정합니다. 다음 품목을 계속하세요.</div>
+      </div>
+    </div>
+    <aside class="drawer">
+      <h3>오늘 이력</h3>
+      <p class="sub muted">찍은 순서대로 · 판정이 늦은 건은 표시</p>
+      <div class="row"><img src="../assets/flange-thumb.webp" alt="" /><div><div class="t num">14:32:08</div><div class="m muted">판정 대기</div></div><span class="badge plain">대기</span></div>
+      <div class="row"><img src="../assets/flange-thumb.webp" alt="" /><div><div class="t num">14:31:51</div><div class="m muted">판정 대기</div></div><span class="badge plain">대기</span></div>
+      <div class="row"><img src="../assets/flange-thumb.webp" alt="" /><div><div class="t num">14:31:36</div><div class="m muted">판정 대기</div></div><span class="badge plain">대기</span></div>
+      <div class="row"><img src="../assets/flange-thumb.webp" alt="" /><div><div class="t num">14:29:12</div><div class="m muted">연결 복구 뒤 판정 · <span style="color:#fcd34d">지연</span></div></div><span class="badge ok">OK</span></div>
+      <div class="row"><img src="../assets/flange-thumb.webp" alt="" /><div><div class="t num">14:28:47</div><div class="m muted">연결 복구 뒤 판정 · <span style="color:#fcd34d">지연</span></div></div><span class="badge ng">NG 찍힘</span></div>
+      <div class="row"><img src="../assets/flange-thumb.webp" alt="" /><div><div class="t num">14:26:03</div><div class="m muted">즉시 판정</div></div><span class="badge ok">OK</span></div>
+      <div class="row"><img src="../assets/flange-thumb.webp" alt="" /><div><div class="t num">14:25:40</div><div class="m muted">즉시 판정</div></div><span class="badge ok">OK</span></div>
+    </aside>
+  </div>
+</div>
+</body>
+</html>

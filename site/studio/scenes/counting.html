@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>counting</title>
+<link rel="stylesheet" href="../studio.css" />
+<style>
+  #shot { width: 1600px; height: 1000px; }
+  .console { height: calc(100% - 38px); }
+  main { padding: 22px 26px; display: grid; gap: 18px; grid-template-columns: 1fr 380px; height: calc(100% - 71px); }
+  .cam { position: relative; overflow: hidden; border-radius: 14px; background: #000; }
+  .cam img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .cam svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .cam .tag { position: absolute; left: 14px; top: 14px; z-index: 4; display: flex; gap: 8px; }
+  .cam .tag .pill { font-size: 14px; padding: 7px 14px; }
+  .live { position: absolute; right: 14px; top: 14px; z-index: 4; }
+  .live .pill { font-size: 14px; padding: 7px 14px; }
+  .big { font-size: 64px; font-weight: 900; line-height: 1; letter-spacing: -0.02em; }
+  .plan { font-size: 15px; margin-top: 8px; }
+  h4 { margin: 0 0 12px; font-size: 15px; }
+  .ev { display: grid; grid-template-columns: 70px 1fr auto; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--slate-800); font-size: 14px; align-items: center; }
+  .node { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="shot" class="window">
+  <div class="chrome"><i></i><i></i><i></i><span>현장 카메라</span></div>
+  <div class="console">
+    <header>
+      <div class="tabs">
+        <span class="tab">시나리오</span><span class="tab on">현장 카메라</span><span class="tab">결과 조회</span><span class="tab">메트릭</span>
+      </div>
+      <span class="btn">2라인 출하 수량 ▾</span>
+    </header>
+    <main>
+      <div class="cam">
+        <img src="../assets/conveyor.webp" alt="" />
+        <svg viewBox="0 0 1536 744" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <line x1="430" y1="455" x2="1180" y2="440" stroke="#38bdf8" stroke-width="5" stroke-dasharray="18 10" />
+          <text x="1190" y="446" fill="#7dd3fc" font-size="26" font-weight="700" font-family="Malgun Gothic, sans-serif">통과선</text>
+          <g fill="none" stroke-width="5">
+            <rect x="660" y="222" width="250" height="208" rx="8" stroke="#10b981" />
+            <rect x="712" y="466" width="368" height="278" rx="8" stroke="#10b981" />
+            <rect x="630" y="112" width="208" height="170" rx="8" stroke="#10b981" stroke-opacity="0.6" />
+          </g>
+          <g font-family="Malgun Gothic, sans-serif" font-size="22" font-weight="800">
+            <rect x="660" y="190" width="96" height="32" rx="6" fill="#10b981" /><text x="672" y="214" fill="#052e1c">#1283</text>
+            <rect x="712" y="434" width="132" height="32" rx="6" fill="#38bdf8" /><text x="724" y="458" fill="#082f49">#1284 ✓</text>
+          </g>
+        </svg>
+        <div class="tag"><span class="pill"><span class="dot" style="background:#f87171"></span>실시간</span><span class="pill ghost">카메라 2-A</span></div>
+        <div class="live"><span class="pill ghost">엣지 노드 처리 · 지연 41ms</span></div>
+      </div>
+      <aside style="display:grid;gap:16px;align-content:start">
+        <section class="panel">
+          <div class="muted" style="font-size:14px;margin-bottom:10px">오늘 통과 수량</div>
+          <div class="big num">1,284</div>
+          <div class="plan muted num">작업지시 계획 1,300 · 남은 16</div>
+          <div class="bar-track" style="margin-top:14px"><b style="width:98.8%;background:#38bdf8"></b></div>
+        </section>
+        <section class="panel">
+          <h4>사건</h4>
+          <div class="ev"><span class="num muted">14:31:52</span><span>통과 #1284</span><span class="badge plain">기록</span></div>
+          <div class="ev"><span class="num muted">14:31:49</span><span>통과 #1283</span><span class="badge plain">기록</span></div>
+          <div class="ev"><span class="num muted">14:12:07</span><span>겹쳐 지나감 — 다시 셈</span><span class="badge review">검토</span></div>
+          <div class="ev" style="border:0"><span class="num muted">13:58:40</span><span>시간당 수량 기준 미달</span><span class="badge ng">알림</span></div>
+        </section>
+        <section class="panel">
+          <div class="node"><span class="dot" style="background:#10b981;margin:0"></span><span>엣지 노드 2라인</span><span style="flex:1"></span><span class="muted num">카메라 3대</span></div>
+        </section>
+      </aside>
+    </main>
+  </div>
+</div>
+</body>
+</html>

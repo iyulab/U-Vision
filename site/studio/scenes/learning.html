@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>learning</title>
+<link rel="stylesheet" href="../studio.css" />
+<style>
+  /* The console's metrics tab: training readiness, the day's two-judge statistics, NG recall of each judge and the
+     promotion signal — the same pieces MetricsDashboard draws. */
+  #shot { width: 1600px; height: 700px; }
+  .console { height: calc(100% - 38px); }
+  main { padding: 22px 26px; display: grid; gap: 16px; }
+  .ready { display: flex; align-items: center; gap: 12px; border-radius: 12px; padding: 13px 18px; background: rgb(16 185 129 / 0.12); border: 1px solid rgb(16 185 129 / 0.4); font-size: 16px; color: #a7f3d0; }
+  .filters { display: flex; gap: 10px; }
+  .field { border: 1px solid var(--slate-700); border-radius: 10px; padding: 8px 14px; font-size: 15px; background: var(--slate-800); }
+  .field small { color: var(--slate-400); margin-right: 8px; font-size: 13px; }
+  .stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+  .stat { border-radius: 12px; background: var(--slate-800); padding: 14px 16px; }
+  .stat .l { font-size: 13px; color: var(--slate-400); }
+  .stat b { display: block; font-size: 30px; font-weight: 800; margin: 2px 0; }
+  .stat .s { font-size: 12px; color: var(--slate-500); }
+  h2 { margin: 0 0 12px; font-size: 15px; color: var(--slate-300); font-weight: 600; }
+  .recall { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .signal { border-radius: 12px; padding: 13px 18px; background: rgb(16 185 129 / 0.12); border: 1px solid rgb(16 185 129 / 0.4); color: #a7f3d0; font-size: 15px; }
+</style>
+</head>
+<body>
+<div id="shot" class="window">
+  <div class="chrome"><i></i><i></i><i></i><span>검사 콘솔</span></div>
+  <div class="console">
+    <header>
+      <div class="tabs">
+        <span class="tab">시나리오</span><span class="tab">결과 조회</span><span class="tab on">메트릭</span><span class="tab">라벨 감사</span><span class="tab">권한 단계</span>
+      </div>
+      <span class="btn">운영 화면</span>
+    </header>
+    <main>
+      <div class="filters">
+        <span class="field"><small>시나리오</small>플랜지 외관 검사</span>
+        <span class="field"><small>날짜</small>2026-10-22</span>
+      </div>
+      <div class="ready">학습 준비 · 모델 v3 이후 새 라벨 46건 — 재빌드를 제안합니다(기준 30건)</div>
+      <div class="stats">
+        <div class="stat"><div class="l">검사</div><b class="num">438</b><div class="s">ML 2중체크 건</div></div>
+        <div class="stat"><div class="l">일치율</div><b class="num" style="color:#6ee7b7">94.1%</b><div class="s num">412 / 438 일치</div></div>
+        <div class="stat"><div class="l">검토 대기율</div><b class="num" style="color:#fcd34d">5.9%</b><div class="s num">26 / 438</div></div>
+        <div class="stat"><div class="l">ML degrade</div><b class="num">0.0%</b><div class="s num">0 / 438</div></div>
+        <div class="stat"><div class="l">판정 불가</div><b class="num">0.2%</b><div class="s num">1 / 439</div></div>
+        <div class="stat"><div class="l">라벨 일관성</div><b class="num">97.5%</b><div class="s num">39 / 40 감사</div></div>
+      </div>
+      <section class="panel">
+        <h2>NG recall (불량 검출률)</h2>
+        <div class="recall">
+          <div class="stat"><div class="l">VLM (주 판정)</div><b class="num">95.2%</b><div class="s num">사람 NG 42건 중 40</div></div>
+          <div class="stat"><div class="l">ML (교차검증)</div><b class="num" style="color:#6ee7b7">97.6%</b><div class="s num">사람 NG 42건 중 41</div></div>
+        </div>
+      </section>
+      <div class="signal">✅ 격상 가능 신호 — ML NG recall ≥ VLM·≥0.95·일치율 ≥0.9 충족(표본 438). 확정은 관리자.</div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

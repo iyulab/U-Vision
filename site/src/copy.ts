@@ -1,6 +1,9 @@
 // Every sentence the site states about the product, in both languages. Each one that makes a claim
 // carries the id of its row in ../claims.tsv, which records the claim's status and where this
-// repository backs it — test/claims.test.ts keeps the two in step.
+// repository backs it — test/claims.test.ts keeps the two in step. A claim whose status is `vision`
+// is a goal, not built yet: the page marks it with the roadmap label (`roadmap: true` here).
+
+import type { SlotId } from './media';
 
 export type Locale = 'ko' | 'en';
 
@@ -18,98 +21,277 @@ export const API_URL = 'https://github.com/iyulab/U-Vision/blob/main/server/open
 export const NUGET_URL = 'https://www.nuget.org/packages/UVision.Hosting';
 export const CONTACT_URL = 'https://u-platform.kr/contact';
 
-export interface Section {
+/** One statement the site makes, tied to its row in claims.tsv. */
+export interface Point {
+  claim: string;
+  text: string;
+  roadmap?: boolean;
+}
+
+export interface Item {
   claim: string;
   heading: string;
   body: string;
+  roadmap?: boolean;
+}
+
+/** A section of the page built around one screen. */
+export interface Feature {
+  id: string;
+  media: SlotId;
+  heading: string;
+  body: Point;
+  points: Point[];
+}
+
+export interface Scenario extends Item {
+  media: SlotId;
 }
 
 export interface Copy {
   title: string;
   description: string;
-  headline: string;
-  lede: { claim: string; text: string };
-  start: string;
-  readSource: string;
-  sections: Section[];
-  delivery: { heading: string; items: Section[] };
+  nav: { screens: string; learning: string; roadmap: string; start: string; contact: string };
+  hero: { headline: string; lede: Point; cta: string; secondary: string; pause: string; play: string };
+  roadmapLabel: string;
+  values: { heading: string; items: Item[] };
+  features: Feature[];
+  scenarios: { heading: string; intro: Point; edge: Point; items: Scenario[] };
+  integration: {
+    heading: string;
+    body: Point;
+    points: Point[];
+    diagram: {
+      label: string;
+      tablet: string;
+      camera: string;
+      engine: string;
+      engineSub: string;
+      model: string;
+      mes: string;
+      webhook: string;
+      protocols: string;
+      orders: string;
+      legend: string;
+    };
+  };
+  delivery: { heading: string; items: Item[] };
+  adoption: { heading: string; claim: string; steps: { heading: string; body: string }[] };
+  demand: { heading: string; body: string; cta: string };
+  tech: { claim: string; heading: string; body: string; source: string; api: string; nuget: string; start: string };
   notHeading: string;
-  not: Section[];
-  license: Section;
+  not: Item[];
   footer: { source: string; api: string; nuget: string; contact: string };
   otherLanguage: string;
 }
 
 export const COPY: Record<Locale, Copy> = {
   ko: {
-    title: 'U-Vision — 셀프호스트 비전 판정',
+    title: 'U-Vision — 셀프호스트 비전 검사',
     description:
-      '태블릿 카메라로 찍고, 직접 운영하는 비전 모델이 시나리오 기준으로 OK/NG 를 판정합니다. 이미지는 공장을 떠나지 않습니다.',
-    headline: '찍고, 판정하고, 기록한다 — 우리 서버에서',
-    lede: {
-      claim: 'lede',
-      text: '검사 구역에 부품을 올려놓으면 움직임이 멈추는 순간 태블릿이 촬영하고, 서버의 비전 모델이 시나리오에 적은 기준과 기준 이미지로 OK/NG 와 소견을 냅니다. 앱 설치 없이 브라우저로 씁니다.',
+      '태블릿 카메라 하나로 시작하는 비전 검사. 부품을 올려놓으면 멈추는 순간 찍고, 직접 운영하는 비전 모델이 우리 기준대로 판정하고 기록합니다. 사진은 공장을 떠나지 않습니다.',
+    nav: { screens: '화면', learning: '학습', roadmap: '로드맵', start: '도입', contact: '도입 상담' },
+    hero: {
+      headline: '눈으로 하던 검사를, 기록이 남는 판정으로',
+      lede: {
+        claim: 'lede',
+        text: '검사대에 부품을 올려놓으면 움직임이 멈추는 순간 태블릿이 찍고, 우리 서버의 비전 모델이 시나리오에 적은 기준과 기준 사진으로 OK·NG 와 불량 유형, 소견을 냅니다. 앱 설치 없이 브라우저로 씁니다.',
+      },
+      cta: '도입 상담',
+      secondary: '화면으로 보기',
+      pause: '영상 멈춤',
+      play: '영상 재생',
     },
-    start: '설치 안내',
-    readSource: '소스 보기',
-    sections: [
-      {
-        claim: 'capture',
-        heading: '멈추면 찍는다',
-        body: '움직임 감지는 기기 안에서 돌고, 흐린 사진은 서버로 보내기 전에 거릅니다. 수동 셔터도 있습니다.',
-      },
-      {
-        claim: 'verify',
-        heading: '오투입 확인',
-        body: '작업자가 기대 품번을 넣고 찍으면 일치/불일치로 판정합니다. 기기가 바코드를 읽을 수 있으면 읽은 코드와 먼저 대조합니다.',
-      },
-      {
-        claim: 'offline',
-        heading: '네트워크가 끊겨도',
-        body: '캡처는 먼저 기기에 저장되고, 서버에 닿지 못하면 연결이 돌아왔을 때 찍은 순서대로 보냅니다. 기록에는 실제 촬영 시각이 남습니다.',
-      },
-      {
-        claim: 'crosscheck',
-        heading: '두 번째 판정과 사람의 검토',
-        body: '전용 ML 분류기를 붙이면 비전 모델과 나란히 판정하고, 둘이 다르거나 확신이 낮은 건을 검토 목록에 올립니다. 사람이 단 라벨은 다음 학습 데이터가 됩니다.',
-      },
-      {
-        claim: 'failclosed',
-        heading: '모르면 모른다고',
-        body: '비전 모델을 쓸 수 없을 때는 자동으로 OK 를 내지 않고 «판정 불가 — 사람 확인»을 띄웁니다.',
-      },
-    ],
-    delivery: {
-      heading: '운영 방식',
+    roadmapLabel: '로드맵',
+    values: {
+      heading: '무엇이 달라지나',
       items: [
         {
-          claim: 'selfhost',
-          heading: '셀프호스트',
-          body: '판정 기록과 이미지는 서버의 파일 시스템에 남습니다. 데이터베이스 서버가 필요 없고, 백업은 폴더 복사입니다.',
+          claim: 'value-criteria',
+          heading: '기준이 숙련자 머리에서 시나리오로',
+          body: '라인마다 검사 기준을 글과 OK·NG 기준 사진으로 적어 둡니다. 사람이 바뀌어도 같은 기준으로 판정합니다.',
         },
         {
+          claim: 'value-record',
+          heading: '모든 판정이 사진과 함께 남습니다',
+          body: '무엇을 왜 NG 로 봤는지 사진, 소견, 신뢰도가 날짜별로 쌓입니다. 문제가 생긴 날의 사진을 다시 찾을 수 있습니다.',
+        },
+        {
+          claim: 'value-learn',
+          heading: '쓸수록 그 라인에 맞춰집니다',
+          body: '사람이 확인한 결과는 그 라인 전용 모델의 학습 데이터가 되고, 전용 모델은 기록으로 실력을 보인 만큼 판정을 넘겨받습니다.',
+        },
+      ],
+    },
+    features: [
+      {
+        id: 'operator',
+        media: 'operator',
+        heading: '멈추면 찍고, 바로 판정합니다',
+        body: {
+          claim: 'capture',
+          text: '작업자는 부품을 올려놓기만 합니다. 움직임 감지와 흐린 사진 거르기는 태블릿 안에서 돌고, 결과는 멀리서도 보이는 크기로 나옵니다. 수동 셔터도 있습니다.',
+        },
+        points: [
+          { claim: 'defect-type', text: 'NG 는 긁힘·찍힘·변색처럼 시나리오에 정한 불량 유형으로 나눠 판정하고, 위치를 적은 소견을 붙입니다.' },
+          { claim: 'failclosed', text: '비전 모델에 닿을 수 없으면 OK 를 내지 않고 «판정 불가 — 사람 확인»을 띄웁니다.' },
+        ],
+      },
+      {
+        id: 'verify',
+        media: 'verify',
+        heading: '다른 부품이 들어오면 막습니다',
+        body: {
+          claim: 'verify',
+          text: '작업자가 기대 품번을 넣고 찍으면 일치·불일치로 답합니다. 태블릿이 라벨의 바코드를 읽을 수 있으면 읽은 코드로 먼저 대조하고, 코드가 없으면 비전 모델이 기대 품번을 들고 확인합니다.',
+        },
+        points: [],
+      },
+      {
+        id: 'offline',
+        media: 'offline',
+        heading: '네트워크가 끊겨도 놓치지 않습니다',
+        body: {
+          claim: 'offline',
+          text: '캡처는 태블릿에 먼저 저장됩니다. 서버에 닿지 못하면 연결이 돌아왔을 때 찍은 순서대로 보내고, 같은 사진은 한 번만 판정됩니다. 기록에는 실제 촬영 시각이 남습니다.',
+        },
+        points: [],
+      },
+      {
+        id: 'console',
+        media: 'console',
+        heading: '관리자는 콘솔에서 확인합니다',
+        body: {
+          claim: 'review',
+          text: '날짜와 시나리오로 결과를 찾고, 비전 모델과 전용 모델의 답이 다르거나 확신이 낮은 건은 검토 목록에서 사람이 OK·NG 를 확정합니다.',
+        },
+        points: [{ claim: 'export', text: '하루 요약과 불량 유형별 건수를 보고, 결과를 CSV 로 내려받습니다.' }],
+      },
+      {
+        id: 'learning',
+        media: 'learning',
+        heading: '쓸수록 똑똑해지는 판정',
+        body: {
+          claim: 'readiness',
+          text: '첫날은 비전 모델이 판정합니다. 사람이 확인한 사진이 유형마다 모이면 콘솔이 그 라인 전용 모델을 만들 때가 됐다고 알립니다. 학습 데이터는 선정 규칙대로 묶여 API 로 내려받습니다.',
+        },
+        points: [
+          { claim: 'crosscheck', text: '전용 모델은 비전 모델과 나란히 판정하고, 둘의 답이 다르면 검토 목록에 올립니다.' },
+          { claim: 'authority', text: '전용 모델은 기록만 하는 단계에서 시작해, 실력을 보인 만큼 관리자가 한 단계씩 판정을 넘깁니다. 틀리기 시작하면 시스템이 자동으로 한 단계 내립니다.' },
+          { claim: 'memory', text: '사람이 확정한 사례를 기억해, 비슷한 건은 모델 학습을 기다리지 않고 바로 판정하도록 만들고 있습니다.', roadmap: true },
+        ],
+      },
+    ],
+    scenarios: {
+      heading: '하나의 엔진으로 여러 검사를',
+      intro: {
+        claim: 'scenarios',
+        text: '정지 사진 검사를 넘어, 라인 위 고정 카메라 영상에서도 같은 방식으로 판정하고 기록하도록 만들고 있습니다. 화재·연기 조기경보도 같은 길에 있습니다.',
+        roadmap: true,
+      },
+      edge: {
+        claim: 'edge',
+        text: '영상은 라인 옆 엣지 장치가 처리하고, 서버로는 판정할 사건과 잘라 낸 사진만 보냅니다. 연결이 끊기면 장치에 쌓았다가 다시 보냅니다.',
+        roadmap: true,
+      },
+      items: [
+        {
+          claim: 'scenario-counting',
+          media: 'counting',
+          heading: '수량 세기',
+          body: '컨베이어의 물건이 통과선을 지날 때마다 세고, 작업지시 계획과 나란히 봅니다. 겹쳐 지나간 건은 다시 확인합니다.',
+          roadmap: true,
+        },
+        {
+          claim: 'scenario-safety',
+          media: 'safety',
+          heading: '안전모 착용 감시',
+          body: '감시 구역 안 작업자의 안전모 착용을 봅니다. 한 장면이 아니라 몇 초간 이어질 때만 알리고, 얼굴은 판정하지 않습니다.',
+          roadmap: true,
+        },
+        {
+          claim: 'scenario-anomaly',
+          media: 'anomaly',
+          heading: '이상 감지',
+          body: '불량 사진이 없어도 시작합니다. 정상 사진만으로 다른 곳을 찾아 표시하고, 비전 모델이 무엇이 다른지 설명합니다.',
+          roadmap: true,
+        },
+      ],
+    },
+    integration: {
+      heading: '현장 시스템과 이어집니다',
+      body: {
+        claim: 'integrate',
+        text: '판정마다 서명된 사건(CloudEvents)을 웹훅으로 MES 같은 시스템에 보냅니다. API 는 OpenAPI 문서로 공개되어 있어 연동 코드를 바로 만들 수 있습니다.',
+      },
+      points: [
+        { claim: 'mes-in', text: 'MES 에서 작업지시·로트·기대 품번을 받아 오투입 확인에 바로 쓰도록 만들고 있습니다.', roadmap: true },
+        { claim: 'industrial-protocols', text: '결과를 MQTT 와 OPC UA 로도 내보내도록 만들고 있습니다.', roadmap: true },
+      ],
+      diagram: {
+        label: 'U-Vision 이 현장 장치, 비전 모델, MES 와 주고받는 것',
+        tablet: '태블릿 · 정지 촬영',
+        camera: '고정 카메라 · 엣지 장치',
+        engine: 'U-Vision 엔진',
+        engineSub: '우리 서버 · 판정 · 기록',
+        model: '비전 모델 · 자체 GPU',
+        mes: 'MES · 설비',
+        webhook: '판정 사건 · 웹훅',
+        protocols: 'MQTT · OPC UA',
+        orders: '작업지시 · 기대 품번',
+        legend: '점선은 로드맵',
+      },
+    },
+    delivery: {
+      heading: '우리 서버에서 돌아갑니다',
+      items: [
+        {
           claim: 'models',
-          heading: '직접 운영하는 비전 모델',
-          body: 'OpenAI 호환 API 로 서비스하는 자체 GPU 서버의 모델로 판정합니다 — 검사 이미지가 외부로 나가지 않습니다.',
+          heading: '사진이 공장을 떠나지 않습니다',
+          body: 'OpenAI 호환 API 로 서비스하는 자체 GPU 서버의 모델로 판정합니다. 검사 사진을 외부 서비스로 보내지 않습니다.',
+        },
+        {
+          claim: 'selfhost',
+          heading: '데이터베이스 서버가 필요 없습니다',
+          body: '판정 기록과 사진은 서버의 폴더에 남습니다. 백업은 폴더 복사입니다.',
         },
         {
           claim: 'embed',
-          heading: '기존 시스템 안에',
-          body: '단독 서버로도, ASP.NET Core 앱에 NuGet 패키지로 끼워서도 씁니다.',
-        },
-        {
-          claim: 'integrate',
-          heading: '다른 시스템과',
-          body: 'API 는 OpenAPI 문서로 공개되어 있고, 판정마다 서명된 웹훅(CloudEvents)을 MES 같은 시스템으로 보낼 수 있습니다.',
+          heading: '쓰던 시스템 안에도',
+          body: '단독 서버로도, ASP.NET Core 앱에 NuGet 패키지로 넣어서도 씁니다.',
         },
       ],
+    },
+    adoption: {
+      heading: '이렇게 시작합니다',
+      claim: 'adoption',
+      steps: [
+        { heading: '검사 하나를 고릅니다', body: '효과가 큰 검사 한 가지를 정하고, 기준을 글과 OK·NG 기준 사진 몇 장으로 적습니다.' },
+        { heading: '태블릿 한 대로 돌려 봅니다', body: '검사대 위에 태블릿을 두고 실제 라인에서 판정합니다. 처음에는 사람이 결과를 확인합니다.' },
+        { heading: '기록으로 잽니다', body: '사람이 확인한 결과와 판정이 얼마나 맞았는지 콘솔에서 봅니다.' },
+        { heading: '넘기고 넓힙니다', body: '데이터가 쌓이면 전용 모델을 만들어 판정을 넘기고, 다른 라인과 검사로 넓힙니다.' },
+      ],
+    },
+    demand: {
+      heading: '필요한 검사를 알려 주세요',
+      body: '여기 없는 검사도 좋습니다. 어떤 부품을, 어떤 기준으로, 하루 몇 건 보는지 알려 주시면 맞는 시작점을 함께 찾습니다. 로드맵의 순서도 이런 요청으로 정합니다.',
+      cta: '도입 상담 요청',
+    },
+    tech: {
+      claim: 'license',
+      heading: '개발 담당자께',
+      body: 'MIT 라이선스의 오픈소스입니다. 설치 안내와 API 문서, 패키지가 공개되어 있습니다.',
+      source: '소스 코드',
+      api: 'API 문서(OpenAPI)',
+      nuget: 'NuGet 패키지',
+      start: '설치 안내',
     },
     notHeading: '하지 않는 것',
     not: [
       {
         claim: 'no-accuracy-promise',
-        heading: '정확도를 약속하지 않습니다.',
-        body: '판정 품질은 부품 · 모델 · 기준에 달렸습니다. 그래서 사람 라벨과 판정 지표를 남겨 현장에서 재게 합니다.',
+        heading: '정확도를 미리 약속하지 않습니다.',
+        body: '판정 품질은 부품과 모델과 기준에 달렸습니다. 그래서 사람 확인과 판정 지표를 남겨 현장에서 재게 합니다.',
       },
       {
         claim: 'no-accounts',
@@ -122,83 +304,215 @@ export const COPY: Record<Locale, Copy> = {
         body: '추적 스크립트도 없습니다.',
       },
     ],
-    license: {
-      claim: 'license',
-      heading: '라이선스',
-      body: 'MIT 라이선스의 오픈소스입니다.',
-    },
     footer: { source: 'GitHub', api: 'API(OpenAPI)', nuget: 'NuGet', contact: '문의' },
     otherLanguage: 'English',
   },
   en: {
-    title: 'U-Vision — self-hosted vision judgment',
+    title: 'U-Vision — self-hosted vision inspection',
     description:
-      'A tablet camera takes the picture and a vision model you run judges it OK or NG against your scenario. Images stay in the plant.',
-    headline: 'Capture, judge and record — on your own server',
-    lede: {
-      claim: 'lede',
-      text: 'Place a part in the inspection area and the tablet takes the picture the moment it holds still; the vision model on your server answers OK or NG with findings, using the criteria and reference images in the scenario. It runs in a browser, nothing to install.',
+      'Vision inspection that starts with one tablet camera. Set a part down and it shoots the moment the part holds still; a vision model you run judges it against your criteria and keeps the record. Images stay in the plant.',
+    nav: { screens: 'Screens', learning: 'Learning', roadmap: 'Roadmap', start: 'Getting started', contact: 'Talk to us' },
+    hero: {
+      headline: 'Turn inspection by eye into decisions you can look up',
+      lede: {
+        claim: 'lede',
+        text: 'Set a part on the tray and the tablet shoots the moment it holds still; the vision model on your server answers OK or NG with the defect type and a finding, using the criteria and reference images in the scenario. It runs in a browser, nothing to install.',
+      },
+      cta: 'Talk to us',
+      secondary: 'See the screens',
+      pause: 'Pause video',
+      play: 'Play video',
     },
-    start: 'Get started',
-    readSource: 'Read the source',
-    sections: [
-      {
-        claim: 'capture',
-        heading: 'It shoots when the part stops',
-        body: 'Motion detection runs on the device, and blurry shots are rejected before they are sent. A manual shutter is there too.',
-      },
-      {
-        claim: 'verify',
-        heading: 'Part verification',
-        body: 'The operator enters the expected part number and the capture is judged a match or a mismatch. When the device can read a barcode, the code read is compared first.',
-      },
-      {
-        claim: 'offline',
-        heading: 'When the network drops',
-        body: 'Captures are saved on the device first; those that cannot reach the server are sent in the order taken once it is back, and the record keeps the time they were taken.',
-      },
-      {
-        claim: 'crosscheck',
-        heading: 'A second opinion and human review',
-        body: 'Add a dedicated ML classifier and it judges alongside the vision model; disagreements and low-confidence results go to a review list. Labels people add become the next training data.',
-      },
-      {
-        claim: 'failclosed',
-        heading: 'It says when it cannot tell',
-        body: 'When the vision model is unavailable it does not fall back to OK; it shows "unable to decide — check by hand".',
-      },
-    ],
-    delivery: {
-      heading: 'How it runs',
+    roadmapLabel: 'Roadmap',
+    values: {
+      heading: 'What changes',
       items: [
         {
-          claim: 'selfhost',
-          heading: 'Self-hosted',
-          body: 'Decisions and images are kept on the server\'s file system. There is no database server to run; a backup is a folder copy.',
+          claim: 'value-criteria',
+          heading: 'Criteria move from people\'s heads into scenarios',
+          body: 'Each line writes its criteria down as text and OK and NG reference images. When people change, the criteria do not.',
         },
         {
+          claim: 'value-record',
+          heading: 'Every decision is kept with its image',
+          body: 'What was called NG and why — image, finding and confidence — is filed by date. You can find the images from the day a problem started.',
+        },
+        {
+          claim: 'value-learn',
+          heading: 'It fits the line better the longer you use it',
+          body: 'Results people confirm become training data for a model dedicated to that line, and that model takes over judgment as far as its record earns.',
+        },
+      ],
+    },
+    features: [
+      {
+        id: 'operator',
+        media: 'operator',
+        heading: 'It shoots when the part stops and answers at once',
+        body: {
+          claim: 'capture',
+          text: 'The operator only sets the part down. Motion detection and blur rejection run on the tablet, and the result is shown large enough to read from across the station. A manual shutter is there too.',
+        },
+        points: [
+          { claim: 'defect-type', text: 'An NG is sorted into the defect types the scenario declares — scratch, dent, discoloration — with a finding that says where.' },
+          { claim: 'failclosed', text: 'When the vision model cannot be reached it does not fall back to OK; it shows "unable to decide — check by hand".' },
+        ],
+      },
+      {
+        id: 'verify',
+        media: 'verify',
+        heading: 'It stops the wrong part',
+        body: {
+          claim: 'verify',
+          text: 'The operator enters the expected part number and the capture is answered as a match or a mismatch. When the tablet can read the label\'s barcode the code is compared first; without one, the vision model checks the part against the number.',
+        },
+        points: [],
+      },
+      {
+        id: 'offline',
+        media: 'offline',
+        heading: 'Nothing is lost when the network drops',
+        body: {
+          claim: 'offline',
+          text: 'Captures are saved on the tablet first. Those that cannot reach the server are sent in the order taken once it is back, each judged only once, and the record keeps the time they were taken.',
+        },
+        points: [],
+      },
+      {
+        id: 'console',
+        media: 'console',
+        heading: 'Supervisors check it in the console',
+        body: {
+          claim: 'review',
+          text: 'Find results by date and scenario. When the vision model and the dedicated model disagree, or confidence is low, a person settles OK or NG from the review list.',
+        },
+        points: [{ claim: 'export', text: 'See the day\'s summary and counts by defect type, and download results as CSV.' }],
+      },
+      {
+        id: 'learning',
+        media: 'learning',
+        heading: 'Judgment that gets better with use',
+        body: {
+          claim: 'readiness',
+          text: 'On day one the vision model judges. Once enough human-confirmed images of each type are in, the console says it is time to build a model dedicated to the line. The training data, selected by rule, is downloaded through the API.',
+        },
+        points: [
+          { claim: 'crosscheck', text: 'The dedicated model judges alongside the vision model, and disagreements go to the review list.' },
+          { claim: 'authority', text: 'It starts by being recorded only; as its record earns it, a supervisor hands it judgment one stage at a time. When it starts to miss, the system steps it down on its own.' },
+          { claim: 'memory', text: 'We are building a memory of confirmed cases, so similar parts are judged at once without waiting for training.', roadmap: true },
+        ],
+      },
+    ],
+    scenarios: {
+      heading: 'One engine, many inspections',
+      intro: {
+        claim: 'scenarios',
+        text: 'Beyond still images, we are building the same judge-and-record loop for fixed cameras watching the line. Early fire and smoke warning is on the same path.',
+        roadmap: true,
+      },
+      edge: {
+        claim: 'edge',
+        text: 'Video is processed by an edge device beside the line, which sends the server only the events to judge and the crops that go with them, holding them while the connection is down.',
+        roadmap: true,
+      },
+      items: [
+        {
+          claim: 'scenario-counting',
+          media: 'counting',
+          heading: 'Counting',
+          body: 'Counts items as they cross a line on the conveyor, beside the work order\'s plan. Items that pass overlapped are checked again.',
+          roadmap: true,
+        },
+        {
+          claim: 'scenario-safety',
+          media: 'safety',
+          heading: 'Hard-hat watch',
+          body: 'Watches for hard hats on workers inside a zone. It alerts only when a miss lasts several seconds, not on a single frame, and it never judges faces.',
+          roadmap: true,
+        },
+        {
+          claim: 'scenario-anomaly',
+          media: 'anomaly',
+          heading: 'Anomaly detection',
+          body: 'Starts without any defect images. It marks where a part differs from normal ones, and the vision model explains what is different.',
+          roadmap: true,
+        },
+      ],
+    },
+    integration: {
+      heading: 'It connects to the systems on site',
+      body: {
+        claim: 'integrate',
+        text: 'Each decision is posted to systems such as an MES as a signed event (CloudEvents) over a webhook. The API is described by a published OpenAPI document, so integration code can be generated from it.',
+      },
+      points: [
+        { claim: 'mes-in', text: 'We are building intake of work orders, lots and expected part numbers from the MES, for the wrong-part check to use directly.', roadmap: true },
+        { claim: 'industrial-protocols', text: 'We are building MQTT and OPC UA output for results.', roadmap: true },
+      ],
+      diagram: {
+        label: 'What U-Vision exchanges with devices on site, the vision model and the MES',
+        tablet: 'Tablet · still capture',
+        camera: 'Fixed camera · edge device',
+        engine: 'U-Vision engine',
+        engineSub: 'Your server · judge · record',
+        model: 'Vision model · your GPU',
+        mes: 'MES · equipment',
+        webhook: 'Decision events · webhook',
+        protocols: 'MQTT · OPC UA',
+        orders: 'Work orders · part numbers',
+        legend: 'Dashed lines are on the roadmap',
+      },
+    },
+    delivery: {
+      heading: 'It runs on your server',
+      items: [
+        {
           claim: 'models',
-          heading: 'Models you run',
-          body: 'It judges with a model served from your own GPU server through an OpenAI-compatible API, so inspection images do not leave your network.',
+          heading: 'Images stay in the plant',
+          body: 'It judges with a model served from your own GPU server through an OpenAI-compatible API. Inspection images are not sent to outside services.',
+        },
+        {
+          claim: 'selfhost',
+          heading: 'No database server to run',
+          body: 'Decisions and images are kept in folders on the server. A backup is a folder copy.',
         },
         {
           claim: 'embed',
           heading: 'Inside what you already run',
           body: 'Run it as a standalone server, or mount it in an ASP.NET Core app as a NuGet package.',
         },
-        {
-          claim: 'integrate',
-          heading: 'Talking to other systems',
-          body: 'The API is described by a published OpenAPI document, and each decision can be posted to systems such as an MES as a signed webhook (CloudEvents).',
-        },
       ],
+    },
+    adoption: {
+      heading: 'How to start',
+      claim: 'adoption',
+      steps: [
+        { heading: 'Pick one inspection', body: 'Choose one inspection where it would matter most, and write its criteria down as text and a few OK and NG reference images.' },
+        { heading: 'Run it with one tablet', body: 'Put a tablet over the tray and judge on the real line. At first, people check the results.' },
+        { heading: 'Measure it from the record', body: 'See in the console how often the decisions matched what people confirmed.' },
+        { heading: 'Hand over and widen', body: 'As data builds up, train a dedicated model, hand judgment over, and extend to other lines and inspections.' },
+      ],
+    },
+    demand: {
+      heading: 'Tell us what you need to inspect',
+      body: 'Even if it is not on this page. Tell us what parts, against what criteria and how many a day, and we will find a starting point together. The roadmap\'s order is set by requests like yours.',
+      cta: 'Request a consultation',
+    },
+    tech: {
+      claim: 'license',
+      heading: 'For developers',
+      body: 'Open source under the MIT license. Setup instructions, the API document and the package are public.',
+      source: 'Source code',
+      api: 'API document (OpenAPI)',
+      nuget: 'NuGet package',
+      start: 'Setup instructions',
     },
     notHeading: 'What it does not do',
     not: [
       {
         claim: 'no-accuracy-promise',
-        heading: 'It does not promise accuracy.',
-        body: 'Judgment quality depends on the part, the model and the criteria, so it keeps human labels and decision metrics for you to measure it on site.',
+        heading: 'It does not promise accuracy up front.',
+        body: 'Judgment quality depends on the part, the model and the criteria, so it keeps human confirmations and decision metrics for you to measure it on site.',
       },
       {
         claim: 'no-accounts',
@@ -211,11 +525,6 @@ export const COPY: Record<Locale, Copy> = {
         body: 'There are no tracking scripts either.',
       },
     ],
-    license: {
-      claim: 'license',
-      heading: 'License',
-      body: 'Open source under the MIT license.',
-    },
     footer: { source: 'GitHub', api: 'API (OpenAPI)', nuget: 'NuGet', contact: 'Contact' },
     otherLanguage: '한국어',
   },

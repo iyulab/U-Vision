@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>safety</title>
+<link rel="stylesheet" href="../studio.css" />
+<style>
+  #shot { width: 1600px; height: 1000px; }
+  .console { height: calc(100% - 38px); }
+  main { padding: 22px 26px; display: grid; gap: 18px; grid-template-columns: 1fr 380px; height: calc(100% - 71px); }
+  .cam { position: relative; overflow: hidden; border-radius: 14px; background: #000; }
+  .cam img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .cam svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .cam .tag { position: absolute; left: 14px; top: 14px; z-index: 4; display: flex; gap: 8px; }
+  .cam .tag .pill, .live .pill { font-size: 14px; padding: 7px 14px; }
+  .live { position: absolute; right: 14px; top: 14px; z-index: 4; }
+  h4 { margin: 0 0 12px; font-size: 15px; }
+  .ev { display: grid; grid-template-columns: 70px 1fr auto; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--slate-800); font-size: 14px; align-items: center; }
+  .kpi { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .kpi div { border-radius: 12px; background: var(--slate-800); padding: 12px 14px; }
+  .kpi b { display: block; font-size: 30px; font-weight: 800; }
+  .kpi span { font-size: 13px; color: var(--slate-400); }
+  .note { font-size: 13px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div id="shot" class="window">
+  <div class="chrome"><i></i><i></i><i></i><span>현장 카메라</span></div>
+  <div class="console">
+    <header>
+      <div class="tabs">
+        <span class="tab">시나리오</span><span class="tab on">현장 카메라</span><span class="tab">결과 조회</span><span class="tab">메트릭</span>
+      </div>
+      <span class="btn">가공동 통로 안전모 ▾</span>
+    </header>
+    <main>
+      <div class="cam">
+        <img src="../assets/aisle.webp" alt="" />
+        <svg viewBox="0 0 1536 864" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <path d="M 470 864 L 640 0 L 840 0 L 1120 864 Z" fill="rgb(56 189 248 / 0.10)" stroke="#38bdf8" stroke-width="3" stroke-dasharray="14 10" />
+          <g fill="none" stroke="#10b981" stroke-width="5">
+            <rect x="752" y="190" width="184" height="170" rx="10" />
+            <rect x="896" y="452" width="220" height="164" rx="10" />
+            <rect x="762" y="566" width="256" height="160" rx="10" />
+          </g>
+          <g font-family="Malgun Gothic, sans-serif" font-size="22" font-weight="800">
+            <rect x="752" y="156" width="140" height="34" rx="6" fill="#10b981" /><text x="764" y="181" fill="#052e1c">안전모 착용</text>
+            <rect x="976" y="418" width="140" height="34" rx="6" fill="#10b981" /><text x="988" y="443" fill="#052e1c">안전모 착용</text>
+            <rect x="620" y="726" width="140" height="34" rx="6" fill="#10b981" /><text x="632" y="751" fill="#052e1c">안전모 착용</text>
+          </g>
+          <text x="660" y="40" fill="#7dd3fc" font-size="24" font-weight="700" font-family="Malgun Gothic, sans-serif">감시 구역</text>
+        </svg>
+        <div class="tag"><span class="pill"><span class="dot" style="background:#f87171"></span>실시간</span><span class="pill ghost">카메라 가공동-3</span></div>
+        <div class="live"><span class="pill ghost">얼굴은 판정하지 않습니다</span></div>
+      </div>
+      <aside style="display:grid;gap:16px;align-content:start">
+        <section class="panel">
+          <div class="kpi">
+            <div><b class="num">3</b><span>지금 구역 안</span></div>
+            <div><b class="num" style="color:#6ee7b7">3</b><span>착용</span></div>
+          </div>
+        </section>
+        <section class="panel">
+          <h4>사건</h4>
+          <div class="ev"><span class="num muted">10:42:15</span><span>미착용 6초 이상 지속</span><span class="badge ng">알림</span></div>
+          <div class="ev"><span class="num muted">10:42:21</span><span>같은 사람 착용 확인 — 해제</span><span class="badge ok">해제</span></div>
+          <div class="ev" style="border:0"><span class="num muted">09:05:33</span><span>판단 애매 — 사람 확인</span><span class="badge review">검토</span></div>
+        </section>
+        <section class="panel note muted">한 프레임이 아니라 여러 프레임에 걸친 지속 시간으로 알립니다. 기록은 개인 평가에 쓰지 않도록 시나리오마다 정합니다.</section>
+      </aside>
+    </main>
+  </div>
+</div>
+</body>
+</html>

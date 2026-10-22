@@ -1,0 +1,351 @@
+/* The client's visual language, by hand: the operator screen is a full-bleed camera feed with translucent black
+   controls, the console is slate on near-black. Colors are the client's Tailwind values. */
+:root {
+  --black-60: rgb(0 0 0 / 0.6);
+  --black-70: rgb(0 0 0 / 0.7);
+  --slate-950: #020617;
+  --slate-900: #0f172a;
+  --slate-800: #1e293b;
+  --slate-700: #334155;
+  --slate-600: #475569;
+  --slate-500: #64748b;
+  --slate-400: #94a3b8;
+  --slate-300: #cbd5e1;
+  --slate-100: #f1f5f9;
+  --ok: #059669;
+  --ok-soft: #10b981;
+  --ng: #dc2626;
+  --ng-soft: #f87171;
+  --review: #f59e0b;
+  --sky: #38bdf8;
+  font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: transparent;
+  -webkit-font-smoothing: antialiased;
+  word-break: keep-all;
+}
+
+/* ── Device frame: a tablet with a thin bezel, the shot the site shows ─────────────────────────── */
+.device {
+  position: relative;
+  border-radius: 34px;
+  padding: 18px;
+  background: linear-gradient(145deg, #2a2f36, #121417 60%, #1c1f24);
+  box-shadow:
+    inset 0 0 0 1.5px rgb(255 255 255 / 0.08),
+    0 30px 60px -20px rgb(0 0 0 / 0.55);
+}
+
+.screen {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #000;
+}
+
+/* ── Operator screen ────────────────────────────────────────────────────────────────────────────── */
+.feed {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.topbar {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  z-index: 5;
+}
+
+.topbar.left {
+  right: auto;
+  left: 18px;
+}
+
+.pill {
+  border-radius: 999px;
+  background: var(--black-60);
+  backdrop-filter: blur(12px);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+  padding: 10px 20px;
+  white-space: nowrap;
+}
+
+.pill.amber {
+  background: rgb(245 158 11 / 0.82);
+}
+
+.pill.ghost {
+  font-weight: 500;
+  color: rgb(255 255 255 / 0.85);
+}
+
+.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: 1px;
+}
+
+/* ROI: corner brackets of the inspection area */
+.roi {
+  position: absolute;
+  z-index: 3;
+}
+
+.roi i {
+  position: absolute;
+  width: 46px;
+  height: 46px;
+  border: 4px solid rgb(255 255 255 / 0.85);
+}
+
+.roi i:nth-child(1) { left: 0; top: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 10px; }
+.roi i:nth-child(2) { right: 0; top: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 10px; }
+.roi i:nth-child(3) { left: 0; bottom: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 10px; }
+.roi i:nth-child(4) { right: 0; bottom: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 10px; }
+
+.verdict-wrap {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 34px;
+  display: flex;
+  justify-content: center;
+  z-index: 6;
+}
+
+.verdict {
+  max-width: 760px;
+  border-radius: 22px;
+  padding: 22px 44px 20px;
+  text-align: center;
+  color: #fff;
+  backdrop-filter: blur(14px);
+}
+
+.verdict.ng { background: rgb(220 38 38 / 0.86); }
+.verdict.ok { background: rgb(5 150 105 / 0.86); }
+.verdict.queued { background: rgb(51 65 85 / 0.92); padding: 18px 36px; }
+.verdict.busy { background: var(--black-70); padding: 16px 36px; font-size: 22px; font-weight: 600; }
+
+.verdict .big {
+  font-size: 86px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.verdict .type {
+  display: inline-block;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.18);
+  padding: 4px 16px;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.verdict .finding {
+  margin: 12px 0 0;
+  font-size: 19px;
+  line-height: 1.45;
+  color: rgb(255 255 255 / 0.95);
+}
+
+.verdict .conf {
+  margin: 8px 0 0;
+  font-size: 15px;
+  color: rgb(255 255 255 / 0.8);
+}
+
+.verdict .band {
+  display: inline-block;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: rgb(245 158 11 / 0.92);
+  padding: 4px 18px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* ── Console ────────────────────────────────────────────────────────────────────────────────────── */
+.console {
+  background: var(--slate-900);
+  color: var(--slate-100);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.console header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--slate-700);
+  padding: 16px 26px;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tab {
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--slate-400);
+}
+
+.tab.on {
+  background: var(--slate-700);
+  color: #fff;
+}
+
+.btn {
+  border-radius: 10px;
+  background: var(--slate-700);
+  padding: 9px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--slate-100);
+}
+
+.btn.primary {
+  background: var(--ok);
+  color: #fff;
+}
+
+.panel {
+  border: 1px solid var(--slate-700);
+  border-radius: 14px;
+  background: rgb(30 41 59 / 0.6);
+  padding: 18px 20px;
+}
+
+.muted {
+  color: var(--slate-400);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 3px 11px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge.ok { background: rgb(16 185 129 / 0.18); color: #6ee7b7; }
+.badge.ng { background: rgb(239 68 68 / 0.2); color: #fca5a5; }
+.badge.review { background: rgb(245 158 11 / 0.2); color: #fcd34d; }
+.badge.plain { background: var(--slate-700); color: var(--slate-300); }
+.badge.sky { background: rgb(56 189 248 / 0.18); color: #7dd3fc; }
+
+/* detection boxes on fixed-camera feeds */
+.det {
+  position: absolute;
+  border: 3px solid var(--ok-soft);
+  border-radius: 6px;
+  z-index: 3;
+}
+
+.det b {
+  position: absolute;
+  left: -3px;
+  top: -30px;
+  border-radius: 6px 6px 6px 0;
+  background: var(--ok-soft);
+  color: #052e1c;
+  font-size: 15px;
+  font-weight: 800;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+
+.det.warn { border-color: var(--review); }
+.det.warn b { background: var(--review); color: #3b2300; }
+
+/* ── Desktop window: the console is used at a desk, not on the tablet ───────────────────────────── */
+.window {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--slate-900);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.08),
+    0 30px 60px -20px rgb(0 0 0 / 0.5);
+}
+
+.window .chrome {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  background: var(--slate-950);
+  border-bottom: 1px solid var(--slate-800);
+}
+
+.window .chrome i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--slate-700);
+}
+
+.window .chrome span {
+  margin-left: 14px;
+  border-radius: 7px;
+  background: var(--slate-800);
+  color: var(--slate-400);
+  font-size: 13px;
+  padding: 4px 14px;
+}
+
+.bar-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--slate-700);
+  overflow: hidden;
+}
+
+.bar-track > b {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+/* the "recent" strip at the bottom right of the operator screen */
+.recent { position: absolute; right: 18px; bottom: 18px; z-index: 5; width: 230px; border-radius: 16px; background: var(--black-60); backdrop-filter: blur(12px); padding: 10px; color: #fff; font-size: 14px; }
+.recent .h { padding: 0 4px 6px; font-weight: 700; color: rgb(255 255 255 / 0.7); }
+.recent ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.recent li { display: flex; justify-content: space-between; border-radius: 8px; background: rgb(255 255 255 / 0.06); padding: 5px 9px; }
+.recent .ok { color: #34d399; font-weight: 700; }
+.recent .ng { color: #f87171; font-weight: 700; }
+.recent .late { color: #fcd34d; font-size: 11px; margin-left: 4px; font-weight: 600; }
+.recent .t { color: rgb(255 255 255 / 0.5); font-variant-numeric: tabular-nums; }
+.topbar.left.stack { flex-direction: column; align-items: flex-start; }

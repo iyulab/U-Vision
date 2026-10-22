@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>console</title>
+<link rel="stylesheet" href="../studio.css" />
+<style>
+  #shot { width: 1600px; height: 740px; }
+  .console { height: calc(100% - 38px); }
+  main { padding: 22px 26px; display: grid; gap: 18px; grid-template-columns: 1fr 360px; grid-template-rows: auto 1fr; min-height: 0; }
+  .filters { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; }
+  .field { border: 1px solid var(--slate-700); border-radius: 10px; padding: 8px 14px; font-size: 15px; background: var(--slate-800); }
+  .field small { color: var(--slate-400); margin-right: 8px; font-size: 13px; }
+  .spacer { flex: 1; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th { text-align: left; font-weight: 600; color: var(--slate-400); font-size: 13px; padding: 0 10px 10px; border-bottom: 1px solid var(--slate-700); }
+  td { padding: 10px; border-bottom: 1px solid var(--slate-800); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  td img { width: 76px; height: 52px; object-fit: cover; border-radius: 8px; display: block; }
+  td.f { color: var(--slate-300); max-width: 340px; }
+  tr.hl td { background: rgb(245 158 11 / 0.07); }
+  .stat { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 22px; }
+  .stat div { border-radius: 12px; background: var(--slate-800); padding: 12px 14px; }
+  .stat b { display: block; font-size: 28px; font-weight: 800; }
+  .stat span { font-size: 13px; color: var(--slate-400); }
+  h4 { margin: 0 0 12px; font-size: 15px; }
+  .dist { display: grid; gap: 12px; }
+  .dist div { display: grid; grid-template-columns: 54px 1fr 28px; gap: 10px; align-items: center; font-size: 14px; }
+  .lab { display: flex; gap: 6px; margin-top: 6px; }
+  .lab span { border-radius: 8px; padding: 3px 12px; font-size: 13px; font-weight: 700; background: var(--slate-700); }
+  .lab span.ng { background: #7f1d1d; }
+</style>
+</head>
+<body>
+<div id="shot" class="window">
+  <div class="chrome"><i></i><i></i><i></i><span>검사 콘솔</span></div>
+  <div class="console">
+    <header>
+      <div class="tabs">
+        <span class="tab">시나리오</span><span class="tab on">결과 조회</span><span class="tab">메트릭</span><span class="tab">라벨 감사</span><span class="tab">권한 단계</span>
+      </div>
+      <span class="btn">운영 화면</span>
+    </header>
+    <main>
+      <div class="filters">
+        <span class="field"><small>날짜</small>2026-10-22</span>
+        <span class="field"><small>시나리오</small>플랜지 외관 검사</span>
+        <span class="field"><small>검토 대기</small>2건만 보기</span>
+        <span class="spacer"></span>
+        <span class="btn">CSV 내보내기</span>
+      </div>
+      <section class="panel" style="padding:12px 8px">
+        <table>
+          <thead><tr><th>사진</th><th>촬영</th><th>판정</th><th>유형</th><th>소견</th><th>사람 라벨</th></tr></thead>
+          <tbody>
+            <tr class="hl"><td><img src="../assets/flange-thumb.webp" alt="" /></td><td class="num">14:28:47</td><td><span class="badge ng">NG</span></td><td>찍힘</td><td class="f">외곽 모서리 4시 방향 눌림 자국</td><td><span class="badge review">검토 필요</span><div class="lab"><span>OK</span><span class="ng">NG</span></div></td></tr>
+            <tr><td><img src="../assets/flange-thumb.webp" alt="" /></td><td class="num">14:02:19</td><td><span class="badge ng">NG</span></td><td>긁힘</td><td class="f">2시 방향 볼트 구멍 사이 면 선형 긁힘 약 6mm</td><td><span class="badge ng">NG 확정</span></td></tr>
+            <tr class="hl"><td><img src="../assets/flange-thumb.webp" alt="" /></td><td class="num">13:47:05</td><td><span class="badge ok">OK</span></td><td class="muted">—</td><td class="f">이상 소견 없음. 전용 모델은 NG 의견</td><td><span class="badge review">검토 필요</span><div class="lab"><span>OK</span><span class="ng">NG</span></div></td></tr>
+            <tr><td><img src="../assets/flange-thumb.webp" alt="" /></td><td class="num">11:15:32</td><td><span class="badge ng">NG</span></td><td>변색</td><td class="f">안쪽 면 하단 갈색 얼룩</td><td><span class="badge ng">NG 확정</span></td></tr>
+            <tr><td><img src="../assets/flange-thumb.webp" alt="" /></td><td class="num">10:51:48</td><td><span class="badge ng">NG</span></td><td>긁힘</td><td class="f">7시 방향 외곽 짧은 긁힘 2곳</td><td><span class="badge ok">OK 로 정정</span></td></tr>
+            <tr><td><img src="../assets/flange-thumb.webp" alt="" /></td><td class="num">09:33:10</td><td><span class="badge ng">NG</span></td><td>찍힘</td><td class="f">윗면 볼트 구멍 테두리 눌림</td><td><span class="badge ng">NG 확정</span></td></tr>
+          </tbody>
+        </table>
+      </section>
+      <aside class="panel">
+        <h4>오늘 요약</h4>
+        <div class="stat">
+          <div><b class="num">1,284</b><span>검사</span></div>
+          <div><b class="num" style="color:#fca5a5">31</b><span>NG</span></div>
+          <div><b class="num" style="color:#fcd34d">7</b><span>검토 필요</span></div>
+          <div><b class="num">24</b><span>사람 확인</span></div>
+        </div>
+        <h4>불량 유형</h4>
+        <div class="dist">
+          <div><span>긁힘</span><div class="bar-track"><b style="width:100%;background:#f87171"></b></div><span class="num muted">14</span></div>
+          <div><span>찍힘</span><div class="bar-track"><b style="width:64%;background:#f87171"></b></div><span class="num muted">9</span></div>
+          <div><span>변색</span><div class="bar-track"><b style="width:43%;background:#f87171"></b></div><span class="num muted">6</span></div>
+          <div><span>기타</span><div class="bar-track"><b style="width:14%;background:#f87171"></b></div><span class="num muted">2</span></div>
+        </div>
+      </aside>
+    </main>
+  </div>
+</div>
+</body>
+</html>

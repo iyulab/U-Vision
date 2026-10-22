@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>anomaly</title>
+<link rel="stylesheet" href="../studio.css" />
+<style>
+  #shot { width: 1600px; height: 1000px; }
+  .console { height: calc(100% - 38px); }
+  main { padding: 22px 26px; display: grid; gap: 18px; grid-template-columns: 1fr 380px; grid-template-rows: 1fr 1fr; height: calc(100% - 71px); }
+  .cam { position: relative; overflow: hidden; border-radius: 14px; background: #000; }
+  .cam img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .cam svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .cap { position: absolute; left: 14px; top: 14px; z-index: 4; }
+  .cap .pill { font-size: 14px; padding: 7px 14px; }
+  h4 { margin: 0 0 10px; font-size: 15px; }
+  .score { font-size: 54px; font-weight: 900; line-height: 1; color: #fcd34d; }
+  .gauge { position: relative; height: 12px; border-radius: 999px; background: linear-gradient(90deg, #10b981, #f59e0b 70%, #dc2626); margin: 16px 0 6px; }
+  .gauge i { position: absolute; top: -5px; width: 4px; height: 22px; border-radius: 2px; background: #fff; }
+  .say { font-size: 15px; line-height: 1.6; color: var(--slate-300); }
+  .act { display: flex; gap: 8px; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div id="shot" class="window">
+  <div class="chrome"><i></i><i></i><i></i><span>검사 콘솔</span></div>
+  <div class="console">
+    <header>
+      <div class="tabs">
+        <span class="tab">시나리오</span><span class="tab">현장 카메라</span><span class="tab on">결과 조회</span><span class="tab">메트릭</span>
+      </div>
+      <span class="btn">샤프트 표면 이상 ▾</span>
+    </header>
+    <main>
+      <div class="cam">
+        <img src="../assets/bar.webp" alt="" style="object-position:50% 50%" />
+        <svg viewBox="0 0 1536 1024" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <defs><filter id="soft"><feGaussianBlur stdDeviation="7" /></filter></defs>
+          <!-- the shallow dent the explanation describes -->
+          <ellipse cx="900" cy="468" rx="78" ry="16" fill="rgb(20 22 26 / 0.45)" filter="url(#soft)" />
+          <ellipse cx="904" cy="482" rx="70" ry="7" fill="rgb(255 255 255 / 0.35)" filter="url(#soft)" />
+        </svg>
+        <div class="cap"><span class="pill">촬영 사진</span></div>
+      </div>
+      <div class="cam">
+        <img src="../assets/bar.webp" alt="" style="object-position:50% 50%;filter:grayscale(1) brightness(0.55)" />
+        <svg viewBox="0 0 1536 1024" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <defs>
+            <radialGradient id="heat">
+              <stop offset="0" stop-color="#ef4444" stop-opacity="0.95" />
+              <stop offset="0.45" stop-color="#f59e0b" stop-opacity="0.7" />
+              <stop offset="1" stop-color="#f59e0b" stop-opacity="0" />
+            </radialGradient>
+            <radialGradient id="faint">
+              <stop offset="0" stop-color="#38bdf8" stop-opacity="0.35" />
+              <stop offset="1" stop-color="#38bdf8" stop-opacity="0" />
+            </radialGradient>
+          </defs>
+          <ellipse cx="900" cy="470" rx="150" ry="70" fill="url(#heat)" />
+          <rect x="730" y="380" width="340" height="180" rx="10" fill="none" stroke="#f59e0b" stroke-width="5" />
+        </svg>
+        <div class="cap"><span class="pill amber">정상과 다른 곳</span></div>
+      </div>
+      <aside style="display:grid;gap:16px;align-content:start;grid-column:2;grid-row:1 / 3">
+        <section class="panel">
+          <h4>이상 정도</h4>
+          <div class="score num">0.82</div>
+          <div class="gauge"><i style="left:82%"></i></div>
+          <div class="muted" style="font-size:13px">정상 사진 412장과 비교 · 기준 0.60</div>
+        </section>
+        <section class="panel">
+          <h4>설명</h4>
+          <p class="say" style="margin:0">윗면 중앙 오른쪽에 길이 방향으로 얕은 함몰이 보입니다. 가공 자국과 방향이 달라 표면 결함일 가능성이 높습니다.</p>
+          <div class="act"><span class="btn">정상으로 표시</span><span class="btn" style="background:#7f1d1d">불량으로 표시</span></div>
+        </section>
+        <section class="panel muted" style="font-size:13px;line-height:1.5">불량 사진이 없어도 시작합니다. 정상 사진만으로 다른 점을 찾고, 사람이 표시한 결과가 다음 판정의 기준이 됩니다.</section>
+      </aside>
+    </main>
+  </div>
+</div>
+</body>
+</html>

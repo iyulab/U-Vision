@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { COPY } from '../src/copy';
 
 const siteDir = fileURLToPath(new URL('..', import.meta.url));
 const repoRoot = path.resolve(siteDir, '..');
@@ -55,6 +56,24 @@ describe('public claims', () => {
     for (const row of rows) {
       expect(STATUSES, row.claim).toContain(row.status);
       for (const ref of row.refs) expect(existsSync(path.join(repoRoot, ref)), `${row.claim}: ${ref}`).toBe(true);
+    }
+  });
+
+  // A goal must never read as something that works today: the page shows the roadmap label on exactly the
+  // statements whose row says vision, in both languages.
+  it('marks exactly the vision claims as roadmap', () => {
+    const vision = rows.filter(r => r.status === 'vision').map(r => r.claim).sort();
+    for (const locale of ['ko', 'en'] as const) {
+      const marked = new Set<string>();
+      const walk = (node: unknown): void => {
+        if (Array.isArray(node)) return node.forEach(walk);
+        if (node === null || typeof node !== 'object') return;
+        const record = node as Record<string, unknown>;
+        if (typeof record.claim === 'string' && record.roadmap === true) marked.add(record.claim);
+        Object.values(record).forEach(walk);
+      };
+      walk(COPY[locale]);
+      expect([...marked].sort(), locale).toEqual(vision);
     }
   });
 });

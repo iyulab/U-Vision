@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>operator</title>
+<link rel="stylesheet" href="../studio.css" />
+<style>
+  #shot { width: 1500px; height: 980px; }
+  .screen { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="shot" class="device">
+  <div class="screen">
+    <img class="feed" src="../assets/flange.webp" alt="" />
+    <svg class="feed" viewBox="0 0 1536 1024" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <!-- the scratch the verdict describes: on the outer face between the bolt holes at one and three o'clock -->
+      <path d="M 963 392 Q 978 412 996 446" stroke="rgb(30 30 34 / 0.35)" stroke-width="4" fill="none" stroke-linecap="round" />
+      <path d="M 962 390 Q 977 410 995 444" stroke="rgb(255 255 255 / 0.7)" stroke-width="1.6" fill="none" stroke-linecap="round" />
+      <!-- the client's ROI overlay: an emerald rectangle with the outside dimmed -->
+      <path fill="rgb(0 0 0 / 0.35)" fill-rule="evenodd" d="M -200 -200 H 1736 V 1224 H -200 Z M 430 236 H 1120 V 854 H 430 Z" />
+      <rect x="430" y="236" width="690" height="618" rx="9" fill="none" stroke="rgb(52 211 153 / 0.9)" stroke-width="3" />
+    </svg>
+    <div class="topbar left">
+      <span class="pill"><span class="dot" style="background:#34d399"></span>정지 — 검사</span>
+    </div>
+    <div class="topbar">
+      <span class="pill">자동</span>
+      <span class="pill ghost">2번 태블릿</span>
+      <span class="pill">플랜지 외관 검사 ▾</span>
+      <span class="pill">오늘 이력</span>
+      <span class="pill">관리</span>
+    </div>
+    <div class="recent"><div class="h">최근</div><ul><li><span class="ok">OK</span><span class="t">14:01:52</span></li><li><span class="ok">OK</span><span class="t">14:01:37</span></li><li><span class="ok">OK</span><span class="t">14:01:20</span></li><li><span class="ng">NG 찍힘</span><span class="t">13:58:04</span></li></ul></div>
+    <div class="verdict-wrap">
+      <div class="verdict ng">
+        <div class="big">NG</div>
+        <div class="type">긁힘</div>
+        <p class="finding">2시 방향 볼트 구멍 사이 면에 길이 약 6mm 의 선형 긁힘</p>
+        <p class="conf">신뢰도 94%</p>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
