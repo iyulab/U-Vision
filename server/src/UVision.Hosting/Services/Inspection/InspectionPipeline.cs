@@ -37,6 +37,7 @@ public sealed class InspectionPipeline(
     IAuthorityStore authorityStore,
     ILabelStore labelStore,
     DecisionLedger ledger,
+    Events.DecisionEventPublisher events,
     MlOptions mlOptions,
     AuthorityOptions authorityOptions,
     ILogger<InspectionPipeline> logger)
@@ -181,6 +182,18 @@ public sealed class InspectionPipeline(
             RequiresReview = requiresReview,
             Path = PathStepV2.From(route),
         };
+
+        // 판정 사건(P4) — outbox 에 남기기만 한다(보내기는 따로). 관측 · 통합 경로라 실패는 degrade.
+        try
+        {
+            await events.PublishAsync(v2, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "판정 사건 기록 실패 — 판정은 그대로 (scenario={ScenarioId}, image={ImageId})",
+                scenario.ScenarioId, imageId);
+        }
+
         return new InspectionOutcome.Completed(
             new InspectResponse
             {

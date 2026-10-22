@@ -106,6 +106,26 @@ public sealed partial class StoragePaths
     public string LedgerJsonl(string scenarioId, string date) =>
         Path.Combine(ScenarioDir(scenarioId), LedgerSegment, Date(date) + ".jsonl");
 
+    // --- 판정 사건 outbox (P4 이벤트 내보내기) -------------------------------
+    // 받는 곳마다 보낼 사건 파일 하나씩. 보내면 지우고, 끝내 못 보내면 dead/ 로 옮긴다. <c>events</c> 도 날짜로
+    // 파싱되지 않아 목록에서 빠진다.
+
+    private const string EventsSegment = "events";
+
+    /// <summary>받는 곳의 outbox <c>{scenario}/events/{endpoint}</c>.</summary>
+    public string EventOutboxDir(string scenarioId, string endpoint) =>
+        Path.Combine(ScenarioDir(scenarioId), EventsSegment, Id(endpoint));
+
+    /// <summary>보내기를 포기한 사건 <c>{scenario}/events/{endpoint}/dead</c>.</summary>
+    public string EventDeadDir(string scenarioId, string endpoint) =>
+        Path.Combine(EventOutboxDir(scenarioId, endpoint), "dead");
+
+    /// <summary>모든 시나리오 디렉터리(사건 보내기가 outbox 를 찾는 범위).</summary>
+    public IEnumerable<string> ScenarioIds() =>
+        Directory.Exists(_root)
+            ? Directory.EnumerateDirectories(_root).Select(Path.GetFileName).OfType<string>()
+            : [];
+
     // --- 모델 버저닝 (신뢰성 플라이휠 B1) ----------------------------------
     // 모델 바이너리는 MLoop serve 소유. 여기서는 참조·provenance manifest + active 포인터만.
     // <c>models</c> 는 날짜로 파싱되지 않으므로 ListDatesAsync 가 자연 제외한다(references·datasets·metrics 와 동일).

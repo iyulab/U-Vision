@@ -20,6 +20,9 @@ public sealed class UVisionOptions
 
     public StorageOptions Storage { get; set; } = new();
 
+    /// <summary>판정 사건 내보내기(웹훅). 기본 받는 곳 없음 = 비활성.</summary>
+    public EventsOptions Events { get; set; } = new();
+
     /// <summary>관리자 PIN(미설정 시 관리 엔드포인트 503, 운영은 정상).</summary>
     public string? AdminPin { get; set; }
 

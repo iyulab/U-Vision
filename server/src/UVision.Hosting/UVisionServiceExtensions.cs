@@ -64,6 +64,16 @@ public static class UVisionServiceExtensions
         services.AddSingleton<Services.Inspection.DecisionLedger>();
         services.AddSingleton<Services.Inspection.InspectionPipeline>();
 
+        // 판정 사건 내보내기(P4) — 받는 곳(웹훅)이 없으면 사건을 쓰지도 보내지도 않는다.
+        ValidateEvents(options.Events);
+        services.AddSingleton(options.Events);
+        services.AddSingleton<Services.Events.WebhookDeliverySignal>();
+        services.AddSingleton<Services.Events.DecisionEventPublisher>();
+        services.AddHttpClient(Services.Events.WebhookDispatcher.HttpClientName,
+            c => c.Timeout = TimeSpan.FromSeconds(10));
+        services.AddSingleton<Services.Events.WebhookDispatcher>();
+        services.AddHostedService<Services.Events.WebhookDeliveryService>();
+
         // 데이터셋 export(신뢰성 플라이휠 ② — 전용 ML 빌드 데이터 준비).
         services.AddSingleton<Services.Dataset.IDatasetExporter, Services.Dataset.FileDatasetExporter>();
 
@@ -81,5 +91,22 @@ public static class UVisionServiceExtensions
         // Verdict "OK"/"NG" 도 모델 부착 [JsonConverter] 로 자기서술.
 
         return services;
+    }
+
+    // 잘못된 받는 곳 설정은 기동에서 멈춘다 — 조용히 사건을 잃는 것보다 낫다.
+    private static void ValidateEvents(Configuration.EventsOptions events)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var hook in events.Webhooks)
+        {
+            StoragePaths.Id(hook.Name); // outbox 디렉터리 이름
+            if (!names.Add(hook.Name))
+                throw new InvalidOperationException($"UVision:Events:Webhooks 이름 중복: {hook.Name}");
+            if (!Uri.TryCreate(hook.Url, UriKind.Absolute, out var url)
+                || (url.Scheme != Uri.UriSchemeHttp && url.Scheme != Uri.UriSchemeHttps))
+                throw new InvalidOperationException($"UVision:Events:Webhooks[{hook.Name}].Url 은 http(s) 절대 주소여야 한다");
+            if (hook.Secret.StartsWith("whsec_", StringComparison.Ordinal))
+                _ = Services.Events.WebhookSignature.SecretBytes(hook.Secret); // base64 형식 검사(FormatException)
+        }
     }
 }
