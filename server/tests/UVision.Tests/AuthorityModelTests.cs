@@ -38,7 +38,16 @@ public class AuthorityModelTests
     [Fact]
     public void AuthorityFile_IsScenarioRootJson()
     {
-        var paths = new StoragePaths(new StorageOptions { DataPath = "/data" }, AppContext.BaseDirectory);
-        Assert.EndsWith(Path.Combine("demo", "authority.json"), paths.AuthorityFile("demo"));
+        // 쓰기 가능한 임시 경로 — StoragePaths 생성자가 디렉터리를 만든다(루트 `/data` 는 Linux 에서 권한 없음).
+        var root = Path.Combine(Path.GetTempPath(), "uvision-tests-" + Guid.NewGuid().ToString("N"));
+        var paths = new StoragePaths(new StorageOptions { DataPath = root }, AppContext.BaseDirectory);
+        try
+        {
+            Assert.EndsWith(Path.Combine("demo", "authority.json"), paths.AuthorityFile("demo"));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 }
