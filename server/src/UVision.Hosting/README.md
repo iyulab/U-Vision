@@ -67,7 +67,13 @@ app.Run();
       "ImageColumn": "ImagePath",
       "ReviewConfidenceThreshold": 0.0  // ③ 2중체크: VLM/ML 신뢰도가 이 값 미만이면 requires_review(0=불일치만)
     },
-    "Storage": { "DataPath": "data" },   // 상대경로는 호스트 ContentRoot 기준
+    "Storage": {
+      "DataPath": "data",                // 상대경로는 호스트 ContentRoot 기준
+      "IdempotencyRetentionHours": 168   // Idempotency-Key 재전송 응답 보존 시간(0 이하 = 지우지 않음)
+    },
+    "Events": {                          // 판정 사건 웹훅(CloudEvents · Standard Webhooks 서명) — 비우면 비활성
+      "Webhooks": [ { "Name": "mes", "Url": "https://receiver.example/hook", "Secret": "whsec_..." } ]
+    },
     "AdminPin": null,                     // 미설정 시 관리(쓰기)는 503 + 파일시스템 부트스트랩으로 최초 설정(아래 참고)
     "BasePath": "/u-vision",              // PWA 마운트 경로 (⚠️ 아래 제약 참고)
     "ApiBasePath": "/api/u-vision",       // API 네임스페이스
@@ -119,21 +125,21 @@ VLM verdict 가 여전히 주 판정이고 ML 은 교차검증이다. ML 호출 
 
 ## API 표면 (`{ApiBasePath}` 하위, 기본 `/api/u-vision`)
 
+전체 계약(요청 · 응답 · 오류)의 정본은 OpenAPI 문서다 — 리포의 [`server/openapi/u-vision.json`](https://github.com/iyulab/U-Vision/blob/main/server/openapi/u-vision.json), 호스트가 `AddOpenApi()` 를 부르면 같은 문서가 `U-Vision` 태그로 나온다. 아래는 지도다.
+
 | 메서드 | 경로 | 인증 |
 |---|---|---|
 | GET | `/health` | - |
 | GET | `/admin/status` (PIN 설정 상태) | - |
 | POST | `/admin/setup` (최초 PIN 설정) | setup-token |
-| POST | `/inspect` (multipart) | - |
-| POST | `/v2/inspect` (multipart, 결과 v2 — 오투입 확인은 `expected_part` · `observed_code`) | - |
+| POST | `/inspect` (multipart) · `/v2/inspect` (결과 v2 — 오투입 확인은 `expected_part` · `observed_code`). 헤더 `Idempotency-Key` 를 주면 같은 키의 재전송은 첫 응답을 그대로 받는다 | - |
 | GET | `/results`, `/results/dates`, `/results/image` | - |
-| GET | `/scenarios`, `/scenarios/{id}` | - |
-| POST/PUT/DELETE | `/scenarios...` | PIN |
-| GET | `/scenarios/{id}/references...` | - |
-| POST/DELETE | `/scenarios/{id}/references...` | PIN |
-| PUT/DELETE/GET | `/results/label`, `/results/labels` (사람 OK/NG 라벨) | - |
+| PUT/DELETE/GET | `/results/label`, `/results/labels` (사람 라벨) · `/results/audit-sample`, `/results/audit` (블라인드 감사) | - |
+| GET | `/scenarios`, `/scenarios/{id}` · `/scenarios/{id}/references...` · `/scenarios/{id}/authority` · `/scenarios/{id}/models` | - |
+| POST/PUT/DELETE | `/scenarios...` · references · authority `promote`/`demote` · models 등록 · `promote` · `rollback` | PIN |
 | GET | `/datasets`, `/datasets/{exportId}/manifest` | - |
 | POST | `/datasets/export` (라벨→ML 학습입력 스냅샷) | PIN |
+| GET | `/metrics` (관측 메트릭 집계) · `/events/status` (웹훅 outbox 상태) | - |
 
 JSON wire 는 snake_case(`image_id`, `scenario_id`, `ng_label`), `verdict` 는 `"OK"`/`"NG"`. 이 계약은 DTO `[JsonPropertyName]`이 보유하므로 **호스트의 전역 JSON 정책과 무관**(호스트 JSON casing 을 오염시키지 않는다).
 
