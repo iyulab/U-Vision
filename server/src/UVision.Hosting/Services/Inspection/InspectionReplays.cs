@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.Options;
+using UVision.Api.Configuration;
 using UVision.Api.Storage;
 
 namespace UVision.Api.Services.Inspection;
@@ -22,7 +23,7 @@ namespace UVision.Api.Services.Inspection;
 /// <para>재전송 응답 저장은 degrade — 판정은 이미 기록됐으므로 실패해도 응답은 그대로 나가고, 그 키의 재전송만 다시 판정된다.</para>
 /// </summary>
 public sealed class InspectionReplays(
-    StoragePaths paths, IOptions<JsonOptions> jsonOptions, ILogger<InspectionReplays> logger)
+    StoragePaths paths, StorageOptions storage, IOptions<JsonOptions> jsonOptions, ILogger<InspectionReplays> logger)
 {
     public const string KeyHeader = "Idempotency-Key";
     public const string ReplayedHeader = "Idempotent-Replayed";
@@ -101,6 +102,41 @@ public sealed class InspectionReplays(
         }
     }
 
+    /// <summary>
+    /// 보존 기한(<see cref="StorageOptions.IdempotencyRetentionHours"/>)이 지난 재전송 응답을 지운다. 지운 수를 돌려준다.
+    /// 나이는 파일을 쓴 시각(atomic write — 처음 응답 시각)으로 잰다.
+    /// </summary>
+    public int PruneExpired(DateTime nowUtc)
+    {
+        if (storage.IdempotencyRetentionHours <= 0)
+            return 0;
+        var cutoff = nowUtc.AddHours(-storage.IdempotencyRetentionHours);
+        var removed = 0;
+        foreach (var scenarioId in paths.ScenarioIds())
+        {
+            string dir;
+            try { dir = paths.ReplayDir(scenarioId); }
+            catch (ArgumentException) { continue; } // 시나리오가 아닌 디렉터리
+            if (!Directory.Exists(dir))
+                continue;
+            foreach (var file in Directory.EnumerateFiles(dir, "*.json", SearchOption.AllDirectories))
+            {
+                if (File.GetLastWriteTimeUtc(file) >= cutoff)
+                    continue;
+                try
+                {
+                    File.Delete(file);
+                    removed++;
+                }
+                catch (IOException ex)
+                {
+                    logger.LogWarning(ex, "만료된 재전송 응답 삭제 실패 — 다음 주기 재시도 ({File})", file);
+                }
+            }
+        }
+        return removed;
+    }
+
     private async Task<StoredReplay?> ReadAsync(string scenarioId, string key, CancellationToken cancellationToken)
     {
         var path = paths.ReplayFile(scenarioId, key);
@@ -156,6 +192,32 @@ public sealed class InspectionReplays(
             if (replayed)
                 response.Headers[ReplayedHeader] = "true";
             return response.Body.WriteAsync(body).AsTask();
+        }
+    }
+}
+
+/// <summary>만료된 재전송 응답을 시작할 때와 한 시간마다 지운다.</summary>
+public sealed class InspectionReplayExpiryService(
+    InspectionReplays replays, StorageOptions storage, ILogger<InspectionReplayExpiryService> logger) : BackgroundService
+{
+    private static readonly TimeSpan Interval = TimeSpan.FromHours(1);
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        if (storage.IdempotencyRetentionHours <= 0)
+            return;
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                var removed = replays.PruneExpired(DateTime.UtcNow);
+                if (removed > 0)
+                    logger.LogInformation("만료된 재전송 응답 {Count}개 삭제", removed);
+            }
+            catch (Exception ex) { logger.LogWarning(ex, "재전송 응답 만료 정리 실패 — 다음 주기 재시도"); }
+
+            try { await Task.Delay(Interval, stoppingToken); }
+            catch (OperationCanceledException) { break; }
         }
     }
 }

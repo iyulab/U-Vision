@@ -129,9 +129,13 @@ public sealed partial class StoragePaths
 
     private const string IdempotencySegment = "idempotency";
 
+    /// <summary>시나리오의 재전송 응답 디렉터리 <c>{scenario}/idempotency</c>.</summary>
+    public string ReplayDir(string scenarioId) =>
+        Path.Combine(ScenarioDir(scenarioId), IdempotencySegment);
+
     /// <summary>키의 재전송 응답 <c>{scenario}/idempotency/{hh}/{key}.json</c>(hh = 키 SHA-256 앞 두 hex).</summary>
     public string ReplayFile(string scenarioId, string key) =>
-        Path.Combine(ScenarioDir(scenarioId), IdempotencySegment,
+        Path.Combine(ReplayDir(scenarioId),
             Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(Id(key))))[..2], key + ".json");
 
     /// <summary>모든 시나리오 디렉터리(사건 보내기가 outbox 를 찾는 범위).</summary>

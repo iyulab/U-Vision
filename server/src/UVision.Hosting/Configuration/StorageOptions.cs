@@ -15,4 +15,10 @@ public sealed class StorageOptions
     /// 데이터 루트. 상대경로는 ContentRoot 기준으로 절대화된다(<see cref="Storage.StoragePaths"/>).
     /// </summary>
     public string DataPath { get; set; } = "data";
+
+    /// <summary>
+    /// 멱등 키(<c>Idempotency-Key</c>)의 재전송 응답을 남겨 두는 시간. 지나면 지워지고, 그 뒤 같은 키는 새 요청으로
+    /// 판정된다. 장치는 응답을 잃으면 연결이 돌아오는 대로 다시 보내므로 며칠이면 넉넉하다. 0 이하는 지우지 않는다.
+    /// </summary>
+    public int IdempotencyRetentionHours { get; set; } = 168;
 }

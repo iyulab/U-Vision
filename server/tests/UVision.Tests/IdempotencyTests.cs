@@ -3,7 +3,12 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Http.Json;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using UVision.Api;
+using UVision.Api.Configuration;
+using UVision.Api.Storage;
 using UVision.Api.Services.Inspection;
 using Xunit;
 
@@ -155,5 +160,30 @@ public class IdempotencyTests
         var bodies = await Task.WhenAll(responses.Select(r => r.Content.ReadAsStringAsync()));
         Assert.Single(bodies.Distinct());
         Assert.Equal(1, ResultRecords(factory.DataPath));
+    }
+
+    [Theory]
+    [InlineData(168, 1)]
+    [InlineData(0, 0)] // 0 이하 = 지우지 않음
+    public async Task Expired_Replays_Are_Pruned_And_The_Key_Becomes_New(int retentionHours, int expectedRemoved)
+    {
+        using var factory = new UVisionApiFactory();
+        var client = factory.CreateClient();
+        await PostAsync(client, "/api/u-vision/inspect", "old", Form());
+        await PostAsync(client, "/api/u-vision/inspect", "fresh", Form());
+
+        var storage = new StorageOptions { DataPath = factory.DataPath, IdempotencyRetentionHours = retentionHours };
+        var paths = new StoragePaths(storage, AppContext.BaseDirectory);
+        File.SetLastWriteTimeUtc(paths.ReplayFile("demo", "old"), DateTime.UtcNow.AddHours(-200));
+        var replays = new InspectionReplays(
+            paths, storage, Options.Create(new JsonOptions()), NullLogger<InspectionReplays>.Instance);
+
+        Assert.Equal(expectedRemoved, replays.PruneExpired(DateTime.UtcNow));
+        Assert.True(File.Exists(paths.ReplayFile("demo", "fresh")));
+        Assert.Equal(expectedRemoved == 0, File.Exists(paths.ReplayFile("demo", "old")));
+
+        // 지워진 키는 다시 판정된다(재전송 응답이 아니다).
+        var again = await PostAsync(client, "/api/u-vision/inspect", "old", Form());
+        Assert.Equal(expectedRemoved == 0, again.Headers.Contains(InspectionReplays.ReplayedHeader));
     }
 }
