@@ -26,7 +26,9 @@ public static class AdminEndpoints
                 PinConfigured = status.PinConfigured,
                 SetupRequired = status.SetupRequired,
             });
-        });
+        })
+            .WithName("GetAdminStatus")
+            .Produces<AdminStatusResponse>();
 
         // 최초 PIN 설정(토큰 게이트, RequireAdminPin 미부착).
         group.MapPost("/setup", async (
@@ -53,6 +55,13 @@ public static class AdminEndpoints
                     statusCode: 400, detail: "새 PIN 은 공백 없이 4자리 이상이어야 합니다."),
                 _ => Results.Problem(statusCode: 500, detail: "최초 설정 실패"),
             };
-        });
+        })
+            .WithName("CompleteAdminSetup")
+            .Produces(204)
+            .ProducesProblem(400)
+            .ProducesProblem(401)
+            .ProducesProblem(409)
+            .ProducesProblem(410)
+            .ProducesProblem(500);
     }
 }

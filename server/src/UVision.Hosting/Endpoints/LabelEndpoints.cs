@@ -18,11 +18,26 @@ public static class LabelEndpoints
 {
     public static void MapLabelEndpoints(this RouteGroupBuilder group)
     {
-        group.MapPut("/results/label", PutLabelAsync);
-        group.MapDelete("/results/label", DeleteLabelAsync);
-        group.MapGet("/results/labels", ListLabelsAsync);
-        group.MapGet("/results/audit-sample", AuditSampleAsync);
-        group.MapPost("/results/audit", PostAuditAsync);
+        group.MapPut("/results/label", PutLabelAsync)
+            .WithName("PutLabel")
+            .Produces(200)
+            .ProducesProblem(400);
+        group.MapDelete("/results/label", DeleteLabelAsync)
+            .WithName("DeleteLabel")
+            .Produces(200)
+            .ProducesProblem(400);
+        group.MapGet("/results/labels", ListLabelsAsync)
+            .WithName("ListLabels")
+            .Produces<IReadOnlyList<StoredLabel>>()
+            .ProducesProblem(400);
+        group.MapGet("/results/audit-sample", AuditSampleAsync)
+            .WithName("GetAuditSample")
+            .Produces<IReadOnlyList<string>>()
+            .ProducesProblem(400);
+        group.MapPost("/results/audit", PostAuditAsync)
+            .WithName("PostAudit")
+            .Produces<AuditResponse>()
+            .ProducesProblem(400);
     }
 
     private static async Task<IResult> PutLabelAsync(
@@ -111,7 +126,7 @@ public static class LabelEndpoints
         {
             var outcome = await labelStore.AppendAuditAsync(
                 input.ScenarioId, input.Date, input.ImageId, input.Label, input.By ?? "", cancellationToken);
-            return Results.Ok(new { status = outcome.Status, prior_label = outcome.PriorLabel });
+            return Results.Ok(new AuditResponse { Status = outcome.Status, PriorLabel = outcome.PriorLabel });
         }
         catch (ArgumentException) // 형식 위반 → 400
         {

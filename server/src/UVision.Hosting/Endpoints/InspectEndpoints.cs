@@ -19,18 +19,42 @@ public static class InspectEndpoints
     public static void MapInspectEndpoints(this RouteGroupBuilder group)
     {
         group.MapGet("/health", (IVlmProvider provider) =>
-            Results.Ok(new { status = "ok", provider = provider.Name }));
+            Results.Ok(new HealthResponse { Status = "ok", Provider = provider.Name }))
+            .WithName("GetHealth")
+            .Produces<HealthResponse>();
 
         group.MapPost("/inspect", InspectAsync)
-            .DisableAntiforgery(); // multipart/form-data — API 는 antiforgery 토큰 미사용
+            .DisableAntiforgery() // multipart/form-data — API 는 antiforgery 토큰 미사용
+            .WithName("Inspect")
+            .Produces<InspectResponse>()
+            .Produces<DetectionUnavailableResponse>(503)
+            .ProducesUploadProblems()
+            .ProducesProblem(404)
+            .ProducesProblem(500);
 
         // 결과 v2 — 같은 요청, 시나리오 클래스 · 확정자 · 라우터 경로를 담은 응답. v1 은 그대로 둔다.
         group.MapPost("/v2/inspect", InspectV2Async)
-            .DisableAntiforgery();
+            .DisableAntiforgery()
+            .WithName("InspectV2")
+            .Produces<InspectResultV2>()
+            .Produces<InspectResultV2>(503)
+            .ProducesUploadProblems()
+            .ProducesProblem(404)
+            .ProducesProblem(500);
 
-        group.MapGet("/results", ListResultsAsync);
-        group.MapGet("/results/dates", ListResultDatesAsync);
-        group.MapGet("/results/image", ServeResultImageAsync);
+        group.MapGet("/results", ListResultsAsync)
+            .WithName("ListResults")
+            .Produces<IReadOnlyList<StoredResult>>()
+            .ProducesProblem(400);
+        group.MapGet("/results/dates", ListResultDatesAsync)
+            .WithName("ListResultDates")
+            .Produces<IReadOnlyList<string>>()
+            .ProducesProblem(400);
+        group.MapGet("/results/image", ServeResultImageAsync)
+            .WithName("GetResultImage")
+            .Produces(200, typeof(Stream), "image/jpeg", "image/png")
+            .ProducesProblem(400)
+            .ProducesProblem(404);
     }
 
     private static async Task<IResult> InspectAsync(

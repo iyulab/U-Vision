@@ -13,9 +13,19 @@ public static class AuthorityEndpoints
     public static void MapAuthorityEndpoints(this RouteGroupBuilder parent)
     {
         var group = parent.MapGroup("/scenarios/{id}/authority");
-        group.MapGet("", GetAsync);
-        group.MapPost("/promote", PromoteAsync).RequireAdminPin();
-        group.MapPost("/demote", DemoteAsync).RequireAdminPin();
+        group.MapGet("", GetAsync)
+            .WithName("GetAuthority")
+            .Produces<AuthorityState>()
+            .ProducesProblem(400);
+        group.MapPost("/promote", PromoteAsync).RequireAdminPin()
+            .WithName("PromoteAuthority")
+            .Produces<AuthorityTransitionResponse>()
+            .ProducesProblem(400);
+        group.MapPost("/demote", DemoteAsync).RequireAdminPin()
+            .WithName("DemoteAuthority")
+            .Produces<AuthorityTransitionResponse>()
+            .ProducesProblem(400)
+            .ProducesProblem(409);
     }
 
     private static async Task<IResult> GetAsync(string id, IAuthorityStore store, CancellationToken ct)
@@ -45,7 +55,7 @@ public static class AuthorityEndpoints
                 return Results.Problem(statusCode: 400,
                     detail: $"격상은 단조 상향만 — 현재 {current}, 요청 {input.Stage}");
             await store.SetStageAsync(id, input.Stage, input.By ?? "", "promote", input.Reason, ct);
-            return Results.Ok(new { stage = input.Stage, previous_stage = current });
+            return Results.Ok(new AuthorityTransitionResponse { Stage = input.Stage, PreviousStage = current });
         }
         catch (ArgumentException)
         {
@@ -63,7 +73,7 @@ public static class AuthorityEndpoints
                 return Results.Problem(statusCode: 409, detail: "이미 최저 단계(shadow)입니다.");
             var target = (AuthorityStage)((int)current - 1);
             await store.SetStageAsync(id, target, input.By ?? "", "demote-manual", input.Reason, ct);
-            return Results.Ok(new { stage = target, previous_stage = current });
+            return Results.Ok(new AuthorityTransitionResponse { Stage = target, PreviousStage = current });
         }
         catch (ArgumentException)
         {

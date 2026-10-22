@@ -18,10 +18,26 @@ public static class ReferenceEndpoints
     {
         var group = parent.MapGroup("/scenarios/{id}/references");
 
-        group.MapGet("", ListAsync);
-        group.MapGet("/{label}/{refId}", ServeAsync);
-        group.MapPost("", UploadAsync).DisableAntiforgery().RequireAdminPin();
-        group.MapDelete("/{label}/{refId}", DeleteAsync).RequireAdminPin();
+        group.MapGet("", ListAsync)
+            .WithName("ListReferences")
+            .Produces<IEnumerable<ReferenceInfo>>()
+            .ProducesProblem(400)
+            .ProducesProblem(404);
+        group.MapGet("/{label}/{refId}", ServeAsync)
+            .WithName("GetReferenceImage")
+            .Produces(200, typeof(Stream), "image/jpeg", "image/png")
+            .ProducesProblem(400)
+            .ProducesProblem(404);
+        group.MapPost("", UploadAsync).DisableAntiforgery().RequireAdminPin()
+            .WithName("UploadReference")
+            .Produces<ReferenceInfo>(201)
+            .ProducesUploadProblems()
+            .ProducesProblem(404);
+        group.MapDelete("/{label}/{refId}", DeleteAsync).RequireAdminPin()
+            .WithName("DeleteReference")
+            .Produces(204)
+            .ProducesProblem(400)
+            .ProducesProblem(404);
     }
 
     private static async Task<IResult> ListAsync(

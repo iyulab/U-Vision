@@ -26,6 +26,10 @@ public static class ImageUpload
         return null;
     }
 
+    /// <summary><see cref="Validate"/> 가 낼 수 있는 응답을 엔드포인트 메타데이터(OpenAPI)에 적는다 — 상태 목록을 검증과 한곳에 둔다.</summary>
+    public static RouteHandlerBuilder ProducesUploadProblems(this RouteHandlerBuilder builder) =>
+        builder.ProducesProblem(400).ProducesProblem(413).ProducesProblem(415);
+
     /// <summary>업로드 스트림을 바이트로 읽는다(빈 결과면 null).</summary>
     public static async Task<byte[]?> ReadBytesAsync(IFormFile image, CancellationToken ct)
     {

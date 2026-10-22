@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using UVision.Api.Auth;
+using UVision.Api.Models;
 using UVision.Api.Services.Dataset;
 using UVision.Api.Storage;
 
@@ -20,9 +21,20 @@ public static class DatasetEndpoints
     {
         var group = parent.MapGroup("/datasets");
 
-        group.MapGet("", ListAsync);
-        group.MapGet("/{exportId}/manifest", ManifestAsync);
-        group.MapPost("/export", ExportAsync).RequireAdminPin();
+        group.MapGet("", ListAsync)
+            .WithName("ListDatasetExports")
+            .Produces<IReadOnlyList<string>>()
+            .ProducesProblem(400);
+        group.MapGet("/{exportId}/manifest", ManifestAsync)
+            .WithName("GetDatasetManifest")
+            .Produces<DatasetExportManifest>()
+            .ProducesProblem(400)
+            .ProducesProblem(404);
+        group.MapPost("/export", ExportAsync).RequireAdminPin()
+            .WithName("ExportDataset")
+            .Produces<DatasetExportManifest>(201)
+            .ProducesProblem(400)
+            .ProducesProblem(404);
     }
 
     private static async Task<IResult> ListAsync(

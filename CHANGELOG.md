@@ -13,6 +13,7 @@ Changes to the `UVision.Hosting` NuGet package. Versions 0.2.0 and 0.2.1 were ne
 - The operator screen supports part verification scenarios: an "expected part" field appears for them, captures go to `/v2/inspect` with the code read by the browser's `BarcodeDetector` when one is available, and the result shows as match / mismatch. The admin console can set a scenario's type. Changing a scenario's type drops its stored classes and tiers instead of carrying them over.
 - Results views (results table, detail, today's list, label audit) read OK/NG as match / mismatch for verification scenarios, and the detail shows the expected part and the code read. Stored values stay OK/NG.
 - Part verification reads codes in browsers without a built-in `BarcodeDetector` (iOS Safari, most desktop browsers) through a ZXing WebAssembly implementation of the same API (`barcode-detector` 3.2.3). It is loaded only when the built-in one is missing, and its `.wasm` file ships with the app and is served from the same origin, so no CDN is contacted and it works offline once cached.
+- Every endpoint now carries OpenAPI metadata: an `operationId`, the response type for each status, and the problem responses it can return (upload validation `400`/`413`/`415`, admin PIN `401`/`503`). A host that calls `AddOpenApi()` gets a complete description of the U-Vision API under the `U-Vision` tag; the package itself does not depend on an OpenAPI generator. The standalone server serves the document at `/openapi/v1.json`, and the repository keeps a copy in `server/openapi/u-vision.json`.
 - CSV export from the results view: the rows on screen (including the review-only filter) with their human labels, as UTF-8 with a BOM so spreadsheets open it directly. Cells that a spreadsheet would run as a formula are prefixed with `'`. Verification scenarios add the match / mismatch reading, the expected part and the code read.
 
 ### Fixed
@@ -25,6 +26,8 @@ Changes to the `UVision.Hosting` NuGet package. Versions 0.2.0 and 0.2.1 were ne
 
 ### Changed
 - The inspection pipeline (reference loading, model calls, verdict decision, record, metrics) moved out of the `/inspect` HTTP handler into `InspectionPipeline`, registered by `AddUVision`. Responses, stored records and metrics rows are unchanged byte for byte.
+- Small responses that were anonymous objects now have named types (`HealthResponse`, `AuthorityTransitionResponse`, `AuditResponse`, `ModelRegisteredResponse`, `ModelPointerResponse`, `ModelListResponse`). The JSON is unchanged.
+- `RequireAdminPin` now extends `RouteHandlerBuilder` (it was generic over any `IEndpointConventionBuilder`) so it can describe its `401`/`503` responses.
 - `ImageUpload.ExtensionFor` moved to `ImageFiles.ExtensionFor` (`UVision.Api.Imaging`).
 
 ## [0.3.0] - 2026-10-22

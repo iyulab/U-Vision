@@ -16,7 +16,9 @@ public static class ScenarioEndpoints
         var group = parent.MapGroup("/scenarios");
 
         group.MapGet("", async (IScenarioStore store, CancellationToken ct) =>
-            Results.Ok(await store.ListAsync(ct)));
+            Results.Ok(await store.ListAsync(ct)))
+            .WithName("ListScenarios")
+            .Produces<IReadOnlyList<Scenario>>();
 
         group.MapGet("/{id}", async (string id, IScenarioStore store, CancellationToken ct) =>
             await WithValidId(id, async () =>
@@ -25,7 +27,11 @@ public static class ScenarioEndpoints
                 return scenario is null
                     ? Results.Problem(statusCode: 404, detail: $"시나리오 없음: {id}")
                     : Results.Ok(scenario);
-            }));
+            }))
+            .WithName("GetScenario")
+            .Produces<Scenario>()
+            .ProducesProblem(400)
+            .ProducesProblem(404);
 
         group.MapPost("", async (ScenarioInput input, IScenarioStore store, HttpRequest request, UVisionOptions options, CancellationToken ct) =>
         {
@@ -36,7 +42,10 @@ public static class ScenarioEndpoints
 
             var created = await store.CreateAsync(input, ct);
             return Results.Created(ApiLocation.For(request, options, $"scenarios/{created.ScenarioId}"), created);
-        }).RequireAdminPin();
+        }).RequireAdminPin()
+            .WithName("CreateScenario")
+            .Produces<Scenario>(201)
+            .ProducesProblem(400);
 
         group.MapPut("/{id}",
             async (string id, ScenarioInput input, IScenarioStore store, CancellationToken ct) =>
@@ -51,7 +60,11 @@ public static class ScenarioEndpoints
                 return updated is null
                     ? Results.Problem(statusCode: 404, detail: $"시나리오 없음: {id}")
                     : Results.Ok(updated);
-            })).RequireAdminPin();
+            })).RequireAdminPin()
+            .WithName("UpdateScenario")
+            .Produces<Scenario>()
+            .ProducesProblem(400)
+            .ProducesProblem(404);
 
         group.MapDelete("/{id}", async (string id, IScenarioStore store, CancellationToken ct) =>
             await WithValidId(id, async () =>
@@ -60,7 +73,11 @@ public static class ScenarioEndpoints
                 return deleted
                     ? Results.NoContent()
                     : Results.Problem(statusCode: 404, detail: $"시나리오 없음: {id}");
-            })).RequireAdminPin();
+            })).RequireAdminPin()
+            .WithName("DeleteScenario")
+            .Produces(204)
+            .ProducesProblem(400)
+            .ProducesProblem(404);
     }
 
     /// <summary>id 형식 위반(<see cref="ArgumentException"/>)을 400 으로 매핑 — 404 와 구분.</summary>

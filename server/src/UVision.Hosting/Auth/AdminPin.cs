@@ -58,7 +58,9 @@ public sealed class AdminPinFilter : IEndpointFilter
 /// <summary>관리자 PIN 필터를 엔드포인트에 부착하는 확장.</summary>
 public static class AdminPinExtensions
 {
-    public static TBuilder RequireAdminPin<TBuilder>(this TBuilder builder)
-        where TBuilder : IEndpointConventionBuilder =>
-        builder.AddEndpointFilter<TBuilder, AdminPinFilter>();
+    /// <remarks>필터가 낼 수 있는 응답(PIN 미설정 503 · 불일치 401)도 엔드포인트 메타데이터(OpenAPI)에 함께 적는다.</remarks>
+    public static RouteHandlerBuilder RequireAdminPin(this RouteHandlerBuilder builder) =>
+        builder.AddEndpointFilter<RouteHandlerBuilder, AdminPinFilter>()
+            .Produces<AdminSetupRequiredResponse>(StatusCodes.Status503ServiceUnavailable)
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
 }

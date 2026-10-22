@@ -18,8 +18,12 @@ builder.Services.AddUVision(builder.Configuration, builder.Environment.ContentRo
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
 
+// API 계약 문서 — `/openapi/v1.json`. 정본 사본은 `server/openapi/u-vision.json`(OpenApiContractTests 가 대조).
+builder.Services.AddOpenApi(o => o.AddUVisionContract());
+
 var app = builder.Build();
 
+app.MapOpenApi();
 app.UseCors();
 app.UseUVision();
 app.MapUVisionEndpoints(

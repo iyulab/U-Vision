@@ -15,10 +15,24 @@ public static class ModelEndpoints
     {
         var group = parent.MapGroup("/scenarios/{id}/models");
 
-        group.MapGet("", ListAsync);
-        group.MapPost("", RegisterAsync).RequireAdminPin();
-        group.MapPost("/{version}/promote", PromoteAsync).RequireAdminPin();
-        group.MapPost("/rollback", RollbackAsync).RequireAdminPin();
+        group.MapGet("", ListAsync)
+            .WithName("ListModels")
+            .Produces<ModelListResponse>()
+            .ProducesProblem(400);
+        group.MapPost("", RegisterAsync).RequireAdminPin()
+            .WithName("RegisterModel")
+            .Produces<ModelRegisteredResponse>(201)
+            .ProducesProblem(400);
+        group.MapPost("/{version}/promote", PromoteAsync).RequireAdminPin()
+            .WithName("PromoteModel")
+            .Produces<ModelPointerResponse>()
+            .ProducesProblem(400)
+            .ProducesProblem(404);
+        group.MapPost("/rollback", RollbackAsync).RequireAdminPin()
+            .WithName("RollbackModel")
+            .Produces<ModelPointerResponse>()
+            .ProducesProblem(400)
+            .ProducesProblem(409);
     }
 
     private static async Task<IResult> ListAsync(
@@ -28,11 +42,11 @@ public static class ModelEndpoints
         {
             var versions = await registry.ListVersionsAsync(id, ct);
             var pointer = await registry.ReadPointerAsync(id, ct);
-            return Results.Ok(new
+            return Results.Ok(new ModelListResponse
             {
-                active_version = pointer?.ActiveVersion,
-                previous_version = pointer?.PreviousVersion,
-                versions,
+                ActiveVersion = pointer?.ActiveVersion,
+                PreviousVersion = pointer?.PreviousVersion,
+                Versions = versions,
             });
         }
         catch (ArgumentException)
@@ -58,7 +72,7 @@ public static class ModelEndpoints
                 Note = input.Note,
                 By = input.By ?? "",
             }, ct);
-            return Results.Created(ApiLocation.For(request, options, $"scenarios/{id}/models/{Uri.EscapeDataString(version)}"), new { version });
+            return Results.Created(ApiLocation.For(request, options, $"scenarios/{id}/models/{Uri.EscapeDataString(version)}"), new ModelRegisteredResponse { Version = version });
         }
         catch (ArgumentException)
         {
@@ -83,7 +97,7 @@ public static class ModelEndpoints
             return Results.Problem(statusCode: 400, detail: "유효하지 않은 id/version");
         }
         var pointer = await registry.ReadPointerAsync(id, ct);
-        return Results.Ok(new { active_version = pointer!.ActiveVersion, previous_version = pointer.PreviousVersion });
+        return Results.Ok(new ModelPointerResponse { ActiveVersion = pointer!.ActiveVersion, PreviousVersion = pointer.PreviousVersion });
     }
 
     private static async Task<IResult> RollbackAsync(
@@ -102,6 +116,6 @@ public static class ModelEndpoints
         if (!ok)
             return Results.Problem(statusCode: 409, detail: "되돌릴 이전 버전이 없습니다.");
         var pointer = await registry.ReadPointerAsync(id, ct);
-        return Results.Ok(new { active_version = pointer!.ActiveVersion, previous_version = pointer.PreviousVersion });
+        return Results.Ok(new ModelPointerResponse { ActiveVersion = pointer!.ActiveVersion, PreviousVersion = pointer.PreviousVersion });
     }
 }

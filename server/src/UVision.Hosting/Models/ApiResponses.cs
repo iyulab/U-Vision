@@ -1,0 +1,48 @@
+using System.Text.Json.Serialization;
+
+namespace UVision.Api.Models;
+
+// 작은 응답 본문들. 예전엔 익명 객체였다 — 이름이 있어야 OpenAPI 문서가 모양을 적고 생성 클라이언트가 형을 갖는다.
+// 속성 순서 · null 직렬화는 익명 객체 때와 같다(wire byte 보존).
+
+/// <summary><c>GET /health</c>.</summary>
+public sealed record HealthResponse
+{
+    [JsonPropertyName("status")] public required string Status { get; init; }
+    [JsonPropertyName("provider")] public required string Provider { get; init; }
+}
+
+/// <summary>권한 단계 격상 · 격하 결과.</summary>
+public sealed record AuthorityTransitionResponse
+{
+    [JsonPropertyName("stage")] public required AuthorityStage Stage { get; init; }
+    [JsonPropertyName("previous_stage")] public required AuthorityStage PreviousStage { get; init; }
+}
+
+/// <summary>라벨 감사 1건의 결과.</summary>
+public sealed record AuditResponse
+{
+    [JsonPropertyName("status")] public required string Status { get; init; }
+    [JsonPropertyName("prior_label")] public required string PriorLabel { get; init; }
+}
+
+/// <summary>모델 버전 등록 결과.</summary>
+public sealed record ModelRegisteredResponse
+{
+    [JsonPropertyName("version")] public required string Version { get; init; }
+}
+
+/// <summary>모델 포인터(승격 · 롤백 뒤).</summary>
+public sealed record ModelPointerResponse
+{
+    [JsonPropertyName("active_version")] public string? ActiveVersion { get; init; }
+    [JsonPropertyName("previous_version")] public string? PreviousVersion { get; init; }
+}
+
+/// <summary>시나리오의 모델 버전 목록과 포인터.</summary>
+public sealed record ModelListResponse
+{
+    [JsonPropertyName("active_version")] public string? ActiveVersion { get; init; }
+    [JsonPropertyName("previous_version")] public string? PreviousVersion { get; init; }
+    [JsonPropertyName("versions")] public required IReadOnlyList<ModelVersionManifest> Versions { get; init; }
+}

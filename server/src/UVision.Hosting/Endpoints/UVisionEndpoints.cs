@@ -5,7 +5,7 @@ public static class UVisionEndpoints
 {
     public static void MapUVisionEndpoints(this IEndpointRouteBuilder app, string apiBasePath)
     {
-        var group = app.MapGroup(apiBasePath);
+        var group = app.MapGroup(apiBasePath).WithTags("U-Vision");
         group.MapAdminEndpoints();
         group.MapInspectEndpoints();
         group.MapScenarioEndpoints();

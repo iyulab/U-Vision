@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using UVision.Api.Configuration;
+using UVision.Api.Models;
 using UVision.Api.Services.Metrics;
 using UVision.Api.Storage;
 
@@ -18,7 +19,10 @@ public static class MetricsEndpoints
 {
     public static void MapMetricsEndpoints(this RouteGroupBuilder group)
     {
-        group.MapGet("/metrics", GetMetricsAsync);
+        group.MapGet("/metrics", GetMetricsAsync)
+            .WithName("GetMetrics")
+            .Produces<MetricsSummary>()
+            .ProducesProblem(400);
     }
 
     private static async Task<IResult> GetMetricsAsync(
