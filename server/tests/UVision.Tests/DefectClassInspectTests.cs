@@ -179,7 +179,7 @@ public class DefectClassInspectTests
         public Task<InspectionResult> InspectAsync(
             ReadOnlyMemory<byte> image, ScenarioContext scenario, CancellationToken cancellationToken = default)
         {
-            SeenDefectClasses = scenario.DefectClasses;
+            SeenDefectClasses = scenario.DefectClasses?.Select(c => c.Id).ToList();
             return Task.FromResult(new InspectionResult
             {
                 Verdict = verdict, Findings = "", Confidence = 0.9, DefectClass = defect,

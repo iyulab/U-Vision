@@ -95,7 +95,7 @@ public sealed class OracleSweepService
         var context = new ScenarioContext
         {
             ScenarioId = scenario.ScenarioId, Name = scenario.Name, Criteria = scenario.Criteria, References = refs,
-            DefectClasses = effective.IsMultiClass ? effective.DefectClasses : null,
+            DefectClasses = effective.IsMultiClass ? effective.DefectTypes : null,
         };
         var opinion = await _oracle.SecondOpinionAsync(img.Data, context, ct);
         // 소견은 사람 라벨과 같은 말로 남긴다 — 유형을 나누는 시나리오는 클래스 id, 그 밖은 OK/NG.

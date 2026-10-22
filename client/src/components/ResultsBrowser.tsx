@@ -4,7 +4,7 @@ import { useResource } from '../hooks/useResource'
 
 import { deleteLabel, listLabels, listResultDates, listResults, putLabel, resultImageUrl } from '../lib/api'
 import { getDeviceId } from '../lib/deviceIdentity'
-import { labelMapOf, labelsOf } from '../lib/labels'
+import { classNameOf, labelMapOf, labelsOf } from '../lib/labels'
 import { pendingReviewCount, reviewStateOf } from '../lib/review'
 import { percent, summarizeResults } from '../lib/resultSummary'
 import { ResultsTable } from './ResultsTable'
@@ -34,6 +34,7 @@ export function ResultsBrowser({
   )
   const scenario = scenarios.find((s) => s.scenario_id === scenarioId)
   const scenarioType = scenario?.type
+  const nameOf = classNameOf(scenario)
   // 날짜 고정이 아니면 목록에서 고른다. 고른 날짜가 목록에 없으면(시나리오를 바꿨거나 아직 안 골랐으면) 최신 날짜.
   const datesRes = useResource(
     lockedDate || !scenarioId ? null : scenarioId,
@@ -156,7 +157,7 @@ export function ResultsBrowser({
         )}
         {shown.length > 0 && (
           <button
-            onClick={() => downloadCsv(csvFileName(scenarioId, date), resultsToCsv(shown, labelMap, scenarioType))}
+            onClick={() => downloadCsv(csvFileName(scenarioId, date), resultsToCsv(shown, labelMap, scenario))}
             className="ml-auto self-end rounded-lg bg-slate-700 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-600"
           >
             CSV 내보내기 ({shown.length}건)
@@ -164,7 +165,9 @@ export function ResultsBrowser({
         )}
       </div>
 
-      {results.length > 0 && !loading && <SummaryStrip results={results} labels={labelMap} scenarioType={scenarioType} />}
+      {results.length > 0 && !loading && (
+        <SummaryStrip results={results} labels={labelMap} scenarioType={scenarioType} nameOf={nameOf} />
+      )}
 
       {/* ④-A 검토 큐 — ③ 2중체크가 불일치/저신뢰로 표면화한 건을 사람이 라벨로 해소한다. */}
       {hasMl && (
@@ -202,6 +205,7 @@ export function ResultsBrowser({
         <ResultsTable
           scenarioType={scenarioType}
           labelSet={labelsOf(scenario)}
+          nameOf={nameOf}
           results={shown}
           labels={labelMap}
           date={date}
@@ -213,6 +217,7 @@ export function ResultsBrowser({
       {selected && (
         <ResultDetail
           scenarioType={scenarioType}
+          nameOf={nameOf}
           result={selected}
           date={date}
           onClose={() => setSelected(null)}
@@ -227,10 +232,12 @@ function SummaryStrip({
   results,
   labels,
   scenarioType,
+  nameOf,
 }: {
   results: StoredResult[]
   labels: Map<string, StoredLabel>
   scenarioType?: Scenario['type']
+  nameOf: (value: string) => string
 }) {
   const s = summarizeResults(results, labels)
   return (
@@ -253,7 +260,7 @@ function SummaryStrip({
       {s.defects.length > 0 && (
         <div className="flex gap-2">
           <dt className="text-slate-400">불량 유형</dt>
-          <dd className="text-red-200">{s.defects.map((d) => `${d.id} ${d.count}`).join(' · ')}</dd>
+          <dd className="text-red-200">{s.defects.map((d) => `${nameOf(d.id)} ${d.count}`).join(' · ')}</dd>
         </div>
       )}
       {s.labeled > 0 && (
@@ -276,8 +283,10 @@ function ResultDetail({
   date,
   onClose,
   scenarioType,
+  nameOf,
 }: {
   scenarioType?: Scenario['type']
+  nameOf: (value: string) => string
   result: StoredResult
   date: string
   onClose: () => void
@@ -293,7 +302,12 @@ function ResultDetail({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <VerdictPill verdict={result.verdict} defect={result.class} scenarioType={scenarioType} large />
+          <VerdictPill
+            verdict={result.verdict}
+            defect={result.class === undefined ? undefined : nameOf(result.class)}
+            scenarioType={scenarioType}
+            large
+          />
           <button
             onClick={onClose}
             className="rounded-lg bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-200 hover:bg-slate-600"
@@ -348,7 +362,7 @@ function VerdictPill({
   scenarioType,
 }: {
   verdict: 'OK' | 'NG'
-  /** 레코드의 클래스 — 시나리오가 NG 를 유형으로 나눌 때만 있다. */
+  /** 레코드 클래스의 표시 이름 — 시나리오가 NG 를 유형으로 나눌 때만 있다. */
   defect?: string
   large?: boolean
   scenarioType?: Scenario['type']

@@ -36,8 +36,11 @@ public sealed record ScenarioContext
     /// <summary>오투입 확인의 기대 품번 — 있으면 VLM 이 «이 부품이 기대 품번인가»를 OK/NG 로 답한다.</summary>
     public string? ExpectedPart { get; init; }
 
-    /// <summary>NG 를 나눌 불량 유형 id — 시나리오가 유형을 선언했을 때만. 있으면 VLM 이 NG 에 유형 하나를 댄다.</summary>
-    public IReadOnlyList<string>? DefectClasses { get; init; }
+    /// <summary>
+    /// NG 를 나눌 불량 유형 — 시나리오가 유형을 선언했을 때만. 있으면 VLM 이 NG 에 유형 id 하나를 댄다(표시 이름은
+    /// 프롬프트가 유형을 설명하는 데만 쓴다).
+    /// </summary>
+    public IReadOnlyList<ScenarioClass>? DefectClasses { get; init; }
 }
 
 /// <summary>

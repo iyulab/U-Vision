@@ -24,10 +24,11 @@ public static class VlmPrompt
             ? "(기준 미지정 — 일반적 외관 결함 기준 적용)"
             : scenario.Criteria;
         var prompt = $"{System}\n\n[판정 기준]\n{criteria}";
-        // 불량 유형 — 시나리오가 선언했을 때만(이분 판정의 프롬프트는 그대로). 유형 id 는 경계 화이트리스트를 지난 값이다.
+        // 불량 유형 — 시나리오가 선언했을 때만(이분 판정의 프롬프트는 그대로). id · 표시 이름은 경계 화이트리스트를
+        // 지난 값이다. 표시 이름은 유형이 무엇인지 알리는 설명이고, 답은 id 로 한다(출력 enum 이 id 다).
         if (scenario.DefectClasses is { Count: > 0 } defects)
             prompt += "\n\n[불량 유형]\n" +
-                      $"NG 이면 defect_class 를 다음 중 하나로 답한다: {string.Join(", ", defects)}. " +
+                      $"NG 이면 defect_class 를 다음 id 중 하나로 답한다: {string.Join(", ", defects.Select(Describe))}. " +
                       "OK 이면 defect_class 는 null 이다. 어느 유형인지 확신할 수 없으면 가장 가까운 유형을 고르고 confidence 를 낮춘다.";
         // 오투입 확인 — 기대 품번이 있을 때만 덧붙인다(검사 시나리오의 프롬프트는 그대로).
         // 확인할 수 없으면 NG: 불일치는 놓치면 안 되는 값이라 모호하면 사람에게 올린다.
@@ -36,4 +37,6 @@ public static class VlmPrompt
               "이미지의 부품이 기대 품번과 같으면 OK, 다르거나 확인할 수 없으면 NG 로 판정한다."
             : prompt;
     }
+
+    private static string Describe(ScenarioClass c) => c.Label is { } label ? $"{c.Id}({label})" : c.Id;
 }

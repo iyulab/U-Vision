@@ -4,9 +4,8 @@ import { useResource } from '../hooks/useResource'
 
 import { listAuditSample, putAudit, resultImageUrl } from '../lib/api'
 import { getDeviceId } from '../lib/deviceIdentity'
-import { labelsOf } from '../lib/labels'
+import { classNameOf, labelsOf } from '../lib/labels'
 import type { Scenario } from '../lib/types'
-import { termOf } from '../lib/verification'
 import { auditResultText } from './auditResultText'
 
 /**
@@ -23,6 +22,8 @@ export function LabelAudit({
   const [scenarioId, setScenarioId] = useState(
     () => initialScenarioId ?? scenarios[0]?.scenario_id ?? '',
   )
+  const scenario = scenarios.find((s) => s.scenario_id === scenarioId)
+  const nameOf = classNameOf(scenario)
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const sample = useResource(
     scenarioId && date ? `${scenarioId}|${date}` : null,
@@ -117,7 +118,7 @@ export function LabelAudit({
           {result ? (
             <div className="space-y-2">
               <p className={auditResultText(result.status).ok ? 'text-emerald-400' : 'text-amber-400'}>
-                {auditResultText(result.status).text} · 직전 라벨: {result.prior_label}
+                {auditResultText(result.status).text} · 직전 라벨: {nameOf(result.prior_label)}
               </p>
               <button
                 onClick={next}
@@ -128,7 +129,7 @@ export function LabelAudit({
             </div>
           ) : (
             <div className="flex gap-3">
-              {labelsOf(scenarios.find((s) => s.scenario_id === scenarioId)).map((l) => (
+              {labelsOf(scenario).map((l) => (
                 <button
                   key={l}
                   disabled={busy}
@@ -137,7 +138,7 @@ export function LabelAudit({
                     l === 'OK' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-red-600 hover:bg-red-500'
                   }`}
                 >
-                  {termOf(l, scenarios.find((s) => s.scenario_id === scenarioId)?.type)}
+                  {nameOf(l)}
                 </button>
               ))}
             </div>

@@ -1,8 +1,11 @@
 import type { TrainingReadiness } from './types'
 
 /** 학습 준비 신호를 한 줄로 — 메트릭 탭이 보인다. `ready` 는 관리자가 할 일이 생긴 상태다. */
-export function readinessLine(r: TrainingReadiness): { tone: 'ready' | 'pending'; text: string } {
-  const perClass = r.classes.map((c) => `${c.id} ${c.count}/${r.min_per_class}`).join(' · ')
+export function readinessLine(
+  r: TrainingReadiness,
+  nameOf: (id: string) => string = (id) => id,
+): { tone: 'ready' | 'pending'; text: string } {
+  const perClass = r.classes.map((c) => `${nameOf(c.id)} ${c.count}/${r.min_per_class}`).join(' · ')
   if (r.active_version === undefined) {
     return r.build_ready
       ? { tone: 'ready', text: `첫 전용 모델을 빌드할 수 있습니다 — ${perClass}` }

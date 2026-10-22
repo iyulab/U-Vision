@@ -35,7 +35,7 @@ public sealed class MockVlmProvider : IVlmProvider
             Confidence = confidence,
             // 유형을 선언한 시나리오면 NG 에 유형 하나를 같은 해시로 고른다(재현성).
             DefectClass = isNg && scenario.DefectClasses is { Count: > 0 } defects
-                ? defects[digest[2] % defects.Count]
+                ? defects[digest[2] % defects.Count].Id
                 : null,
         });
     }

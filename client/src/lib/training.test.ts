@@ -14,6 +14,11 @@ const base: TrainingReadiness = {
 }
 
 describe('readinessLine', () => {
+  it('클래스별 개수를 표시 이름으로 보인다', () => {
+    const line = readinessLine({ ...base, build_ready: false }, (id) => (id === 'NG' ? '불량' : id))
+    expect(line.text).toContain('OK 40/30 · 불량 12/30')
+  })
+
   it('모델 없음 — 기준 미달이면 라벨이 더 필요, 닿으면 빌드 가능', () => {
     expect(readinessLine({ ...base, build_ready: false })).toEqual({
       tone: 'pending',

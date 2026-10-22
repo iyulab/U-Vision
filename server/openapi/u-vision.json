@@ -3514,6 +3514,12 @@
           "id": {
             "type": "string"
           },
+          "label": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "settleable": {
             "type": "boolean"
           },

@@ -1,4 +1,5 @@
 import type { Scenario, StoredLabel, StoredResult } from './types'
+import { termOf } from './verification'
 
 /**
  * 시나리오가 받는 사람 라벨 — 서버 `EffectiveScenario.Labels` 와 같은 규칙. 불량 유형을 선언한 검사는 클래스 id,
@@ -7,6 +8,15 @@ import type { Scenario, StoredLabel, StoredResult } from './types'
 export function labelsOf(scenario: Pick<Scenario, 'type' | 'classes'> | undefined): string[] {
   if (!scenario || scenario.type === 'verification' || !scenario.classes?.length) return ['OK', 'NG']
   return scenario.classes.map((c) => c.id)
+}
+
+/**
+ * 클래스 값(판정 · 라벨 · 유형 id)을 화면에 보일 이름으로 — 시나리오가 표시 이름을 붙인 클래스는 그 이름, 그 밖은
+ * 시나리오 유형의 말(오투입 확인의 일치/불일치, 나머지는 값 그대로). 저장값은 바꾸지 않는다.
+ */
+export function classNameOf(scenario: Pick<Scenario, 'type' | 'classes'> | undefined): (value: string) => string {
+  return (value) =>
+    scenario?.classes?.find((c) => sameClass(c.id, value))?.label ?? termOf(value, scenario?.type)
 }
 
 /** 레코드가 판정한 클래스 — 불량 유형 시나리오면 `class`, 그 밖은 `verdict` 가 곧 클래스다. */

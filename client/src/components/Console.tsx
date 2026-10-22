@@ -5,7 +5,7 @@ import { createScenario, deleteScenario, getAdminStatus, listScenarios, updateSc
 import { usePin, type PinRunResult } from '../hooks/usePin'
 import { useResource } from '../hooks/useResource'
 import { AdminSetup } from './AdminSetup'
-import { classesFor, defectsOf, parseDefects } from '../lib/defectClasses'
+import { classesFor, defectsOf, formatDefects, parseDefects, type Defect } from '../lib/defectClasses'
 import { DEFAULT_MOTION_CONFIG } from '../lib/motion'
 import { DEFAULT_ROI, fromScenarioRoi, toScenarioRoi, type Roi } from '../lib/roi'
 import type { Scenario } from '../lib/types'
@@ -59,7 +59,7 @@ interface DraftScenario {
   /** 검사의 불량 유형 입력란(쉼표 구분) — 비우면 OK/NG. */
   defects: string
   /** 수정 시작 때의 불량 유형 — 바뀌었을 때만 classes 를 보낸다. */
-  originalDefects: string[]
+  originalDefects: Defect[]
 }
 
 type ScenarioType = 'inspection' | 'verification'
@@ -285,7 +285,7 @@ function ScenarioManager({
     if ('error' in parsed) return
     // 불량 유형은 검사에서 바뀌었을 때만 보낸다 — 생략하면 서버가 저장된 classes 를 그대로 둔다.
     const defectsChanged =
-      draft.type === 'inspection' && parsed.ids.join(',') !== draft.originalDefects.join(',')
+      draft.type === 'inspection' && formatDefects(parsed.defects) !== formatDefects(draft.originalDefects)
     const input = {
       name: draft.name.trim(),
       criteria: draft.criteria.trim(),
@@ -299,7 +299,7 @@ function ScenarioManager({
       ...(draft.type === 'verification' || draft.type !== (draft.originalType ?? 'inspection')
         ? { type: draft.type }
         : {}),
-      ...(defectsChanged ? { classes: classesFor(parsed.ids) } : {}),
+      ...(defectsChanged ? { classes: classesFor(parsed.defects) } : {}),
     }
     void mutate(
       async (pin) => {
@@ -357,7 +357,7 @@ function ScenarioManager({
               )}
               {defectsOf(s).length > 0 && (
                 <span className="ml-2 rounded bg-red-500/20 px-1.5 py-0.5 text-red-300">
-                  불량 유형 {defectsOf(s).join(' · ')}
+                  불량 유형 {defectsOf(s).map((d) => d.label ?? d.id).join(' · ')}
                 </span>
               )}
             </p>
@@ -378,7 +378,7 @@ function ScenarioManager({
                   referenceCap: s.reference_cap,
                   type: s.type ?? 'inspection',
                   originalType: s.type ?? 'inspection',
-                  defects: defectsOf(s).join(', '),
+                  defects: formatDefects(defectsOf(s)),
                   originalDefects: defectsOf(s),
                 })
               }
@@ -494,14 +494,16 @@ function DefectsField({ draft, onChange }: { draft: DraftScenario; onChange: (d:
       <input
         value={draft.defects}
         onChange={(e) => onChange({ ...draft, defects: e.target.value })}
-        placeholder="비우면 OK / NG. 예: scratch, dent, stain"
+        placeholder="비우면 OK / NG. 예: scratch=긁힘, dent=찍힘, stain=얼룩"
         className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 font-mono text-sm text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
       />
       {'error' in parsed ? (
         <span className="block text-xs text-red-300">{parsed.error}</span>
       ) : (
         <span className="block text-xs text-slate-500">
-          유형을 적으면 판정이 NG 대신 유형을 남기고, 라벨 버튼도 유형별로 바뀝니다. 운영 화면은 그대로 OK / NG 로 보입니다.
+          «id=표시 이름» 을 쉼표로 나눠 적습니다 — id(영문)는 학습 데이터 · 판정 기록의 키, 표시 이름은 화면 · 내보내기에
+          보이는 말입니다. 유형을 적으면 판정이 NG 대신 유형을 남기고, 라벨 버튼도 유형별로 바뀝니다. 운영 화면은 그대로
+          OK / NG 로 보입니다.
         </span>
       )}
     </label>

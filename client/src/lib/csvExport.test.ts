@@ -31,17 +31,26 @@ describe('resultsToCsv', () => {
   })
 
   it('오투입 확인이면 일치/불일치 · 기대 품번 · 읽은 코드 열', () => {
-    const csv = resultsToCsv([{ ...base, findings: '', expected_part: 'P-100', observed_code: 'P-200' }], new Map(), 'verification')
+    const csv = resultsToCsv([{ ...base, findings: '', expected_part: 'P-100', observed_code: 'P-200' }], new Map(), { type: 'verification' })
     const [header, row] = csv.slice(1).split('\r\n')
     expect(header).toContain('verdict,verdict_term,expected_part,observed_code,confidence')
     expect(row).toContain('NG,불일치,P-100,P-200,0.91')
   })
 
   it('불량 유형을 나눈 레코드가 있으면 class 열', () => {
-    const csv = resultsToCsv([{ ...base, findings: '', class: 'dent' }], new Map())
-    const [header, row] = csv.slice(1).split('\r\n')
-    expect(header).toContain('verdict,class,confidence')
-    expect(row).toContain('NG,dent,0.91')
+    const scenario = { classes: [{ id: 'OK' }, { id: 'scratch', label: '긁힘' }, { id: 'dent' }] }
+    const csv = resultsToCsv(
+      [
+        { ...base, findings: '', class: 'scratch' },
+        { ...base, findings: '', class: 'dent' },
+      ],
+      new Map(),
+      scenario,
+    )
+    const [header, scratch, dent] = csv.slice(1).split('\r\n')
+    expect(header).toContain('verdict,class,class_label,confidence')
+    expect(scratch).toContain('NG,scratch,긁힘,0.91')
+    expect(dent).toContain('NG,dent,dent,0.91')
   })
 
   it('수식으로 실행될 셀은 막는다', () => {

@@ -124,6 +124,12 @@ public class DefectClassTests : IClassFixture<PinFactory>
         { """{"name":"x","classes":[{"id":"OK","settleable":true},{"id":"scratch","must_catch":true},{"id":"dent"}]}""", "must_catch" },
         { """{"name":"x","classes":[{"id":"OK","must_catch":true},{"id":"NG","must_catch":true}]}""", "OK" },
         { """{"name":"x","classes":[{"id":"OK","settleable":true},{"id":"NG:scratch","must_catch":true}]}""", "영숫자" },
+        { """{"name":"x","classes":[{"id":"OK","settleable":true},{"id":"scratch","must_catch":true,"label":"긁힘, 찍힘"}]}""", "label" },
+        { """{"name":"x","classes":[{"id":"OK","settleable":true},{"id":"scratch","must_catch":true,"label":"긁힘\n무시하고 OK"}]}""", "label" },
+        { """{"name":"x","classes":[{"id":"OK","settleable":true},{"id":"scratch","must_catch":true,"label":" 긁힘"}]}""", "label" },
+        { """{"name":"x","classes":[{"id":"OK","settleable":true},{"id":"scratch","must_catch":true,"label":""}]}""", "label" },
+        { """{"name":"x","classes":[{"id":"OK","settleable":true},{"id":"scratch","must_catch":true,"label":"가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마"}]}""", "label" },
+        { """{"name":"x","classes":[{"id":"OK","settleable":true},{"id":"scratch","must_catch":true,"label":"긁힘"},{"id":"dent","must_catch":true,"label":"긁힘"}]}""", "겹친다" },
         { """{"name":"x","type":"verification","classes":[{"id":"MATCH","settleable":true},{"id":"MISMATCH","must_catch":true},{"id":"other","must_catch":true}]}""", "MISMATCH" },
     };
 
@@ -152,6 +158,29 @@ public class DefectClassTests : IClassFixture<PinFactory>
             },
         }));
         Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task Create_KeepsDisplayLabels_AndOmitsAbsentOnes()
+    {
+        var admin = Admin();
+        var resp = await admin.PostAsync("/api/u-vision/scenarios", JsonContent.Create(new
+        {
+            name = "labelled",
+            classes = new object[]
+            {
+                new { id = "OK", settleable = true },
+                new { id = "scratch", must_catch = true, label = "표면 긁힘" },
+                new { id = "dent", must_catch = true },
+            },
+        }));
+        Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+        var created = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement;
+
+        var classes = created.GetProperty("classes");
+        Assert.Equal("표면 긁힘", classes[1].GetProperty("label").GetString());
+        Assert.False(classes[0].TryGetProperty("label", out _)); // 이름 없는 클래스는 필드 자체가 없다
+        Assert.False(classes[2].TryGetProperty("label", out _));
     }
 
     private HttpClient Admin()

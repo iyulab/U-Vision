@@ -126,6 +126,8 @@ export interface Scenario {
 /** 시나리오 클래스 — 서버 `ScenarioClass` 미러. */
 export interface ScenarioClass {
   id: string
+  /** 표시 이름(현장 말) — 화면 · 내보내기가 쓴다. 키는 언제나 `id`. 없으면 `id` 가 이름이다. */
+  label?: string
   /** 아래 단(ML 등)이 확정해도 되는 값. */
   settleable?: boolean
   /** 놓치면 안 되는 값 — 언제나 꼭대기(VLM)까지 간다. 불량 유형은 모두 이것이다. */

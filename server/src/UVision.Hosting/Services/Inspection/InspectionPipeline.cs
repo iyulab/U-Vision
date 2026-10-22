@@ -267,7 +267,7 @@ public sealed class InspectionPipeline(
             Criteria = scenario.Criteria,
             References = references,
             ExpectedPart = capture.Context?.ExpectedPart,
-            DefectClasses = effective.IsMultiClass ? effective.DefectClasses : null,
+            DefectClasses = effective.IsMultiClass ? effective.DefectTypes : null,
         };
 
         // ML 은 원본으로 분류한다(MLoop 자체 전처리; VLM 다운스케일 사본 아님).

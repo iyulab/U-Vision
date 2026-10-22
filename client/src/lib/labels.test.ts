@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest'
 
-import { agreementOf, decidedClassOf, labelMapOf, labelsOf, latestOracleOpinion, sameClass } from './labels'
+import { agreementOf, classNameOf, decidedClassOf, labelMapOf, labelsOf, latestOracleOpinion, sameClass } from './labels'
 import type { StoredLabel } from './types'
+
+describe('classNameOf', () => {
+  it('표시 이름이 있으면 그 이름(대소문자 무시), 없으면 시나리오 유형의 말', () => {
+    const typed = classNameOf({ classes: [{ id: 'OK' }, { id: 'scratch', label: '긁힘' }, { id: 'dent' }] })
+    expect(typed('scratch')).toBe('긁힘')
+    expect(typed('SCRATCH')).toBe('긁힘')
+    expect(typed('dent')).toBe('dent')
+    expect(typed('OK')).toBe('OK')
+    expect(classNameOf({ type: 'verification' })('NG')).toBe('불일치')
+    expect(classNameOf(undefined)('NG')).toBe('NG')
+  })
+})
 
 describe('labels', () => {
   it('labelsOf: 불량 유형을 선언한 검사는 클래스 id, 그 밖은 OK/NG', () => {

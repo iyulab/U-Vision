@@ -11,6 +11,14 @@ public sealed record ScenarioClass
 {
     [JsonPropertyName("id")] public required string Id { get; init; }
 
+    /// <summary>
+    /// 사람이 읽는 표시 이름(현장 말 — 한글 허용). id 는 학습 폴더 · 출력 enum · 라벨 키라 영숫자로 묶여 있으므로 화면 ·
+    /// 프롬프트 · 내보내기는 이 이름을 쓰고 키는 id 그대로다. 비면 id 가 곧 이름이다.
+    /// </summary>
+    [JsonPropertyName("label")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Label { get; init; }
+
     [JsonPropertyName("settleable")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Settleable { get; init; }

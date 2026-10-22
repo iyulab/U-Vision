@@ -38,9 +38,12 @@ public sealed record EffectiveScenario(
     /// 불량 유형 — 검사에서 OK 가 아닌 클래스. 선언하지 않은 검사는 <c>NG</c> 하나, 오투입 확인은 없다(불일치는
     /// 유형이 아니라 대조 결과).
     /// </summary>
-    public IReadOnlyList<string> DefectClasses => IsVerification
+    public IReadOnlyList<string> DefectClasses => DefectTypes.Select(c => c.Id).ToList();
+
+    /// <summary><see cref="DefectClasses"/> 의 클래스 그대로 — 표시 이름이 필요한 곳(프롬프트)이 쓴다.</summary>
+    public IReadOnlyList<ScenarioClass> DefectTypes => IsVerification
         ? []
-        : Classes.Where(c => c.Id != ScenarioVocabulary.Ok).Select(c => c.Id).ToList();
+        : Classes.Where(c => c.Id != ScenarioVocabulary.Ok).ToList();
 
     /// <summary>NG 를 유형으로 나눠 판정하는가 — 불량 유형이 <c>NG</c> 하나뿐이면 지금의 이분 판정이다.</summary>
     public bool IsMultiClass => !IsVerification && DefectClasses is not [ScenarioVocabulary.Ng];
@@ -125,6 +128,11 @@ public sealed record EffectiveScenario(
                 return "classes[].id 는 영숫자 · '_' · '-' 1~64자";
             if (classes.Select(c => c.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count() != classes.Count)
                 return "classes[].id 가 겹친다(대소문자 무시)";
+            if (classes.FirstOrDefault(c => c.Label is { } l && !DisplayLabel.IsMatch(l)) is { } badLabel)
+                return $"classes[].label 은 앞뒤 공백 · 제어문자 · ',' · '=' 없이 1~32자: {badLabel.Id}";
+            if (classes.Where(c => c.Label is not null).Select(c => c.Label).Distinct(StringComparer.OrdinalIgnoreCase).Count()
+                != classes.Count(c => c.Label is not null))
+                return "classes[].label 이 겹친다(대소문자 무시)";
             if (classes.Any(c => c.Settleable && c.MustCatch))
                 return "한 클래스가 settleable 이면서 must_catch 일 수 없다";
             if (type == ScenarioVocabulary.Verification)
@@ -178,4 +186,8 @@ public sealed record EffectiveScenario(
     }
 
     private static readonly Regex ClassId = new(@"^[A-Za-z0-9_-]{1,64}\z", RegexOptions.Compiled); // \z — $ 는 끝 줄바꿈 앞에서도 맞는다
+
+    // 표시 이름은 프롬프트에 «id(이름)» 로 들어가고 관리 화면은 «id=이름, …» 으로 적는다 — 줄을 끊거나 목록 · 쌍을
+    // 흐리는 문자(제어문자 · ',' · '=')와 앞뒤 공백을 받지 않는다.
+    private static readonly Regex DisplayLabel = new(@"^(?=\S)[^\p{C},=]{1,32}(?<=\S)\z", RegexOptions.Compiled);
 }

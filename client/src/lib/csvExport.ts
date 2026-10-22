@@ -1,25 +1,27 @@
-import { operativeLabel } from './labels'
+import { classNameOf, operativeLabel } from './labels'
 import type { Scenario, StoredLabel, StoredResult } from './types'
 import { termOf } from './verification'
 
 /**
  * 검사 결과 CSV — 결과 조회 화면이 불러온 레코드와 사람 라벨을 그대로 옮긴다(서버 왕복 없음).
  * 열 이름은 API 필드 이름을 따르고, 값은 저장값 그대로다. 오투입 확인이면 판정을 일치/불일치로 읽은 열을, 불량 유형을
- * 나눈 레코드가 있으면 `class` 열을 더한다.
+ * 나눈 레코드가 있으면 `class`(id) 와 `class_label`(표시 이름, 없으면 id) 열을 더한다.
  * 스프레드시트에서 바로 열리도록 UTF-8 BOM · CRLF 를 쓰고, 셀이 수식으로 실행되지 않게 수식 시작 문자를 막는다.
  */
 export function resultsToCsv(
   results: StoredResult[],
   labels: Map<string, StoredLabel>,
-  scenarioType?: Scenario['type'],
+  scenario?: Pick<Scenario, 'type' | 'classes'>,
 ): string {
+  const scenarioType = scenario?.type
   const verification = scenarioType === 'verification'
+  const nameOf = classNameOf(scenario)
   const typed = results.some((r) => r.class !== undefined)
   const header = [
     'image_id',
     'timestamp',
     'verdict',
-    ...(typed ? ['class'] : []),
+    ...(typed ? ['class', 'class_label'] : []),
     ...(verification ? ['verdict_term', 'expected_part', 'observed_code'] : []),
     'confidence',
     'findings',
@@ -35,7 +37,7 @@ export function resultsToCsv(
     r.image_id,
     r.timestamp,
     r.verdict,
-    ...(typed ? [r.class] : []),
+    ...(typed ? [r.class, r.class === undefined ? undefined : nameOf(r.class)] : []),
     ...(verification ? [termOf(r.verdict, scenarioType), r.expected_part, r.observed_code] : []),
     r.confidence,
     r.findings,

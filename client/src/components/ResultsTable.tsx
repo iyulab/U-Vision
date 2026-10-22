@@ -17,10 +17,13 @@ export function ResultsTable({
   onSelect,
   scenarioType,
   labelSet,
+  nameOf,
 }: {
   results: StoredResult[]
   /** 사람 라벨 버튼 — 시나리오가 받는 라벨(`labelsOf`). */
   labelSet: string[]
+  /** 클래스 값 → 표시 이름(`classNameOf`) — 라벨 버튼 · 유형 배지가 쓴다. 값 자체는 그대로 보낸다. */
+  nameOf: (value: string) => string
   /** 시나리오 유형 — 오투입 확인이면 OK/NG 를 일치/불일치로 읽는다(저장값은 그대로). */
   scenarioType?: Scenario['type']
   labels: Map<string, StoredLabel>
@@ -74,7 +77,7 @@ export function ResultsTable({
                 </td>
                 <td className="px-2 py-2 text-slate-300">{formatTime(r.timestamp)}</td>
                 <td className="px-2 py-2">
-                  <VerdictPill result={r} scenarioType={scenarioType} />
+                  <VerdictPill result={r} scenarioType={scenarioType} nameOf={nameOf} />
                 </td>
                 <td className="px-2 py-2 font-mono text-slate-400">
                   {(r.confidence * 100).toFixed(0)}%
@@ -109,7 +112,7 @@ export function ResultsTable({
                             : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                         }`}
                       >
-                        {termOf(value, scenarioType)}
+                        {nameOf(value)}
                       </button>
                     ))}
                   </div>
@@ -222,9 +225,11 @@ function AgreementMark({ decided, label }: { decided: string; label: string | un
 function VerdictPill({
   result,
   scenarioType,
+  nameOf,
 }: {
   result: Pick<StoredResult, 'verdict' | 'class'>
   scenarioType?: Scenario['type']
+  nameOf: (value: string) => string
 }) {
   const ng = result.verdict === 'NG'
   return (
@@ -235,7 +240,7 @@ function VerdictPill({
     >
       {termOf(result.verdict, scenarioType)}
       {/* 불량 유형 — 시나리오가 NG 를 유형으로 나눌 때만 레코드에 있다. */}
-      {ng && result.class !== undefined && <span className="ml-1 font-normal">· {result.class}</span>}
+      {ng && result.class !== undefined && <span className="ml-1 font-normal">· {nameOf(result.class)}</span>}
     </span>
   )
 }

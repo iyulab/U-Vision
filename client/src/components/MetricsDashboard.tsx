@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useResource } from '../hooks/useResource'
 
 import { getMetrics, getTrainingReadiness, listResultDates } from '../lib/api'
+import { classNameOf } from '../lib/labels'
 import { formatPercent, fraction, hasNoMetricData, recallLead } from '../lib/metrics'
 import { readinessLine } from '../lib/training'
 import type { MetricsSummary, Scenario } from '../lib/types'
@@ -78,7 +79,9 @@ export function MetricsDashboard({
 
       {error && <div className="rounded-lg bg-red-600/90 px-4 py-2 text-sm">{error}</div>}
 
-      {readiness.data && <ReadinessLine line={readinessLine(readiness.data)} />}
+      {readiness.data && <ReadinessLine
+          line={readinessLine(readiness.data, classNameOf(scenarios.find((s) => s.scenario_id === scenarioId)))}
+        />}
 
       {summary === null ? (
         <p className="text-sm text-slate-400">시나리오·날짜를 선택하세요.</p>

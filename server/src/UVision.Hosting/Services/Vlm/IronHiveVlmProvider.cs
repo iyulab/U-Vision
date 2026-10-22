@@ -63,7 +63,7 @@ public sealed class IronHiveVlmProvider : IVlmProvider
             ],
             // 구조화 출력(json_schema grammar 강제) — 유형을 선언한 시나리오는 유형 id 를 enum 으로 구속한 형태.
             OutputFormat = scenario.DefectClasses is { Count: > 0 } defects
-                ? OutputFormat.For(TypedSchema(defects))
+                ? OutputFormat.For(TypedSchema([.. defects.Select(c => c.Id)]))
                 : OutputFormat.For<InspectionResult>(),
             MaxTokens = MaxOutputTokens,       // reasoning 모델 truncation 방지(위 주석)
         };
