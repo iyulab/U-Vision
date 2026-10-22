@@ -25,6 +25,17 @@ jobs:
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build
+      # 서버 패키지에 담기는 임베드 클라(server/src/UVision.Hosting/wwwroot)는 커밋된 산출물이다 — 이 소스로 다시 구운
+      # 결과와 같아야 한다. 클라를 고치고 build:embed 를 돌리지 않았으면 여기서 멈춘다.
+      - run: npm run build:embed
+      - name: Embedded client matches the source
+        run: |
+          changes=$(git status --porcelain -- ../server/src/UVision.Hosting/wwwroot)
+          if [ -n "$changes" ]; then
+            echo "::error::server/src/UVision.Hosting/wwwroot is stale - run 'npm run build:embed' in client/ and commit the result"
+            echo "$changes"
+            exit 1
+          fi
 
   server:
     runs-on: ubuntu-latest
