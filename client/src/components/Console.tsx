@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import '@uplatform/brand'
 
 import { createScenario, deleteScenario, getAdminStatus, listScenarios, updateScenario } from '../lib/api'
 import { usePin, type PinRunResult } from '../hooks/usePin'
@@ -152,6 +153,11 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
           />
         )}
       </main>
+
+      {/* 우산 브랜드 소속 표시 — 횡단 제품이 패밀리와 닿는 유일한 자리. 네트워크·쿠키 없음(목록은 패키지에 내장). */}
+      <footer className="flex justify-end border-t border-slate-700 px-6 py-3">
+        <uplatform-affiliation product="u-vision" lang="ko" theme="dark" />
+      </footer>
 
       {prompting && <PinPrompt onSubmit={submitPin} onCancel={cancelPin} />}
     </div>

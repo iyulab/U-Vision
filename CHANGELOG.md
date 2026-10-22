@@ -5,6 +5,7 @@ Changes to the `UVision.Hosting` NuGet package. Versions 0.2.0 and 0.2.1 were ne
 ## [Unreleased]
 
 ### Added
+- The admin console footer shows the U-Platform affiliation element (`@uplatform/brand` 0.4.0): one line linking to the U-Platform family, with the other products in a drop-down. It makes no network requests and sets no cookies.
 - Decision ledger. Every inspection appends one line to `{DataPath}/{scenario}/ledger/{yyyy-MM-dd}.jsonl`: a HoneAI `PredictionProvenance` from a tiered router over the answers the inspection already received (ML below, VLM on top), with the verdict actually returned recorded beside it (`operative:*` annotations). The router only observes: with no trust policy yet, every slice is in shadow, so the VLM settles and responses are unchanged. A ledger write failure is logged and does not affect the inspection. Adds a dependency on `HoneAI.Core` 0.9.0, which has no further dependencies.
 
 ### Fixed
