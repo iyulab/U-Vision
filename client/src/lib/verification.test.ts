@@ -4,6 +4,13 @@ import { DetectionUnavailableError, inspectImageV2 } from './api'
 import { readCode } from './barcode'
 import { isVerification, shortVerdictLabel, termOf, toInspectResult, verdictLabel } from './verification'
 
+const ponyfillDetect = vi.hoisted(() => vi.fn())
+vi.mock('./barcodePonyfill', () => ({
+  BarcodeDetector: class {
+    detect = ponyfillDetect
+  },
+}))
+
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
@@ -82,8 +89,17 @@ describe('inspectImageV2', () => {
 })
 
 describe('readCode', () => {
-  it('BarcodeDetector 가 없으면 undefined(코드 없이 보낸다)', async () => {
+  it('내장 BarcodeDetector 가 없으면 WASM 구현으로 읽는다', async () => {
     vi.stubGlobal('BarcodeDetector', undefined)
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ close: vi.fn() }))
+    ponyfillDetect.mockResolvedValue([{ rawValue: 'P-200' }])
+    expect(await readCode(new Blob())).toBe('P-200')
+  })
+
+  it('WASM 구현을 불러오지 못하면 undefined(코드 없이 보낸다)', async () => {
+    vi.stubGlobal('BarcodeDetector', undefined)
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ close: vi.fn() }))
+    ponyfillDetect.mockRejectedValue(new Error('wasm fetch failed'))
     expect(await readCode(new Blob())).toBeUndefined()
   })
 

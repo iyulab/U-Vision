@@ -107,16 +107,18 @@ public class UVisionMiddlewareTests
             "index.html must be served with Cache-Control: no-cache");
     }
 
-    [Fact]
-    public async Task Embedded_Asset_Is_Served_With_ContentType()
+    [Theory]
+    [InlineData("/u-vision/assets/index.js", "text/javascript")]
+    [InlineData("/u-vision/assets/zxing_reader.wasm", "application/wasm")]
+    public async Task Embedded_Asset_Is_Served_With_ContentType(string path, string mediaType)
     {
         using var host = BuildHost();
         await host.StartAsync();
         var client = host.GetTestServer().CreateClient();
 
-        var res = await client.GetAsync("/u-vision/assets/index.js");
+        var res = await client.GetAsync(path);
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
-        Assert.Equal("application/javascript", res.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(mediaType, res.Content.Headers.ContentType?.MediaType);
         Assert.True((await res.Content.ReadAsByteArrayAsync()).Length > 0);
     }
 }

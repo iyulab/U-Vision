@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 
@@ -103,20 +104,9 @@ public static class UVisionMiddleware
         return app;
     }
 
+    // 표준 확장자 표(.wasm → application/wasm 포함 — WebAssembly 스트리밍 컴파일이 이 형식을 요구한다).
+    private static readonly FileExtensionContentTypeProvider ContentTypes = new();
+
     private static string GetContentType(string path) =>
-        Path.GetExtension(path).ToLowerInvariant() switch
-        {
-            ".js" or ".mjs"   => "application/javascript",
-            ".css"            => "text/css",
-            ".html"           => "text/html; charset=utf-8",
-            ".json"           => "application/json",
-            ".webmanifest"    => "application/manifest+json",
-            ".svg"            => "image/svg+xml",
-            ".png"            => "image/png",
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".ico"            => "image/x-icon",
-            ".woff"           => "font/woff",
-            ".woff2"          => "font/woff2",
-            _                 => "application/octet-stream",
-        };
+        ContentTypes.TryGetContentType(path, out var type) ? type : "application/octet-stream";
 }
