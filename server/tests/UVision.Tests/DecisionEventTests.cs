@@ -110,6 +110,39 @@ public class DecisionEventTests : IDisposable
     }
 
     [Fact]
+    public async Task Status_Counts_Pending_And_Dead_Without_Leaking_Error_Text()
+    {
+        var options = Options(maxAttempts: 2);
+        var publisher = new DecisionEventPublisher(Paths, options, new WebhookDeliverySignal());
+        await publisher.PublishAsync(Decision("img_a"), CancellationToken.None);
+        await publisher.PublishAsync(Decision("img_b"), CancellationToken.None);
+        var reader = new WebhookStatusReader(Paths, options);
+        var before = Assert.Single(reader.Read().Webhooks);
+        Assert.Equal(2, before.Pending);
+        Assert.Null(before.LastError);
+        Assert.NotNull(before.OldestPendingAt);
+
+        var failing = Dispatcher(options, new ThrowingHandler());
+        await failing.DeliverDueAsync(_now, CancellationToken.None);
+        var afterOne = Assert.Single(reader.Read().Webhooks);
+        Assert.Equal("HttpRequestException", afterOne.LastError); // 주소가 담긴 문구는 내보내지 않는다
+        await failing.DeliverDueAsync(_now.AddSeconds(11), CancellationToken.None);
+        var afterDead = Assert.Single(reader.Read().Webhooks);
+        Assert.Equal(1, afterDead.Pending);
+        Assert.Equal(1, afterDead.Dead);
+
+        Assert.False(new WebhookStatusReader(Paths, new EventsOptions()).Read().Enabled);
+    }
+
+    [Fact]
+    public async Task Status_Endpoint_Reports_Disabled_By_Default()
+    {
+        using var factory = new UVisionApiFactory();
+        var body = await factory.CreateClient().GetStringAsync("/api/u-vision/events/status");
+        Assert.Equal("""{"enabled":false,"webhooks":[]}""", body);
+    }
+
+    [Fact]
     public async Task Inspect_Leaves_Event_In_Outbox_When_A_Webhook_Is_Configured()
     {
         using var factory = new UVisionApiFactory();
@@ -157,6 +190,12 @@ public class DecisionEventTests : IDisposable
     private sealed class StubFactory(HttpMessageHandler handler) : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => new(handler, disposeHandler: false);
+    }
+
+    private sealed class ThrowingHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) =>
+            throw new HttpRequestException("No connection could be made (receiver.test:80)");
     }
 
     private sealed class RecordingHandler(HttpStatusCode status) : HttpMessageHandler

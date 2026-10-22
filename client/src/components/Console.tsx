@@ -9,6 +9,7 @@ import { DEFAULT_ROI, fromScenarioRoi, toScenarioRoi, type Roi } from '../lib/ro
 import type { Scenario } from '../lib/types'
 import { AuthorityPanel } from './AuthorityPanel'
 import { LabelAudit } from './LabelAudit'
+import { EventsStatusPanel } from './EventsStatusPanel'
 import { MetricsDashboard } from './MetricsDashboard'
 import { ReferenceGallery } from './ReferenceGallery'
 import { ResultsBrowser } from './ResultsBrowser'
@@ -148,7 +149,10 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
         ) : tab === 'results' ? (
           <ResultsBrowser scenarios={scenarios} initialScenarioId={activeScenarioId} />
         ) : tab === 'metrics' ? (
-          <MetricsDashboard scenarios={scenarios} initialScenarioId={activeScenarioId} />
+          <>
+            <EventsStatusPanel />
+            <MetricsDashboard scenarios={scenarios} initialScenarioId={activeScenarioId} />
+          </>
         ) : tab === 'audit' ? (
           <LabelAudit scenarios={scenarios} initialScenarioId={activeScenarioId} />
         ) : (

@@ -1,4 +1,4 @@
-import type { AdminStatus, AuthorityState, DetectionUnavailable, InspectResult, InspectResultV2, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult } from './types'
+import type { AdminStatus, AuthorityState, DetectionUnavailable, EventsStatus, InspectResult, InspectResultV2, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult } from './types'
 import type { AuthorityStage } from './authority'
 import { resolveApiBase } from './runtimeConfig'
 
@@ -211,6 +211,13 @@ export async function getMetrics(scenarioId: string, date: string): Promise<Metr
   )
   await ensureOk(res, '메트릭 조회')
   return (await res.json()) as MetricsSummary
+}
+
+/** 판정 사건 내보내기(웹훅) 받는 곳별 대기 · 포기 수(무인증 읽기). */
+export async function getEventsStatus(): Promise<EventsStatus> {
+  const res = await fetch(`${API_BASE}/events/status`)
+  await ensureOk(res, '사건 내보내기 상태')
+  return (await res.json()) as EventsStatus
 }
 
 // --- 관리자 PIN 최초 설정 (first-run bootstrap — 서버 /admin/* 계약) ----------

@@ -247,3 +247,16 @@ export interface AuthorityState {
   reason?: string | null
   history: AuthorityTransition[]
 }
+
+/** 서버 `EventsStatusResponse`(`GET /events/status`) 미러 — 받는 곳 주소 · 비밀은 없다. */
+export interface EventsStatus {
+  enabled: boolean
+  webhooks: {
+    name: string
+    pending: number
+    dead: number
+    oldest_pending_at?: string
+    /** HTTP 상태나 예외 종류만(예: 'HTTP 503'). */
+    last_error?: string
+  }[]
+}

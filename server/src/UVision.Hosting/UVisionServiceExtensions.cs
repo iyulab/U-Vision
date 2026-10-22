@@ -72,6 +72,7 @@ public static class UVisionServiceExtensions
         services.AddHttpClient(Services.Events.WebhookDispatcher.HttpClientName,
             c => c.Timeout = TimeSpan.FromSeconds(10));
         services.AddSingleton<Services.Events.WebhookDispatcher>();
+        services.AddSingleton<Services.Events.WebhookStatusReader>();
         services.AddHostedService<Services.Events.WebhookDeliveryService>();
 
         // 데이터셋 export(신뢰성 플라이휠 ② — 전용 ML 빌드 데이터 준비).

@@ -845,6 +845,26 @@
         }
       }
     },
+    "/api/u-vision/events/status": {
+      "get": {
+        "tags": [
+          "U-Vision"
+        ],
+        "operationId": "GetEventsStatus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventsStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/u-vision/scenarios": {
       "get": {
         "tags": [
@@ -2406,6 +2426,24 @@
           }
         }
       },
+      "EventsStatusResponse": {
+        "required": [
+          "enabled",
+          "webhooks"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "webhooks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebhookStatus"
+            }
+          }
+        }
+      },
       "HealthResponse": {
         "required": [
           "status",
@@ -3666,6 +3704,47 @@
           "OK",
           "NG"
         ]
+      },
+      "WebhookStatus": {
+        "required": [
+          "name",
+          "pending",
+          "dead"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "pending": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "dead": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "oldest_pending_at": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "last_error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
       }
     }
   },
