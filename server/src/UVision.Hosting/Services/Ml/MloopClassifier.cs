@@ -9,12 +9,12 @@ namespace UVision.Api.Services.Ml;
 
 /// <summary>
 /// MLoop <c>mloop serve</c> REST(<c>POST /predict</c>) 소비 ML 분류기 — 신뢰성 플라이휠 ②의 추론 경계.
-/// MLoop core 는 NuGet 미발행 + ProjectReference 금지(글로벌 정책)이므로 <b>HTTP 경계로 디커플</b>한다.
+/// MLoop 의 소비 표면은 <c>mloop serve</c> 의 HTTP API 다 — 라이브러리로 끌어오지 않고 <b>프로세스 경계로 디커플</b>한다.
 ///
 /// <para>
-/// ⚠️ <b>UNVERIFIED(실서버 미검증)</b>: 본 클라이언트는 MLoop.API 소스(<c>Program.cs</c>/<c>PredictionService</c>)에서
-/// 확인한 계약에 맞춰 작성됐고 fake-handler 계약 테스트로 검증되나, <b>실 mloop serve + 학습된 모델</b> 왕복은
-/// FW-3 정확도 스파이크(데이터/런타임 게이트)에서만 검증된다. IronHiveVlmProvider 의 UNVERIFIED 와 동일 규율.
+/// 검증 범위: MLoop.API 소스에서 확인한 계약을 fake-handler 계약 테스트가 가드하고, 실 <c>mloop serve</c>(v0.15.0)
+/// + 학습된 이미지 분류 모델과의 왕복은 이미지 2장(VLM 과 일치 1 · 불일치 1)으로 확인했다. 운영 규모의 정확도·지연은
+/// 아직 측정 전이다(메트릭 B3 가 운영 중에 잰다).
 /// </para>
 /// <para>
 /// 제약: mloop /predict 는 이미지를 <b>파일 경로</b>(<c>ImagePath</c> 컬럼)로 받는다(bytes/base64 미지원).
