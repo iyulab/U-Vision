@@ -35,11 +35,16 @@ public static class DualCheckEvaluator
     /// </param>
     public static DualCheckResult Evaluate(
         InspectionResult vlm, MlClassification ml, double reviewThreshold,
+        IConfidenceCalibrator calibrator) =>
+        Evaluate(vlm, vlm.Verdict.ToString(), ml, reviewThreshold, calibrator);
+
+    /// <param name="vlmClass">VLM 답의 클래스 id — 불량 유형을 나누는 시나리오면 유형까지 맞아야 일치다.</param>
+    public static DualCheckResult Evaluate(
+        InspectionResult vlm, string vlmClass, MlClassification ml, double reviewThreshold,
         IConfidenceCalibrator calibrator)
     {
         // 일치 = 대소문자 무시 문자열 비교(class-agnostic).
-        var agreement = string.Equals(
-            ml.Label, vlm.Verdict.ToString(), StringComparison.OrdinalIgnoreCase);
+        var agreement = string.Equals(ml.Label, vlmClass, StringComparison.OrdinalIgnoreCase);
 
         // A3: 비교 불가능한 척도를 per-source 표준화 후 게이팅(콜드스타트엔 VLM 제외=1.0).
         var vlmStd = calibrator.Standardize(ConfidenceSource.Vlm, vlm.Confidence);

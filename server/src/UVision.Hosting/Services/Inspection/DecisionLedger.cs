@@ -135,7 +135,7 @@ public sealed class DecisionLedger(
                     yield return new AnsweredJudge(
                         new Tier { Id = tier, Kind = JudgeKind.Vlm, Version = $"{provider.Name}:{vlmOptions.Model}", CostRank = 2 },
                         subject.Vlm is { } v
-                            ? JudgeVerdict<string>.Answer(subject.Scenario.ClassOf(v.Verdict), v.Confidence, v.Findings)
+                            ? JudgeVerdict<string>.Answer(subject.Scenario.ClassOf(v) ?? subject.Scenario.ClassOf(v.Verdict), v.Confidence, v.Findings)
                             : JudgeVerdict<string>.Abstain("vlm unavailable"));
                     break;
             }
@@ -169,7 +169,8 @@ public sealed record LedgerSubject(
 /// <param name="Source">판정 출처(<c>vlm</c>·<c>ml</c>).</param>
 /// <param name="Stage">시나리오 권한 단계.</param>
 /// <param name="Posture">자세(<c>review_block</c>·<c>fail_closed</c>, 평상시 null).</param>
-public sealed record OperativeDecision(Verdict? Verdict, string Source, string Stage, string? Posture)
+/// <param name="Class">응답한 불량 유형 — 시나리오가 NG 를 유형으로 나눌 때만.</param>
+public sealed record OperativeDecision(Verdict? Verdict, string Source, string Stage, string? Posture, string? Class = null)
 {
     internal IReadOnlyDictionary<string, string> ToAnnotations()
     {
@@ -181,6 +182,8 @@ public sealed record OperativeDecision(Verdict? Verdict, string Source, string S
         };
         if (Posture is not null)
             a["operative:posture"] = Posture;
+        if (Class is not null)
+            a["operative:class"] = Class;
         return a;
     }
 }

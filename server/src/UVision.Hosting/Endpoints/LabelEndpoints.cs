@@ -3,12 +3,13 @@ using Microsoft.Extensions.Options;
 using UVision.Api.Configuration;
 using UVision.Api.Models;
 using UVision.Api.Services.Label;
+using UVision.Api.Services.Scenarios;
 using UVision.Api.Storage;
 
 namespace UVision.Api.Endpoints;
 
 /// <summary>
-/// 사람 라벨 엔드포인트 — 검사 결과에 사후 OK/NOK 를 붙인다(선택적 ground-truth 수집).
+/// 사람 라벨 엔드포인트 — 검사 결과에 사후 라벨(시나리오의 클래스)을 붙인다(선택적 ground-truth 수집).
 /// <para>
 /// <b>무인증</b>: 라벨은 시나리오·기준이미지 같은 관리 설정이 아니라 inspect 와 같은 운영 데이터다.
 /// 라벨 쓰기/삭제는 불변 VLM 레코드(<c>{image_id}.json</c>)를 건드리지 않는다 — 사이드카만 쓴다.
@@ -40,10 +41,22 @@ public static class LabelEndpoints
             .ProducesProblem(400);
     }
 
-    private static async Task<IResult> PutLabelAsync(
-        LabelInput input, ILabelStore labelStore, CancellationToken cancellationToken)
+    /// <summary>
+    /// 이 시나리오가 받는 라벨. 형식 위반 id 는 여기서 거르지 않는다 — 저장소가 같은 위반을 400 으로 돌려준다.
+    /// </summary>
+    private static async Task<IReadOnlyList<string>> AllowedLabelsAsync(
+        string scenarioId, IScenarioStore scenarioStore, CancellationToken cancellationToken)
     {
-        if (!LabelSet.IsValid(input.Label))
+        Scenario? scenario = null;
+        try { scenario = await scenarioStore.GetAsync(scenarioId, cancellationToken); }
+        catch (ArgumentException) { }
+        return scenario is null ? LabelSet.Default : EffectiveScenario.Resolve(scenario, mlEnabled: false).Labels;
+    }
+
+    private static async Task<IResult> PutLabelAsync(
+        LabelInput input, ILabelStore labelStore, IScenarioStore scenarioStore, CancellationToken cancellationToken)
+    {
+        if (!LabelSet.IsValid(input.Label, await AllowedLabelsAsync(input.ScenarioId, scenarioStore, cancellationToken)))
             return Results.Problem(statusCode: 400, detail: $"허용되지 않은 라벨: '{input.Label}'");
 
         try
@@ -118,9 +131,9 @@ public static class LabelEndpoints
     }
 
     private static async Task<IResult> PostAuditAsync(
-        AuditInput input, ILabelStore labelStore, CancellationToken cancellationToken)
+        AuditInput input, ILabelStore labelStore, IScenarioStore scenarioStore, CancellationToken cancellationToken)
     {
-        if (!LabelSet.IsValid(input.Label))
+        if (!LabelSet.IsValid(input.Label, await AllowedLabelsAsync(input.ScenarioId, scenarioStore, cancellationToken)))
             return Results.Problem(statusCode: 400, detail: $"허용되지 않은 라벨: '{input.Label}'");
         try
         {

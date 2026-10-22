@@ -16,11 +16,16 @@ public static class MetricsAggregator
     /// <param name="rows">해당 시나리오·날짜의 메트릭 row(예측 신호).</param>
     /// <param name="labels">같은 날짜 버킷의 사람 라벨(정답) — image_id 로 조인.</param>
     /// <param name="options">권한 이양 레버(A1) — 격상 자격 임계.</param>
+    /// <param name="isNg">
+    /// 라벨(사람 · ML)이 NG 쪽인가 — 불량 유형을 나누는 시나리오는 모든 유형이 NG 다(<see cref="Scenarios.EffectiveScenario.VerdictOf"/>).
+    /// 생략하면 이분 판정(<c>NG</c>, 대소문자 무시). recall 은 «불량을 불량으로 잡았나»라 유형이 달라도 맞힌 것으로 센다.
+    /// </param>
     public static MetricsSummary Summarize(
         string scenarioId, string date,
         IReadOnlyList<MetricsRow> rows, IReadOnlyList<StoredLabel> labels,
-        AuthorityOptions options)
+        AuthorityOptions options, Func<string, bool>? isNg = null)
     {
+        isNg ??= IsBinaryNg;
         // 라벨 일관성 집계(C1) — audit 상태별 카운팅. NG recall 루프와 독립.
         // 오라클↔사람 비교(④-B) — operative·oracle 둘 다 있는 건만(순수 파생, 항상 최신). 같은 패스에서 집계.
         int audited = 0, labelConsistent = 0, labelConflictsOpen = 0;
@@ -86,7 +91,7 @@ public static class MetricsAggregator
             labeled++;
 
             // NG recall: 정답이 NG 인 건만(ground-truth 양성) 분모에 든다.
-            if (!IsNg(truth))
+            if (!isNg(truth))
                 continue;
             labeledNg++;
 
@@ -97,7 +102,7 @@ public static class MetricsAggregator
             if (r.MlLabel is not null)
             {
                 mlNgScored++;
-                if (IsNg(r.MlLabel))
+                if (isNg(r.MlLabel))
                     mlNgHits++;
             }
         }
@@ -149,7 +154,7 @@ public static class MetricsAggregator
         };
     }
 
-    private static bool IsNg(string label) =>
+    private static bool IsBinaryNg(string label) =>
         string.Equals(label, NgLabel, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>분모 0 이면 null(undefined 를 0.0 으로 위장하지 않음 — 정직성).</summary>

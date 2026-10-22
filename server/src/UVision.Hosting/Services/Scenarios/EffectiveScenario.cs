@@ -34,12 +34,56 @@ public sealed record EffectiveScenario(
     public bool IsVerification => Type == ScenarioVocabulary.Verification;
 
     /// <summary>
-    /// 이분 판정(<see cref="Verdict"/>)을 이 시나리오의 클래스 id 로. VLM · 권한 단계는 OK/NG 로 답하고, 오투입 확인은
-    /// 그것을 «기대 품번과 같다/다르다»로 읽는다.
+    /// 불량 유형 — 검사에서 OK 가 아닌 클래스. 선언하지 않은 검사는 <c>NG</c> 하나, 오투입 확인은 없다(불일치는
+    /// 유형이 아니라 대조 결과).
+    /// </summary>
+    public IReadOnlyList<string> DefectClasses => IsVerification
+        ? []
+        : Classes.Where(c => c.Id != ScenarioVocabulary.Ok).Select(c => c.Id).ToList();
+
+    /// <summary>NG 를 유형으로 나눠 판정하는가 — 불량 유형이 <c>NG</c> 하나뿐이면 지금의 이분 판정이다.</summary>
+    public bool IsMultiClass => !IsVerification && DefectClasses is not [ScenarioVocabulary.Ng];
+
+    /// <summary>
+    /// 사람 라벨로 받는 값. 검사는 클래스 id, 오투입 확인은 OK/NG(화면이 일치/불일치로 읽는다) — 판정 레코드의
+    /// <c>verdict</c> 와 같은 말로 라벨을 남겨 비교 · 학습 입력이 한 체계에 있게 한다.
+    /// </summary>
+    public IReadOnlyList<string> Labels => IsVerification
+        ? [ScenarioVocabulary.Ok, ScenarioVocabulary.Ng]
+        : Classes.Select(c => c.Id).ToList();
+
+    /// <summary>
+    /// 이분 판정(<see cref="Verdict"/>)을 이 시나리오의 클래스 id 로 — 유형을 모르는 판정원(권한 단계 · 오투입 대조)의
+    /// 답을 옮길 때. 오투입 확인은 «기대 품번과 같다/다르다»로 읽는다.
     /// </summary>
     public string ClassOf(Verdict verdict) => IsVerification
         ? (verdict == Verdict.OK ? ScenarioVocabulary.Match : ScenarioVocabulary.Mismatch)
         : verdict.ToString();
+
+    /// <summary>
+    /// VLM 답의 클래스. 다중분류에서 NG 는 선언한 불량 유형 하나를 대야 한다 — 못 대면 답이 아니다(null).
+    /// 이분 판정 · 오투입 확인은 유형을 묻지 않으므로 <see cref="InspectionResult.DefectClass"/> 를 보지 않는다.
+    /// </summary>
+    public string? ClassOf(InspectionResult result)
+    {
+        if (!IsMultiClass || result.Verdict == Verdict.OK) return ClassOf(result.Verdict);
+        return result.DefectClass is { } defect && ClassFor(defect) is { } id && id != ScenarioVocabulary.Ok ? id : null;
+    }
+
+    /// <summary>라벨(ML · 사람 · 오라클)을 선언한 클래스 id 로 — 대소문자 무시. 선언에 없으면 null.</summary>
+    public string? ClassFor(string label) =>
+        Classes.FirstOrDefault(c => string.Equals(c.Id, label, StringComparison.OrdinalIgnoreCase))?.Id;
+
+    /// <summary>
+    /// 메트릭 집계가 라벨을 NG 쪽으로 셀 규칙 — 불량 유형을 나누는 시나리오만 돌려준다(그 밖은 집계의 이분 판정 기본값).
+    /// </summary>
+    public Func<string, bool>? NgLabelRule => IsMultiClass ? label => VerdictOf(label) == Verdict.NG : null;
+
+    /// <summary>클래스의 v1 보기 — 좋은 쪽(OK · MATCH)만 OK, 불량 유형은 모두 NG.</summary>
+    public Verdict VerdictOf(string classId) =>
+        string.Equals(classId, IsVerification ? ScenarioVocabulary.Match : ScenarioVocabulary.Ok, StringComparison.OrdinalIgnoreCase)
+            ? Verdict.OK
+            : Verdict.NG;
 
     /// <param name="scenario">저장된 시나리오(경계에서 <see cref="Validate"/> 를 통과한 것).</param>
     /// <param name="mlEnabled">전용 ML 판정원이 켜져 있는가 — 단 순서를 파생할 때만 쓴다.</param>
@@ -81,14 +125,25 @@ public sealed record EffectiveScenario(
                 return "classes[].id 가 겹친다(대소문자 무시)";
             if (classes.Any(c => c.Settleable && c.MustCatch))
                 return "한 클래스가 settleable 이면서 must_catch 일 수 없다";
-            // 두 유형 모두 이분 판정(OK/NG)에서 클래스로 옮기므로 클래스가 둘이고, 나쁜 쪽은 꼭 잡을 값이다.
-            var (good, bad) = type == ScenarioVocabulary.Verification
-                ? (ScenarioVocabulary.Match, ScenarioVocabulary.Mismatch)
-                : (ScenarioVocabulary.Ok, ScenarioVocabulary.Ng);
-            if (!(classes.Count == 2
-                  && classes.Any(c => c.Id == good)
-                  && classes.Any(c => c.Id == bad && c.MustCatch)))
-                return $"{type} 의 classes 는 {good} · {bad} 둘이고 {bad} 는 must_catch 여야 한다";
+            if (type == ScenarioVocabulary.Verification)
+            {
+                // 대조는 같다/다르다 둘뿐이고, 다른 쪽은 꼭 잡을 값이다.
+                if (!(classes.Count == 2
+                      && classes.Any(c => c.Id == ScenarioVocabulary.Match)
+                      && classes.Any(c => c.Id == ScenarioVocabulary.Mismatch && c.MustCatch)))
+                    return $"{type} 의 classes 는 MATCH · MISMATCH 둘이고 MISMATCH 는 must_catch 여야 한다";
+            }
+            else
+            {
+                // 검사는 OK 하나와 불량 유형(이분 판정이면 NG 하나). 불량 유형은 v1 에서 모두 NG 로 보이고, 꼭 잡을 값이다.
+                if (!classes.Any(c => c.Id == ScenarioVocabulary.Ok && !c.MustCatch))
+                    return $"{type} 의 classes 에는 must_catch 가 아닌 OK 가 있어야 한다";
+                var defects = classes.Where(c => c.Id != ScenarioVocabulary.Ok).ToList();
+                if (defects.Count == 0)
+                    return $"{type} 의 classes 에 불량 유형이 없다 — OK 밖에 NG(또는 유형 여럿)를 둔다";
+                if (defects.Any(c => !c.MustCatch))
+                    return $"{type} 의 불량 유형은 모두 must_catch 여야 한다: {string.Join(", ", defects.Where(c => !c.MustCatch).Select(c => c.Id))}";
+            }
         }
 
         if (input.Judges is { } judges)

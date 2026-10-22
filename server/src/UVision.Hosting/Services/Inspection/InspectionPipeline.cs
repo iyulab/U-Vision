@@ -57,8 +57,8 @@ public sealed class InspectionPipeline(
         // 전용 ML 은 시나리오의 단에 있을 때만 부른다 — 기본 파생([ml, vlm])이면 지금과 같고, 오투입 확인처럼
         // ML 이 뜻 없는 시나리오는 부르지 않는다.
         var mlActive = classifier.IsEnabled && effective.Tiers.Contains(ScenarioVocabulary.MlTier);
-        var evidence = await GatherAsync(scenario, capture, mlActive, cancellationToken);
-        var (stage, decision, dual) = await DecideAsync(scenario, evidence, cancellationToken);
+        var evidence = await GatherAsync(scenario, effective, capture, mlActive, cancellationToken);
+        var (stage, decision, dual) = await DecideAsync(scenario, effective, evidence, cancellationToken);
         var result = evidence.Vlm;
         var ml = evidence.Ml?.Result;
 
@@ -104,7 +104,9 @@ public sealed class InspectionPipeline(
 
         // verdict 출처 — ml-primary 만 ML, 그 외 VLM. fail-closed 통과 후이므로 출처 측은 non-null.
         var useMl = decision.VerdictSource == VerdictSource.Ml;
-        var verdict = useMl ? ParseVerdict(ml!.Label) : result!.Verdict;
+        // 클래스가 판정이고 OK/NG 는 그 v1 보기다. 두 판정원의 답은 GatherAsync 가 선언한 클래스로 걸러 두었다.
+        var decidedClass = useMl ? effective.ClassFor(ml!.Label)! : effective.ClassOf(result!)!;
+        var verdict = effective.VerdictOf(decidedClass);
         var findings = useMl ? "" : result!.Findings;
         var confidence = useMl ? ml!.Confidence : result!.Confidence;
 
@@ -138,6 +140,8 @@ public sealed class InspectionPipeline(
             ExpectedPart = capture.Context?.ExpectedPart,
             ObservedCode = capture.Context?.ObservedCode,
             CapturedAt = capture.CapturedAt,
+            // 불량 유형을 나누는 시나리오만 — 이분 판정 · 오투입 확인의 레코드는 verdict 가 곧 클래스(byte 보존).
+            Class = effective.IsMultiClass ? decidedClass : null,
         };
 
         // must-succeed: system-of-record 이므로 영속화 실패 시 200 위장 금지(→500).
@@ -157,7 +161,8 @@ public sealed class InspectionPipeline(
         var route = await ledger.DecideAsync(subject, cancellationToken);
         await ledger.RecordAsync(
             subject, route,
-            new OperativeDecision(verdict, SourceName(decision), AuthorityStageJsonConverter.ToWire(stage), posture),
+            new OperativeDecision(verdict, SourceName(decision), AuthorityStageJsonConverter.ToWire(stage), posture,
+                effective.IsMultiClass ? decidedClass : null),
             cancellationToken);
 
         // B3 관측성: ML 활성(②~③ 결선)일 때만 예측 신호를 메트릭 시계열로 흘린다.
@@ -170,7 +175,7 @@ public sealed class InspectionPipeline(
 
         if (mlActive
             && (stage == AuthorityStage.CoPrimary || stage == AuthorityStage.MlPrimary))
-            await CheckAutoDemoteSafelyAsync(scenario.ScenarioId, stage, timestamp, cancellationToken);
+            await CheckAutoDemoteSafelyAsync(effective, stage, timestamp, cancellationToken);
 
         // v1 응답은 v2 결과의 OK/NG 보기다 — 같은 판정 · 신뢰도 · 시각 · id 에 v1 에만 있는 2중체크 세부를 더한다.
         var v2 = new InspectResultV2
@@ -178,7 +183,7 @@ public sealed class InspectionPipeline(
             DecisionId = imageId,
             ScenarioId = scenario.ScenarioId,
             Timestamp = timestamp,
-            Class = effective.ClassOf(verdict),
+            Class = decidedClass,
             SettledBy = new SettledBy { Tier = SourceName(decision), Kind = SourceName(decision) },
             Confidence = confidence,
             Findings = useMl ? null : findings,
@@ -221,7 +226,8 @@ public sealed class InspectionPipeline(
     /// VLM 실패는 null(fail-closed 신호), ML 비활성은 null, ML 실패는 <see cref="MlOutcome.Failed"/>.
     /// </summary>
     private async Task<JudgeEvidence> GatherAsync(
-        Scenario scenario, InspectionCapture capture, bool mlActive, CancellationToken cancellationToken)
+        Scenario scenario, EffectiveScenario effective, InspectionCapture capture, bool mlActive,
+        CancellationToken cancellationToken)
     {
         var image = capture.Image;
         // few-shot 기준 이미지 로드 — 실패는 판정을 막지 않는다(degrade: zero-shot 으로 진행).
@@ -261,6 +267,7 @@ public sealed class InspectionPipeline(
             Criteria = scenario.Criteria,
             References = references,
             ExpectedPart = capture.Context?.ExpectedPart,
+            DefectClasses = effective.IsMultiClass ? effective.DefectClasses : null,
         };
 
         // ML 은 원본으로 분류한다(MLoop 자체 전처리; VLM 다운스케일 사본 아님).
@@ -271,7 +278,39 @@ public sealed class InspectionPipeline(
         await Task.WhenAll(
             [vlmTask, .. (classifyTask is not null ? [classifyTask] : Array.Empty<Task>())]);
 
-        return new JudgeEvidence(await vlmTask, classifyTask is not null ? await classifyTask : null);
+        return new JudgeEvidence(
+            AcceptVlm(await vlmTask, effective),
+            classifyTask is not null ? AcceptMl(await classifyTask, effective) : null);
+    }
+
+    /// <summary>
+    /// VLM 답을 시나리오의 클래스로 거른다 — 유형을 나누는 시나리오에서 NG 에 선언한 유형을 대지 못한 답은 답이 아니다
+    /// (꼭대기의 무응답 = fail-closed, 사람 확인). 받은 답은 유형 id 를 선언한 철자로 맞춘다.
+    /// </summary>
+    private InspectionResult? AcceptVlm(InspectionResult? result, EffectiveScenario effective)
+    {
+        if (result is null || !effective.IsMultiClass) return result;
+        if (effective.ClassOf(result) is not { } cls)
+        {
+            logger.LogWarning(
+                "VLM 이 선언하지 않은 불량 유형으로 답함 — fail-closed (scenario={ScenarioId}, defect_class={DefectClass})",
+                effective.ScenarioId, result.DefectClass);
+            return null;
+        }
+        return result with { DefectClass = result.Verdict == Verdict.NG ? cls : null };
+    }
+
+    /// <summary>
+    /// ML 라벨을 시나리오의 클래스로 거른다 — 선언에 없는 라벨(모델과 시나리오가 다른 클래스를 배움)은 판정에 쓰지 않고
+    /// 분류 실패와 같이 다룬다(degrade — VLM 단독).
+    /// </summary>
+    private MlOutcome AcceptMl(MlOutcome outcome, EffectiveScenario effective)
+    {
+        if (outcome.Result is not { } c || effective.ClassFor(c.Label) is not null) return outcome;
+        logger.LogWarning(
+            "ML 이 시나리오에 없는 클래스로 답함 — VLM 단독 진행(degrade) (scenario={ScenarioId}, label={Label})",
+            effective.ScenarioId, c.Label);
+        return MlOutcome.Failure($"시나리오에 없는 클래스: {c.Label}");
     }
 
     /// <summary>
@@ -279,12 +318,13 @@ public sealed class InspectionPipeline(
     /// 권한 단계 읽기 실패는 Advisory(현재 동작)로 폴백한다.
     /// </summary>
     private async Task<(AuthorityStage Stage, AuthorityDecision Decision, DualCheckResult? Dual)> DecideAsync(
-        Scenario scenario, JudgeEvidence evidence, CancellationToken cancellationToken)
+        Scenario scenario, EffectiveScenario effective, JudgeEvidence evidence, CancellationToken cancellationToken)
     {
         var result = evidence.Vlm;
         var ml = evidence.Ml?.Result;
         var dual = (result is not null && ml is not null)
-            ? DualCheckEvaluator.Evaluate(result, ml, mlOptions.ReviewConfidenceThreshold, calibrator)
+            ? DualCheckEvaluator.Evaluate(
+                result, effective.ClassOf(result)!, ml, mlOptions.ReviewConfidenceThreshold, calibrator)
             : null;
 
         AuthorityState? authorityState = null;
@@ -416,8 +456,9 @@ public sealed class InspectionPipeline(
     /// degrade-safe — 실패는 관측만 누락, 판정·응답 무차단. 격상은 사람(PIN)이라 여기서 안 함.
     /// </summary>
     private async Task CheckAutoDemoteSafelyAsync(
-        string scenarioId, AuthorityStage stage, string timestamp, CancellationToken cancellationToken)
+        EffectiveScenario effective, AuthorityStage stage, string timestamp, CancellationToken cancellationToken)
     {
+        var scenarioId = effective.ScenarioId;
         try
         {
             var dateBucket = StoragePaths.DateBucketOf(timestamp);
@@ -426,7 +467,8 @@ public sealed class InspectionPipeline(
                 return;
 
             var labels = await labelStore.ListAsync(scenarioId, dateBucket, cancellationToken);
-            var summary = MetricsAggregator.Summarize(scenarioId, dateBucket, rows, labels, authorityOptions);
+            var summary = MetricsAggregator.Summarize(
+                scenarioId, dateBucket, rows, labels, authorityOptions, effective.NgLabelRule);
             if (AutoDemoteEvaluator.Evaluate(stage, summary, authorityOptions) is { } target)
             {
                 await authorityStore.SetStageAsync(
@@ -448,10 +490,6 @@ public sealed class InspectionPipeline(
 
     private static string SourceName(AuthorityDecision decision) =>
         decision.VerdictSource == VerdictSource.Ml ? "ml" : "vlm";
-
-    /// <summary>ML 라벨(class-agnostic 문자열) → Verdict. "ng"(대소문자 무시)=NG, 그 외=OK.</summary>
-    private static Verdict ParseVerdict(string label) =>
-        string.Equals(label, "NG", StringComparison.OrdinalIgnoreCase) ? Verdict.NG : Verdict.OK;
 
     private static string? NullIfEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
 

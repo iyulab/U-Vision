@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using UVision.Api.Configuration;
 using UVision.Api.Models;
 using UVision.Api.Services.Metrics;
+using UVision.Api.Services.Scenarios;
 using UVision.Api.Storage;
 
 namespace UVision.Api.Endpoints;
@@ -29,6 +30,7 @@ public static class MetricsEndpoints
         [FromQuery(Name = "scenario_id")] string scenarioId,
         IMetricsStore metricsStore,
         ILabelStore labelStore,
+        IScenarioStore scenarioStore,
         AuthorityOptions authorityOptions,
         CancellationToken cancellationToken,
         [FromQuery(Name = "date")] string? date = null)
@@ -40,8 +42,11 @@ public static class MetricsEndpoints
         {
             var rows = await metricsStore.ReadAsync(scenarioId, date, cancellationToken);
             var labels = await labelStore.ListAsync(scenarioId, date, cancellationToken);
+            // 삭제된 시나리오의 지난 메트릭은 이분 판정으로 읽는다.
+            var scenario = await scenarioStore.GetAsync(scenarioId, cancellationToken);
+            var isNg = scenario is null ? null : EffectiveScenario.Resolve(scenario, mlEnabled: false).NgLabelRule;
             // 메트릭 없음(ML 비활성·미검사)도 200 빈 집계 — "데이터 없음"을 404 가 아니라 0 으로 정직히.
-            return Results.Ok(MetricsAggregator.Summarize(scenarioId, date, rows, labels, authorityOptions));
+            return Results.Ok(MetricsAggregator.Summarize(scenarioId, date, rows, labels, authorityOptions, isNg));
         }
         catch (ArgumentException) // 형식 위반 scenario_id/date → 400
         {

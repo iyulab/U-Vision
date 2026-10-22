@@ -97,6 +97,30 @@ public class MetricsAggregatorTests
     }
 
     [Fact]
+    public void NgRecall_DefectTypes_AllCountAsNg()
+    {
+        // 유형 시나리오: 정답 scratch(a) · dent(b) · OK(c). ML 이 a 를 dent 로 봐도 «불량을 불량으로» 잡은 것이다.
+        var rows = new[]
+        {
+            Row("a", Verdict.NG, "dent", false, true),
+            Row("b", Verdict.OK, "OK", false, true),
+            Row("c", Verdict.OK, "OK", true, false),
+        };
+        var labels = new[] { Label("a", "scratch"), Label("b", "dent"), Label("c", "OK") };
+        var typed = UVision.Api.Services.Scenarios.EffectiveScenario.Resolve(new Scenario
+        {
+            ScenarioId = "t", Name = "t",
+            Classes = [new() { Id = "OK", Settleable = true }, new() { Id = "scratch", MustCatch = true }, new() { Id = "dent", MustCatch = true }],
+        }, mlEnabled: true);
+
+        var s = MetricsAggregator.Summarize("t", "2026-06-22", rows, labels, new AuthorityOptions(), typed.NgLabelRule);
+
+        Assert.Equal(2, s.LabeledNg);
+        Assert.Equal(1, s.VlmNgHits);
+        Assert.Equal(1, s.MlNgHits);
+    }
+
+    [Fact]
     public void NgRecall_DegradedMl_ExcludedFromMlDenominator()
     {
         // 정답 NG 2건. 하나는 ML degrade(라벨 null) → ML recall 분모 제외(못 본 건 ≠ 틀린 건).

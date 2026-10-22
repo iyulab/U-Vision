@@ -1,6 +1,7 @@
 using System.Globalization;
 using UVision.Api.Configuration;
 using UVision.Api.Models;
+using UVision.Api.Services.Scenarios;
 using UVision.Api.Storage;
 
 namespace UVision.Api.Services.Oracle;
@@ -90,12 +91,20 @@ public sealed class OracleSweepService
         try { refs = await _references.LoadImagesAsync(scenario.ScenarioId, scenario.NgLabels, Math.Max(0, scenario.ReferenceCap), ct); }
         catch (Exception ex) { _log.LogWarning(ex, "기준이미지 로드 실패 — refs 없이 (sc={Sc})", scenario.ScenarioId); }
 
+        var effective = EffectiveScenario.Resolve(scenario, mlEnabled: false);
         var context = new ScenarioContext
         {
             ScenarioId = scenario.ScenarioId, Name = scenario.Name, Criteria = scenario.Criteria, References = refs,
+            DefectClasses = effective.IsMultiClass ? effective.DefectClasses : null,
         };
         var opinion = await _oracle.SecondOpinionAsync(img.Data, context, ct);
-        await _labels.AppendOracleAsync(scenario.ScenarioId, date, imageId, opinion.Verdict.ToString(), "oracle", ct);
+        // 소견은 사람 라벨과 같은 말로 남긴다 — 유형을 나누는 시나리오는 클래스 id, 그 밖은 OK/NG.
+        // 선언하지 않은 유형은 소견이 아니다: 남기지 않고 실패로 올려 다음 스윕이 다시 묻게 한다.
+        var label = effective.IsMultiClass
+            ? effective.ClassOf(opinion)
+              ?? throw new InvalidOperationException($"오라클이 선언하지 않은 불량 유형으로 답함: {opinion.DefectClass}")
+            : opinion.Verdict.ToString();
+        await _labels.AppendOracleAsync(scenario.ScenarioId, date, imageId, label, "oracle", ct);
         _log.LogInformation("오라클 소견 기록 (sc={Sc}, img={Img}, verdict={V})",
             scenario.ScenarioId, imageId, opinion.Verdict);
     }

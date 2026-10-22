@@ -97,17 +97,17 @@ public sealed record LabelAudit
 }
 
 /// <summary>
-/// 허용 라벨 집합 — <b>이진→다중분류 확장의 단일 seam</b>.
-/// v1: {"OK","NG"} 상수. 다중분류 확장 시 이 소스만 시나리오 구성으로 교체한다
-/// (저장소·UI 렌더·일치 비교 로직은 불변).
+/// 허용 라벨 집합 — 시나리오가 정한다(<see cref="Services.Scenarios.EffectiveScenario.Labels"/>: 검사는 클래스 id,
+/// 오투입 확인은 OK/NG). 시나리오를 찾을 수 없으면(삭제된 시나리오의 지난 결과) 이분 판정의 <see cref="Default"/>.
+/// 저장소 · 일치 비교는 라벨을 문자열로만 다루므로 이 집합만 바뀐다.
 /// </summary>
 public static class LabelSet
 {
-    public static readonly IReadOnlySet<string> Default =
-        new HashSet<string>(StringComparer.Ordinal) { "OK", "NG" };
+    public static readonly IReadOnlyList<string> Default = ["OK", "NG"];
 
-    public static bool IsValid(string label) =>
-        !string.IsNullOrEmpty(label) && Default.Contains(label);
+    /// <summary>철자 그대로(대소문자 구분) — 라벨은 학습 폴더 이름 · 일치 비교의 키가 된다.</summary>
+    public static bool IsValid(string label, IReadOnlyList<string> allowed) =>
+        !string.IsNullOrEmpty(label) && allowed.Contains(label, StringComparer.Ordinal);
 }
 
 /// <summary><c>PUT {api}/results/label</c> 요청 본문(snake_case wire).</summary>

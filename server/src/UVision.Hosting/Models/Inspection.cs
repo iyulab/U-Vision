@@ -35,6 +35,9 @@ public sealed record ScenarioContext
 
     /// <summary>오투입 확인의 기대 품번 — 있으면 VLM 이 «이 부품이 기대 품번인가»를 OK/NG 로 답한다.</summary>
     public string? ExpectedPart { get; init; }
+
+    /// <summary>NG 를 나눌 불량 유형 id — 시나리오가 유형을 선언했을 때만. 있으면 VLM 이 NG 에 유형 하나를 댄다.</summary>
+    public IReadOnlyList<string>? DefectClasses { get; init; }
 }
 
 /// <summary>
@@ -50,6 +53,13 @@ public sealed record InspectionResult
 
     /// <summary>0.0~1.0. 경계 사례일수록 낮다.</summary>
     public required double Confidence { get; init; }
+
+    /// <summary>
+    /// NG 의 불량 유형 id — 시나리오가 유형을 선언했을 때만(<see cref="ScenarioContext.DefectClasses"/>). 이 타입은 이분
+    /// 판정의 구조화 출력 스키마이기도 해서 스키마에서 뺀다 — 유형은 다른 출력 형태로 받는다.
+    /// </summary>
+    [JsonIgnore]
+    public string? DefectClass { get; init; }
 }
 
 /// <summary>
@@ -177,6 +187,13 @@ public sealed record StoredResult
     [JsonPropertyName("captured_at")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? CapturedAt { get; init; }
+
+    /// <summary>
+    /// 판정한 클래스(불량 유형) — 시나리오가 NG 를 유형으로 나눌 때만. 그 밖에는 <c>verdict</c> 가 곧 클래스라 생략한다.
+    /// </summary>
+    [JsonPropertyName("class")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Class { get; init; }
 }
 
 /// <summary>

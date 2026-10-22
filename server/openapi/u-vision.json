@@ -3730,6 +3730,12 @@
               "null",
               "string"
             ]
+          },
+          "class": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

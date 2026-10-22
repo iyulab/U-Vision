@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using IronHive.Abstractions.Messages;
 using IronHive.Abstractions.Messages.Content;
 using UVision.Api.Imaging;
@@ -59,7 +61,10 @@ public sealed class IronHiveVlmProvider : IVlmProvider
             [
                 Message.User([.. BuildContent(image, scenario.References)]),
             ],
-            OutputFormat = OutputFormat.For<InspectionResult>(), // 구조화 출력(json_schema grammar 강제)
+            // 구조화 출력(json_schema grammar 강제) — 유형을 선언한 시나리오는 유형 id 를 enum 으로 구속한 형태.
+            OutputFormat = scenario.DefectClasses is { Count: > 0 } defects
+                ? OutputFormat.For(TypedSchema(defects))
+                : OutputFormat.For<InspectionResult>(),
             MaxTokens = MaxOutputTokens,       // reasoning 모델 truncation 방지(위 주석)
         };
 
@@ -76,10 +81,58 @@ public sealed class IronHiveVlmProvider : IVlmProvider
                 $"VLM provider '{Name}' 가 텍스트 응답을 반환하지 않음.");
         }
 
-        var result = JsonSerializer.Deserialize<InspectionResult>(ExtractJson(json), DeserializeOptions)
+        var result = ParseAnswer(ExtractJson(json), typed: scenario.DefectClasses is { Count: > 0 })
             ?? throw new InvalidOperationException($"VLM 응답 역직렬화 실패: {json}");
 
         return result with { Confidence = NormalizeConfidence(result.Confidence) };
+    }
+
+    /// <summary>
+    /// 유형을 나누는 판정의 출력 스키마 — <c>defect_class</c> 를 선언한 유형 id(OK 면 null)로 구속한다. 유형이
+    /// 시나리오마다 달라 C# 타입에서 만들 수 없으므로 직접 짓는다.
+    /// </summary>
+    internal static JsonObject TypedSchema(IReadOnlyList<string> defectClasses)
+    {
+        var defectEnum = new JsonArray();
+        foreach (var id in defectClasses) defectEnum.Add(id);
+        defectEnum.Add(null);
+        return new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["verdict"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("OK", "NG") },
+                ["defect_class"] = new JsonObject { ["type"] = new JsonArray("string", "null"), ["enum"] = defectEnum },
+                ["findings"] = new JsonObject { ["type"] = "string" },
+                ["confidence"] = new JsonObject { ["type"] = "number" },
+            },
+            ["required"] = new JsonArray("verdict", "defect_class", "findings", "confidence"),
+            ["additionalProperties"] = false,
+        };
+    }
+
+    /// <summary>모델 JSON → 판정. 유형을 나누는 판정이면 <see cref="TypedAnswer"/> 로 읽어 유형을 싣는다.</summary>
+    internal static InspectionResult? ParseAnswer(string json, bool typed)
+    {
+        if (!typed) return JsonSerializer.Deserialize<InspectionResult>(json, DeserializeOptions);
+        var answer = JsonSerializer.Deserialize<TypedAnswer>(json, DeserializeOptions);
+        return answer is null
+            ? null
+            : new InspectionResult
+            {
+                Verdict = answer.Verdict,
+                Findings = answer.Findings ?? "",
+                Confidence = answer.Confidence,
+                DefectClass = answer.DefectClass,
+            };
+    }
+
+    private sealed record TypedAnswer
+    {
+        [JsonPropertyName("verdict")] public required Verdict Verdict { get; init; }
+        [JsonPropertyName("defect_class")] public string? DefectClass { get; init; }
+        [JsonPropertyName("findings")] public string? Findings { get; init; }
+        [JsonPropertyName("confidence")] public required double Confidence { get; init; }
     }
 
     /// <summary>
