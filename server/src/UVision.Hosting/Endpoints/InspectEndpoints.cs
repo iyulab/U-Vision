@@ -24,6 +24,10 @@ public static class InspectEndpoints
         group.MapPost("/inspect", InspectAsync)
             .DisableAntiforgery(); // multipart/form-data — API 는 antiforgery 토큰 미사용
 
+        // 결과 v2 — 같은 요청, 시나리오 클래스 · 확정자 · 라우터 경로를 담은 응답. v1 은 그대로 둔다.
+        group.MapPost("/v2/inspect", InspectV2Async)
+            .DisableAntiforgery();
+
         group.MapGet("/results", ListResultsAsync);
         group.MapGet("/results/dates", ListResultDatesAsync);
         group.MapGet("/results/image", ServeResultImageAsync);
@@ -38,9 +42,46 @@ public static class InspectEndpoints
         VlmOptions options,
         CancellationToken cancellationToken)
     {
+        var (rejected, outcome) = await RunAsync(image, scenarioId, deviceId, deviceLabel, pipeline, options, cancellationToken);
+        return rejected ?? outcome switch
+        {
+            InspectionOutcome.Completed c => Results.Ok(c.Response),
+            InspectionOutcome.Unavailable u => Results.Json(u.Response, statusCode: StatusCodes.Status503ServiceUnavailable),
+            InspectionOutcome.RecordFailed => Results.Problem(statusCode: 500, detail: "검사 결과 저장 실패"),
+            _ => throw new InvalidOperationException($"처리하지 않은 판정 결과: {outcome?.GetType().Name}"),
+        };
+    }
+
+    private static async Task<IResult> InspectV2Async(
+        IFormFile image,
+        [FromForm(Name = "scenario_id")] string scenarioId,
+        [FromForm(Name = "device_id")] string? deviceId,
+        [FromForm(Name = "device_label")] string? deviceLabel,
+        InspectionPipeline pipeline,
+        VlmOptions options,
+        CancellationToken cancellationToken)
+    {
+        var (rejected, outcome) = await RunAsync(image, scenarioId, deviceId, deviceLabel, pipeline, options, cancellationToken);
+        return rejected ?? outcome switch
+        {
+            InspectionOutcome.Completed c => Results.Ok(c.V2),
+            InspectionOutcome.Unavailable u => Results.Json(u.V2, statusCode: StatusCodes.Status503ServiceUnavailable),
+            InspectionOutcome.RecordFailed => Results.Problem(statusCode: 500, detail: "검사 결과 저장 실패"),
+            _ => throw new InvalidOperationException($"처리하지 않은 판정 결과: {outcome?.GetType().Name}"),
+        };
+    }
+
+    /// <summary>
+    /// 두 판(v1 · v2)이 같은 요청 검증 · 시나리오 조회 · 판정을 지난다 — 다른 것은 결과를 옮기는 모양뿐이다.
+    /// 요청이 거부되면 그 응답을, 아니면 판정 결과를 돌려준다.
+    /// </summary>
+    private static async Task<(IResult? Rejected, InspectionOutcome? Outcome)> RunAsync(
+        IFormFile image, string scenarioId, string? deviceId, string? deviceLabel,
+        InspectionPipeline pipeline, VlmOptions options, CancellationToken cancellationToken)
+    {
         var invalid = ImageUpload.Validate(image, options.MaxUploadSizeMb);
         if (invalid is not null)
-            return invalid;
+            return (invalid, null);
 
         Scenario? scenario;
         try
@@ -49,25 +90,17 @@ public static class InspectEndpoints
         }
         catch (ArgumentException) // 형식 위반 id → 400(존재하지 않음 404 와 구분)
         {
-            return Results.Problem(statusCode: 400, detail: $"유효하지 않은 scenario_id: {scenarioId}");
+            return (Results.Problem(statusCode: 400, detail: $"유효하지 않은 scenario_id: {scenarioId}"), null);
         }
         if (scenario is null)
-            return Results.Problem(statusCode: 404, detail: $"시나리오 없음: {scenarioId}");
+            return (Results.Problem(statusCode: 404, detail: $"시나리오 없음: {scenarioId}"), null);
 
         var data = await ImageUpload.ReadBytesAsync(image, cancellationToken);
         if (data is null)
-            return Results.Problem(statusCode: 400, detail: "빈 이미지");
+            return (Results.Problem(statusCode: 400, detail: "빈 이미지"), null);
 
-        var outcome = await pipeline.RunAsync(
-            scenario, new InspectionCapture(data, image.ContentType, deviceId, deviceLabel), cancellationToken);
-
-        return outcome switch
-        {
-            InspectionOutcome.Completed c => Results.Ok(c.Response),
-            InspectionOutcome.Unavailable u => Results.Json(u.Response, statusCode: StatusCodes.Status503ServiceUnavailable),
-            InspectionOutcome.RecordFailed => Results.Problem(statusCode: 500, detail: "검사 결과 저장 실패"),
-            _ => throw new InvalidOperationException($"처리하지 않은 판정 결과: {outcome.GetType().Name}"),
-        };
+        return (null, await pipeline.RunAsync(
+            scenario, new InspectionCapture(data, image.ContentType, deviceId, deviceLabel), cancellationToken));
     }
 
     private static async Task<IResult> ListResultsAsync(

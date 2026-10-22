@@ -69,18 +69,30 @@ public sealed class InspectionPipeline(
             var failedAt = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
             if (classifier.IsEnabled)
                 await WriteFailClosedMetricSafelyAsync(scenario.ScenarioId, ml, failedAt, cancellationToken);
+            var failedSubject = new LedgerSubject($"dec_{Guid.NewGuid():N}", effective, failedAt, result, evidence.Ml);
+            var failedRoute = await ledger.DecideAsync(failedSubject, cancellationToken);
             await ledger.RecordAsync(
-                new LedgerSubject($"dec_{Guid.NewGuid():N}", effective, failedAt, result, evidence.Ml),
+                failedSubject, failedRoute,
                 new OperativeDecision(null, SourceName(decision), AuthorityStageJsonConverter.ToWire(stage), MetricsRow.PostureFailClosed),
                 cancellationToken);
 
-            return new InspectionOutcome.Unavailable(new DetectionUnavailableResponse
-            {
-                Reason = decision.Reason!,
-                MlHint = decision.VerdictSource == VerdictSource.Ml
-                    ? (result is null ? null : new MlResult { Label = result.Verdict.ToString(), Confidence = result.Confidence })
-                    : (ml is null ? null : new MlResult { Label = ml.Label, Confidence = ml.Confidence }),
-            });
+            return new InspectionOutcome.Unavailable(
+                new DetectionUnavailableResponse
+                {
+                    Reason = decision.Reason!,
+                    MlHint = decision.VerdictSource == VerdictSource.Ml
+                        ? (result is null ? null : new MlResult { Label = result.Verdict.ToString(), Confidence = result.Confidence })
+                        : (ml is null ? null : new MlResult { Label = ml.Label, Confidence = ml.Confidence }),
+                },
+                new InspectResultV2
+                {
+                    DecisionId = failedSubject.DecisionId,
+                    ScenarioId = scenario.ScenarioId,
+                    Timestamp = failedAt,
+                    Path = PathStepV2.From(failedRoute),
+                    DetectionUnavailable = true,
+                    Reason = decision.Reason,
+                });
         }
 
         // verdict 출처 — ml-primary 만 ML, 그 외 VLM. fail-closed 통과 후이므로 출처 측은 non-null.
@@ -131,8 +143,10 @@ public sealed class InspectionPipeline(
         }
 
         // 결정 장부(관찰 전용) — 레코드가 생긴 뒤에 적어 장부가 없는 레코드를 가리키지 않게 한다.
+        var subject = new LedgerSubject(imageId, effective, timestamp, result, evidence.Ml);
+        var route = await ledger.DecideAsync(subject, cancellationToken);
         await ledger.RecordAsync(
-            new LedgerSubject(imageId, effective, timestamp, result, evidence.Ml),
+            subject, route,
             new OperativeDecision(verdict, SourceName(decision), AuthorityStageJsonConverter.ToWire(stage), posture),
             cancellationToken);
 
@@ -148,18 +162,33 @@ public sealed class InspectionPipeline(
             && (stage == AuthorityStage.CoPrimary || stage == AuthorityStage.MlPrimary))
             await CheckAutoDemoteSafelyAsync(scenario.ScenarioId, stage, timestamp, cancellationToken);
 
-        return new InspectionOutcome.Completed(new InspectResponse
+        // v1 응답은 v2 결과의 OK/NG 보기다 — 같은 판정 · 신뢰도 · 시각 · id 에 v1 에만 있는 2중체크 세부를 더한다.
+        var v2 = new InspectResultV2
         {
-            Verdict = verdict,
-            Findings = findings,
-            Confidence = confidence,
+            DecisionId = imageId,
+            ScenarioId = scenario.ScenarioId,
             Timestamp = timestamp,
-            ImageId = imageId,
-            Ml = mlResult,
-            Agreement = agreement,
+            Class = verdict.ToString(),
+            SettledBy = new SettledBy { Tier = SourceName(decision), Kind = SourceName(decision) },
+            Confidence = confidence,
+            Findings = useMl ? null : findings,
             RequiresReview = requiresReview,
-            Posture = posture,
-        });
+            Path = PathStepV2.From(route),
+        };
+        return new InspectionOutcome.Completed(
+            new InspectResponse
+            {
+                Verdict = verdict,
+                Findings = findings,
+                Confidence = confidence,
+                Timestamp = v2.Timestamp,
+                ImageId = v2.DecisionId,
+                Ml = mlResult,
+                Agreement = agreement,
+                RequiresReview = requiresReview,
+                Posture = posture,
+            },
+            v2);
     }
 
     /// <summary>
@@ -415,10 +444,12 @@ public abstract record InspectionOutcome
     private InspectionOutcome() { }
 
     /// <summary>판정·기록 완료.</summary>
-    public sealed record Completed(InspectResponse Response) : InspectionOutcome;
+    /// <param name="Response">v1 응답(OK/NG 보기).</param>
+    /// <param name="V2">결과 v2.</param>
+    public sealed record Completed(InspectResponse Response, InspectResultV2 V2) : InspectionOutcome;
 
     /// <summary>자동 판정 불가(fail-closed) — 레코드를 남기지 않았다.</summary>
-    public sealed record Unavailable(DetectionUnavailableResponse Response) : InspectionOutcome;
+    public sealed record Unavailable(DetectionUnavailableResponse Response, InspectResultV2 V2) : InspectionOutcome;
 
     /// <summary>판정은 났으나 레코드 저장 실패 — 판정을 돌려주지 않는다(must-succeed).</summary>
     public sealed record RecordFailed : InspectionOutcome;

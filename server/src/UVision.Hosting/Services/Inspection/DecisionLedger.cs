@@ -45,34 +45,51 @@ public sealed class DecisionLedger(
     private readonly ConcurrentDictionary<string, JsonlProvenanceSink> _sinks = new(StringComparer.Ordinal);
 
     /// <summary>
-    /// 한 판정을 장부에 적는다. <paramref name="operative"/> 는 실제로 응답·레코드에 쓴 결정이다
-    /// (fail-closed 면 verdict 없음).
+    /// 라우터가 판정원의 답들로 무엇을 정했을지 — 장부 한 줄과 결과 v2 의 <c>path</c> 가 같은 값을 보도록 한 번만
+    /// 계산한다. 꼭대기까지 아무도 답하지 않으면 경로만 담은 provenance 를, 라우터 자체가 실패하면 null 을 돌려준다
+    /// (관측 누락 — 판정을 막지 않는다).
     /// </summary>
-    public async Task RecordAsync(LedgerSubject subject, OperativeDecision operative, CancellationToken cancellationToken)
+    public async Task<PredictionProvenance?> DecideAsync(LedgerSubject subject, CancellationToken cancellationToken)
     {
+        var slices = SlicesFor(subject.Scenario);
         try
         {
-            var slices = SlicesFor(subject.Scenario);
             var router = new TieredRouter<LedgerSubject, string>(
                 Judges(subject), PolicyFor(subject.Scenario), slices, s => s.DecisionId, snapshot: () => null);
-
-            PredictionProvenance provenance;
-            try
+            return (await router.DecideAsync(subject, cancellationToken)).Prediction.Provenance;
+        }
+        catch (DecisionNotSettledException ex)
+        {
+            // 꼭대기까지 아무도 답하지 않음(VLM 실패) — 실제 판정도 fail-closed 다. 경로만 남긴다.
+            return new PredictionProvenance
             {
-                provenance = (await router.DecideAsync(subject, cancellationToken)).Prediction.Provenance;
-            }
-            catch (DecisionNotSettledException ex)
-            {
-                // 꼭대기까지 아무도 답하지 않음(VLM 실패) — 실제 판정도 fail-closed 다. 경로만 남긴다.
-                provenance = new PredictionProvenance
-                {
-                    Kind = JudgeKind.Vlm,
-                    SliceKey = slices.KeyOf(subject),
-                    Path = ex.Path,
-                    Rationale = "no tier settled",
-                };
-            }
+                Kind = JudgeKind.Vlm,
+                SliceKey = slices.KeyOf(subject),
+                Path = ex.Path,
+                Rationale = "no tier settled",
+            };
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "판정 라우터 실패 — 장부 · 경로 누락 (scenario={ScenarioId}, decision={DecisionId})",
+                subject.Scenario.ScenarioId, subject.DecisionId);
+            return null;
+        }
+    }
 
+    /// <summary>
+    /// 한 판정을 장부에 적는다. <paramref name="operative"/> 는 실제로 응답·레코드에 쓴 결정이다
+    /// (fail-closed 면 verdict 없음). <paramref name="provenance"/> 가 null(라우터 실패)이면 적지 않는다.
+    /// </summary>
+    public async Task RecordAsync(
+        LedgerSubject subject, PredictionProvenance? provenance, OperativeDecision operative,
+        CancellationToken cancellationToken)
+    {
+        if (provenance is null)
+            return;
+        try
+        {
             var record = provenance with { Annotations = operative.ToAnnotations() };
             var date = StoragePaths.DateBucketOf(subject.Timestamp);
             var sink = _sinks.GetOrAdd(paths.LedgerJsonl(subject.Scenario.ScenarioId, date), p => new JsonlProvenanceSink(p));
