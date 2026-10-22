@@ -24,6 +24,9 @@ A picture becomes `<slot>.webp` and `<slot>-800.webp`; the video becomes `hero.m
 `hero-poster.webp` (the frame at 6 s). `npm test` checks that every slot has its files and that `public/media`
 holds nothing else.
 
+The video takes about three minutes: 480 frames are written to a temporary folder, then encoded twice. The VP9
+encode is the heaviest step, at about 1 GB of memory.
+
 ## Replace a slot with the real thing
 
 When a real photo or recording of the screen exists, put it at the slot's paths, set the slot's `origin` to

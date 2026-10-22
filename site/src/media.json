@@ -37,8 +37,8 @@
       "width": 1500,
       "height": 980,
       "alt": {
-        "ko": "서버 연결이 끊긴 작업자 화면: 캡처는 저장됐다는 안내와, 판정 대기 3건과 연결 복구 뒤 늦게 판정된 건이 보이는 오늘 이력",
-        "en": "Operator screen with the server unreachable: a notice that the capture is saved, and today's history with three waiting and two judged late after the connection came back"
+        "ko": "서버 연결이 끊긴 작업자 화면: 캡처는 저장됐다는 안내, 판정 대기 3건 표시, 대기했다 늦게 판정된 NG 알림과 지연 표시가 붙은 최근 목록",
+        "en": "Operator screen with the server unreachable: a notice that the capture is saved, three captures waiting, an alert for an NG judged late after waiting, and the recent list marking late verdicts"
       }
     },
     "console": {

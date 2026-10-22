@@ -44,7 +44,6 @@
   <div class="verdict-wrap">
     <div class="verdict ng" id="ng">
       <div class="big">NG</div>
-      <div class="type">긁힘</div>
       <p class="finding">2시 방향 볼트 구멍 사이 면에 길이 약 6mm 의 선형 긁힘</p>
       <p class="conf">신뢰도 94%</p>
     </div>
@@ -128,7 +127,7 @@
 
     // the recent strip gains each verdict as it is shown
     const shown = [['ok', 'OK', '14:01:20'], ['ok', 'OK', '14:01:37'], ['ok', 'OK', '14:01:52']];
-    if (done >= 1) shown.push(['ng', 'NG 긁힘', '14:02:19']);
+    if (done >= 1) shown.push(['ng', 'NG', '14:02:19']);
     if (done >= 2) shown.push(['ok', 'OK', '14:02:27']);
     const rows = shown.slice(-4).reverse().map(([c, v, t]) => `<li><span class="${c}">${v}</span><span class="t">${t}</span></li>`).join('');
     if ($('recent').innerHTML !== rows) $('recent').innerHTML = rows;

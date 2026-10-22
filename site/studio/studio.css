@@ -152,16 +152,6 @@ body {
   letter-spacing: -0.02em;
 }
 
-.verdict .type {
-  display: inline-block;
-  margin-top: 12px;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 0.18);
-  padding: 4px 16px;
-  font-size: 19px;
-  font-weight: 700;
-}
-
 .verdict .finding {
   margin: 12px 0 0;
   font-size: 19px;
