@@ -61,6 +61,7 @@ public static class UVisionServiceExtensions
         services.AddSingleton<IMetricsStore, FileMetricsStore>();
 
         // 판정 파이프라인 — 판정원 실행 · 판정 결정 · 기록. HTTP 엔드포인트는 이것을 부르기만 한다.
+        services.AddSingleton<Services.Inspection.DecisionLedger>();
         services.AddSingleton<Services.Inspection.InspectionPipeline>();
 
         // 데이터셋 export(신뢰성 플라이휠 ② — 전용 ML 빌드 데이터 준비).

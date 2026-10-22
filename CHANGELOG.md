@@ -4,6 +4,9 @@ Changes to the `UVision.Hosting` NuGet package. Versions 0.2.0 and 0.2.1 were ne
 
 ## [Unreleased]
 
+### Added
+- Decision ledger. Every inspection appends one line to `{DataPath}/{scenario}/ledger/{yyyy-MM-dd}.jsonl`: a HoneAI `PredictionProvenance` from a tiered router over the answers the inspection already received (ML below, VLM on top), with the verdict actually returned recorded beside it (`operative:*` annotations). The router only observes: with no trust policy yet, every slice is in shadow, so the VLM settles and responses are unchanged. A ledger write failure is logged and does not affect the inspection. Adds a dependency on `HoneAI.Core` 0.9.0, which has no further dependencies.
+
 ### Fixed
 - A PNG upload was sent to the vision model labeled as JPEG when server-side downscaling (`max_image_dimension`) is off. The image format sent to the model is now read from the image bytes.
 

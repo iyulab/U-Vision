@@ -96,6 +96,16 @@ public sealed partial class StoragePaths
     public string MetricsJsonl(string scenarioId, string date) =>
         Path.Combine(MetricsDir(scenarioId), Date(date) + ".jsonl");
 
+    // --- 결정 장부 (판정 라우터 provenance) --------------------------------
+    // 판정 하나마다 HoneAI PredictionProvenance 한 줄(누가 답했고, 어느 단이 Shadow 였고, 실제로 쓴 답은
+    // 무엇이었나). 관문 판정의 원천 자료라 append-only. <c>ledger</c> 도 날짜로 파싱되지 않아 목록에서 빠진다.
+
+    private const string LedgerSegment = "ledger";
+
+    /// <summary>날짜 버킷 결정 장부 jsonl <c>{scenario}/ledger/{yyyy-MM-dd}.jsonl</c>(append-only).</summary>
+    public string LedgerJsonl(string scenarioId, string date) =>
+        Path.Combine(ScenarioDir(scenarioId), LedgerSegment, Date(date) + ".jsonl");
+
     // --- 모델 버저닝 (신뢰성 플라이휠 B1) ----------------------------------
     // 모델 바이너리는 MLoop serve 소유. 여기서는 참조·provenance manifest + active 포인터만.
     // <c>models</c> 는 날짜로 파싱되지 않으므로 ListDatesAsync 가 자연 제외한다(references·datasets·metrics 와 동일).

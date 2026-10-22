@@ -19,7 +19,7 @@ namespace UVision.Api.Services.Inspection;
 /// <para>
 /// 단계는 셋으로 나뉜다. ① <see cref="GatherAsync"/> 판정원 실행 — VLM 과 ML 을 병렬로 부르고 실패를
 /// 신호로 흡수한다. ② <see cref="DecideAsync"/> 판정 결정 — 2중체크와 권한 단계로 어느 답을 쓸지 정한다.
-/// ③ 기록 — 레코드(must-succeed)·메트릭·자동격하(degrade). 판정원 실행과 결정을 나눠 두는 이유는
+/// ③ 기록 — 레코드(must-succeed)·결정 장부·메트릭·자동격하(degrade). 판정원 실행과 결정을 나눠 두는 이유는
 /// 결정 규칙을 바꿀 때(예: 계층 라우터) 판정원 호출의 병렬성을 잃지 않기 위해서다.
 /// </para>
 /// <para>실패 등급: 기준이미지 로드·ML·메트릭·자동격하는 degrade, VLM 은 fail-closed(503), 레코드 저장은
@@ -35,6 +35,7 @@ public sealed class InspectionPipeline(
     IMetricsStore metricsStore,
     IAuthorityStore authorityStore,
     ILabelStore labelStore,
+    DecisionLedger ledger,
     MlOptions mlOptions,
     AuthorityOptions authorityOptions,
     ILogger<InspectionPipeline> logger)
@@ -63,8 +64,13 @@ public sealed class InspectionPipeline(
                 "판정 불가(fail-closed) (scenario={ScenarioId}, reason={Reason})",
                 scenario.ScenarioId, decision.Reason);
 
+            var failedAt = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
             if (classifier.IsEnabled)
-                await WriteFailClosedMetricSafelyAsync(scenario.ScenarioId, ml, cancellationToken);
+                await WriteFailClosedMetricSafelyAsync(scenario.ScenarioId, ml, failedAt, cancellationToken);
+            await ledger.RecordAsync(
+                new LedgerSubject($"dec_{Guid.NewGuid():N}", scenario.ScenarioId, failedAt, result, evidence.Ml),
+                new OperativeDecision(null, SourceName(decision), AuthorityStageJsonConverter.ToWire(stage), MetricsRow.PostureFailClosed),
+                cancellationToken);
 
             return new InspectionOutcome.Unavailable(new DetectionUnavailableResponse
             {
@@ -121,6 +127,12 @@ public sealed class InspectionPipeline(
                 scenario.ScenarioId, imageId);
             return new InspectionOutcome.RecordFailed();
         }
+
+        // 결정 장부(관찰 전용) — 레코드가 생긴 뒤에 적어 장부가 없는 레코드를 가리키지 않게 한다.
+        await ledger.RecordAsync(
+            new LedgerSubject(imageId, scenario.ScenarioId, timestamp, result, evidence.Ml),
+            new OperativeDecision(verdict, SourceName(decision), AuthorityStageJsonConverter.ToWire(stage), posture),
+            cancellationToken);
 
         // B3 관측성: ML 활성(②~③ 결선)일 때만 예측 신호를 메트릭 시계열로 흘린다.
         // 비활성(none=①단계)이면 메트릭도 없음 → inspect 부수효과가 ② 이전과 동일.
@@ -277,9 +289,8 @@ public sealed class InspectionPipeline(
     /// <c>posture="fail_closed"</c>·verdict/vlm_confidence=null. ML 활성 경로에서만 호출.
     /// </summary>
     private async Task WriteFailClosedMetricSafelyAsync(
-        string scenarioId, MlClassification? ml, CancellationToken cancellationToken)
+        string scenarioId, MlClassification? ml, string timestamp, CancellationToken cancellationToken)
     {
-        var timestamp = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
         var row = new MetricsRow
         {
             ImageId = $"img_{Guid.NewGuid():N}",
@@ -376,6 +387,9 @@ public sealed class InspectionPipeline(
     /// <summary>자동격하 안전체크를 이번 inspect 에서 수행할지(암종화 — N건마다 1회). 0건/비배수는 skip.</summary>
     public static bool ShouldCheckAutoDemote(int todayRowCount, int checkEvery) =>
         todayRowCount > 0 && checkEvery > 0 && todayRowCount % checkEvery == 0;
+
+    private static string SourceName(AuthorityDecision decision) =>
+        decision.VerdictSource == VerdictSource.Ml ? "ml" : "vlm";
 
     /// <summary>ML 라벨(class-agnostic 문자열) → Verdict. "ng"(대소문자 무시)=NG, 그 외=OK.</summary>
     private static Verdict ParseVerdict(string label) =>
