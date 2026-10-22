@@ -26,13 +26,13 @@ public static class ScenarioEndpoints
                     : Results.Ok(scenario);
             }));
 
-        group.MapPost("", async (ScenarioInput input, IScenarioStore store, CancellationToken ct) =>
+        group.MapPost("", async (ScenarioInput input, IScenarioStore store, HttpRequest request, UVisionOptions options, CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(input.Name))
                 return Results.Problem(statusCode: 400, detail: "name 은 필수");
 
             var created = await store.CreateAsync(input, ct);
-            return Results.Created($"/api/u-vision/scenarios/{created.ScenarioId}", created);
+            return Results.Created(ApiLocation.For(request, options, $"scenarios/{created.ScenarioId}"), created);
         }).RequireAdminPin();
 
         group.MapPut("/{id}",

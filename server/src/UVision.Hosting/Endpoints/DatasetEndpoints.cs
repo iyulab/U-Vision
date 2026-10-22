@@ -63,6 +63,8 @@ public static class DatasetEndpoints
         [FromQuery(Name = "scenario_id")] string scenarioId,
         IScenarioStore scenarioStore,
         IDatasetExporter exporter,
+        HttpRequest request,
+        UVisionOptions options,
         CancellationToken ct)
     {
         try
@@ -74,7 +76,7 @@ public static class DatasetEndpoints
             var exportId = NewExportId();
             var manifest = await exporter.ExportAsync(scenarioId, exportId, ct);
             return Results.Created(
-                $"/datasets/{exportId}/manifest?scenario_id={scenarioId}", manifest);
+                ApiLocation.For(request, options, $"datasets/{exportId}/manifest?scenario_id={scenarioId}"), manifest);
         }
         catch (ArgumentException)
         {

@@ -42,7 +42,8 @@ public static class ModelEndpoints
     }
 
     private static async Task<IResult> RegisterAsync(
-        string id, RegisterModelInput input, IModelRegistry registry, CancellationToken ct)
+        string id, RegisterModelInput input, IModelRegistry registry,
+        HttpRequest request, UVisionOptions options, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(input.ModelName))
             return Results.Problem(statusCode: 400, detail: "model_name 필수");
@@ -57,7 +58,7 @@ public static class ModelEndpoints
                 Note = input.Note,
                 By = input.By ?? "",
             }, ct);
-            return Results.Created($"/api/u-vision/scenarios/{id}/models/{version}", new { version });
+            return Results.Created(ApiLocation.For(request, options, $"scenarios/{id}/models/{Uri.EscapeDataString(version)}"), new { version });
         }
         catch (ArgumentException)
         {

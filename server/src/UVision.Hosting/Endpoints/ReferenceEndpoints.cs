@@ -75,6 +75,8 @@ public static class ReferenceEndpoints
         IScenarioStore scenarioStore,
         IReferenceStore referenceStore,
         VlmOptions options,
+        HttpRequest request,
+        UVisionOptions uvision,
         CancellationToken ct,
         [FromForm(Name = "ng_label")] string? ngLabel = null)
     {
@@ -102,7 +104,7 @@ public static class ReferenceEndpoints
             if (parsed == ReferenceLabel.Ng && !string.IsNullOrWhiteSpace(ngLabel))
                 await scenarioStore.SetNgLabelAsync(id, refId, ngLabel.Trim(), ct);
 
-            return Results.Created($"/api/u-vision/scenarios/{id}/references/{label}/{refId}",
+            return Results.Created(ApiLocation.For(request, uvision, $"scenarios/{id}/references/{label}/{refId}"),
                 new ReferenceInfo { RefId = refId, Label = parsed, NgLabel = ngLabel?.Trim() });
         }
         catch (ArgumentException)

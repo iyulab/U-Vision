@@ -8,18 +8,43 @@ namespace UVision.Api.Storage;
 /// <summary>
 /// <c>{DataPath}/{scenarioId}/{date}/{image_id}.label.json</c> 사이드카 저장소.
 /// 결과 json 옆에 가변 라벨을 둔다 — 결과 레코드는 건드리지 않는다(불변).
+/// <para>
+/// 쓰기는 모두 읽고-고치고-쓰기다. 사람 라벨(HTTP)과 오라클 스윕(백그라운드)이 같은 사이드카를 동시에 고치면
+/// 한쪽 이벤트가 사라지거나 rename 이 충돌하므로, 경로별로 직렬화한다(프로세스 안 — 저장소는 한 프로세스가 연다).
+/// </para>
 /// </summary>
 public sealed class FileLabelStore : ILabelStore
 {
+    // 경로 해시로 고른 고정 개수의 잠금 — 이미지마다 잠금을 만들지 않아 메모리가 늘지 않는다.
+    private readonly SemaphoreSlim[] _stripes =
+        Enumerable.Range(0, 64).Select(_ => new SemaphoreSlim(1, 1)).ToArray();
+
     private readonly StoragePaths _paths;
 
     public FileLabelStore(StoragePaths paths) => _paths = paths;
+
+    private async Task<T> WithPathLockAsync<T>(string path, Func<Task<T>> update, CancellationToken ct)
+    {
+        var stripe = _stripes[(StringComparer.Ordinal.GetHashCode(path) & int.MaxValue) % _stripes.Length];
+        await stripe.WaitAsync(ct);
+        try { return await update(); }
+        finally { stripe.Release(); }
+    }
+
+    private Task WithPathLockAsync(string path, Func<Task> update, CancellationToken ct) =>
+        WithPathLockAsync<bool>(path, async () => { await update(); return true; }, ct);
 
     public async Task AppendLabelAsync(
         string scenarioId, string date, string imageId, string label, string by,
         CancellationToken cancellationToken = default)
     {
         var path = _paths.LabelJson(scenarioId, date, imageId); // 형식 위반 → ArgumentException(→400)
+        await WithPathLockAsync(path, () => AppendLabelLockedAsync(path, imageId, label, by, cancellationToken), cancellationToken);
+    }
+
+    private static async Task AppendLabelLockedAsync(
+        string path, string imageId, string label, string by, CancellationToken cancellationToken)
+    {
         var now = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
         var existing = await ReadNormalizedAsync(path, cancellationToken);
 
@@ -46,6 +71,12 @@ public sealed class FileLabelStore : ILabelStore
         CancellationToken cancellationToken = default)
     {
         var path = _paths.LabelJson(scenarioId, date, imageId);
+        await WithPathLockAsync(path, () => AppendOracleLockedAsync(path, imageId, label, by, cancellationToken), cancellationToken);
+    }
+
+    private static async Task AppendOracleLockedAsync(
+        string path, string imageId, string label, string by, CancellationToken cancellationToken)
+    {
         var now = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
         var existing = await ReadNormalizedAsync(path, cancellationToken);
 
@@ -70,6 +101,12 @@ public sealed class FileLabelStore : ILabelStore
         CancellationToken cancellationToken = default)
     {
         var path = _paths.LabelJson(scenarioId, date, imageId); // 형식 위반 → ArgumentException(→400)
+        return await WithPathLockAsync(path, () => AppendAuditLockedAsync(path, auditLabel, by, cancellationToken), cancellationToken);
+    }
+
+    private static async Task<AuditOutcome> AppendAuditLockedAsync(
+        string path, string auditLabel, string by, CancellationToken cancellationToken)
+    {
         var existing = await ReadNormalizedAsync(path, cancellationToken)
             ?? throw new InvalidOperationException("감사 대상 라벨이 없습니다.");
         var operative = existing.OperativeLabel

@@ -191,4 +191,21 @@ public class LabelStoreTests
         Assert.Single(read!.History!);
         Assert.Equal(LabelAuditStatus.Unaudited, read.Audit!.Status);
     }
+
+    [Fact]
+    public async Task ConcurrentHumanAndOracleWrites_LoseNoEvent()
+    {
+        // 사람 라벨(HTTP)과 오라클 스윕(백그라운드)이 같은 사이드카를 동시에 읽고-고치고-쓴다.
+        var paths = NewPaths(out _);
+        var store = new FileLabelStore(paths);
+        await store.AppendLabelAsync("demo", "2026-06-09", "img_abc", "OK", "dev");
+
+        var writes = Enumerable.Range(0, 40).Select(i => i % 2 == 0
+            ? store.AppendLabelAsync("demo", "2026-06-09", "img_abc", "NG", "dev")
+            : store.AppendOracleAsync("demo", "2026-06-09", "img_abc", "OK", "oracle"));
+        await Task.WhenAll(writes.Select(w => Task.Run(() => w)));
+
+        var read = await store.ReadAsync("demo", "2026-06-09", "img_abc");
+        Assert.Equal(41, read!.History!.Count);
+    }
 }
