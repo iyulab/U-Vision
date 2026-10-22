@@ -9,7 +9,8 @@
     "preview": "vite preview --host",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build:embed": "cross-env VITE_BASE=/u-vision/ vite build --outDir ../server/src/UVision.Hosting/wwwroot --emptyOutDir"
+    "build:embed": "cross-env VITE_BASE=/u-vision/ vite build --outDir ../server/src/UVision.Hosting/wwwroot --emptyOutDir",
+    "lint": "oxlint --deny-warnings"
   },
   "dependencies": {
     "@uplatform/brand": "^0.4.0",
@@ -29,6 +30,7 @@
     "cross-env": "^10.1.0",
     "fake-indexeddb": "^6.2.6",
     "happy-dom": "^21.0.4",
+    "oxlint": "^1.89.0",
     "tailwindcss": "^4.3.0",
     "typescript": "^7.0.2",
     "vite": "^8.0.16",
