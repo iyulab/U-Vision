@@ -76,7 +76,7 @@ const roadmapPoint = (p: Point) => p.roadmap === true;
             <ul class="points">
               {f.points.map(p => (
                 <li data-claim={p.claim} class:list={{ roadmap: roadmapPoint(p) }}>
-                  {roadmapPoint(p) && <span class="chip">{c.roadmapLabel}</span>}
+                  {roadmapPoint(p) && <span class="chip">{c.buildingLabel}</span>}
                   {p.text}
                   {roadmapPoint(p) && <a class="ask" href={contactUrl(p.claim)}>{c.ask}</a>}
                 </li>
@@ -88,10 +88,10 @@ const roadmapPoint = (p: Point) => p.roadmap === true;
     ))
   }
 
-  <section class="scenarios" id="roadmap" aria-labelledby="scenarios-heading">
+  <section class="scenarios" id="scenarios" aria-labelledby="scenarios-heading">
     <div class="scenarios-inner">
       <div class="scenarios-head">
-        <span class="chip">{c.roadmapLabel}</span>
+        <span class="chip">{c.buildingLabel}</span>
         <h2 id="scenarios-heading">{c.scenarios.heading}</h2>
         <p data-claim={c.scenarios.intro.claim}>{c.scenarios.intro.text}</p>
         <p data-claim={c.scenarios.edge.claim}>{c.scenarios.edge.text}</p>
@@ -124,7 +124,7 @@ const roadmapPoint = (p: Point) => p.roadmap === true;
         {
           c.integration.points.map(p => (
             <li data-claim={p.claim} class:list={{ roadmap: roadmapPoint(p) }}>
-              {roadmapPoint(p) && <span class="chip">{c.roadmapLabel}</span>}
+              {roadmapPoint(p) && <span class="chip">{c.buildingLabel}</span>}
               {p.text}
               {roadmapPoint(p) && <a class="ask" href={contactUrl(p.claim)}>{c.ask}</a>}
             </li>

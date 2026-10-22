@@ -1,7 +1,7 @@
 // Every sentence the site states about the product, in both languages. Each one that makes a claim
 // carries the id of its row in ../claims.tsv, which records the claim's status and where this
 // repository backs it — test/claims.test.ts keeps the two in step. A claim whose status is `vision`
-// is a goal, not built yet: the page marks it with the roadmap label (`roadmap: true` here).
+// is a goal, not built yet: the page marks it as in development (`roadmap: true` here).
 
 import type { SlotId } from './media';
 
@@ -60,9 +60,9 @@ export interface Scenario extends Item {
 export interface Copy {
   title: string;
   description: string;
-  nav: { screens: string; learning: string; roadmap: string; start: string; contact: string };
+  nav: { screens: string; learning: string; scenarios: string; start: string; contact: string };
   hero: { headline: string; lede: Point; cta: string; secondary: string; pause: string; play: string };
-  roadmapLabel: string;
+  buildingLabel: string;
   /** The link beside a roadmap item that asks for it. */
   ask: string;
   values: { heading: string; items: Item[] };
@@ -101,7 +101,7 @@ export const COPY: Record<Locale, Copy> = {
     title: 'U-Vision — 셀프호스트 비전 검사',
     description:
       '태블릿 카메라 하나로 시작하는 비전 검사. 부품을 올려놓으면 멈추는 순간 찍고, 직접 운영하는 비전 모델이 우리 기준대로 판정하고 기록합니다. 사진은 공장을 떠나지 않습니다.',
-    nav: { screens: '화면', learning: '학습', roadmap: '로드맵', start: '도입', contact: '도입 상담' },
+    nav: { screens: '화면', learning: '학습', scenarios: '시나리오', start: '도입', contact: '도입 상담' },
     hero: {
       headline: '눈으로 하던 검사를, 기록이 남는 판정으로',
       lede: {
@@ -113,7 +113,7 @@ export const COPY: Record<Locale, Copy> = {
       pause: '영상 멈춤',
       play: '영상 재생',
     },
-    roadmapLabel: '로드맵',
+    buildingLabel: '개발 중',
     ask: '필요하면 알려 주세요',
     values: {
       heading: '무엇이 달라지나',
@@ -185,7 +185,7 @@ export const COPY: Record<Locale, Copy> = {
         heading: '쓸수록 똑똑해지는 판정',
         body: {
           claim: 'readiness',
-          text: '첫날은 비전 모델이 판정합니다. 사람이 확인한 사진이 유형마다 모이면 콘솔이 그 라인 전용 모델을 만들 때가 됐다고 알립니다. 학습 데이터는 선정 규칙대로 묶여 API 로 내려받습니다.',
+          text: '첫날은 비전 모델이 판정합니다. 사람이 확인한 사진이 유형마다 모이면 콘솔이 그 라인 전용 모델을 만들 때가 됐다고 알리고, 학습에 쓸 사진도 정해진 기준대로 골라 묶어 줍니다.',
         },
         points: [
           { claim: 'crosscheck', text: '전용 모델은 비전 모델과 나란히 판정하고, 둘의 답이 다르면 검토 목록에 올립니다.' },
@@ -234,7 +234,7 @@ export const COPY: Record<Locale, Copy> = {
       heading: '현장 시스템과 이어집니다',
       body: {
         claim: 'integrate',
-        text: '판정마다 서명된 사건(CloudEvents)을 웹훅으로 MES 같은 시스템에 보냅니다. API 는 OpenAPI 문서로 공개되어 있어 연동 코드를 바로 만들 수 있습니다.',
+        text: '판정 결과는 나오는 즉시 MES 같은 현장 시스템으로 전해지고, 위조를 막는 서명이 붙습니다. 연동 방법이 문서로 공개되어 있어 전산 담당자가 바로 이을 수 있습니다.',
       },
       points: [
         { claim: 'mes-in', text: 'MES 에서 작업지시·로트·기대 품번을 받아 오투입 확인에 바로 쓰도록 만들고 있습니다.', roadmap: true },
@@ -248,10 +248,10 @@ export const COPY: Record<Locale, Copy> = {
         engineSub: '우리 서버 · 판정 · 기록',
         model: '비전 모델 · 자체 GPU',
         mes: 'MES · 설비',
-        webhook: '판정 사건 · 웹훅',
+        webhook: '판정 결과 전달',
         protocols: 'MQTT · OPC UA',
         orders: '작업지시 · 기대 품번',
-        legend: '점선은 로드맵',
+        legend: '점선은 개발 중',
       },
     },
     delivery: {
@@ -260,7 +260,7 @@ export const COPY: Record<Locale, Copy> = {
         {
           claim: 'models',
           heading: '사진이 공장을 떠나지 않습니다',
-          body: 'OpenAI 호환 API 로 서비스하는 자체 GPU 서버의 모델로 판정합니다. 검사 사진을 외부 서비스로 보내지 않습니다.',
+          body: '회사 안의 GPU 서버에서 돌리는 비전 모델로 판정합니다. 검사 사진을 외부 서비스로 보내지 않습니다.',
         },
         {
           claim: 'selfhost',
@@ -270,7 +270,7 @@ export const COPY: Record<Locale, Copy> = {
         {
           claim: 'embed',
           heading: '쓰던 시스템 안에도',
-          body: '단독 서버로도, ASP.NET Core 앱에 NuGet 패키지로 넣어서도 씁니다.',
+          body: '따로 서버를 두어도 되고, 사내 시스템이 .NET 으로 만들어져 있다면 그 안에 한 기능으로 넣을 수도 있습니다.',
         },
       ],
     },
@@ -286,7 +286,7 @@ export const COPY: Record<Locale, Copy> = {
     },
     demand: {
       heading: '필요한 검사를 알려 주세요',
-      body: '여기 없는 검사도 좋습니다. 어떤 부품을, 어떤 기준으로, 하루 몇 건 보는지 알려 주시면 맞는 시작점을 함께 찾습니다. 로드맵의 순서도 이런 요청으로 정합니다.',
+      body: '여기 없는 검사도 좋습니다. 어떤 부품을, 어떤 기준으로, 하루 몇 건 보는지 알려 주시면 맞는 시작점을 함께 찾습니다. 무엇을 먼저 만들지도 이런 요청으로 정합니다.',
       cta: '도입 상담 요청',
     },
     tech: {
@@ -323,7 +323,7 @@ export const COPY: Record<Locale, Copy> = {
     title: 'U-Vision — self-hosted vision inspection',
     description:
       'Vision inspection that starts with one tablet camera. Set a part down and it shoots the moment the part holds still; a vision model you run judges it against your criteria and keeps the record. Images stay in the plant.',
-    nav: { screens: 'Screens', learning: 'Learning', roadmap: 'Roadmap', start: 'Getting started', contact: 'Talk to us' },
+    nav: { screens: 'Screens', learning: 'Learning', scenarios: 'Scenarios', start: 'Getting started', contact: 'Talk to us' },
     hero: {
       headline: 'Turn inspection by eye into decisions you can look up',
       lede: {
@@ -335,7 +335,7 @@ export const COPY: Record<Locale, Copy> = {
       pause: 'Pause video',
       play: 'Play video',
     },
-    roadmapLabel: 'Roadmap',
+    buildingLabel: 'In development',
     ask: 'Need this? Tell us',
     values: {
       heading: 'What changes',
@@ -407,7 +407,7 @@ export const COPY: Record<Locale, Copy> = {
         heading: 'Judgment that gets better with use',
         body: {
           claim: 'readiness',
-          text: 'On day one the vision model judges. Once enough human-confirmed images of each type are in, the console says it is time to build a model dedicated to the line. The training data, selected by rule, is downloaded through the API.',
+          text: 'On day one the vision model judges. Once enough human-confirmed images of each type are in, the console says it is time to build a model dedicated to the line, and picks out and bundles the images to train it on by a set rule.',
         },
         points: [
           { claim: 'crosscheck', text: 'The dedicated model judges alongside the vision model, and disagreements go to the review list.' },
@@ -456,7 +456,7 @@ export const COPY: Record<Locale, Copy> = {
       heading: 'It connects to the systems on site',
       body: {
         claim: 'integrate',
-        text: 'Each decision is posted to systems such as an MES as a signed event (CloudEvents) over a webhook. The API is described by a published OpenAPI document, so integration code can be generated from it.',
+        text: 'Each decision is passed to plant systems such as an MES the moment it is made, signed so it cannot be forged. How to connect is documented in the open, so your IT staff can wire it up directly.',
       },
       points: [
         { claim: 'mes-in', text: 'We are building intake of work orders, lots and expected part numbers from the MES, for the wrong-part check to use directly.', roadmap: true },
@@ -470,10 +470,10 @@ export const COPY: Record<Locale, Copy> = {
         engineSub: 'Your server · judge · record',
         model: 'Vision model · your GPU',
         mes: 'MES · equipment',
-        webhook: 'Decision events · webhook',
+        webhook: 'Decisions sent out',
         protocols: 'MQTT · OPC UA',
         orders: 'Work orders · part numbers',
-        legend: 'Dashed lines are on the roadmap',
+        legend: 'Dashed lines are in development',
       },
     },
     delivery: {
@@ -482,7 +482,7 @@ export const COPY: Record<Locale, Copy> = {
         {
           claim: 'models',
           heading: 'Images stay in the plant',
-          body: 'It judges with a model served from your own GPU server through an OpenAI-compatible API. Inspection images are not sent to outside services.',
+          body: 'It judges with a vision model running on a GPU server inside your company. Inspection images are not sent to outside services.',
         },
         {
           claim: 'selfhost',
@@ -492,7 +492,7 @@ export const COPY: Record<Locale, Copy> = {
         {
           claim: 'embed',
           heading: 'Inside what you already run',
-          body: 'Run it as a standalone server, or mount it in an ASP.NET Core app as a NuGet package.',
+          body: 'Run it on a server of its own, or, if your in-house system is built on .NET, add it there as one more feature.',
         },
       ],
     },
@@ -508,7 +508,7 @@ export const COPY: Record<Locale, Copy> = {
     },
     demand: {
       heading: 'Tell us what you need to inspect',
-      body: 'Even if it is not on this page. Tell us what parts, against what criteria and how many a day, and we will find a starting point together. The roadmap\'s order is set by requests like yours.',
+      body: 'Even if it is not on this page. Tell us what parts, against what criteria and how many a day, and we will find a starting point together. Requests like yours decide what we build next.',
       cta: 'Request a consultation',
     },
     tech: {

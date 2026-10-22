@@ -85,3 +85,29 @@ describe('cookies', () => {
     }
   });
 });
+
+// What is not built yet is marked «in development» and said in the future tense. The page does not call it a roadmap,
+// and does not call its pictures samples or mock-ups: they show what the product does or is being built to do.
+describe('wording', () => {
+  const strings = (node: unknown): string[] =>
+    typeof node === 'string'
+      ? [node]
+      : node !== null && typeof node === 'object'
+        ? Object.values(node as Record<string, unknown>).flatMap(strings)
+        : [];
+
+  it('the page copy names no roadmap, sample or mock-up', () => {
+    for (const locale of ['ko', 'en'] as const) {
+      for (const text of strings(COPY[locale])) {
+        expect(text, locale).not.toMatch(/로드맵|시안|샘플|예시|\broadmap\b|\bsamples?\b|\bmock-?ups?\b/i);
+      }
+    }
+  });
+
+  it('no studio scene writes those words into a picture', () => {
+    const scenes = path.join(siteDir, 'studio', 'scenes');
+    for (const file of readdirSync(scenes).filter(f => f.endsWith('.html'))) {
+      expect(readFileSync(path.join(scenes, file), 'utf8'), file).not.toMatch(/로드맵|시안|샘플|예시/);
+    }
+  });
+});
