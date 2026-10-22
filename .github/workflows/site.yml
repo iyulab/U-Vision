@@ -39,6 +39,8 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
+          # Astro needs a recent 22.x (see site/package.json engines); the runner's cached 22.x can lag behind it.
+          check-latest: true
           cache: npm
           cache-dependency-path: site/package-lock.json
 
