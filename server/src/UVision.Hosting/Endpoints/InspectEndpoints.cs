@@ -30,6 +30,7 @@ public static class InspectEndpoints
             .Produces<DetectionUnavailableResponse>(503)
             .ProducesUploadProblems()
             .ProducesProblem(404)
+            .ProducesProblem(422) // Idempotency-Key 가 이미 다른 요청에 쓰였다
             .ProducesProblem(500);
 
         // 결과 v2 — 같은 요청, 시나리오 클래스 · 확정자 · 라우터 경로를 담은 응답. v1 은 그대로 둔다.
@@ -40,6 +41,7 @@ public static class InspectEndpoints
             .Produces<InspectResultV2>(503)
             .ProducesUploadProblems()
             .ProducesProblem(404)
+            .ProducesProblem(422) // Idempotency-Key 가 이미 다른 요청에 쓰였다
             .ProducesProblem(500);
 
         group.MapGet("/results", ListResultsAsync)
@@ -57,26 +59,27 @@ public static class InspectEndpoints
             .ProducesProblem(404);
     }
 
-    private static async Task<IResult> InspectAsync(
+    private static Task<IResult> InspectAsync(
         IFormFile image,
         [FromForm(Name = "scenario_id")] string scenarioId,
         [FromForm(Name = "device_id")] string? deviceId,
         [FromForm(Name = "device_label")] string? deviceLabel,
         [FromForm(Name = "captured_at")] string? capturedAt,
+        [FromHeader(Name = InspectionReplays.KeyHeader)] string? idempotencyKey,
         InspectionPipeline pipeline,
+        InspectionReplays replays,
         VlmOptions options,
-        CancellationToken cancellationToken)
-    {
-        var (rejected, outcome) = await RunAsync(
-            image, scenarioId, deviceId, deviceLabel, capturedAt, context: null, pipeline, options, cancellationToken);
-        return rejected ?? outcome switch
-        {
-            InspectionOutcome.Completed c => Results.Ok(c.Response),
-            InspectionOutcome.Unavailable u => Results.Json(u.Response, statusCode: StatusCodes.Status503ServiceUnavailable),
-            InspectionOutcome.RecordFailed => Results.Problem(statusCode: 500, detail: "검사 결과 저장 실패"),
-            _ => throw new InvalidOperationException($"처리하지 않은 판정 결과: {outcome?.GetType().Name}"),
-        };
-    }
+        CancellationToken cancellationToken) =>
+        RunAsync(
+            "inspect", image, scenarioId, deviceId, deviceLabel, capturedAt, context: null, idempotencyKey,
+            outcome => outcome switch
+            {
+                InspectionOutcome.Completed c => (Results.Ok(c.Response), c.Response),
+                InspectionOutcome.Unavailable u => (Results.Json(u.Response, statusCode: StatusCodes.Status503ServiceUnavailable), null),
+                InspectionOutcome.RecordFailed => (Results.Problem(statusCode: 500, detail: "검사 결과 저장 실패"), null),
+                _ => throw new InvalidOperationException($"처리하지 않은 판정 결과: {outcome.GetType().Name}"),
+            },
+            pipeline, replays, options, cancellationToken);
 
     private static async Task<IResult> InspectV2Async(
         IFormFile image,
@@ -86,7 +89,9 @@ public static class InspectEndpoints
         [FromForm(Name = "expected_part")] string? expectedPart,
         [FromForm(Name = "observed_code")] string? observedCode,
         [FromForm(Name = "captured_at")] string? capturedAt,
+        [FromHeader(Name = InspectionReplays.KeyHeader)] string? idempotencyKey,
         InspectionPipeline pipeline,
+        InspectionReplays replays,
         VlmOptions options,
         CancellationToken cancellationToken)
     {
@@ -98,30 +103,37 @@ public static class InspectEndpoints
             ? null
             : new InspectionContext { ExpectedPart = expectedPart, ObservedCode = observedCode };
 
-        var (rejected, outcome) = await RunAsync(
-            image, scenarioId, deviceId, deviceLabel, capturedAt, context, pipeline, options, cancellationToken);
-        return rejected ?? outcome switch
-        {
-            InspectionOutcome.Completed c => Results.Ok(c.V2),
-            InspectionOutcome.Unavailable u => Results.Json(u.V2, statusCode: StatusCodes.Status503ServiceUnavailable),
-            InspectionOutcome.RecordFailed => Results.Problem(statusCode: 500, detail: "검사 결과 저장 실패"),
-            _ => throw new InvalidOperationException($"처리하지 않은 판정 결과: {outcome?.GetType().Name}"),
-        };
+        return await RunAsync(
+            "v2/inspect", image, scenarioId, deviceId, deviceLabel, capturedAt, context, idempotencyKey,
+            outcome => outcome switch
+            {
+                InspectionOutcome.Completed c => (Results.Ok(c.V2), c.V2),
+                InspectionOutcome.Unavailable u => (Results.Json(u.V2, statusCode: StatusCodes.Status503ServiceUnavailable), null),
+                InspectionOutcome.RecordFailed => (Results.Problem(statusCode: 500, detail: "검사 결과 저장 실패"), null),
+                _ => throw new InvalidOperationException($"처리하지 않은 판정 결과: {outcome.GetType().Name}"),
+            },
+            pipeline, replays, options, cancellationToken);
     }
 
     /// <summary>
-    /// 두 판(v1 · v2)이 같은 요청 검증 · 시나리오 조회 · 판정을 지난다 — 다른 것은 결과를 옮기는 모양뿐이다.
-    /// 요청이 거부되면 그 응답을, 아니면 판정 결과를 돌려준다.
+    /// 두 판(v1 · v2)이 같은 요청 검증 · 시나리오 조회 · 판정을 지난다 — 다른 것은 판정 결과를 응답으로 옮기는
+    /// <paramref name="respond"/> 뿐이다(그 둘째 값이 재전송 때 돌려줄 성공 본문). 멱등 키가 있으면 판정을
+    /// <see cref="InspectionReplays"/> 로 감싼다 — 키가 없으면 지금과 같은 경로다.
     /// </summary>
-    private static async Task<(IResult? Rejected, InspectionOutcome? Outcome)> RunAsync(
-        IFormFile image, string scenarioId, string? deviceId, string? deviceLabel, string? capturedAt,
-        InspectionContext? context, InspectionPipeline pipeline, VlmOptions options, CancellationToken cancellationToken)
+    private static async Task<IResult> RunAsync(
+        string operation, IFormFile image, string scenarioId, string? deviceId, string? deviceLabel, string? capturedAt,
+        InspectionContext? context, string? idempotencyKey,
+        Func<InspectionOutcome, (IResult Result, object? Replayable)> respond,
+        InspectionPipeline pipeline, InspectionReplays replays, VlmOptions options, CancellationToken cancellationToken)
     {
+        if (idempotencyKey is not null && !InspectionReplays.IsValidKey(idempotencyKey))
+            return Results.Problem(statusCode: 400,
+                detail: $"{InspectionReplays.KeyHeader} 는 영문 · 숫자 · '.' '_' '-' 로 된 128자 이하여야 한다");
         var invalid = ImageUpload.Validate(image, options.MaxUploadSizeMb);
         if (invalid is not null)
-            return (invalid, null);
+            return invalid;
         if (!CaptureTime.TryNormalize(capturedAt, out var capturedAtUtc))
-            return (Results.Problem(statusCode: 400, detail: "captured_at 은 시간대가 있는 ISO 8601 시각이어야 한다"), null);
+            return Results.Problem(statusCode: 400, detail: "captured_at 은 시간대가 있는 ISO 8601 시각이어야 한다");
 
         Scenario? scenario;
         try
@@ -130,22 +142,31 @@ public static class InspectEndpoints
         }
         catch (ArgumentException) // 형식 위반 id → 400(존재하지 않음 404 와 구분)
         {
-            return (Results.Problem(statusCode: 400, detail: $"유효하지 않은 scenario_id: {scenarioId}"), null);
+            return Results.Problem(statusCode: 400, detail: $"유효하지 않은 scenario_id: {scenarioId}");
         }
         if (scenario is null)
-            return (Results.Problem(statusCode: 404, detail: $"시나리오 없음: {scenarioId}"), null);
+            return Results.Problem(statusCode: 404, detail: $"시나리오 없음: {scenarioId}");
 
         // 오투입 확인은 기대 품번 없이는 판정할 것이 없다 — v1 은 이 필드가 없으므로 v2 로만 부를 수 있다.
         if (scenario.Type == ScenarioVocabulary.Verification && string.IsNullOrWhiteSpace(context?.ExpectedPart))
-            return (Results.Problem(statusCode: 400,
-                detail: "verification 시나리오는 expected_part 가 필요하다(POST /v2/inspect)"), null);
+            return Results.Problem(statusCode: 400,
+                detail: "verification 시나리오는 expected_part 가 필요하다(POST /v2/inspect)");
 
         var data = await ImageUpload.ReadBytesAsync(image, cancellationToken);
         if (data is null)
-            return (Results.Problem(statusCode: 400, detail: "빈 이미지"), null);
+            return Results.Problem(statusCode: 400, detail: "빈 이미지");
 
-        return (null, await pipeline.RunAsync(
-            scenario, new InspectionCapture(data, image.ContentType, deviceId, deviceLabel, context, capturedAtUtc), cancellationToken));
+        var capture = new InspectionCapture(data, image.ContentType, deviceId, deviceLabel, context, capturedAtUtc);
+        if (idempotencyKey is null)
+            return respond(await pipeline.RunAsync(scenario, capture, cancellationToken)).Result;
+
+        var fingerprint = InspectionReplays.Fingerprint(
+            operation, data, scenario.ScenarioId, image.ContentType, deviceId, deviceLabel,
+            context?.ExpectedPart, context?.ObservedCode, capturedAtUtc);
+        return await replays.RunAsync(
+            scenario.ScenarioId, idempotencyKey, fingerprint,
+            async () => respond(await pipeline.RunAsync(scenario, capture, cancellationToken)),
+            cancellationToken);
     }
 
     private static async Task<IResult> ListResultsAsync(

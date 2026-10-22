@@ -40,9 +40,9 @@ export class NetworkError extends Error {
   }
 }
 
-async function post(url: string, body: FormData): Promise<Response> {
+async function post(url: string, body: FormData, headers?: HeadersInit): Promise<Response> {
   try {
-    return await fetch(url, { method: 'POST', body })
+    return await fetch(url, { method: 'POST', body, headers })
   } catch (e) {
     throw new NetworkError(e)
   }
@@ -54,6 +54,14 @@ async function ensureOk(res: Response, what: string): Promise<void> {
   throw new ApiError(res.status, `${what} 실패 (${res.status}) ${detail}`.trim())
 }
 
+/**
+ * 같은 캡처를 다시 보내도 서버가 한 번만 판정 · 기록하게 하는 키(`Idempotency-Key`) — 캡처 id 를 쓴다. 응답을 잃고
+ * 다시 보내면 서버는 처음 응답을 그대로 돌려준다.
+ */
+function idempotency(captureId?: string): HeadersInit | undefined {
+  return captureId ? { 'Idempotency-Key': captureId } : undefined
+}
+
 /** 캡처 이미지를 서버로 보내 판정 결과를 받는다. device 식별자는 멀티태블릿 출처 구분용(additive). */
 export async function inspectImage(
   image: Blob,
@@ -61,6 +69,7 @@ export async function inspectImage(
   deviceId: string,
   deviceLabel: string,
   capturedAt?: string,
+  captureId?: string,
 ): Promise<InspectResult> {
   const form = new FormData()
   form.append('image', image, 'capture.jpg')
@@ -69,7 +78,7 @@ export async function inspectImage(
   form.append('device_label', deviceLabel)
   if (capturedAt) form.append('captured_at', capturedAt)
 
-  const res = await post(`${API_BASE}/inspect`, form)
+  const res = await post(`${API_BASE}/inspect`, form, idempotency(captureId))
   if (res.status === 503) {
     const body = (await res.json().catch(() => null)) as DetectionUnavailable | null
     if (body?.detection_unavailable)
@@ -90,6 +99,7 @@ export async function inspectImageV2(
   deviceLabel: string,
   context: { expectedPart?: string; observedCode?: string },
   capturedAt?: string,
+  captureId?: string,
 ): Promise<InspectResultV2> {
   const form = new FormData()
   form.append('image', image, 'capture.jpg')
@@ -100,7 +110,7 @@ export async function inspectImageV2(
   if (context.observedCode) form.append('observed_code', context.observedCode)
   if (capturedAt) form.append('captured_at', capturedAt)
 
-  const res = await post(`${API_BASE}/v2/inspect`, form)
+  const res = await post(`${API_BASE}/v2/inspect`, form, idempotency(captureId))
   if (res.status === 503) {
     const body = (await res.json().catch(() => null)) as InspectResultV2 | null
     if (body?.detection_unavailable) throw new DetectionUnavailableError(body.reason ?? 'unavailable')

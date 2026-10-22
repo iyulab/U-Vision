@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -119,6 +121,18 @@ public sealed partial class StoragePaths
     /// <summary>보내기를 포기한 사건 <c>{scenario}/events/{endpoint}/dead</c>.</summary>
     public string EventDeadDir(string scenarioId, string endpoint) =>
         Path.Combine(EventOutboxDir(scenarioId, endpoint), "dead");
+
+    // --- 재전송 응답 (멱등 키) ------------------------------------------------
+    // 키를 단 검사 요청의 성공 응답 본문 — 같은 키가 다시 오면 판정을 다시 돌리지 않고 이것을 돌려준다. 키 하나에
+    // 작은 파일 하나(검사 레코드와 같은 규모)이고 아직 지우지 않는다. 키의 해시 앞 두 글자로 디렉터리를 나눠 한
+    // 디렉터리가 끝없이 커지지 않게 한다. <c>idempotency</c> 도 날짜로 파싱되지 않아 목록에서 빠진다.
+
+    private const string IdempotencySegment = "idempotency";
+
+    /// <summary>키의 재전송 응답 <c>{scenario}/idempotency/{hh}/{key}.json</c>(hh = 키 SHA-256 앞 두 hex).</summary>
+    public string ReplayFile(string scenarioId, string key) =>
+        Path.Combine(ScenarioDir(scenarioId), IdempotencySegment,
+            Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(Id(key))))[..2], key + ".json");
 
     /// <summary>모든 시나리오 디렉터리(사건 보내기가 outbox 를 찾는 범위).</summary>
     public IEnumerable<string> ScenarioIds() =>

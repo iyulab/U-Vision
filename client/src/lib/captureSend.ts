@@ -4,7 +4,7 @@ import { createQueueSender } from './queueSender'
 import type { InspectResult } from './types'
 import { toInspectResult } from './verification'
 
-/** 큐 항목 하나를 서버로 보낸다 — 오투입 확인(기대 품번 있음)은 결과 v2, 그 밖은 v1. */
+/** 큐 항목 하나를 서버로 보낸다 — 오투입 확인(기대 품번 있음)은 결과 v2, 그 밖은 v1. 항목 id 가 멱등 키다(다시 보내도 한 번만 판정). */
 export async function sendCapture(item: QueuedCapture): Promise<InspectResult> {
   const blob = new Blob([item.bytes], { type: item.type })
   if (item.expectedPart !== undefined)
@@ -16,9 +16,10 @@ export async function sendCapture(item: QueuedCapture): Promise<InspectResult> {
         item.deviceLabel,
         { expectedPart: item.expectedPart, observedCode: item.observedCode },
         item.capturedAt,
+        item.id,
       ),
     )
-  return inspectImage(blob, item.scenarioId, item.deviceId, item.deviceLabel, item.capturedAt)
+  return inspectImage(blob, item.scenarioId, item.deviceId, item.deviceLabel, item.capturedAt, item.id)
 }
 
 export type CaptureSender = ReturnType<typeof createQueueSender<InspectResult>> & {

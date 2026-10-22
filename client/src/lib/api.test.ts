@@ -37,6 +37,17 @@ describe('inspectImage', () => {
     const result = await inspectImage(new Blob(), 's', 'd', 'l')
     expect(result.verdict).toBe('OK')
   })
+
+  it('캡처 id 를 Idempotency-Key 헤더로 보낸다(없으면 헤더 없음)', async () => {
+    const fetch = mockFetch(200, { verdict: 'OK', findings: '', confidence: 0.9, timestamp: 't', image_id: 'img_1' })
+    vi.stubGlobal('fetch', fetch)
+
+    await inspectImage(new Blob(), 's', 'd', 'l', undefined, 'cap-1')
+    await inspectImage(new Blob(), 's', 'd', 'l')
+
+    expect(fetch.mock.calls[0][1].headers).toEqual({ 'Idempotency-Key': 'cap-1' })
+    expect(fetch.mock.calls[1][1].headers).toBeUndefined()
+  })
 })
 
 describe('audit api', () => {

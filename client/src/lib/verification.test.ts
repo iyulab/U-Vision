@@ -74,6 +74,12 @@ describe('inspectImageV2', () => {
     expect(form.get('observed_code')).toBe('P-100')
   })
 
+  it('캡처 id 를 Idempotency-Key 헤더로 보낸다', async () => {
+    const fetch = stubFetch(200, { decision_id: 'img_1', scenario_id: 's', timestamp: 't', class: 'MATCH' })
+    await inspectImageV2(new Blob(), 's', 'd', 'l', { expectedPart: 'P-100' }, undefined, 'cap-1')
+    expect(fetch.mock.calls[0][1].headers).toEqual({ 'Idempotency-Key': 'cap-1' })
+  })
+
   it('읽은 코드가 없으면 그 필드를 보내지 않는다', async () => {
     const fetch = stubFetch(200, { decision_id: 'img_1', scenario_id: 's', timestamp: 't', class: 'MATCH' })
     await inspectImageV2(new Blob(), 's', 'd', 'l', { expectedPart: 'P-100' })
