@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+
+import { useResource } from '../hooks/useResource'
 
 import { getMetrics, listResultDates } from '../lib/api'
 import { formatPercent, fraction, hasNoMetricData, recallLead } from '../lib/metrics'
@@ -19,58 +21,19 @@ export function MetricsDashboard({
   const [scenarioId, setScenarioId] = useState(
     () => initialScenarioId ?? scenarios[0]?.scenario_id ?? '',
   )
-  const [dates, setDates] = useState<string[]>([])
-  const [date, setDate] = useState('')
-  const [summary, setSummary] = useState<MetricsSummary | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  // 시나리오 변경 → 날짜 목록(결과와 공유, 최신 default).
-  useEffect(() => {
-    if (!scenarioId) {
-      setDates([])
-      setDate('')
-      return
-    }
-    let cancelled = false
-    setError(null)
-    listResultDates(scenarioId)
-      .then((d) => {
-        if (cancelled) return
-        setDates(d)
-        setDate(d[0] ?? '')
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : '날짜 목록 로드 실패')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [scenarioId])
-
-  // 시나리오·날짜 변경 → 메트릭 집계 로드.
-  useEffect(() => {
-    if (!scenarioId || !date) {
-      setSummary(null)
-      return
-    }
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-    getMetrics(scenarioId, date)
-      .then((s) => {
-        if (!cancelled) setSummary(s)
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : '메트릭 로드 실패')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [scenarioId, date])
+  // 날짜 목록은 결과와 공유한다. 고른 날짜가 목록에 없으면(시나리오를 바꿨거나 아직 안 골랐으면) 최신 날짜.
+  const datesRes = useResource(scenarioId || null, () => listResultDates(scenarioId), '날짜 목록 로드 실패')
+  const dates = datesRes.data ?? []
+  const [pickedDate, setPickedDate] = useState('')
+  const date = dates.includes(pickedDate) ? pickedDate : (dates[0] ?? '')
+  const metrics = useResource(
+    scenarioId && date ? `${scenarioId}|${date}` : null,
+    () => getMetrics(scenarioId, date),
+    '메트릭 로드 실패',
+  )
+  const summary = metrics.data ?? null
+  const error = datesRes.error ?? metrics.error
+  const loading = metrics.loading
 
   return (
     <div className="space-y-6">
@@ -78,7 +41,10 @@ export function MetricsDashboard({
         <select
           aria-label="시나리오"
           value={scenarioId}
-          onChange={(e) => setScenarioId(e.target.value)}
+          onChange={(e) => {
+            setScenarioId(e.target.value)
+            setPickedDate('')
+          }}
           className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white"
         >
           {scenarios.map((s) => (
@@ -90,7 +56,7 @@ export function MetricsDashboard({
         <select
           aria-label="날짜"
           value={date}
-          onChange={(e) => setDate(e.target.value)}
+          onChange={(e) => setPickedDate(e.target.value)}
           disabled={dates.length === 0}
           className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white disabled:opacity-50"
         >

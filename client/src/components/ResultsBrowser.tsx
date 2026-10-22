@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
+
+import { useResource } from '../hooks/useResource'
 
 import { deleteLabel, listLabels, listResultDates, listResults, putLabel, resultImageUrl } from '../lib/api'
 import { getDeviceId } from '../lib/deviceIdentity'
@@ -31,91 +33,63 @@ export function ResultsBrowser({
     () => lockedScenarioId ?? initialScenarioId ?? scenarios[0]?.scenario_id ?? '',
   )
   const scenarioType = scenarios.find((s) => s.scenario_id === scenarioId)?.type
-  const [dates, setDates] = useState<string[]>([])
-  const [date, setDate] = useState(lockedDate ?? '')
-  const [results, setResults] = useState<StoredResult[]>([])
-  const [labels, setLabels] = useState<StoredLabel[]>([])
+  // 날짜 고정이 아니면 목록에서 고른다. 고른 날짜가 목록에 없으면(시나리오를 바꿨거나 아직 안 골랐으면) 최신 날짜.
+  const datesRes = useResource(
+    lockedDate || !scenarioId ? null : scenarioId,
+    () => listResultDates(scenarioId),
+    '날짜 목록 로드 실패',
+  )
+  const dates = datesRes.data ?? []
+  const [pickedDate, setPickedDate] = useState('')
+  const date = lockedDate ?? (dates.includes(pickedDate) ? pickedDate : (dates[0] ?? ''))
+  const viewKey = scenarioId && date ? `${scenarioId}|${date}` : null
+  const view = useResource(
+    viewKey,
+    () => Promise.all([listResults(scenarioId, date), listLabels(scenarioId, date)]),
+    '결과 목록 로드 실패',
+  )
+  const results: StoredResult[] = view.data?.[0] ?? []
+  // 사람 라벨은 낙관적으로 고친다. 고친 목록은 «어느 뷰의 것인가»와 함께 두어, 저장이 늦게 실패해 다시 읽은 옛 뷰의
+  // 라벨이 지금 뷰를 덮지 않게 한다.
+  const [labelEdits, setLabelEdits] = useState<{ key: string; labels: StoredLabel[] } | null>(null)
+  const labels: StoredLabel[] =
+    labelEdits !== null && labelEdits.key === viewKey ? labelEdits.labels : (view.data?.[1] ?? [])
   const [selected, setSelected] = useState<StoredResult | null>(null)
   const [reviewOnly, setReviewOnly] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [labelError, setLabelError] = useState<string | null>(null)
+  const error = labelError ?? datesRes.error ?? view.error
+  const loading = view.loading
 
-  // 현재 보고 있는 뷰(시나리오·날짜) 키 — 비동기 재동기화가 뷰 전환 후 stale 데이터를
-  // 현재 뷰에 덮어쓰지 않도록 가드한다(handleLabel 에러 경로).
-  const viewKeyRef = useRef('')
-  viewKeyRef.current = `${scenarioId}|${date}`
+  function changeScenario(id: string) {
+    setScenarioId(id)
+    setPickedDate('')
+    setLabelEdits(null)
+    setLabelError(null)
+  }
 
-  // 시나리오 변경 → 날짜 목록 로드(최신 default).
-  useEffect(() => {
-    if (lockedDate) return // 날짜 고정 — 목록 로드 불필요(date 는 lockedDate 유지)
-    if (!scenarioId) {
-      setDates([])
-      setDate('')
-      return
-    }
-    let cancelled = false
-    setError(null)
-    listResultDates(scenarioId)
-      .then((d) => {
-        if (cancelled) return
-        setDates(d)
-        setDate(d[0] ?? '')
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : '날짜 목록 로드 실패')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [scenarioId, lockedDate])
-
-  // 시나리오·날짜 변경 → 결과 + 라벨 목록 로드.
-  useEffect(() => {
-    if (!scenarioId || !date) {
-      setResults([])
-      setLabels([])
-      return
-    }
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-    Promise.all([listResults(scenarioId, date), listLabels(scenarioId, date)])
-      .then(([r, l]) => {
-        if (cancelled) return
-        setResults(r)
-        setLabels(l)
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : '결과 목록 로드 실패')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [scenarioId, date])
+  function changeDate(d: string) {
+    setPickedDate(d)
+    setLabelEdits(null)
+    setLabelError(null)
+  }
 
   async function handleLabel(imageId: string, label: string | null) {
-    const viewKey = `${scenarioId}|${date}` // 호출 시점의 뷰 — 재동기화 가드용
+    if (viewKey === null) return
+    const key = viewKey // 호출 시점의 뷰 — 재동기화 가드용
+    const others = labels.filter((l) => l.image_id !== imageId)
     // 낙관적 갱신.
-    setLabels((prev) => {
-      const others = prev.filter((l) => l.image_id !== imageId)
-      return label === null
-        ? others
-        : [...others, { image_id: imageId, label, timestamp: new Date().toISOString() }]
+    setLabelEdits({
+      key,
+      labels: label === null ? others : [...others, { image_id: imageId, label, timestamp: new Date().toISOString() }],
     })
     try {
       if (label === null) await deleteLabel(scenarioId, date, imageId)
       else await putLabel(scenarioId, date, imageId, label, getDeviceId())
     } catch (e) {
-      // 실패 시 서버 상태로 재동기화 — 단, 그 사이 뷰가 바뀌었으면 적용하지 않는다
-      // (옛 뷰의 라벨이 현재 뷰를 덮어쓰는 레이스 방지).
-      setError(e instanceof Error ? e.message : '라벨 저장 실패')
+      // 실패 시 서버 상태로 재동기화 — 뷰가 바뀌었으면 키가 달라 지금 뷰에 보이지 않는다.
+      setLabelError(e instanceof Error ? e.message : '라벨 저장 실패')
       listLabels(scenarioId, date)
-        .then((l) => {
-          if (viewKeyRef.current === viewKey) setLabels(l)
-        })
+        .then((l) => setLabelEdits((prev) => (prev === null || prev.key === key ? { key, labels: l } : prev)))
         .catch(() => {})
     }
   }
@@ -147,7 +121,7 @@ export function ResultsBrowser({
             <span className="block text-xs text-slate-400">시나리오</span>
             <select
               value={scenarioId}
-              onChange={(e) => setScenarioId(e.target.value)}
+              onChange={(e) => changeScenario(e.target.value)}
               className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white focus:border-emerald-400 focus:outline-none"
             >
               {scenarios.map((s) => (
@@ -163,7 +137,7 @@ export function ResultsBrowser({
             <span className="block text-xs text-slate-400">날짜</span>
             <select
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => changeDate(e.target.value)}
               disabled={dates.length === 0}
               className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white focus:border-emerald-400 focus:outline-none disabled:opacity-40"
             >

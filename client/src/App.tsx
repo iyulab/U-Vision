@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { CameraView } from './components/CameraView'
 import { Console } from './components/Console'
 import { ResultsBrowser } from './components/ResultsBrowser'
+import { useResource } from './hooks/useResource'
+import { useUtcToday } from './hooks/useUtcToday'
 import {
   clearStoredScenarioId,
   getStoredScenarioId,
@@ -27,17 +29,20 @@ function toMotionConfig(s: Scenario): MotionConfig {
 }
 
 export default function App() {
-  const [scenarios, setScenarios] = useState<Scenario[]>([])
+  // 목록 로드에 실패해도 화면은 뜬다(서버 미가동 등) — 안내는 zero-scenario 경로가 처리.
+  const scenarioList = useResource('scenarios', listScenarios, '목록 로드 실패')
+  const loaded = !scenarioList.loading
+  const scenarios = useMemo(() => scenarioList.data ?? [], [scenarioList.data])
+  // 작업자가 고른 시나리오 id — 실제 활성 시나리오는 live 목록에서 해석한다(삭제 · 최초 실행 · 전체 삭제 흡수).
   const [activeId, setActiveId] = useState<string | null>(() => getStoredScenarioId())
   const [showAdmin, setShowAdmin] = useState(false)
-  const [loaded, setLoaded] = useState(false)
   const [captureMode, setCaptureModeState] = useState<CaptureMode>(() => getCaptureMode())
   const [deviceLabel, setDeviceLabelState] = useState<string>(() => getDeviceLabel())
   const [showTodayList, setShowTodayList] = useState(false)
   // 오투입 확인의 기대 품번 — 작업지시가 바뀔 때 작업자가 고친다(MES 연동 전). 저장하지 않는다: 지난 작업의 품번이
   // 다음 실행에 남아 잘못 대조되지 않게.
   const [expectedPart, setExpectedPart] = useState('')
-  const todayUtc = new Date().toISOString().slice(0, 10) // 서버 date 버킷(UTC)과 정합
+  const todayUtc = useUtcToday() // 서버 date 버킷(UTC)과 정합
 
   function toggleCaptureMode() {
     const next: CaptureMode = captureMode === 'auto' ? 'manual' : 'auto'
@@ -50,53 +55,29 @@ export default function App() {
     setDeviceLabel(label)
   }
 
-  const reload = useCallback(async () => {
-    try {
-      setScenarios(await listScenarios())
-    } catch {
-      // 목록 로드 실패해도 화면은 뜬다(서버 미가동 등) — 안내는 zero-scenario 경로가 처리.
-    } finally {
-      setLoaded(true)
-    }
-  }, [])
+  const active = loaded ? resolveActiveScenario(scenarios, activeId) : null
+  const activeScenarioId = active?.scenario_id ?? null
 
-  useEffect(() => {
-    void reload()
-  }, [reload])
-
-  // 활성 시나리오 해석: 저장 id 를 live 목록과 대조해 동기화(삭제/최초실행/전체삭제 흡수).
+  // 저장소를 해석된 활성 시나리오에 맞춘다 — 다음 실행이 지금 보이는 시나리오로 시작하게.
   useEffect(() => {
     if (!loaded) return
-    if (scenarios.length === 0) {
-      if (activeId !== null) {
-        setActiveId(null)
-        clearStoredScenarioId()
-      }
-      return
-    }
-    const resolved = resolveActiveScenario(scenarios, activeId)!
-    if (resolved.scenario_id !== activeId) {
-      setActiveId(resolved.scenario_id)
-      setStoredScenarioId(resolved.scenario_id)
-    }
-  }, [loaded, scenarios, activeId])
-
-  const active = loaded ? resolveActiveScenario(scenarios, activeId) : null
+    if (activeScenarioId === null) clearStoredScenarioId()
+    else setStoredScenarioId(activeScenarioId)
+  }, [loaded, activeScenarioId])
   // worker 재생성을 막기 위해 config 객체를 active 기준으로 안정화.
   // ⚠️ 모든 Hook 은 조건부 return 위에 둔다 — admin 전환 시 hook 수가 달라지면 안 된다(Rules of Hooks).
   const motionConfig = useMemo(() => (active ? toMotionConfig(active) : null), [active])
 
   function selectScenario(id: string) {
     setActiveId(id)
-    setStoredScenarioId(id)
   }
 
   if (showAdmin) {
     return (
       <Console
         onClose={() => setShowAdmin(false)}
-        onChanged={reload}
-        activeScenarioId={activeId}
+        onChanged={() => void scenarioList.reload()}
+        activeScenarioId={activeScenarioId}
       />
     )
   }

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { demoteAuthority, getAuthority, promoteAuthority } from '../lib/api'
 import type { PinRunResult } from '../hooks/usePin'
+import { useResource } from '../hooks/useResource'
 import { nextStageUp, stageLabel } from '../lib/authority'
-import type { AuthorityState, Scenario } from '../lib/types'
+import type { Scenario } from '../lib/types'
 
 /**
  * 권한 이양 단계 제어(A1) — 관심사 분리: 대시보드는 격상 *신호*(promotion_eligible), 여기서 *변경*.
@@ -19,32 +20,22 @@ export function AuthorityPanel({
   runWithPin: (action: (pin: string) => Promise<void>) => Promise<PinRunResult>
 }) {
   const [scenarioId, setScenarioId] = useState(initialScenarioId ?? scenarios[0]?.scenario_id ?? '')
-  const [auth, setAuth] = useState<AuthorityState | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const authority = useResource(scenarioId || null, () => getAuthority(scenarioId), '권한 단계 로드 실패')
+  const auth = authority.data ?? null
+  // 변경 실패는 조회 실패와 따로 둔다 — 다시 읽기가 성공해도 방금 거절된 이유가 지워지지 않게.
+  const [actionError, setActionError] = useState<string | null>(null)
+  const error = actionError ?? authority.error
   const [busy, setBusy] = useState(false)
-
-  const load = useCallback(async () => {
-    if (!scenarioId) return
-    try {
-      setAuth(await getAuthority(scenarioId))
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '권한 단계 로드 실패')
-    }
-  }, [scenarioId])
-
-  useEffect(() => {
-    void load()
-  }, [load])
 
   async function mutate(action: (pin: string) => Promise<void>) {
     setBusy(true)
-    setError(null)
+    setActionError(null)
     try {
       const result = await runWithPin(action)
-      if (result === 'ok') await load()
-      else if (result === 'unauthorized') setError('PIN 이 올바르지 않습니다.')
+      if (result === 'ok') await authority.reload()
+      else if (result === 'unauthorized') setActionError('PIN 이 올바르지 않습니다.')
     } catch (e) {
-      setError(e instanceof Error ? e.message : '요청 실패')
+      setActionError(e instanceof Error ? e.message : '요청 실패')
     } finally {
       setBusy(false)
     }
@@ -58,7 +49,10 @@ export function AuthorityPanel({
         <span className="text-sm text-slate-300">시나리오</span>
         <select
           value={scenarioId}
-          onChange={(e) => setScenarioId(e.target.value)}
+          onChange={(e) => {
+            setScenarioId(e.target.value)
+            setActionError(null)
+          }}
           className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white"
         >
           {scenarios.map((s) => (

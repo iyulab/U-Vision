@@ -3,6 +3,7 @@ import '@uplatform/brand'
 
 import { createScenario, deleteScenario, getAdminStatus, listScenarios, updateScenario } from '../lib/api'
 import { usePin, type PinRunResult } from '../hooks/usePin'
+import { useResource } from '../hooks/useResource'
 import { AdminSetup } from './AdminSetup'
 import { DEFAULT_MOTION_CONFIG } from '../lib/motion'
 import { DEFAULT_ROI, fromScenarioRoi, toScenarioRoi, type Roi } from '../lib/roi'
@@ -67,24 +68,17 @@ type ScenarioType = 'inspection' | 'verification'
  */
 export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) {
   const [tab, setTab] = useState<Tab>('scenarios')
-  const [scenarios, setScenarios] = useState<Scenario[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const { data, error, reload: reloadList } = useResource('scenarios', listScenarios, '목록 로드 실패')
+  const scenarios = data ?? []
   // 최초 설정 필요 여부(null = 확인 중). setup_required 면 관리 콘솔 대신 부트스트랩 화면을 띄운다.
   const [setupRequired, setSetupRequired] = useState<boolean | null>(null)
   const { runWithPin, prompting, submitPin, cancelPin } = usePin()
 
+  // 변경 뒤 다시 읽기 — 운영 화면의 시나리오 목록도 함께 새로 읽게 한다.
   const reload = useCallback(async () => {
-    try {
-      setScenarios(await listScenarios())
-      onChanged()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '목록 로드 실패')
-    }
-  }, [onChanged])
-
-  useEffect(() => {
-    void reload()
-  }, [reload])
+    await reloadList()
+    onChanged()
+  }, [reloadList, onChanged])
 
   // PIN 미설정 상태를 감지해 최초 설정 화면 노출 여부를 결정한다(부트스트랩). 조회 실패 시엔
   // 게이트하지 않는다(콘솔 정상 진입 — 변경 시점의 PIN 프롬프트/503 이 fallback).

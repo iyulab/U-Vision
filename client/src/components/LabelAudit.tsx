@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+
+import { useResource } from '../hooks/useResource'
 
 import { listAuditSample, putAudit, resultImageUrl } from '../lib/api'
 import { getDeviceId } from '../lib/deviceIdentity'
@@ -18,42 +20,42 @@ export function LabelAudit({
   scenarios: Scenario[]
   initialScenarioId: string | null
 }) {
-  const today = new Date().toISOString().slice(0, 10)
   const [scenarioId, setScenarioId] = useState(
     () => initialScenarioId ?? scenarios[0]?.scenario_id ?? '',
   )
-  const [date, setDate] = useState(today)
-  const [queue, setQueue] = useState<string[]>([])
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const sample = useResource(
+    scenarioId && date ? `${scenarioId}|${date}` : null,
+    () => listAuditSample(scenarioId, date),
+    '감사 표본 로드 실패',
+  )
+  const queue = sample.data ?? []
   const [idx, setIdx] = useState(0)
   const [result, setResult] = useState<{ status: string; prior_label: string } | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const error = submitError ?? sample.error
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
-    if (!scenarioId || !date) return
-    let cancelled = false
-    setError(null)
-    setResult(null)
+  // 시나리오 · 날짜를 바꾸면 새 표본의 처음부터 — 진행 위치와 직전 제출 결과는 이전 표본의 것이다.
+  function changeView(next: { scenarioId?: string; date?: string }) {
+    if (next.scenarioId !== undefined) setScenarioId(next.scenarioId)
+    if (next.date !== undefined) setDate(next.date)
     setIdx(0)
-    listAuditSample(scenarioId, date)
-      .then((ids) => !cancelled && setQueue(ids))
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : '감사 표본 로드 실패'))
-    return () => {
-      cancelled = true
-    }
-  }, [scenarioId, date])
+    setResult(null)
+    setSubmitError(null)
+  }
 
   const current = queue[idx]
 
   async function submit(label: string) {
     if (!current || busy) return
     setBusy(true)
-    setError(null)
+    setSubmitError(null)
     try {
       const out = await putAudit(scenarioId, date, current, label, getDeviceId())
       setResult(out) // 제출 후에야 직전 라벨/결과 공개(블라인드)
     } catch (e) {
-      setError(e instanceof Error ? e.message : '감사 제출 실패')
+      setSubmitError(e instanceof Error ? e.message : '감사 제출 실패')
     } finally {
       setBusy(false)
     }
@@ -73,7 +75,7 @@ export function LabelAudit({
           <span className="block text-xs text-slate-400">시나리오</span>
           <select
             value={scenarioId}
-            onChange={(e) => setScenarioId(e.target.value)}
+            onChange={(e) => changeView({ scenarioId: e.target.value })}
             className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white"
           >
             {scenarios.map((s) => (
@@ -88,7 +90,7 @@ export function LabelAudit({
           <input
             type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => changeView({ date: e.target.value })}
             className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white"
           />
         </label>
@@ -96,7 +98,9 @@ export function LabelAudit({
 
       {error && <div className="rounded-lg bg-red-600/90 px-4 py-2 text-sm">{error}</div>}
 
-      {queue.length === 0 ? (
+      {sample.loading ? (
+        <p className="text-slate-400">불러오는 중…</p>
+      ) : queue.length === 0 ? (
         <p className="text-slate-400">감사할 표본이 없습니다(라벨 부족 또는 전부 감사됨).</p>
       ) : idx >= queue.length ? (
         <p className="text-emerald-400">감사 완료 — {queue.length}건.</p>

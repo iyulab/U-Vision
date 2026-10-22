@@ -21,12 +21,7 @@ export function useMotionDetection(
   const [state, setState] = useState<StillnessState | null>(null)
 
   useEffect(() => {
-    // 비활성(수동 모드 등) — 마지막 모션 상태를 비워, 재활성 시 stale isStill 로 인한
-    // spurious 발화(useContinuousCapture)가 없도록 한다(무손실 경로 보호).
-    if (!enabled) {
-      setState(null)
-      return
-    }
+    if (!enabled) return
 
     const worker = new Worker(new URL('../workers/motionWorker.ts', import.meta.url), {
       type: 'module',
@@ -55,8 +50,12 @@ export function useMotionDetection(
     return () => {
       window.clearInterval(timer)
       worker.terminate()
+      // 이 워커의 마지막 모션 상태를 비운다 — 비활성(수동 모드 등) 뒤 재활성 · 설정 교체 때 stale isStill 로 인한
+      // spurious 발화(useContinuousCapture)가 없도록(무손실 경로 보호).
+      setState(null)
     }
   }, [enabled, config, videoRef])
 
-  return state
+  // 비활성으로 바뀐 렌더에서 정리(effect cleanup)가 돌기 전에도 이전 상태를 내보내지 않는다.
+  return enabled ? state : null
 }

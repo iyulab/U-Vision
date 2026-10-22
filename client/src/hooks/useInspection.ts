@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useEffectEvent, useRef, useState, type RefObject } from 'react'
 
 import { readCode } from '../lib/barcode'
 import { captureFrame } from '../lib/capture'
@@ -72,8 +72,8 @@ export function useInspection(
   const inFlight = useRef(false)
   /** 지금 화면이 기다리는 캡처 — 큐 비우기가 먼저 보내도 이 캡처면 화면 판정으로 낸다. */
   const currentId = useRef<string | null>(null)
-  const pendingRef = useRef(0)
-  pendingRef.current = pending
+  /** 재시도 타이머가 지금 대기 건수를 읽는다(타이머를 다시 걸지 않고). */
+  const hasPending = useEffectEvent(() => pending > 0)
 
   const refreshPending = useCallback(async () => {
     const sender = await getCaptureSender()
@@ -130,7 +130,7 @@ export function useInspection(
     void drain()
     window.addEventListener('online', drain)
     const timer = window.setInterval(() => {
-      if (pendingRef.current > 0) void drain()
+      if (hasPending()) void drain()
     }, RETRY_INTERVAL_MS)
     return () => {
       cancelled = true
