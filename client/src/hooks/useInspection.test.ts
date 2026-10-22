@@ -12,6 +12,7 @@ import { useInspection } from './useInspection'
 // 훅의 상태 전이만 본다 — 카메라 캡처 · 코드 읽기 · 서버 호출은 바꿔 끼우고, 큐(IndexedDB)와 보내기 통로는 진짜를 쓴다.
 const h = vi.hoisted(() => ({
   sharpness: 100,
+  durable: true as boolean | null,
   send: vi.fn<(item: QueuedCapture) => Promise<InspectResult>>(),
   sender: null as Promise<CaptureSender | null> | null,
 }))
@@ -28,7 +29,7 @@ vi.mock('../lib/captureSend', () => ({
 let dbSeq = 0
 async function useRealQueue() {
   const queue = await openCaptureQueue(`hook-queue-${++dbSeq}`)
-  const sender: CaptureSender = { ...createQueueSender(queue, (item) => h.send(item)), count: queue.count, add: queue.add }
+  const sender: CaptureSender = { ...createQueueSender(queue, (item) => h.send(item)), count: queue.count, add: queue.add, durable: h.durable }
   h.sender = Promise.resolve(sender)
   return queue
 }
@@ -64,6 +65,7 @@ afterEach(cleanup)
 
 beforeEach(() => {
   h.sharpness = 100
+  h.durable = true
   h.send.mockReset()
   h.sender = null
 })
@@ -186,6 +188,13 @@ describe('useInspection', () => {
     expect(hook.current.pending).toBe(0)
     expect(hook.current.phase).toBe('idle')
     expect(await queue.count()).toBe(0)
+  })
+
+  it('기기가 저장을 지켜 주지 않으면 그 사실을 알린다', async () => {
+    h.durable = false
+    await useRealQueue()
+    const { result: hook } = await mounted()
+    expect(hook.current.storageDurable).toBe(false)
   })
 
   it('큐를 쓸 수 없으면 바로 보낸다', async () => {

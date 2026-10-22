@@ -83,6 +83,9 @@ export function CameraView({
       {inspection.pending > 0 && (
         <div className="absolute left-4 top-16 rounded-full bg-slate-700/90 px-4 py-2 text-sm font-medium text-white backdrop-blur">
           판정 대기 {inspection.pending}건
+          {inspection.storageDurable === false && (
+            <span className="ml-2 text-amber-300">· 기기 보관 보장 안 됨 — 연결을 복구하세요</span>
+          )}
         </div>
       )}
       {inspection.lateAlerts.length > 0 && (

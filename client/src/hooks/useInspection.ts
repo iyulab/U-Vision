@@ -23,6 +23,8 @@ export interface InspectionState {
   unavailable: { reason: string; mlHint?: MlResult } | null
   /** 기기 큐에 남아 서버를 기다리는 캡처 수. */
   pending: number
+  /** 기기가 큐 저장소를 지켜 주는가 — false 면 대기 중인 캡처가 브라우저 정리로 사라질 수 있다. 모름은 null. */
+  storageDurable: boolean | null
   /** 큐에서 늦게 보낸 캡처가 서버에서 거부됐을 때의 알림(현재 캡처의 오류와 따로 둔다). */
   queueNotice: string | null
   /** 늦게 판정된 NG — 운영자가 확인할 때까지 남는다(현재 판정 · 차단 게이트와 따로). */
@@ -64,6 +66,7 @@ export function useInspection(
   const [error, setError] = useState<string | null>(null)
   const [unavailable, setUnavailable] = useState<{ reason: string; mlHint?: MlResult } | null>(null)
   const [pending, setPending] = useState(0)
+  const [storageDurable, setStorageDurable] = useState<boolean | null>(null)
   const [queueNotice, setQueueNotice] = useState<string | null>(null)
   const [lateAlerts, setLateAlerts] = useState<InspectResult[]>([])
   const inFlight = useRef(false)
@@ -116,6 +119,7 @@ export function useInspection(
     const drain = async () => {
       const sender = await getCaptureSender()
       if (!sender || cancelled) return
+      setStorageDurable(sender.durable)
       await sender.drain(onDrained)
       if (cancelled) return
       const left = await sender.count()
@@ -217,6 +221,7 @@ export function useInspection(
     error,
     unavailable,
     pending,
+    storageDurable,
     queueNotice,
     lateAlerts,
     dismissLateAlerts,

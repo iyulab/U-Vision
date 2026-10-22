@@ -25,6 +25,11 @@ export async function sendCapture(item: QueuedCapture): Promise<InspectResult> {
 export type CaptureSender = ReturnType<typeof createQueueSender<InspectResult>> & {
   count: () => Promise<number>
   add: (item: QueuedCapture) => Promise<void>
+  /**
+   * 기기가 큐 저장소를 지켜 주기로 했는가(`navigator.storage.persist()`) — false 면 브라우저가 저장 공간이 모자라거나
+   * (Safari) 사이트를 한동안 쓰지 않을 때 큐를 지울 수 있다. 판단할 수 없는 브라우저는 null.
+   */
+  durable: boolean | null
 }
 
 let sender: Promise<CaptureSender | null> | undefined
@@ -35,11 +40,21 @@ let sender: Promise<CaptureSender | null> | undefined
  */
 export function getCaptureSender(): Promise<CaptureSender | null> {
   sender ??= openCaptureQueue()
-    .then((queue) => {
+    .then(async (queue) => {
       // Safari 등은 오래 안 쓴 사이트 저장소를 비운다 — 지속 저장을 한 번 요청한다(거절돼도 큐는 동작).
-      void navigator.storage?.persist?.().catch(() => undefined)
-      return { ...createQueueSender(queue, sendCapture), count: queue.count, add: queue.add }
+      const durable = await requestDurableStorage()
+      return { ...createQueueSender(queue, sendCapture), count: queue.count, add: queue.add, durable }
     })
     .catch(() => null)
   return sender
+}
+
+async function requestDurableStorage(): Promise<boolean | null> {
+  const storage = typeof navigator === 'undefined' ? undefined : navigator.storage
+  if (!storage?.persist) return null
+  try {
+    return (await storage.persisted?.()) || (await storage.persist())
+  } catch {
+    return null
+  }
 }
