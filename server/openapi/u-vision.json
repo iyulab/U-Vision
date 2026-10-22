@@ -1603,6 +1603,56 @@
         }
       }
     },
+    "/api/u-vision/datasets/readiness": {
+      "get": {
+        "tags": [
+          "U-Vision"
+        ],
+        "operationId": "GetTrainingReadiness",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingReadinessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/u-vision/datasets/export": {
       "post": {
         "tags": [
@@ -2393,6 +2443,16 @@
             "items": {
               "$ref": "#/components/schemas/DatasetItem"
             }
+          },
+          "selection": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DatasetSelection"
+              }
+            ]
           }
         }
       },
@@ -2420,6 +2480,49 @@
           },
           "image_file": {
             "type": "string"
+          }
+        }
+      },
+      "DatasetSelection": {
+        "required": [
+          "ok_ratio_cap",
+          "hard_negatives",
+          "dropped_conflicted",
+          "dropped_ok_over_cap"
+        ],
+        "type": "object",
+        "properties": {
+          "ok_ratio_cap": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?(?:[eE][\u002B-]?\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "hard_negatives": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "dropped_conflicted": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "dropped_ok_over_cap": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -3565,6 +3668,35 @@
           }
         }
       },
+      "ScenarioTraining": {
+        "type": "object",
+        "properties": {
+          "min_per_class": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "ok_ratio_cap": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?(?:[eE][\u002B-]?\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "rebuild_min_new_labels": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "ScenarioTrust": {
         "type": "object",
         "properties": {
@@ -3581,6 +3713,16 @@
               },
               {
                 "$ref": "#/components/schemas/ScenarioTargets"
+              }
+            ]
+          },
+          "training": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ScenarioTraining"
               }
             ]
           }
@@ -3742,6 +3884,89 @@
       "Stream": {
         "type": "string",
         "format": "binary"
+      },
+      "TrainingClassCountDto": {
+        "required": [
+          "id",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "TrainingReadinessResponse": {
+        "required": [
+          "scenario_id",
+          "classes",
+          "min_per_class",
+          "rebuild_min_new_labels"
+        ],
+        "type": "object",
+        "properties": {
+          "scenario_id": {
+            "type": "string"
+          },
+          "classes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrainingClassCountDto"
+            }
+          },
+          "min_per_class": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "build_ready": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "active_version": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "new_labels_since_model": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rebuild_min_new_labels": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rebuild_suggested": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
       },
       "Verdict": {
         "enum": [

@@ -2,8 +2,9 @@ import { useState } from 'react'
 
 import { useResource } from '../hooks/useResource'
 
-import { getMetrics, listResultDates } from '../lib/api'
+import { getMetrics, getTrainingReadiness, listResultDates } from '../lib/api'
 import { formatPercent, fraction, hasNoMetricData, recallLead } from '../lib/metrics'
+import { readinessLine } from '../lib/training'
 import type { MetricsSummary, Scenario } from '../lib/types'
 
 /**
@@ -32,6 +33,8 @@ export function MetricsDashboard({
     '메트릭 로드 실패',
   )
   const summary = metrics.data ?? null
+  // 학습 준비는 날짜와 무관하다(시나리오의 라벨 전체) — 실패해도 대시보드는 그대로 보인다.
+  const readiness = useResource(scenarioId || null, () => getTrainingReadiness(scenarioId), '학습 준비 조회 실패')
   const error = datesRes.error ?? metrics.error
   const loading = metrics.loading
 
@@ -75,6 +78,8 @@ export function MetricsDashboard({
 
       {error && <div className="rounded-lg bg-red-600/90 px-4 py-2 text-sm">{error}</div>}
 
+      {readiness.data && <ReadinessLine line={readinessLine(readiness.data)} />}
+
       {summary === null ? (
         <p className="text-sm text-slate-400">시나리오·날짜를 선택하세요.</p>
       ) : hasNoMetricData(summary) ? (
@@ -89,6 +94,19 @@ export function MetricsDashboard({
         <Cards summary={summary} />
       )}
     </div>
+  )
+}
+
+/** 전용 ML 학습 준비 — 할 일이 생기면(빌드 가능 · 재빌드 제안) 눈에 띄게. 실행은 관리자의 몫이다. */
+function ReadinessLine({ line }: { line: ReturnType<typeof readinessLine> }) {
+  return (
+    <p
+      className={`rounded-lg px-4 py-2 text-sm ${
+        line.tone === 'ready' ? 'bg-emerald-500/15 font-semibold text-emerald-300' : 'bg-slate-800/60 text-slate-400'
+      }`}
+    >
+      학습 준비 · {line.text}
+    </p>
   )
 }
 

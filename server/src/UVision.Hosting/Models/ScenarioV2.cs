@@ -45,6 +45,25 @@ public sealed record ScenarioTargets
     public static readonly ScenarioTargets Default = new() { Agreement = 0.95, MaxMissRate = 0.02, SampleSize = 150 };
 }
 
+/// <summary>
+/// 전용 ML 학습 데이터의 기준 — 비면 기본값(<see cref="Default"/>). 빌드 · 재빌드는 관리자가 하고, 이 값은 «빌드
+/// 가능» · «재빌드 제안» 신호와 데이터셋 선정에만 쓴다.
+/// </summary>
+public sealed record ScenarioTraining
+{
+    /// <summary>클래스마다 있어야 할 사람 확정 라벨 수 — 모든 클래스가 닿아야 첫 빌드가 가능하다.</summary>
+    [JsonPropertyName("min_per_class")] public int MinPerClass { get; init; }
+
+    /// <summary>OK 표본 상한 — NG 쪽(불량 유형 전부) 건수의 몇 배까지 OK 를 넣는가. 희소한 NG 가 묻히지 않게.</summary>
+    [JsonPropertyName("ok_ratio_cap")] public double OkRatioCap { get; init; }
+
+    /// <summary>쓰는 모델의 데이터셋 이후 새로 확정된 라벨이 이만큼이면 재빌드를 제안한다.</summary>
+    [JsonPropertyName("rebuild_min_new_labels")] public int RebuildMinNewLabels { get; init; }
+
+    /// <summary>시작값 — 클래스당 30 · OK 는 NG 의 3배까지 · 새 라벨 30건이면 재빌드 제안. 시나리오가 덮어쓴다.</summary>
+    public static readonly ScenarioTraining Default = new() { MinPerClass = 30, OkRatioCap = 3, RebuildMinNewLabels = 30 };
+}
+
 /// <summary>신뢰 생애의 단위와 목표 — HoneAI 어댑터 입력.</summary>
 public sealed record ScenarioTrust
 {
@@ -56,6 +75,10 @@ public sealed record ScenarioTrust
     [JsonPropertyName("targets")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ScenarioTargets? Targets { get; init; }
+
+    [JsonPropertyName("training")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ScenarioTraining? Training { get; init; }
 }
 
 /// <summary>

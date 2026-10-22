@@ -1,4 +1,4 @@
-import type { AdminStatus, AuthorityState, DetectionUnavailable, EventsStatus, InspectResult, InspectResultV2, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult } from './types'
+import type { AdminStatus, AuthorityState, DetectionUnavailable, EventsStatus, InspectResult, InspectResultV2, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
 import type { AuthorityStage } from './authority'
 import { resolveApiBase } from './runtimeConfig'
 
@@ -221,6 +221,13 @@ export async function getMetrics(scenarioId: string, date: string): Promise<Metr
   )
   await ensureOk(res, '메트릭 조회')
   return (await res.json()) as MetricsSummary
+}
+
+/** 전용 ML 학습 준비 신호(무인증 읽기) — 빌드 · 재빌드는 관리자가 한다. */
+export async function getTrainingReadiness(scenarioId: string): Promise<TrainingReadiness> {
+  const res = await fetch(`${API_BASE}/datasets/readiness?scenario_id=${encodeURIComponent(scenarioId)}`)
+  await ensureOk(res, '학습 준비 조회')
+  return (await res.json()) as TrainingReadiness
 }
 
 /** 판정 사건 내보내기(웹훅) 받는 곳별 대기 · 포기 수(무인증 읽기). */

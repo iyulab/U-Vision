@@ -62,6 +62,23 @@ public class DatasetExportTests
     }
 
     [Fact]
+    public async Task Export_AppliesSelection_DropsAuditConflicts_AndRecordsRules()
+    {
+        var (paths, ins, lab) = NewStores();
+        await SeedLabeled(ins, lab, "2026-06-10", "img_ng", "NG");
+        await SeedLabeled(ins, lab, "2026-06-10", "img_ok", "OK");
+        await SeedLabeled(ins, lab, "2026-06-10", "img_disputed", "NG");
+        await lab.AppendAuditAsync(Scenario, "2026-06-10", "img_disputed", "OK", "dev"); // 블라인드 재라벨이 어긋남
+        var exporter = new FileDatasetExporter(paths, ins, lab);
+
+        var manifest = await exporter.ExportAsync(Scenario, ExportId);
+
+        Assert.DoesNotContain(manifest.Items, i => i.ImageId == "img_disputed");
+        Assert.Equal(1, manifest.Selection!.DroppedConflicted);
+        Assert.Equal(ScenarioTraining.Default.OkRatioCap, manifest.Selection.OkRatioCap);
+    }
+
+    [Fact]
     public async Task Export_ExcludesUnlabeledImages()
     {
         var (paths, ins, lab) = NewStores();

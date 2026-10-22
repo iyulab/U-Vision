@@ -15,7 +15,8 @@ public sealed record EffectiveScenario(
     IReadOnlyList<ScenarioClass> Classes,
     IReadOnlyList<string> Tiers,
     string SliceKey,
-    ScenarioTargets Targets)
+    ScenarioTargets Targets,
+    ScenarioTraining Training)
 {
     /// <summary>v1 검사의 클래스 — OK 는 아래 단이 확정할 수 있고, NG 는 언제나 꼭대기로 간다.</summary>
     public static readonly IReadOnlyList<ScenarioClass> InspectionClasses =
@@ -101,7 +102,8 @@ public sealed record EffectiveScenario(
                 : mlEnabled ? [ScenarioVocabulary.MlTier, ScenarioVocabulary.VlmTier]
                 : [ScenarioVocabulary.VlmTier],
             scenario.Trust?.SliceKey ?? ScenarioVocabulary.ScenarioSlice,
-            scenario.Trust?.Targets ?? ScenarioTargets.Default);
+            scenario.Trust?.Targets ?? ScenarioTargets.Default,
+            scenario.Trust?.Training ?? ScenarioTraining.Default);
     }
 
     /// <summary>
@@ -167,6 +169,9 @@ public sealed record EffectiveScenario(
             if (trust.Targets is { } t
                 && (t.Agreement is <= 0 or > 1 || t.MaxMissRate is < 0 or >= 1 || t.SampleSize <= 0))
                 return "trust.targets 범위: 0 < agreement ≤ 1 · 0 ≤ max_miss_rate < 1 · sample_size > 0";
+            if (trust.Training is { } tr
+                && (tr.MinPerClass <= 0 || tr.OkRatioCap <= 0 || tr.RebuildMinNewLabels <= 0))
+                return "trust.training 범위: min_per_class > 0 · ok_ratio_cap > 0 · rebuild_min_new_labels > 0";
         }
 
         return null;

@@ -13,7 +13,7 @@ public interface IDatasetExporter
     /// 이미지를 복사하고 manifest 를 쓴다. 라벨 없으면 빈 manifest(경고 포함).
     /// </summary>
     Task<DatasetExportManifest> ExportAsync(
-        string scenarioId, string exportId, CancellationToken cancellationToken = default);
+        string scenarioId, string exportId, ScenarioTraining? rules = null, CancellationToken cancellationToken = default);
 
     /// <summary>시나리오의 export id 목록(최신 먼저). 없으면 빈 리스트.</summary>
     Task<IReadOnlyList<string>> ListExportsAsync(

@@ -187,6 +187,19 @@ export interface StoredLabel {
  * 서버 `MetricsSummary`(B3 집계, `GET /api/metrics`) 미러 — 시나리오·날짜 관측 신호.
  * 원시 카운트 + 파생 비율(분모 0 → null = 데이터 없음, 0% 위장 아님). NG recall 은 사람 라벨 조인.
  */
+/** 서버 `TrainingReadinessResponse` 미러 — 전용 ML 학습 준비 신호(근거가 없으면 필드 부재). */
+export interface TrainingReadiness {
+  scenario_id: string
+  classes: { id: string; count: number }[]
+  min_per_class: number
+  /** 쓰는 모델이 없을 때만 — 모든 클래스가 기준에 닿았나. */
+  build_ready?: boolean
+  active_version?: string
+  new_labels_since_model?: number
+  rebuild_min_new_labels: number
+  rebuild_suggested?: boolean
+}
+
 export interface MetricsSummary {
   scenario_id: string
   date: string

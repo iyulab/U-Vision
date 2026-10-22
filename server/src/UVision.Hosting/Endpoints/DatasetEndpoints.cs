@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using UVision.Api.Auth;
 using UVision.Api.Models;
 using UVision.Api.Services.Dataset;
+using UVision.Api.Services.Scenarios;
+using UVision.Api.Services.Training;
 using UVision.Api.Storage;
 
 namespace UVision.Api.Endpoints;
@@ -28,6 +30,11 @@ public static class DatasetEndpoints
         group.MapGet("/{exportId}/manifest", ManifestAsync)
             .WithName("GetDatasetManifest")
             .Produces<DatasetExportManifest>()
+            .ProducesProblem(400)
+            .ProducesProblem(404);
+        group.MapGet("/readiness", ReadinessAsync)
+            .WithName("GetTrainingReadiness")
+            .Produces<TrainingReadinessResponse>()
             .ProducesProblem(400)
             .ProducesProblem(404);
         group.MapPost("/export", ExportAsync).RequireAdminPin()
@@ -86,9 +93,58 @@ public static class DatasetEndpoints
                 return Results.Problem(statusCode: 404, detail: $"시나리오 없음: {scenarioId}");
 
             var exportId = NewExportId();
-            var manifest = await exporter.ExportAsync(scenarioId, exportId, ct);
+            var rules = EffectiveScenario.Resolve(scenario, mlEnabled: false).Training;
+            var manifest = await exporter.ExportAsync(scenarioId, exportId, rules, ct);
             return Results.Created(
                 ApiLocation.For(request, options, $"datasets/{exportId}/manifest?scenario_id={scenarioId}"), manifest);
+        }
+        catch (ArgumentException)
+        {
+            return Results.Problem(statusCode: 400, detail: "유효하지 않은 scenario_id");
+        }
+    }
+
+    /// <summary>
+    /// 학습 준비 신호 — 데이터셋과 같은 선정 규칙으로 센다. 쓰는 모델이 배운 데이터셋은 모델 레지스트리의
+    /// <c>export_id</c> 로 찾는다. ⚠️ UNVERIFIED: 실 운영 라벨에서 기준값(클래스당 · 재빌드 문턱)이 맞는지는 미측정.
+    /// </summary>
+    private static async Task<IResult> ReadinessAsync(
+        [FromQuery(Name = "scenario_id")] string scenarioId,
+        IScenarioStore scenarioStore,
+        IInspectionStore inspections,
+        ILabelStore labels,
+        IModelRegistry registry,
+        IDatasetExporter exporter,
+        CancellationToken ct)
+    {
+        try
+        {
+            var scenario = await scenarioStore.GetAsync(scenarioId, ct);
+            if (scenario is null)
+                return Results.Problem(statusCode: 404, detail: $"시나리오 없음: {scenarioId}");
+
+            var effective = EffectiveScenario.Resolve(scenario, mlEnabled: false);
+            var candidates = await new TrainingCandidateSource(inspections, labels).LoadAsync(scenarioId, ct);
+            var selection = TrainingSetSelector.Select(candidates.Items, effective.Training);
+
+            var active = (await registry.ReadPointerAsync(scenarioId, ct))?.ActiveVersion;
+            string? trainedAt = null;
+            if (active is not null
+                && await registry.ReadManifestAsync(scenarioId, active, ct) is { ExportId: { } exportId })
+                trainedAt = (await exporter.ReadManifestAsync(scenarioId, exportId, ct))?.CreatedAt;
+
+            var r = TrainingReadiness.Evaluate(effective.Labels, selection.Selected, effective.Training, active, trainedAt);
+            return Results.Ok(new TrainingReadinessResponse
+            {
+                ScenarioId = scenarioId,
+                Classes = r.Classes.Select(c => new TrainingClassCountDto { Id = c.Id, Count = c.Count }).ToList(),
+                MinPerClass = r.MinPerClass,
+                BuildReady = r.BuildReady,
+                ActiveVersion = r.ActiveVersion,
+                NewLabelsSinceModel = r.NewLabelsSinceModel,
+                RebuildMinNewLabels = effective.Training.RebuildMinNewLabels,
+                RebuildSuggested = r.RebuildSuggested,
+            });
         }
         catch (ArgumentException)
         {

@@ -1,5 +1,6 @@
 using System.Globalization;
 using UVision.Api.Models;
+using UVision.Api.Services.Training;
 using UVision.Api.Storage;
 
 namespace UVision.Api.Services.Dataset;
@@ -25,55 +26,46 @@ public sealed class FileDatasetExporter : IDatasetExporter
         _labels = labels;
     }
 
+    /// <param name="rules">선정 규칙(시나리오 <c>trust.training</c>) — 생략하면 기본값.</param>
     public async Task<DatasetExportManifest> ExportAsync(
-        string scenarioId, string exportId, CancellationToken cancellationToken = default)
+        string scenarioId, string exportId, ScenarioTraining? rules = null, CancellationToken cancellationToken = default)
     {
         // 경로 형식 위반(scenarioId/exportId)은 여기서 ArgumentException → 엔드포인트 400.
         var manifestPath = _paths.DatasetManifest(scenarioId, exportId);
+        rules ??= ScenarioTraining.Default;
+
+        var candidates = await new TrainingCandidateSource(_inspections, _labels).LoadAsync(scenarioId, cancellationToken);
+        var selection = TrainingSetSelector.Select(candidates.Items, rules);
 
         var items = new List<DatasetItem>();
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
-        var missing = 0;
+        var missing = candidates.Orphans;
 
-        var dates = await _inspections.ListDatesAsync(scenarioId, cancellationToken);
-        foreach (var date in dates)
+        foreach (var candidate in selection.Selected)
         {
-            var labels = await _labels.ListAsync(scenarioId, date, cancellationToken);
-            foreach (var label in labels)
+            var image = await _inspections.ReadImageAsync(scenarioId, candidate.Date, candidate.ImageId, cancellationToken);
+            if (image is null)
             {
-                var image = await _inspections.ReadImageAsync(
-                    scenarioId, date, label.ImageId, cancellationToken);
-                if (image is null)
-                {
-                    // 라벨 사이드카는 있으나 짝 이미지가 없는 orphan — 스킵, 경고로 집계.
-                    missing++;
-                    continue;
-                }
-
-                // operative 라벨이 없으면(oracle-only 또는 미라벨) 데이터셋에서 제외.
-                var operative = label.OperativeLabel;
-                if (operative is null)
-                {
-                    missing++;
-                    continue;
-                }
-
-                var classDir = operative.ToLowerInvariant();
-                var ext = ExtOf(image.ContentType);
-                var dest = Path.Combine(
-                    _paths.DatasetClassDir(scenarioId, exportId, classDir), label.ImageId + ext);
-                await StoragePaths.AtomicWriteAsync(dest, image.Data, cancellationToken);
-
-                items.Add(new DatasetItem
-                {
-                    ImageId = label.ImageId,
-                    Date = date,
-                    Label = operative,
-                    ClassDir = classDir,
-                    ImageFile = $"images/{classDir}/{label.ImageId}{ext}",
-                });
-                counts[classDir] = counts.GetValueOrDefault(classDir) + 1;
+                // 레코드는 있으나 짝 이미지가 없는 orphan — 스킵, 경고로 집계.
+                missing++;
+                continue;
             }
+
+            var classDir = candidate.Label.ToLowerInvariant();
+            var ext = ExtOf(image.ContentType);
+            var dest = Path.Combine(
+                _paths.DatasetClassDir(scenarioId, exportId, classDir), candidate.ImageId + ext);
+            await StoragePaths.AtomicWriteAsync(dest, image.Data, cancellationToken);
+
+            items.Add(new DatasetItem
+            {
+                ImageId = candidate.ImageId,
+                Date = candidate.Date,
+                Label = candidate.Label,
+                ClassDir = classDir,
+                ImageFile = $"images/{classDir}/{candidate.ImageId}{ext}",
+            });
+            counts[classDir] = counts.GetValueOrDefault(classDir) + 1;
         }
 
         // 결정론적 출력 — 날짜·image_id 순.
@@ -100,6 +92,13 @@ public sealed class FileDatasetExporter : IDatasetExporter
             Classes = classes,
             Warnings = warnings,
             Items = items,
+            Selection = new DatasetSelection
+            {
+                OkRatioCap = rules.OkRatioCap,
+                HardNegatives = selection.Selected.Count(c => c.HardNegative),
+                DroppedConflicted = selection.DroppedConflicted,
+                DroppedOkOverCap = selection.DroppedOkOverCap,
+            },
         };
 
         await StoragePaths.AtomicWriteJsonAsync(manifestPath, manifest, cancellationToken);

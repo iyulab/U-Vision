@@ -59,4 +59,66 @@ public sealed record DatasetExportManifest
     [JsonPropertyName("warnings")] public required IReadOnlyList<string> Warnings { get; init; }
 
     [JsonPropertyName("items")] public required IReadOnlyList<DatasetItem> Items { get; init; }
+
+    /// <summary>적용한 선정 규칙과 뺀 건수 — 같은 규칙으로 다시 만들 수 있게(재현). 규칙 이전의 export 에는 없다.</summary>
+    [JsonPropertyName("selection")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DatasetSelection? Selection { get; init; }
+}
+
+/// <summary>데이터셋 선정 기록 — 정답은 사람 확정 라벨, 열린 감사 충돌은 빼고, OK 는 NG 쪽의 배수까지.</summary>
+public sealed record DatasetSelection
+{
+    /// <summary>OK 표본 상한(NG 쪽 건수의 배수).</summary>
+    [JsonPropertyName("ok_ratio_cap")] public required double OkRatioCap { get; init; }
+
+    /// <summary>판정원이 엇갈렸거나 검토가 필요했던 건 — 상한 없이 넣었다.</summary>
+    [JsonPropertyName("hard_negatives")] public required int HardNegatives { get; init; }
+
+    /// <summary>블라인드 감사 충돌이 풀리지 않아 뺀 라벨.</summary>
+    [JsonPropertyName("dropped_conflicted")] public required int DroppedConflicted { get; init; }
+
+    /// <summary>OK 상한을 넘어 뺀 OK.</summary>
+    [JsonPropertyName("dropped_ok_over_cap")] public required int DroppedOkOverCap { get; init; }
+}
+
+/// <summary>
+/// <c>GET {api}/datasets/readiness</c> 응답 — 전용 ML 학습 준비 신호. 빌드 · 재빌드는 관리자가 하고, 이 신호는 «할 때가
+/// 됐다»만 알린다. 근거가 없으면 null 로 생략한다(false 로 위장하지 않는다).
+/// </summary>
+public sealed record TrainingReadinessResponse
+{
+    [JsonPropertyName("scenario_id")] public required string ScenarioId { get; init; }
+
+    /// <summary>시나리오 클래스마다 학습에 넣을 수 있는 사람 확정 표본 수(선정 규칙 적용 뒤).</summary>
+    [JsonPropertyName("classes")] public required IReadOnlyList<TrainingClassCountDto> Classes { get; init; }
+
+    [JsonPropertyName("min_per_class")] public required int MinPerClass { get; init; }
+
+    /// <summary>쓰는 모델이 없을 때만 — 모든 클래스가 기준에 닿았나.</summary>
+    [JsonPropertyName("build_ready")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? BuildReady { get; init; }
+
+    [JsonPropertyName("active_version")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ActiveVersion { get; init; }
+
+    /// <summary>쓰는 모델의 데이터셋 이후 새로 확정된 라벨 — 모델이 어느 데이터셋을 배웠는지 모르면 생략.</summary>
+    [JsonPropertyName("new_labels_since_model")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? NewLabelsSinceModel { get; init; }
+
+    [JsonPropertyName("rebuild_min_new_labels")] public required int RebuildMinNewLabels { get; init; }
+
+    [JsonPropertyName("rebuild_suggested")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? RebuildSuggested { get; init; }
+}
+
+public sealed record TrainingClassCountDto
+{
+    [JsonPropertyName("id")] public required string Id { get; init; }
+
+    [JsonPropertyName("count")] public required int Count { get; init; }
 }
