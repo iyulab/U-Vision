@@ -1,4 +1,3 @@
-using SixLabors.ImageSharp;
 using UVision.Api.Imaging;
 using Xunit;
 
@@ -10,19 +9,51 @@ namespace UVision.Tests;
 /// </summary>
 public class ImageDownscalerTests
 {
-    /// <summary>지정 크기 단색 JPEG 바이트 생성(테스트 픽스처).</summary>
-    private static byte[] MakeJpeg(int width, int height)
+    private static byte[] MakeJpeg(int width, int height) => TestImages.MakeJpeg(width, height);
+
+    private static (int W, int H) DimensionsOf(byte[] data) => TestImages.Dimensions(data);
+
+    private static string Fixture(string name) =>
+        Path.Combine(AppContext.BaseDirectory, "Fixtures", "Downscale", name);
+
+    /// <summary>
+    /// 보존 테스트 — 이미지 라이브러리 교체(ImageSharp 3.1.12 → SkiaSharp + <see cref="BicubicResampler"/>) 전에
+    /// 옛 구현의 리샘플링(ImageSharp 기본 Resize)으로 만든 기준 픽셀과 비교한다. 다운스케일 사본은 VLM 입력이라
+    /// 커널이 바뀌면 판정이 조용히 달라질 수 있다. 소스는 체커·사선 고주파를 담아 큰 축소의 커널 차이를 드러낸다.
+    /// 비교는 JPEG 인코딩 전 픽셀로 한다 — 이 합성 소스는 JPEG 한 번에 채널 평균 ~20 레벨을 잃어(크로마
+    /// 서브샘플링) 인코딩 후 비교로는 커널 차이를 가려낼 수 없다.
+    /// </summary>
+    [Theory]
+    [InlineData(256)]
+    [InlineData(160)]
+    public void Resample_MatchesPreviousImplementation(int maxDim)
     {
-        using var image = new Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(width, height);
-        using var ms = new MemoryStream();
-        image.SaveAsJpeg(ms);
-        return ms.ToArray();
+        using var source = TestImages.DecodeRgb(File.ReadAllBytes(Fixture("downscale-source.png")));
+        using var reference = TestImages.DecodeRgb(File.ReadAllBytes(Fixture($"downscale-ref-{maxDim}.png")));
+
+        var actual = BicubicResampler.Resize(
+            source.GetPixelSpan(), source.Width, source.Height, reference.Width, reference.Height);
+
+        var expected = reference.GetPixelSpan();
+        double sum = 0;
+        int max = 0;
+        for (int i = 0; i < actual.Length; i += 4)
+            for (int c = 0; c < 3; c++)
+            {
+                int d = Math.Abs(actual[i + c] - expected[i + c]);
+                sum += d;
+                max = Math.Max(max, d);
+            }
+        var mean = sum / (actual.Length / 4 * 3.0);
+        Assert.True(mean <= 1.0, $"mean abs diff per channel {mean:F3} > 1.0 (max {max})");
     }
 
-    private static (int W, int H) DimensionsOf(byte[] data)
+    [Fact]
+    public void Downscale_ProducesJpeg()
     {
-        using var image = Image.Load(data);
-        return (image.Width, image.Height);
+        var result = ImageDownscaler.Downscale(TestImages.MakeJpeg(800, 400), 256);
+
+        Assert.True(result.Length > 2 && result[0] == 0xFF && result[1] == 0xD8, "JPEG SOI marker expected");
     }
 
     [Fact]

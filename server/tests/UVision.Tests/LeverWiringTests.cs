@@ -1,7 +1,6 @@
 using System.Net.Http.Headers;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
-using SixLabors.ImageSharp;
 using UVision.Api.Models;
 using UVision.Api.Services.Vlm;
 using Xunit;
@@ -21,18 +20,12 @@ public class LeverWiringTests : IClassFixture<UVisionApiFactory>
 
     public LeverWiringTests(UVisionApiFactory factory) => _factory = factory;
 
-    private static byte[] MakeJpeg(int width, int height)
-    {
-        using var image = new Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(width, height);
-        using var ms = new MemoryStream();
-        image.SaveAsJpeg(ms);
-        return ms.ToArray();
-    }
+    private static byte[] MakeJpeg(int width, int height) => TestImages.MakeJpeg(width, height);
 
     private static int LongestSide(ReadOnlyMemory<byte> data)
     {
-        using var image = Image.Load(data.Span);
-        return Math.Max(image.Width, image.Height);
+        var (w, h) = TestImages.Dimensions(data.Span);
+        return Math.Max(w, h);
     }
 
     private static MultipartFormDataContent Form(byte[] bytes, string scenarioId)

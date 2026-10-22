@@ -1,6 +1,4 @@
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.Processing;
+using SkiaSharp;
 
 namespace UVision.Api.Imaging;
 
@@ -28,16 +26,28 @@ public static class ImageDownscaler
         if (maxDim <= 0)
             return data.ToArray();
 
-        using var image = Image.Load(data.Span);
-        var longest = Math.Max(image.Width, image.Height);
-        if (longest > maxDim)
-        {
-            var scale = (double)maxDim / longest;
-            image.Mutate(x => x.Resize(
-                (int)Math.Round(image.Width * scale), (int)Math.Round(image.Height * scale)));
-        }
-        using var ms = new MemoryStream();
-        image.SaveAsJpeg(ms, new JpegEncoder { Quality = JpegQuality });
-        return ms.ToArray();
+        using var decoded = SKBitmap.Decode(data.Span)
+            ?? throw new InvalidDataException("Unsupported or corrupt image data.");
+        // 리샘플러가 다루는 단일 픽셀 형식(RGBA8888, unpremultiplied)으로 맞춘다.
+        using var source = decoded.Copy(SKColorType.Rgba8888)
+            ?? throw new InvalidDataException("Unsupported pixel format.");
+
+        var longest = Math.Max(source.Width, source.Height);
+        if (longest <= maxDim)
+            return EncodeJpeg(source);
+
+        var scale = (double)maxDim / longest;
+        int width = (int)Math.Round(source.Width * scale), height = (int)Math.Round(source.Height * scale);
+        var pixels = BicubicResampler.Resize(source.GetPixelSpan(), source.Width, source.Height, width, height);
+        using var resized = new SKBitmap(new SKImageInfo(width, height, SKColorType.Rgba8888, source.AlphaType));
+        pixels.CopyTo(resized.GetPixelSpan());
+        return EncodeJpeg(resized);
+    }
+
+    private static byte[] EncodeJpeg(SKBitmap bitmap)
+    {
+        using var encoded = bitmap.Encode(SKEncodedImageFormat.Jpeg, JpegQuality)
+            ?? throw new InvalidDataException("JPEG encoding failed.");
+        return encoded.ToArray();
     }
 }

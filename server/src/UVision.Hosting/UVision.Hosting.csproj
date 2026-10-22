@@ -42,7 +42,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <!-- 이미지 디코드·축소·JPEG 인코드. ImageSharp 4.x 는 직접 참조하는 모든 Release 빌드에 벤더 라이선스 키를 요구해
+         MIT 라이브러리에 맞지 않아 SkiaSharp(MIT)로 교체. Linux(x64·arm64, glibc·musl) 네이티브는 fontconfig 없는 판. -->
+    <PackageReference Include="SkiaSharp" Version="4.153.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
     <PackageReference Include="IronHive.Abstractions" Version="0.68.0" />
     <PackageReference Include="IronHive.Core" Version="0.68.0" />
     <PackageReference Include="IronHive.Providers.GoogleAI" Version="0.68.0" />
