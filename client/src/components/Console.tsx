@@ -107,7 +107,7 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
   }
 
   return (
-    <div className="min-h-screen w-full bg-slate-900 text-slate-100">
+    <div className="flex min-h-screen w-full flex-col bg-slate-900 text-slate-100">
       <header className="flex items-center justify-between border-b border-slate-700 px-6 py-4">
         <div className="flex items-center gap-1">
           <TabButton active={tab === 'scenarios'} onClick={() => setTab('scenarios')}>
@@ -136,7 +136,7 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
 
       {error && <div className="mx-6 mt-4 rounded-lg bg-red-600/90 px-4 py-2 text-sm">{error}</div>}
 
-      <main className="p-6">
+      <main className="flex-1 p-6">
         {tab === 'scenarios' ? (
           <ScenarioManager scenarios={scenarios} reload={reload} runWithPin={runWithPin} />
         ) : tab === 'results' ? (
