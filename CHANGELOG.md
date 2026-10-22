@@ -2,6 +2,15 @@
 
 Changes to the `UVision.Hosting` NuGet package. Versions 0.2.0 and 0.2.1 were never published; their changes ship in 0.3.0.
 
+## [Unreleased]
+
+### Fixed
+- A PNG upload was sent to the vision model labeled as JPEG when server-side downscaling (`max_image_dimension`) is off. The image format sent to the model is now read from the image bytes.
+
+### Changed
+- The inspection pipeline (reference loading, model calls, verdict decision, record, metrics) moved out of the `/inspect` HTTP handler into `InspectionPipeline`, registered by `AddUVision`. Responses, stored records and metrics rows are unchanged byte for byte.
+- `ImageUpload.ExtensionFor` moved to `ImageFiles.ExtensionFor` (`UVision.Api.Imaging`).
+
 ## [0.3.0] - 2026-10-22
 
 ### Security

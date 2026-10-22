@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using UVision.Api.Auth;
 using UVision.Api.Configuration;
+using UVision.Api.Imaging;
 using UVision.Api.Models;
 using UVision.Api.Storage;
 
@@ -94,7 +95,7 @@ public static class ReferenceEndpoints
             if (data is null)
                 return Results.Problem(statusCode: 400, detail: "빈 이미지");
 
-            var ext = ImageUpload.ExtensionFor(image.ContentType);
+            var ext = ImageFiles.ExtensionFor(image.ContentType);
             var refId = await referenceStore.SaveAsync(id, parsed, data, ext, ct);
 
             // NG 기준 이미지면 레이블을 scenario.json 에 기록.

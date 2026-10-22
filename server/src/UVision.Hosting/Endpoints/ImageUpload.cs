@@ -8,10 +8,6 @@ public static class ImageUpload
 {
     public static readonly HashSet<string> AllowedTypes = new() { "image/jpeg", "image/png" };
 
-    /// <summary>content-type → 파일 확장자(저장 stem 과 페어).</summary>
-    public static string ExtensionFor(string contentType) =>
-        contentType == "image/png" ? ".png" : ".jpg";
-
     /// <summary>
     /// 업로드 이미지를 검증한다. 위반 시 <see cref="IResult"/>(415/413/400)를 반환하고,
     /// 통과 시 <c>null</c>. 호출부는 null 일 때만 진행한다.

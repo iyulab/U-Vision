@@ -1,6 +1,7 @@
 using System.Text.Json;
 using IronHive.Abstractions.Messages;
 using IronHive.Abstractions.Messages.Content;
+using UVision.Api.Imaging;
 using UVision.Api.Models;
 
 namespace UVision.Api.Services.Vlm;
@@ -142,7 +143,8 @@ public sealed class IronHiveVlmProvider : IVlmProvider
         content.Add(new TextMessageContent { Value = "이 제품 이미지를 판정하라." });
         content.Add(new ImageMessageContent
         {
-            Format = ImageFormat.Jpeg,
+            // 다운스케일 레버가 꺼져 있으면 업로드 원본(PNG 일 수 있음)이 그대로 온다 — 바이트로 판별.
+            Format = ImageFiles.IsPng(image.Span) ? ImageFormat.Png : ImageFormat.Jpeg,
             Base64 = Convert.ToBase64String(image.Span),
         });
 

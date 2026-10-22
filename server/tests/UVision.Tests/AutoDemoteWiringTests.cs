@@ -1,4 +1,4 @@
-using UVision.Api.Endpoints;
+using UVision.Api.Services.Inspection;
 using Xunit;
 
 namespace UVision.Tests;
@@ -16,5 +16,5 @@ public class AutoDemoteWiringTests
     [InlineData(50, 25, true)]
     [InlineData(0, 25, false)] // 0건이면 미발동
     public void Trigger_FiresOnMultiple(int rowCount, int every, bool expected) =>
-        Assert.Equal(expected, InspectEndpoints.ShouldCheckAutoDemote(rowCount, every));
+        Assert.Equal(expected, InspectionPipeline.ShouldCheckAutoDemote(rowCount, every));
 }

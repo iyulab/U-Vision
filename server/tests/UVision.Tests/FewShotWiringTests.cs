@@ -50,6 +50,17 @@ public class FewShotWiringTests
             content.OfType<TextMessageContent>(), t => t.Value.Contains("솔더 브릿지"));
     }
 
+    [Fact]
+    public void BuildContent_PngTarget_IsLabeledPng()
+    {
+        // 다운스케일 레버가 꺼져 있으면 업로드 원본이 그대로 온다 — PNG 바이트를 JPEG 로 표기하면 안 된다.
+        byte[] png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00];
+
+        var content = IronHiveVlmProvider.BuildContent(png, []);
+
+        Assert.Equal(ImageFormat.Png, content.OfType<ImageMessageContent>().Single().Format);
+    }
+
     // 구조화 출력(json_schema grammar)이 content 를 강제하므로 보통 순수 JSON 이 오지만, reasoning
     // 모델/백엔드가 코드펜스·머리말을 덧붙일 가능성에 대한 defense-in-depth. ExtractJson 이 첫 '{' ~
     // 마지막 '}' 를 관용적으로 뽑는지 검증한다.
