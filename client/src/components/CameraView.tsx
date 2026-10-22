@@ -79,7 +79,7 @@ export function CameraView({
         {statusLabel}
       </div>
 
-      <VerdictBadge result={inspection.latest} phase={inspection.phase} />
+      <VerdictBadge result={inspection.latest} phase={inspection.phase} aboveShutter={!auto} />
       <InspectionHistory items={inspection.history} />
 
       {/* 다음 품목 안내(자동 연속 플로우) */}

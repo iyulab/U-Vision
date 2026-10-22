@@ -6,6 +6,7 @@ import { labelMapOf } from '../lib/labels'
 import { pendingReviewCount, reviewStateOf } from '../lib/review'
 import { ResultsTable } from './ResultsTable'
 import type { Scenario, StoredLabel, StoredResult } from '../lib/types'
+import { termOf } from '../lib/verification'
 
 /**
  * 결과 조회 — 영속화된 과거 검사 기록을 시나리오·날짜별로 본다(무인증 읽기).
@@ -27,6 +28,7 @@ export function ResultsBrowser({
   const [scenarioId, setScenarioId] = useState(
     () => lockedScenarioId ?? initialScenarioId ?? scenarios[0]?.scenario_id ?? '',
   )
+  const scenarioType = scenarios.find((s) => s.scenario_id === scenarioId)?.type
   const [dates, setDates] = useState<string[]>([])
   const [date, setDate] = useState(lockedDate ?? '')
   const [results, setResults] = useState<StoredResult[]>([])
@@ -211,6 +213,7 @@ export function ResultsBrowser({
         <p className="text-slate-400">검토 대기 중인 검사가 없습니다.</p>
       ) : (
         <ResultsTable
+          scenarioType={scenarioType}
           results={shown}
           labels={labelMap}
           date={date}
@@ -221,6 +224,7 @@ export function ResultsBrowser({
 
       {selected && (
         <ResultDetail
+          scenarioType={scenarioType}
           result={selected}
           date={date}
           onClose={() => setSelected(null)}
@@ -234,7 +238,9 @@ function ResultDetail({
   result,
   date,
   onClose,
+  scenarioType,
 }: {
+  scenarioType?: Scenario['type']
   result: StoredResult
   date: string
   onClose: () => void
@@ -250,7 +256,7 @@ function ResultDetail({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <VerdictPill verdict={result.verdict} large />
+          <VerdictPill verdict={result.verdict} scenarioType={scenarioType} large />
           <button
             onClick={onClose}
             className="rounded-lg bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-200 hover:bg-slate-600"
@@ -282,6 +288,14 @@ function ResultDetail({
           <dd className="text-right text-slate-200">
             {result.device_label || result.device_id || '—'}
           </dd>
+          {result.expected_part && (
+            <>
+              <dt className="text-slate-400">기대 품번</dt>
+              <dd className="text-right font-mono text-slate-200">{result.expected_part}</dd>
+              <dt className="text-slate-400">읽은 코드</dt>
+              <dd className="text-right font-mono text-slate-200">{result.observed_code ?? '—'}</dd>
+            </>
+          )}
           <dt className="text-slate-400">이미지 ID</dt>
           <dd className="text-right font-mono text-xs text-slate-400">{result.image_id}</dd>
         </dl>
@@ -290,7 +304,15 @@ function ResultDetail({
   )
 }
 
-function VerdictPill({ verdict, large }: { verdict: 'OK' | 'NG'; large?: boolean }) {
+function VerdictPill({
+  verdict,
+  large,
+  scenarioType,
+}: {
+  verdict: 'OK' | 'NG'
+  large?: boolean
+  scenarioType?: Scenario['type']
+}) {
   const ng = verdict === 'NG'
   return (
     <span
@@ -298,7 +320,7 @@ function VerdictPill({ verdict, large }: { verdict: 'OK' | 'NG'; large?: boolean
         ng ? 'bg-red-600' : 'bg-emerald-600'
       } ${large ? 'px-4 py-1.5 text-lg' : 'px-2.5 py-1 text-sm'}`}
     >
-      {ng ? 'NG' : 'OK'}
+      {termOf(verdict, scenarioType)}
     </span>
   )
 }

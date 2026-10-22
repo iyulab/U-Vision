@@ -1,7 +1,8 @@
 import { resultImageUrl } from '../lib/api'
 import { LABEL_SET, agreementOf, latestOracleOpinion } from '../lib/labels'
 import { reviewStateOf, type ReviewState } from '../lib/review'
-import type { MlResult, StoredLabel, StoredResult, Verdict } from '../lib/types'
+import type { MlResult, Scenario, StoredLabel, StoredResult, Verdict } from '../lib/types'
+import { termOf } from '../lib/verification'
 import { conflictBadgeLabel } from './conflictBadge'
 
 /**
@@ -14,8 +15,11 @@ export function ResultsTable({
   date,
   onLabel,
   onSelect,
+  scenarioType,
 }: {
   results: StoredResult[]
+  /** 시나리오 유형 — 오투입 확인이면 OK/NG 를 일치/불일치로 읽는다(저장값은 그대로). */
+  scenarioType?: Scenario['type']
   labels: Map<string, StoredLabel>
   date: string
   /** label=null → 라벨 해제(삭제). 그 외 → 해당 라벨로 설정/정정. */
@@ -67,7 +71,7 @@ export function ResultsTable({
                 </td>
                 <td className="px-2 py-2 text-slate-300">{formatTime(r.timestamp)}</td>
                 <td className="px-2 py-2">
-                  <VerdictPill verdict={r.verdict} />
+                  <VerdictPill verdict={r.verdict} scenarioType={scenarioType} />
                 </td>
                 <td className="px-2 py-2 font-mono text-slate-400">
                   {(r.confidence * 100).toFixed(0)}%
@@ -102,7 +106,7 @@ export function ResultsTable({
                             : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                         }`}
                       >
-                        {value}
+                        {termOf(value, scenarioType)}
                       </button>
                     ))}
                   </div>
@@ -211,7 +215,7 @@ function AgreementMark({ verdict, label }: { verdict: Verdict; label: string | u
   )
 }
 
-function VerdictPill({ verdict }: { verdict: Verdict }) {
+function VerdictPill({ verdict, scenarioType }: { verdict: Verdict; scenarioType?: Scenario['type'] }) {
   const ng = verdict === 'NG'
   return (
     <span
@@ -219,7 +223,7 @@ function VerdictPill({ verdict }: { verdict: Verdict }) {
         ng ? 'bg-red-600' : 'bg-emerald-600'
       }`}
     >
-      {ng ? 'NG' : 'OK'}
+      {termOf(verdict, scenarioType)}
     </span>
   )
 }

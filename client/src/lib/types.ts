@@ -74,6 +74,9 @@ export interface StoredResult {
   agreement?: boolean
   /** 불일치/저신뢰 → 검토 필요(③→④). ML 없으면 부재. */
   requires_review?: boolean
+  /** 오투입 확인의 기대 품번 · 장치가 읽은 코드(요청이 보냈을 때만). */
+  expected_part?: string
+  observed_code?: string
 }
 
 /**

@@ -10,15 +10,19 @@ import { reviewBandText } from './verdictBadgeText'
 export function VerdictBadge({
   result,
   phase,
+  aboveShutter = false,
 }: {
   result: InspectResult | null
   phase: InspectionPhase
+  /** 수동 모드 — 화면 아래 셔터 버튼 위로 올린다(겹치면 소견 · 신뢰도가 가려진다). */
+  aboveShutter?: boolean
 }) {
   const busy = phase === 'capturing' || phase === 'uploading'
+  const bottom = aboveShutter ? 'pb-32' : 'pb-8'
 
   if (busy) {
     return (
-      <div className="absolute inset-x-0 bottom-0 flex justify-center pb-8">
+      <div className={`absolute inset-x-0 bottom-0 flex justify-center ${bottom}`}>
         <div className="rounded-2xl bg-black/70 px-8 py-4 text-lg font-medium text-white backdrop-blur">
           {phase === 'capturing' ? '캡처 중…' : '판정 중…'}
         </div>
@@ -32,7 +36,7 @@ export function VerdictBadge({
 
   const ng = result.verdict === 'NG'
   return (
-    <div className="absolute inset-x-0 bottom-0 flex justify-center pb-8">
+    <div className={`absolute inset-x-0 bottom-0 flex justify-center ${bottom}`}>
       <div
         className={`flex max-w-2xl flex-col items-center rounded-2xl px-10 py-6 text-center backdrop-blur ${
           ng ? 'bg-red-600/85' : 'bg-emerald-600/85'

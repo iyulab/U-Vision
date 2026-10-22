@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { DetectionUnavailableError, inspectImageV2 } from './api'
 import { readCode } from './barcode'
-import { isVerification, shortVerdictLabel, toInspectResult, verdictLabel } from './verification'
+import { isVerification, shortVerdictLabel, termOf, toInspectResult, verdictLabel } from './verification'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -30,6 +30,15 @@ describe('verification', () => {
     expect(verdictLabel({ verdict: 'OK' })).toBe('✅ OK')
     expect(shortVerdictLabel({ verdict: 'NG', class_label: 'MISMATCH' })).toBe('불일치')
     expect(shortVerdictLabel({ verdict: 'OK' })).toBe('OK')
+  })
+})
+
+describe('termOf', () => {
+  it('오투입 확인은 저장값 OK/NG 를 일치/불일치로, 검사는 그대로', () => {
+    expect(termOf('OK', 'verification')).toBe('일치')
+    expect(termOf('NG', 'verification')).toBe('불일치')
+    expect(termOf('NG', 'inspection')).toBe('NG')
+    expect(termOf('OK', undefined)).toBe('OK')
   })
 })
 
