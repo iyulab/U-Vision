@@ -1,0 +1,3 @@
+# Check out text files with LF on every OS. The embedded client in server/src/UVision.Hosting/wwwroot is a
+# committed build output that CI rebuilds and compares, so its sources must produce the same bytes everywhere.
+* text=auto eol=lf
