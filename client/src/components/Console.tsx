@@ -5,6 +5,7 @@ import { createScenario, deleteScenario, getAdminStatus, listScenarios, updateSc
 import { usePin, type PinRunResult } from '../hooks/usePin'
 import { useResource } from '../hooks/useResource'
 import { AdminSetup } from './AdminSetup'
+import { classesFor, defectsOf, parseDefects } from '../lib/defectClasses'
 import { DEFAULT_MOTION_CONFIG } from '../lib/motion'
 import { DEFAULT_ROI, fromScenarioRoi, toScenarioRoi, type Roi } from '../lib/roi'
 import type { Scenario } from '../lib/types'
@@ -55,6 +56,10 @@ interface DraftScenario {
   type: ScenarioType
   /** 수정 시작 때의 유형 — 바뀌었을 때만 type 을 보낸다(생략하면 서버가 저장된 값을 유지). */
   originalType?: ScenarioType
+  /** 검사의 불량 유형 입력란(쉼표 구분) — 비우면 OK/NG. */
+  defects: string
+  /** 수정 시작 때의 불량 유형 — 바뀌었을 때만 classes 를 보낸다. */
+  originalDefects: string[]
 }
 
 type ScenarioType = 'inspection' | 'verification'
@@ -276,6 +281,11 @@ function ScenarioManager({
 
   function save() {
     if (!draft || !draft.name.trim()) return
+    const parsed = parseDefects(draft.defects)
+    if ('error' in parsed) return
+    // 불량 유형은 검사에서 바뀌었을 때만 보낸다 — 생략하면 서버가 저장된 classes 를 그대로 둔다.
+    const defectsChanged =
+      draft.type === 'inspection' && parsed.ids.join(',') !== draft.originalDefects.join(',')
     const input = {
       name: draft.name.trim(),
       criteria: draft.criteria.trim(),
@@ -289,6 +299,7 @@ function ScenarioManager({
       ...(draft.type === 'verification' || draft.type !== (draft.originalType ?? 'inspection')
         ? { type: draft.type }
         : {}),
+      ...(defectsChanged ? { classes: classesFor(parsed.ids) } : {}),
     }
     void mutate(
       async (pin) => {
@@ -319,6 +330,8 @@ function ScenarioManager({
               maxImageDimension: DEFAULT_MAX_IMAGE_DIMENSION,
               referenceCap: DEFAULT_REFERENCE_CAP,
               type: 'inspection',
+              defects: '',
+              originalDefects: [],
             })
           }
           className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold hover:bg-emerald-400"
@@ -342,6 +355,11 @@ function ScenarioManager({
               {s.type === 'verification' && (
                 <span className="ml-2 rounded bg-amber-500/20 px-1.5 py-0.5 text-amber-300">오투입 확인</span>
               )}
+              {defectsOf(s).length > 0 && (
+                <span className="ml-2 rounded bg-red-500/20 px-1.5 py-0.5 text-red-300">
+                  불량 유형 {defectsOf(s).join(' · ')}
+                </span>
+              )}
             </p>
             {s.criteria && <p className="mt-1 line-clamp-2 text-sm text-slate-300">{s.criteria}</p>}
           </div>
@@ -360,6 +378,8 @@ function ScenarioManager({
                   referenceCap: s.reference_cap,
                   type: s.type ?? 'inspection',
                   originalType: s.type ?? 'inspection',
+                  defects: defectsOf(s).join(', '),
+                  originalDefects: defectsOf(s),
                 })
               }
               className="rounded-lg bg-slate-700 px-3 py-1.5 text-sm hover:bg-slate-600"
@@ -462,6 +482,32 @@ function PresetSelect({
   )
 }
 
+/**
+ * 검사의 불량 유형 — 비우면 OK/NG 판정, 적으면 NG 를 그 유형으로 나눠 판정한다(VLM 이 유형을 대고, 사람 라벨 · 학습
+ * 데이터도 유형으로 남는다). 이미 쌓인 기록의 라벨은 바뀌지 않는다.
+ */
+function DefectsField({ draft, onChange }: { draft: DraftScenario; onChange: (d: DraftScenario) => void }) {
+  const parsed = parseDefects(draft.defects)
+  return (
+    <label className="block space-y-1">
+      <span className="text-sm text-slate-300">불량 유형(선택)</span>
+      <input
+        value={draft.defects}
+        onChange={(e) => onChange({ ...draft, defects: e.target.value })}
+        placeholder="비우면 OK / NG. 예: scratch, dent, stain"
+        className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 font-mono text-sm text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
+      />
+      {'error' in parsed ? (
+        <span className="block text-xs text-red-300">{parsed.error}</span>
+      ) : (
+        <span className="block text-xs text-slate-500">
+          유형을 적으면 판정이 NG 대신 유형을 남기고, 라벨 버튼도 유형별로 바뀝니다. 운영 화면은 그대로 OK / NG 로 보입니다.
+        </span>
+      )}
+    </label>
+  )
+}
+
 function ScenarioForm({
   draft,
   busy,
@@ -519,6 +565,7 @@ function ScenarioForm({
             </span>
           )}
         </div>
+        {draft.type === 'inspection' && <DefectsField draft={draft} onChange={onChange} />}
         <label className="block space-y-1">
           <span className="text-sm text-slate-300">판정 기준(자연어)</span>
           <textarea
@@ -597,7 +644,7 @@ function ScenarioForm({
           </button>
           <button
             onClick={onSave}
-            disabled={busy || !draft.name.trim()}
+            disabled={busy || !draft.name.trim() || 'error' in parseDefects(draft.defects)}
             className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-40"
           >
             저장

@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { percent, summarizeResults } from './resultSummary'
 import type { StoredLabel, StoredResult } from './types'
 
-const result = (image_id: string, verdict: 'OK' | 'NG'): StoredResult =>
-  ({ image_id, verdict, findings: '', confidence: 1, timestamp: 't', scenario_id: 's', image_file: `${image_id}.jpg`, device_id: '', device_label: '' }) as StoredResult
+const result = (image_id: string, verdict: 'OK' | 'NG', cls?: string): StoredResult =>
+  ({ image_id, verdict, class: cls, findings: '', confidence: 1, timestamp: 't', scenario_id: 's', image_file: `${image_id}.jpg`, device_id: '', device_label: '' }) as StoredResult
 
 const label = (image_id: string, l: string): StoredLabel => ({ image_id, label: l, timestamp: 't' })
 
@@ -16,7 +16,7 @@ describe('summarizeResults', () => {
       ['c', label('c', 'NG')], // 사람이 OK 판정을 NG 로 고침
     ])
 
-    expect(summarizeResults(results, labels)).toEqual({ total: 4, ok: 3, ng: 1, ngRate: 0.25, labeled: 2, corrected: 1 })
+    expect(summarizeResults(results, labels)).toEqual({ total: 4, ok: 3, ng: 1, ngRate: 0.25, labeled: 2, corrected: 1, defects: [] })
   })
 
   it('라벨 이력은 최신 사람 라벨을 쓴다(오라클 소견은 세지 않는다)', () => {
@@ -30,6 +30,21 @@ describe('summarizeResults', () => {
       ],
     }
     expect(summarizeResults([result('a', 'OK')], new Map([['a', l]])).corrected).toBe(1)
+  })
+
+  it('불량 유형을 많은 순으로 세고, 사람 라벨은 유형까지 맞아야 일치다', () => {
+    const results = [result('a', 'NG', 'dent'), result('b', 'NG', 'scratch'), result('c', 'NG', 'dent'), result('d', 'OK', 'OK')]
+    const labels = new Map([
+      ['a', label('a', 'dent')],
+      ['b', label('b', 'dent')], // 유형을 고침
+    ])
+
+    const s = summarizeResults(results, labels)
+    expect(s.defects).toEqual([
+      { id: 'dent', count: 2 },
+      { id: 'scratch', count: 1 },
+    ])
+    expect(s).toMatchObject({ ng: 3, labeled: 2, corrected: 1 })
   })
 
   it('기록이 없으면 비율은 null', () => {

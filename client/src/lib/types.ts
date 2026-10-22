@@ -85,6 +85,8 @@ export interface StoredResult {
   /** 오투입 확인의 기대 품번 · 장치가 읽은 코드(요청이 보냈을 때만). */
   expected_part?: string
   observed_code?: string
+  /** 판정한 불량 유형(또는 OK) — 시나리오가 NG 를 유형으로 나눌 때만. 그 밖에는 `verdict` 가 곧 클래스. */
+  class?: string
 }
 
 /**
@@ -117,6 +119,17 @@ export interface Scenario {
   allow_cloud_egress?: boolean
   /** 시나리오 유형(v2) — 부재 = 'inspection'(OK/NG 검사). 'verification' 은 기대 품번과 대조하는 오투입 확인. */
   type?: 'inspection' | 'verification'
+  /** 클래스(v2) — 부재 = 파생(검사 OK/NG · 오투입 MATCH/MISMATCH). 검사가 OK 밖에 유형 여럿을 두면 NG 를 유형으로 나눈다. */
+  classes?: ScenarioClass[]
+}
+
+/** 시나리오 클래스 — 서버 `ScenarioClass` 미러. */
+export interface ScenarioClass {
+  id: string
+  /** 아래 단(ML 등)이 확정해도 되는 값. */
+  settleable?: boolean
+  /** 놓치면 안 되는 값 — 언제나 꼭대기(VLM)까지 간다. 불량 유형은 모두 이것이다. */
+  must_catch?: boolean
 }
 
 /** 기준 이미지 메타데이터 — 서버 `ReferenceInfo` 미러. */
@@ -139,6 +152,8 @@ export interface ScenarioInput {
   ng_labels?: Record<string, string>
   /** 시나리오 유형(v2) — 생략하면 서버가 저장된 값을 유지한다. */
   type?: 'inspection' | 'verification'
+  /** 클래스(v2) — 생략하면 서버가 저장된 값을 유지한다(유형이 바뀌면 서버가 버린다). */
+  classes?: ScenarioClass[]
 }
 
 /** 라벨 이력 이벤트(C1 provenance) — 서버 `LabelEvent` 미러. */

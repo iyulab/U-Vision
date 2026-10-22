@@ -4,7 +4,7 @@ import { useResource } from '../hooks/useResource'
 
 import { deleteLabel, listLabels, listResultDates, listResults, putLabel, resultImageUrl } from '../lib/api'
 import { getDeviceId } from '../lib/deviceIdentity'
-import { labelMapOf } from '../lib/labels'
+import { labelMapOf, labelsOf } from '../lib/labels'
 import { pendingReviewCount, reviewStateOf } from '../lib/review'
 import { percent, summarizeResults } from '../lib/resultSummary'
 import { ResultsTable } from './ResultsTable'
@@ -32,7 +32,8 @@ export function ResultsBrowser({
   const [scenarioId, setScenarioId] = useState(
     () => lockedScenarioId ?? initialScenarioId ?? scenarios[0]?.scenario_id ?? '',
   )
-  const scenarioType = scenarios.find((s) => s.scenario_id === scenarioId)?.type
+  const scenario = scenarios.find((s) => s.scenario_id === scenarioId)
+  const scenarioType = scenario?.type
   // 날짜 고정이 아니면 목록에서 고른다. 고른 날짜가 목록에 없으면(시나리오를 바꿨거나 아직 안 골랐으면) 최신 날짜.
   const datesRes = useResource(
     lockedDate || !scenarioId ? null : scenarioId,
@@ -200,6 +201,7 @@ export function ResultsBrowser({
       ) : (
         <ResultsTable
           scenarioType={scenarioType}
+          labelSet={labelsOf(scenario)}
           results={shown}
           labels={labelMap}
           date={date}
@@ -248,6 +250,12 @@ function SummaryStrip({
           {s.ngRate !== null && <span className="ml-1 font-normal text-slate-400">({percent(s.ngRate)})</span>}
         </dd>
       </div>
+      {s.defects.length > 0 && (
+        <div className="flex gap-2">
+          <dt className="text-slate-400">불량 유형</dt>
+          <dd className="text-red-200">{s.defects.map((d) => `${d.id} ${d.count}`).join(' · ')}</dd>
+        </div>
+      )}
       {s.labeled > 0 && (
         <div className="flex gap-2">
           <dt className="text-slate-400">사람 확인</dt>
@@ -285,7 +293,7 @@ function ResultDetail({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <VerdictPill verdict={result.verdict} scenarioType={scenarioType} large />
+          <VerdictPill verdict={result.verdict} defect={result.class} scenarioType={scenarioType} large />
           <button
             onClick={onClose}
             className="rounded-lg bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-200 hover:bg-slate-600"
@@ -335,10 +343,13 @@ function ResultDetail({
 
 function VerdictPill({
   verdict,
+  defect,
   large,
   scenarioType,
 }: {
   verdict: 'OK' | 'NG'
+  /** 레코드의 클래스 — 시나리오가 NG 를 유형으로 나눌 때만 있다. */
+  defect?: string
   large?: boolean
   scenarioType?: Scenario['type']
 }) {
@@ -350,6 +361,7 @@ function VerdictPill({
       } ${large ? 'px-4 py-1.5 text-lg' : 'px-2.5 py-1 text-sm'}`}
     >
       {termOf(verdict, scenarioType)}
+      {ng && defect !== undefined && <span className="ml-1.5 font-normal">· {defect}</span>}
     </span>
   )
 }

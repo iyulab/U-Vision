@@ -6,12 +6,12 @@ export function isVerification(scenario: Pick<Scenario, 'type'>): boolean {
 }
 
 /**
- * 결과 v2 → 운영 화면의 판정 결과. 운영 화면은 OK/NG 축으로 상태를 다루므로 불일치를 NG 쪽(놓치면 안 되는 값)에,
- * 일치를 OK 쪽에 두고, 표시용 클래스(`class_label`)를 함께 싣는다.
+ * 결과 v2 → 운영 화면의 판정 결과. 운영 화면은 OK/NG 축으로 상태를 다루므로 좋은 쪽(OK · 일치)만 OK 에, 불일치 ·
+ * 불량 유형은 모두 NG 쪽(놓치면 안 되는 값)에 두고, 표시용 클래스(`class_label`)를 함께 싣는다.
  */
 export function toInspectResult(v2: InspectResultV2): InspectResult {
   return {
-    verdict: v2.class === 'MISMATCH' || v2.class === 'NG' ? 'NG' : 'OK',
+    verdict: v2.class === 'OK' || v2.class === 'MATCH' ? 'OK' : 'NG',
     findings: v2.findings ?? '',
     confidence: v2.confidence ?? 0,
     timestamp: v2.timestamp,

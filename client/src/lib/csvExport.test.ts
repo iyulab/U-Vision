@@ -37,6 +37,13 @@ describe('resultsToCsv', () => {
     expect(row).toContain('NG,불일치,P-100,P-200,0.91')
   })
 
+  it('불량 유형을 나눈 레코드가 있으면 class 열', () => {
+    const csv = resultsToCsv([{ ...base, findings: '', class: 'dent' }], new Map())
+    const [header, row] = csv.slice(1).split('\r\n')
+    expect(header).toContain('verdict,class,confidence')
+    expect(row).toContain('NG,dent,0.91')
+  })
+
   it('수식으로 실행될 셀은 막는다', () => {
     const row = resultsToCsv([{ ...base, findings: '=HYPERLINK("x")' }], new Map()).split('\r\n')[1]
     expect(row).toContain(`"'=HYPERLINK(""x"")"`)

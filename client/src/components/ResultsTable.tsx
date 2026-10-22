@@ -1,12 +1,12 @@
 import { resultImageUrl } from '../lib/api'
-import { LABEL_SET, agreementOf, latestOracleOpinion } from '../lib/labels'
+import { agreementOf, decidedClassOf, latestOracleOpinion, sameClass } from '../lib/labels'
 import { reviewStateOf, type ReviewState } from '../lib/review'
-import type { MlResult, Scenario, StoredLabel, StoredResult, Verdict } from '../lib/types'
+import type { MlResult, Scenario, StoredLabel, StoredResult } from '../lib/types'
 import { termOf } from '../lib/verification'
 import { conflictBadgeLabel } from './conflictBadge'
 
 /**
- * 결과 표 — 썸네일 + VLM 판정 + ML 교차검증(③) + 검토 상태(④-A) + 사람 라벨(인라인 OK/NOK).
+ * 결과 표 — 썸네일 + VLM 판정 + ML 교차검증(③) + 검토 상태(④-A) + 사람 라벨(인라인 — 시나리오의 라벨).
  * 표현 전용: 데이터·콜백은 컨테이너(ResultsBrowser)가 소유한다.
  */
 export function ResultsTable({
@@ -16,8 +16,11 @@ export function ResultsTable({
   onLabel,
   onSelect,
   scenarioType,
+  labelSet,
 }: {
   results: StoredResult[]
+  /** 사람 라벨 버튼 — 시나리오가 받는 라벨(`labelsOf`). */
+  labelSet: string[]
   /** 시나리오 유형 — 오투입 확인이면 OK/NG 를 일치/불일치로 읽는다(저장값은 그대로). */
   scenarioType?: Scenario['type']
   labels: Map<string, StoredLabel>
@@ -71,19 +74,19 @@ export function ResultsTable({
                 </td>
                 <td className="px-2 py-2 text-slate-300">{formatTime(r.timestamp)}</td>
                 <td className="px-2 py-2">
-                  <VerdictPill verdict={r.verdict} scenarioType={scenarioType} />
+                  <VerdictPill result={r} scenarioType={scenarioType} />
                 </td>
                 <td className="px-2 py-2 font-mono text-slate-400">
                   {(r.confidence * 100).toFixed(0)}%
                 </td>
                 {hasMl && (
                   <td className="px-2 py-2">
-                    <MlCheck ml={r.ml} verdict={r.verdict} agreement={r.agreement} />
+                    <MlCheck ml={r.ml} decided={decidedClassOf(r)} agreement={r.agreement} />
                   </td>
                 )}
                 {hasOracle && (
                   <td className="px-2 py-2">
-                    <OracleCell opinion={latestOracleOpinion(labels.get(r.image_id))} verdict={r.verdict} />
+                    <OracleCell opinion={latestOracleOpinion(labels.get(r.image_id))} decided={decidedClassOf(r)} />
                   </td>
                 )}
                 {hasMl && (
@@ -94,15 +97,15 @@ export function ResultsTable({
                 <td className="px-2 py-2 text-slate-400">{r.device_label || '—'}</td>
                 <td className="px-2 py-2">
                   <div className="flex gap-1">
-                    {LABEL_SET.map((value) => (
+                    {labelSet.map((value) => (
                       <button
                         key={value}
                         onClick={() => onLabel(r.image_id, current === value ? null : value)}
                         className={`rounded px-2 py-1 text-xs font-bold ${
                           current === value
-                            ? value === 'NG'
-                              ? 'bg-red-600 text-white'
-                              : 'bg-emerald-600 text-white'
+                            ? value === 'OK'
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-red-600 text-white'
                             : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                         }`}
                       >
@@ -117,7 +120,7 @@ export function ResultsTable({
                   )}
                 </td>
                 <td className="px-2 py-2">
-                  <AgreementMark verdict={r.verdict} label={current} />
+                  <AgreementMark decided={decidedClassOf(r)} label={current} />
                 </td>
               </tr>
             )
@@ -134,16 +137,17 @@ export function ResultsTable({
  */
 function MlCheck({
   ml,
-  verdict,
+  decided,
   agreement,
 }: {
   ml: MlResult | undefined
-  verdict: Verdict
+  /** 레코드가 판정한 클래스(`decidedClassOf`). */
+  decided: string
   agreement: boolean | undefined
 }) {
   if (ml == null) return <span className="text-slate-600">—</span>
   // agreement 는 서버가 산출(③). 누락된 구 레코드는 라벨 비교로 보강(class-agnostic).
-  const agree = agreement ?? ml.label.toUpperCase() === verdict
+  const agree = agreement ?? sameClass(ml.label, decided)
   return (
     <span className="inline-flex items-center gap-1 font-mono text-xs">
       <span className={agree ? 'text-slate-300' : 'text-amber-300'}>{ml.label.toUpperCase()}</span>
@@ -165,9 +169,9 @@ function MlCheck({
  * ④-B 오라클 2차소견 셀 — 독립 고성능 모델의 비동기 소견 + VLM 과의 일치(✓/✗).
  * 오라클 미처리(소견 부재)는 "—". operative 라벨이 아니므로 큐 해소엔 영향 없음(표시 전용).
  */
-function OracleCell({ opinion, verdict }: { opinion: string | undefined; verdict: Verdict }) {
+function OracleCell({ opinion, decided }: { opinion: string | undefined; decided: string }) {
   if (opinion == null) return <span className="text-slate-600">—</span>
-  const agree = opinion.toUpperCase() === verdict
+  const agree = sameClass(opinion, decided)
   return (
     <span className="inline-flex items-center gap-1 font-mono text-xs">
       <span className={agree ? 'text-slate-300' : 'text-amber-300'}>{opinion.toUpperCase()}</span>
@@ -201,8 +205,8 @@ function ReviewBadge({ state }: { state: ReviewState }) {
   return <span className="text-slate-600">—</span>
 }
 
-function AgreementMark({ verdict, label }: { verdict: Verdict; label: string | undefined }) {
-  const state = agreementOf(verdict, label)
+function AgreementMark({ decided, label }: { decided: string; label: string | undefined }) {
+  const state = agreementOf(decided, label)
   if (state === 'unlabeled') return <span className="text-slate-600">—</span>
   return state === 'match' ? (
     <span className="text-emerald-400" title="AI 판정과 일치">
@@ -215,15 +219,23 @@ function AgreementMark({ verdict, label }: { verdict: Verdict; label: string | u
   )
 }
 
-function VerdictPill({ verdict, scenarioType }: { verdict: Verdict; scenarioType?: Scenario['type'] }) {
-  const ng = verdict === 'NG'
+function VerdictPill({
+  result,
+  scenarioType,
+}: {
+  result: Pick<StoredResult, 'verdict' | 'class'>
+  scenarioType?: Scenario['type']
+}) {
+  const ng = result.verdict === 'NG'
   return (
     <span
       className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-bold text-white ${
         ng ? 'bg-red-600' : 'bg-emerald-600'
       }`}
     >
-      {termOf(verdict, scenarioType)}
+      {termOf(result.verdict, scenarioType)}
+      {/* 불량 유형 — 시나리오가 NG 를 유형으로 나눌 때만 레코드에 있다. */}
+      {ng && result.class !== undefined && <span className="ml-1 font-normal">· {result.class}</span>}
     </span>
   )
 }

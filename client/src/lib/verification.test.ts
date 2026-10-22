@@ -28,6 +28,9 @@ describe('verification', () => {
     const mismatch = toInspectResult({ ...base, class: 'MISMATCH', findings: '다른 부품' })
     expect(mismatch).toMatchObject({ verdict: 'NG', class_label: 'MISMATCH', image_id: 'img_1', findings: '다른 부품' })
     expect(toInspectResult({ ...base, class: 'MATCH' })).toMatchObject({ verdict: 'OK', findings: '' })
+    // 불량 유형은 NG 쪽 — 운영 화면이 OK 로 내보내면 안 된다.
+    expect(toInspectResult({ ...base, class: 'scratch' })).toMatchObject({ verdict: 'NG', class_label: 'scratch' })
+    expect(toInspectResult({ ...base, class: 'OK' })).toMatchObject({ verdict: 'OK' })
   })
 
   it('배지 문구 — 오투입은 일치/불일치, 검사는 OK/NG', () => {

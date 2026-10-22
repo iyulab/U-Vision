@@ -4,7 +4,7 @@ import { useResource } from '../hooks/useResource'
 
 import { listAuditSample, putAudit, resultImageUrl } from '../lib/api'
 import { getDeviceId } from '../lib/deviceIdentity'
-import { LABEL_SET } from '../lib/labels'
+import { labelsOf } from '../lib/labels'
 import type { Scenario } from '../lib/types'
 import { termOf } from '../lib/verification'
 import { auditResultText } from './auditResultText'
@@ -128,13 +128,13 @@ export function LabelAudit({
             </div>
           ) : (
             <div className="flex gap-3">
-              {(LABEL_SET as readonly string[]).map((l) => (
+              {labelsOf(scenarios.find((s) => s.scenario_id === scenarioId)).map((l) => (
                 <button
                   key={l}
                   disabled={busy}
                   onClick={() => submit(l)}
                   className={`rounded-lg px-6 py-3 text-lg font-bold text-white disabled:opacity-50 ${
-                    l === 'NG' ? 'bg-red-600 hover:bg-red-500' : 'bg-emerald-600 hover:bg-emerald-500'
+                    l === 'OK' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-red-600 hover:bg-red-500'
                   }`}
                 >
                   {termOf(l, scenarios.find((s) => s.scenario_id === scenarioId)?.type)}
