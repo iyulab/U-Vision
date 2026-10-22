@@ -4,7 +4,7 @@
   "private": true,
   "description": "The U-Vision introduction site",
   "type": "module",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",

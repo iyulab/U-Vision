@@ -98,4 +98,9 @@ SDK 임베드 가이드는 [`server/src/UVision.Hosting/README.md`](./server/src
 
 ## 라이선스
 
-[MIT License](./LICENSE) — © 2026 iyulab
+[AGPL-3.0-or-later](./LICENSE) — © 2026 iyulab. AGPL 조건으로 쓰기 어려운 조직에는 상용 라이선스를 드립니다. 공장 안 서버에 구축하고 유지보수하는 일도 iyulab 이 맡습니다 — 문의는 [도입 상담](https://vision.u-platform.kr/).
+
+- 0.4.0 부터 AGPL 이다. 이미 게시된 0.3.0 이하의 `UVision.Hosting` 패키지는 MIT 그대로 남는다.
+- 다른 시스템과는 별도 앱으로 두고 HTTP API · 웹훅으로 연동하는 것이 기본이다. 네트워크 너머에서 부르는 쪽에는 AGPL 이 미치지 않는다.
+- 기여에는 [CLA](./CLA.md) 서명이 필요하다 — [CONTRIBUTING](./CONTRIBUTING.md).
+- 화면의 U-Platform 소속 표시는 [`@uplatform/brand`](https://www.npmjs.com/package/@uplatform/brand) 패키지를 쓴다. 코드는 MIT, 마크와 제품명은 iyulab 의 상표로 이 리포의 라이선스 밖이다.

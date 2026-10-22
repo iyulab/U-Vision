@@ -157,4 +157,8 @@ JSON wire 는 snake_case(`image_id`, `scenario_id`, `ng_label`), `verdict` 는 `
 
 ---
 
-소스·이슈: https://github.com/iyulab/U-Vision · MIT License · © 2026 iyulab.
+## 라이선스
+
+0.4.0 부터 AGPL-3.0-or-later(0.3.0 이하 게시본은 MIT 그대로). 이 패키지를 앱 안에 넣으면 그 앱 전체가 AGPL 조건을 따라야 한다 — AGPL 로 공개할 수 없는 앱은 엔진을 별도 서버로 띄워 HTTP 로 연동하거나 상용 라이선스를 받는다.
+
+소스·이슈: https://github.com/iyulab/U-Vision · © 2026 iyulab.

@@ -30,9 +30,9 @@ mes-in	vision	README.md	Work orders, lots and expected part numbers taken in fro
 industrial-protocols	vision	README.md	MQTT and OPC UA output (roadmap)
 models	works	server/src/UVision.Hosting/Services/Vlm/VlmProviderFactory.cs	Self-hosted OpenAI-compatible model server (GPUStack provider)
 selfhost	design	server/src/UVision.Hosting/Storage/StoragePaths.cs	File system storage, no database server
-embed	works	server/src/UVision.Hosting/UVisionMiddleware.cs · samples/MinimalHost	Standalone server or a NuGet package mounted in an ASP.NET Core app
+service	promise	README.md	Installation on a server inside the customer's company and maintenance by iyulab; runs as its own application and connects to other systems over the network
 adoption	design	README.md · client/src/lib/authority.ts · server/src/UVision.Hosting/Services/Metrics/MetricsAggregator.cs	Adoption path: one scenario, one tablet with human checks, measured from the record, hand over to a dedicated model
 no-accuracy-promise	design	server/src/UVision.Hosting/Services/Metrics/MetricsAggregator.cs · client/src/lib/review.ts	No accuracy claim; human labels and metrics for on-site measurement
 no-accounts	design	server/src/UVision.Hosting/Auth/AdminPin.cs	Single organization, open operator screen, admin PIN for changes
 no-cookies	promise	site/src/components/Page.astro · site/public/_headers	This site sets no cookies and loads no tracking scripts
-license	works	LICENSE	MIT
+license	works	LICENSE · CLA.md	AGPL-3.0-or-later, commercial license available; contributions under the CLA

@@ -268,9 +268,9 @@ export const COPY: Record<Locale, Copy> = {
           body: '판정 기록과 사진은 서버의 폴더에 남습니다. 백업은 폴더 복사입니다.',
         },
         {
-          claim: 'embed',
-          heading: '쓰던 시스템 안에도',
-          body: '따로 서버를 두어도 되고, 사내 시스템이 .NET 으로 만들어져 있다면 그 안에 한 기능으로 넣을 수도 있습니다.',
+          claim: 'service',
+          heading: '공장 안에 구축하고 유지보수합니다',
+          body: 'iyulab 이 회사 안 서버에 설치하고, 이후 유지보수까지 함께 맡습니다. 다른 시스템과는 서로 독립된 앱으로 두고 연동합니다.',
         },
       ],
     },
@@ -292,7 +292,7 @@ export const COPY: Record<Locale, Copy> = {
     tech: {
       claim: 'license',
       heading: '개발 담당자께',
-      body: 'MIT 라이선스의 오픈소스입니다. 설치 안내와 API 문서, 패키지가 공개되어 있습니다.',
+      body: 'AGPL-3.0 오픈소스입니다. AGPL 조건으로 쓰기 어려운 조직에는 상용 라이선스를 드립니다. 설치 안내와 API 문서, 패키지가 공개되어 있습니다.',
       source: '소스 코드',
       api: 'API 문서(OpenAPI)',
       nuget: 'NuGet 패키지',
@@ -490,9 +490,9 @@ export const COPY: Record<Locale, Copy> = {
           body: 'Decisions and images are kept in folders on the server. A backup is a folder copy.',
         },
         {
-          claim: 'embed',
-          heading: 'Inside what you already run',
-          body: 'Run it on a server of its own, or, if your in-house system is built on .NET, add it there as one more feature.',
+          claim: 'service',
+          heading: 'Built inside your plant, and kept running',
+          body: 'iyulab installs it on a server inside your company and looks after it afterwards. It runs as an application of its own and connects to your other systems.',
         },
       ],
     },
@@ -514,7 +514,7 @@ export const COPY: Record<Locale, Copy> = {
     tech: {
       claim: 'license',
       heading: 'For developers',
-      body: 'Open source under the MIT license. Setup instructions, the API document and the package are public.',
+      body: 'Open source under AGPL-3.0, with a commercial license for organizations that cannot adopt AGPL terms. Setup instructions, the API document and the package are public.',
       source: 'Source code',
       api: 'API document (OpenAPI)',
       nuget: 'NuGet package',
