@@ -24,6 +24,23 @@ export interface InspectResult {
   requires_review?: boolean
   /** 운영 자세(A1) — 차단형 확인 게이트일 때만 'review_block'. 그 외 부재. */
   posture?: 'review_block'
+  /** 시나리오 클래스(결과 v2 로 판정했을 때 — 오투입 확인의 'MATCH'·'MISMATCH'). 클라 표시용, 서버 v1 응답에는 없다. */
+  class_label?: string
+}
+
+/** 서버 `InspectResultV2`(`POST /v2/inspect`) 미러 — 판정 불가(503)는 DetectionUnavailableError 로 온다. */
+export interface InspectResultV2 {
+  decision_id: string
+  scenario_id: string
+  timestamp: string
+  class?: string
+  settled_by?: { tier: string; kind: string }
+  confidence?: number
+  findings?: string
+  requires_review?: boolean
+  path?: { tier: string; outcome: 'settled' | 'shadowed' | 'escalated' | 'abstained' }[]
+  detection_unavailable?: boolean
+  reason?: string
 }
 
 /**
@@ -87,6 +104,8 @@ export interface Scenario {
   ng_labels: Record<string, string>
   /** 클라우드 egress 허용 여부(④-B 오라클 게이트). 부재=false로 취급. */
   allow_cloud_egress?: boolean
+  /** 시나리오 유형(v2) — 부재 = 'inspection'(OK/NG 검사). 'verification' 은 기대 품번과 대조하는 오투입 확인. */
+  type?: 'inspection' | 'verification'
 }
 
 /** 기준 이미지 메타데이터 — 서버 `ReferenceInfo` 미러. */
@@ -107,6 +126,8 @@ export interface ScenarioInput {
   max_image_dimension?: number
   reference_cap?: number
   ng_labels?: Record<string, string>
+  /** 시나리오 유형(v2) — 생략하면 서버가 저장된 값을 유지한다. */
+  type?: 'inspection' | 'verification'
 }
 
 /** 라벨 이력 이벤트(C1 provenance) — 서버 `LabelEvent` 미러. */

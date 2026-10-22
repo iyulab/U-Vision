@@ -1,4 +1,5 @@
 import type { InspectResult } from '../lib/types'
+import { shortVerdictLabel } from '../lib/verification'
 
 const RECENT_LIMIT = 5
 
@@ -20,7 +21,7 @@ export function InspectionHistory({ items }: { items: InspectResult[] }) {
             className="flex items-center justify-between rounded-md bg-white/5 px-2 py-1"
           >
             <span className={it.verdict === 'NG' ? 'text-red-400' : 'text-emerald-400'}>
-              {it.verdict}
+              {shortVerdictLabel(it)}
             </span>
             <span className="text-white/50">{formatTime(it.timestamp)}</span>
           </li>

@@ -113,6 +113,28 @@ public class ScenarioV2Tests : IClassFixture<PinFactory>
     }
 
     [Fact]
+    public async Task Update_ChangingType_DropsTypeBoundClassesAndJudges()
+    {
+        var create = await Admin().PostAsync("/api/u-vision/scenarios", JsonContent.Create(new
+        {
+            name = "type switch",
+            judges = new[] { new { tier = "vlm" } },
+            classes = new object[] { new { id = "OK", settleable = true }, new { id = "NG", must_catch = true } },
+        }));
+        var id = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("scenario_id").GetString();
+
+        var put = await Admin().PutAsync($"/api/u-vision/scenarios/{id}",
+            JsonContent.Create(new { name = "type switch", type = "verification" }));
+        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+
+        var got = await _factory.CreateClient().GetFromJsonAsync<JsonElement>($"/api/u-vision/scenarios/{id}");
+        Assert.Equal("verification", got.GetProperty("type").GetString());
+        // 검사의 OK/NG · 단이 오투입 확인으로 넘어가지 않는다 — 비어서 verification 기본값으로 파생된다.
+        Assert.False(got.TryGetProperty("classes", out _));
+        Assert.False(got.TryGetProperty("judges", out _));
+    }
+
+    [Fact]
     public async Task V1Scenario_Response_HasNoV2Keys()
     {
         var create = await Admin().PostAsync("/api/u-vision/scenarios",

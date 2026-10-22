@@ -1,0 +1,36 @@
+import type { InspectResult, InspectResultV2, Scenario } from './types'
+
+/** 오투입 확인 시나리오인가 — 기대 품번을 받아 결과 v2 경로로 판정한다. */
+export function isVerification(scenario: Pick<Scenario, 'type'>): boolean {
+  return scenario.type === 'verification'
+}
+
+/**
+ * 결과 v2 → 운영 화면의 판정 결과. 운영 화면은 OK/NG 축으로 상태를 다루므로 불일치를 NG 쪽(놓치면 안 되는 값)에,
+ * 일치를 OK 쪽에 두고, 표시용 클래스(`class_label`)를 함께 싣는다.
+ */
+export function toInspectResult(v2: InspectResultV2): InspectResult {
+  return {
+    verdict: v2.class === 'MISMATCH' || v2.class === 'NG' ? 'NG' : 'OK',
+    findings: v2.findings ?? '',
+    confidence: v2.confidence ?? 0,
+    timestamp: v2.timestamp,
+    image_id: v2.decision_id,
+    requires_review: v2.requires_review,
+    class_label: v2.class,
+  }
+}
+
+/** 판정 배지 문구 — 오투입 확인은 일치/불일치, 검사는 OK/NG. */
+export function verdictLabel(result: Pick<InspectResult, 'verdict' | 'class_label'>): string {
+  if (result.class_label === 'MATCH') return '✅ 일치'
+  if (result.class_label === 'MISMATCH') return '❌ 불일치'
+  return result.verdict === 'NG' ? '❌ NG' : '✅ OK'
+}
+
+/** 짧은 판정 문구(목록용) — 오투입은 일치/불일치, 검사는 OK/NG. */
+export function shortVerdictLabel(result: Pick<InspectResult, 'verdict' | 'class_label'>): string {
+  if (result.class_label === 'MATCH') return '일치'
+  if (result.class_label === 'MISMATCH') return '불일치'
+  return result.verdict
+}

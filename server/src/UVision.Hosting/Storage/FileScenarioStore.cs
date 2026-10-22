@@ -66,13 +66,16 @@ public sealed partial class FileScenarioStore : IScenarioStore
             return null;
 
         // v2 필드는 생략(null)하면 기존 값을 보존한다 — v2 를 모르는 관리 화면이 다른 필드를 고치다 지우지 않게.
+        // 시나리오 유형이 바뀌면 유형에 묶인 classes · judges 는 옮기지 않는다(검사의 OK/NG 가 오투입 확인에 남지 않게).
         var existing = await GetAsync(scenarioId, cancellationToken);
+        var typeChanged = input.Type is not null
+            && (input.Type ?? ScenarioVocabulary.Inspection) != (existing?.Type ?? ScenarioVocabulary.Inspection);
         var scenario = input.ToScenario(scenarioId) with // id 불변
         {
             Type = input.Type ?? existing?.Type,
             Trigger = input.Trigger ?? existing?.Trigger,
-            Classes = input.Classes ?? existing?.Classes,
-            Judges = input.Judges ?? existing?.Judges,
+            Classes = input.Classes ?? (typeChanged ? null : existing?.Classes),
+            Judges = input.Judges ?? (typeChanged ? null : existing?.Judges),
             Trust = input.Trust ?? existing?.Trust,
         };
         await StoragePaths.AtomicWriteJsonAsync(path, scenario, cancellationToken);

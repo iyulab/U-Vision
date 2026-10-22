@@ -1,12 +1,14 @@
 import { useCallback, useRef, useState, type RefObject } from 'react'
 
-import { inspectImage } from '../lib/api'
+import { inspectImage, inspectImageV2 } from '../lib/api'
+import { readCode } from '../lib/barcode'
 import { captureFrame } from '../lib/capture'
 import { type InspectionPhase } from '../lib/capturePolicy'
 import { getDeviceId, getDeviceLabel } from '../lib/deviceIdentity'
 import { classifyTriggerError } from '../lib/inspectionError'
 import type { Roi } from '../lib/roi'
 import type { InspectResult, MlResult } from '../lib/types'
+import { toInspectResult } from '../lib/verification'
 
 export type { InspectionPhase } from '../lib/capturePolicy'
 
@@ -29,6 +31,8 @@ const HISTORY_LIMIT = 20
  * 검사 1회의 수명주기 상태머신.
  *
  * 흐림 거부: 캡처 선명도가 minSharpness 미만이면 업로드 없이 거부(VLM 호출 전 차단).
+ * 오투입 확인(`expectedPart` 가 문자열): 기대 품번이 비면 업로드 없이 거부하고, 있으면 캡처에서 코드를 읽어
+ * (브라우저가 지원할 때) 결과 v2 경로로 판정한다. 검사 시나리오는 `expectedPart` 를 null 로 둔다.
  * 업로드는 즉시 전송(온라인 가정). 오프라인 큐(IndexedDB)는 Phase 3 에서 이 경로 앞단에 삽입한다.
  */
 export function useInspection(
@@ -36,6 +40,7 @@ export function useInspection(
   scenarioId: string,
   roi: Roi,
   minSharpness: number,
+  expectedPart: string | null = null,
 ): InspectionState {
   const [phase, setPhase] = useState<InspectionPhase>('idle')
   const [latest, setLatest] = useState<InspectResult | null>(null)
@@ -62,8 +67,26 @@ export function useInspection(
           setPhase('rejected')
           return
         }
-        setPhase('uploading')
-        const result = await inspectImage(blob, scenarioId, getDeviceId(), getDeviceLabel())
+        let result: InspectResult
+        if (expectedPart !== null) {
+          const expected = expectedPart.trim()
+          if (!expected) {
+            setError('기대 품번을 입력하세요')
+            setPhase('rejected')
+            return
+          }
+          const observedCode = await readCode(blob)
+          setPhase('uploading')
+          result = toInspectResult(
+            await inspectImageV2(blob, scenarioId, getDeviceId(), getDeviceLabel(), {
+              expectedPart: expected,
+              observedCode,
+            }),
+          )
+        } else {
+          setPhase('uploading')
+          result = await inspectImage(blob, scenarioId, getDeviceId(), getDeviceLabel())
+        }
         setLatest(result)
         setHistory((h) => [result, ...h].slice(0, HISTORY_LIMIT))
         // co-primary 불일치 = 차단 게이트: 명시 확인 전까지 다음 캡처 차단(blocked).
@@ -77,7 +100,7 @@ export function useInspection(
         inFlight.current = false
       }
     })()
-  }, [videoRef, scenarioId, roi, minSharpness])
+  }, [videoRef, scenarioId, roi, minSharpness, expectedPart])
 
   const acknowledge = useCallback(() => {
     setPhase((p) => (p === 'blocked' ? 'done' : p))

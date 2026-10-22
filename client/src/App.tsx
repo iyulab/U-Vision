@@ -15,6 +15,7 @@ import { getDeviceLabel, setDeviceLabel } from './lib/deviceIdentity'
 import { DEFAULT_MOTION_CONFIG, type MotionConfig } from './lib/motion'
 import { fromScenarioRoi } from './lib/roi'
 import type { Scenario } from './lib/types'
+import { isVerification } from './lib/verification'
 
 /** 시나리오 캡처 설정 → 모션 감지 config. downscaleWidth 는 시나리오에 없으므로 클라 기본 보존. */
 function toMotionConfig(s: Scenario): MotionConfig {
@@ -33,6 +34,9 @@ export default function App() {
   const [captureMode, setCaptureModeState] = useState<CaptureMode>(() => getCaptureMode())
   const [deviceLabel, setDeviceLabelState] = useState<string>(() => getDeviceLabel())
   const [showTodayList, setShowTodayList] = useState(false)
+  // 오투입 확인의 기대 품번 — 작업지시가 바뀔 때 작업자가 고친다(MES 연동 전). 저장하지 않는다: 지난 작업의 품번이
+  // 다음 실행에 남아 잘못 대조되지 않게.
+  const [expectedPart, setExpectedPart] = useState('')
   const todayUtc = new Date().toISOString().slice(0, 10) // 서버 date 버킷(UTC)과 정합
 
   function toggleCaptureMode() {
@@ -106,6 +110,7 @@ export default function App() {
           motionConfig={motionConfig}
           minSharpness={active.min_sharpness}
           captureMode={captureMode}
+          expectedPart={isVerification(active) ? expectedPart : null}
         />
       ) : (
         <NoScenario loaded={loaded} onAdmin={() => setShowAdmin(true)} />
@@ -119,6 +124,16 @@ export default function App() {
         >
           {captureMode === 'auto' ? '자동' : '수동'}
         </button>
+        {active && isVerification(active) && (
+          <input
+            value={expectedPart}
+            onChange={(e) => setExpectedPart(e.target.value)}
+            placeholder="기대 품번"
+            aria-label="기대 품번"
+            maxLength={128}
+            className="w-36 rounded-full bg-amber-500/80 px-3 py-2 text-sm font-semibold text-white placeholder-white/70 backdrop-blur focus:outline-none"
+          />
+        )}
         <input
           value={deviceLabel}
           onChange={(e) => updateDeviceLabel(e.target.value)}

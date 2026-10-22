@@ -1,4 +1,4 @@
-import type { AdminStatus, AuthorityState, DetectionUnavailable, InspectResult, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult } from './types'
+import type { AdminStatus, AuthorityState, DetectionUnavailable, InspectResult, InspectResultV2, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult } from './types'
 import type { AuthorityStage } from './authority'
 import { resolveApiBase } from './runtimeConfig'
 
@@ -56,6 +56,34 @@ export async function inspectImage(
   }
   await ensureOk(res, '판정 요청')
   return (await res.json()) as InspectResult
+}
+
+/**
+ * 결과 v2 로 판정한다(`POST /v2/inspect`) — 오투입 확인처럼 요청 맥락(기대 품번 · 장치가 읽은 코드)이 필요한
+ * 시나리오에 쓴다. 판정 불가(503)는 v1 과 같이 DetectionUnavailableError.
+ */
+export async function inspectImageV2(
+  image: Blob,
+  scenarioId: string,
+  deviceId: string,
+  deviceLabel: string,
+  context: { expectedPart?: string; observedCode?: string },
+): Promise<InspectResultV2> {
+  const form = new FormData()
+  form.append('image', image, 'capture.jpg')
+  form.append('scenario_id', scenarioId)
+  form.append('device_id', deviceId)
+  form.append('device_label', deviceLabel)
+  if (context.expectedPart) form.append('expected_part', context.expectedPart)
+  if (context.observedCode) form.append('observed_code', context.observedCode)
+
+  const res = await fetch(`${API_BASE}/v2/inspect`, { method: 'POST', body: form })
+  if (res.status === 503) {
+    const body = (await res.json().catch(() => null)) as InspectResultV2 | null
+    if (body?.detection_unavailable) throw new DetectionUnavailableError(body.reason ?? 'unavailable')
+  }
+  await ensureOk(res, '판정 요청')
+  return (await res.json()) as InspectResultV2
 }
 
 // --- 결과 조회 (무인증 읽기 — 서버 /api/results* 계약) --------------------

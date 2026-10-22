@@ -1,5 +1,6 @@
 import type { InspectionPhase } from '../hooks/useInspection'
 import type { InspectResult } from '../lib/types'
+import { verdictLabel } from '../lib/verification'
 import { reviewBandText } from './verdictBadgeText'
 
 /**
@@ -38,7 +39,7 @@ export function VerdictBadge({
         }`}
       >
         <div className="text-7xl font-black tracking-tight text-white">
-          {ng ? '❌ NG' : '✅ OK'}
+          {verdictLabel(result)}
         </div>
         {ng && result.findings && (
           <p className="mt-3 text-base leading-snug text-white/95">{result.findings}</p>

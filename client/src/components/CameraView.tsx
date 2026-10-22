@@ -19,15 +19,24 @@ interface CameraViewProps {
   minSharpness: number
   /** 촬영 모드 — auto: 정지감지 연속, manual: 셔터 버튼. */
   captureMode: CaptureMode
+  /** 오투입 확인의 기대 품번 — 검사 시나리오면 null. */
+  expectedPart?: string | null
 }
 
 /**
  * 운영 화면(작업자) — 카메라 → (자동: 정지감지 연속 / 수동: 셔터) → 캡처 → 업로드 → OK/NG.
  * 자동 모드의 연속 발화는 useContinuousCapture 가 무손실(pull-on-free)로 관리한다.
  */
-export function CameraView({ scenarioId, roi, motionConfig, minSharpness, captureMode }: CameraViewProps) {
+export function CameraView({
+  scenarioId,
+  roi,
+  motionConfig,
+  minSharpness,
+  captureMode,
+  expectedPart = null,
+}: CameraViewProps) {
   const { videoRef, ready, error } = useCamera()
-  const inspection = useInspection(videoRef, scenarioId, roi, minSharpness)
+  const inspection = useInspection(videoRef, scenarioId, roi, minSharpness, expectedPart)
   const auto = captureMode === 'auto'
   // 자동 모드만 모션 감지 worker 가동. 수동은 셔터로 trigger.
   const motion = useMotionDetection(videoRef, motionConfig, ready && auto)

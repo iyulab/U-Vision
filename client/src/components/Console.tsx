@@ -49,7 +49,13 @@ interface DraftScenario {
   minSharpness: number
   maxImageDimension: number
   referenceCap: number
+  /** 시나리오 유형 — 검사(OK/NG) 또는 오투입 확인(기대 품번과 일치/불일치). */
+  type: ScenarioType
+  /** 수정 시작 때의 유형 — 바뀌었을 때만 type 을 보낸다(생략하면 서버가 저장된 값을 유지). */
+  originalType?: ScenarioType
 }
+
+type ScenarioType = 'inspection' | 'verification'
 
 /**
  * 관리 콘솔 — **무인증 진입** + 탭(시나리오 / 결과 조회).
@@ -280,6 +286,10 @@ function ScenarioManager({
       min_sharpness: draft.minSharpness,
       max_image_dimension: draft.maxImageDimension,
       reference_cap: draft.referenceCap,
+      // 검사(기본)는 type 을 쓰지 않아 기존 시나리오 파일이 그대로다. 오투입 확인이거나 유형을 바꿨을 때만 보낸다.
+      ...(draft.type === 'verification' || draft.type !== (draft.originalType ?? 'inspection')
+        ? { type: draft.type }
+        : {}),
     }
     void mutate(
       async (pin) => {
@@ -309,6 +319,7 @@ function ScenarioManager({
               minSharpness: DEFAULT_MIN_SHARPNESS,
               maxImageDimension: DEFAULT_MAX_IMAGE_DIMENSION,
               referenceCap: DEFAULT_REFERENCE_CAP,
+              type: 'inspection',
             })
           }
           className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold hover:bg-emerald-400"
@@ -327,7 +338,12 @@ function ScenarioManager({
         <div key={s.scenario_id} className="flex items-start justify-between rounded-xl bg-slate-800 p-4">
           <div className="min-w-0">
             <p className="font-medium">{s.name}</p>
-            <p className="text-xs text-slate-400">{s.scenario_id}</p>
+            <p className="text-xs text-slate-400">
+              {s.scenario_id}
+              {s.type === 'verification' && (
+                <span className="ml-2 rounded bg-amber-500/20 px-1.5 py-0.5 text-amber-300">오투입 확인</span>
+              )}
+            </p>
             {s.criteria && <p className="mt-1 line-clamp-2 text-sm text-slate-300">{s.criteria}</p>}
           </div>
           <div className="ml-4 flex shrink-0 gap-2">
@@ -343,6 +359,8 @@ function ScenarioManager({
                   minSharpness: s.min_sharpness,
                   maxImageDimension: s.max_image_dimension,
                   referenceCap: s.reference_cap,
+                  type: s.type ?? 'inspection',
+                  originalType: s.type ?? 'inspection',
                 })
               }
               className="rounded-lg bg-slate-700 px-3 py-1.5 text-sm hover:bg-slate-600"
@@ -475,6 +493,33 @@ function ScenarioForm({
             className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
           />
         </label>
+        <div className="space-y-1">
+          <span className="text-sm text-slate-300">유형</span>
+          <div className="flex gap-1.5">
+            {(
+              [
+                ['inspection', '검사 (OK / NG)'],
+                ['verification', '오투입 확인 (기대 품번과 일치 / 불일치)'],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onChange({ ...draft, type: value })}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                  draft.type === value ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {draft.type === 'verification' && (
+            <span className="block text-xs text-slate-500">
+              작업자가 운영 화면에서 기대 품번을 넣고 촬영한다. 바코드를 읽을 수 있는 기기면 읽은 코드와도 대조한다.
+            </span>
+          )}
+        </div>
         <label className="block space-y-1">
           <span className="text-sm text-slate-300">판정 기준(자연어)</span>
           <textarea
