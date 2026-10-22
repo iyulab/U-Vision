@@ -32,6 +32,9 @@ public sealed record ScenarioContext
     /// 비어 있으면 zero-shot(기준 텍스트만). 로드 실패 시에도 비운 채 진행한다(판정은 degrade, 실패 아님).
     /// </summary>
     public IReadOnlyList<ReferenceImage> References { get; init; } = [];
+
+    /// <summary>오투입 확인의 기대 품번 — 있으면 VLM 이 «이 부품이 기대 품번인가»를 OK/NG 로 답한다.</summary>
+    public string? ExpectedPart { get; init; }
 }
 
 /// <summary>
@@ -156,6 +159,16 @@ public sealed record StoredResult
     [JsonPropertyName("posture")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Posture { get; init; }
+
+    /// <summary>오투입 확인의 기대 품번 — 요청이 보냈을 때만(감사: 무엇과 대조했나).</summary>
+    [JsonPropertyName("expected_part")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ExpectedPart { get; init; }
+
+    /// <summary>장치가 읽은 코드 — 요청이 보냈을 때만.</summary>
+    [JsonPropertyName("observed_code")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ObservedCode { get; init; }
 }
 
 /// <summary>

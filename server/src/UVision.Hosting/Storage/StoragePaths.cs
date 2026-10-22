@@ -149,7 +149,8 @@ public sealed partial class StoragePaths
 
     // --- sanitize (거부) ---------------------------------------------------
 
-    [GeneratedRegex(@"^[A-Za-z0-9._-]+$")]
+    // \z — $ 는 끝 줄바꿈 앞에서도 맞아 "id\n" 을 통과시킨다(디렉토리 이름에 줄바꿈).
+    [GeneratedRegex(@"^[A-Za-z0-9._-]+\z")]
     private static partial Regex IdPattern();
 
     /// <summary>id 검증 — 위반 시 <see cref="ArgumentException"/>(endpoint 에서 400 으로 매핑).</summary>

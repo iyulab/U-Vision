@@ -23,6 +23,12 @@ public static class VlmPrompt
         var criteria = string.IsNullOrEmpty(scenario.Criteria)
             ? "(기준 미지정 — 일반적 외관 결함 기준 적용)"
             : scenario.Criteria;
-        return $"{System}\n\n[판정 기준]\n{criteria}";
+        var prompt = $"{System}\n\n[판정 기준]\n{criteria}";
+        // 오투입 확인 — 기대 품번이 있을 때만 덧붙인다(검사 시나리오의 프롬프트는 그대로).
+        // 확인할 수 없으면 NG: 불일치는 놓치면 안 되는 값이라 모호하면 사람에게 올린다.
+        return scenario.ExpectedPart is { } expected
+            ? $"{prompt}\n\n[오투입 확인]\n기대 품번: {expected}\n" +
+              "이미지의 부품이 기대 품번과 같으면 OK, 다르거나 확인할 수 없으면 NG 로 판정한다."
+            : prompt;
     }
 }

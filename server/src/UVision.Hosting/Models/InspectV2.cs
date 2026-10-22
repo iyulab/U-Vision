@@ -59,6 +59,36 @@ public sealed record InspectResultV2
     public string? Reason { get; init; }
 }
 
+/// <summary>
+/// 요청 맥락 — 시나리오가 아니라 요청마다 달라지는 판정 입력. 오투입 확인(<c>verification</c>)은 기대 품번과,
+/// 있으면 촬영 장치(태블릿 · 엣지)가 바코드 · 각인에서 읽은 코드를 함께 보낸다. 서버는 픽셀에서 코드를 다시 읽지 않는다.
+/// </summary>
+public sealed record InspectionContext
+{
+    /// <summary>요청 필드 하나의 최대 길이.</summary>
+    public const int MaxLength = 128;
+
+    /// <summary>작업지시가 기대하는 품번.</summary>
+    public string? ExpectedPart { get; init; }
+
+    /// <summary>장치가 읽은 코드(없으면 대조 단이 기권한다).</summary>
+    public string? ObservedCode { get; init; }
+
+    /// <summary>
+    /// 경계 검증 — 품번 · 코드에 쓰는 문자(글자 · 숫자 · 공백 · <c>- _ . / # ( ) : +</c>)만 받고 나머지는 거부한다
+    /// (변형하지 않는다). 기대 품번은 VLM 프롬프트에 들어가므로 문장 부호 · 줄바꿈으로 지시를 끼워 넣지 못하게 좁힌다.
+    /// 위반이면 사유, 아니면 null.
+    /// </summary>
+    public static string? Validate(string? value, string field) =>
+        value is null ? null
+        : value.Length > MaxLength ? $"{field} 는 {MaxLength}자 이하"
+        : !Allowed.IsMatch(value) ? $"{field} 에 허용하지 않는 문자(글자 · 숫자 · 공백 · - _ . / # ( ) : + 만)"
+        : null;
+
+    private static readonly System.Text.RegularExpressions.Regex Allowed =
+        new(@"^[\p{L}\p{N} ._/#():+-]*\z", System.Text.RegularExpressions.RegexOptions.Compiled); // \z — $ 는 끝 줄바꿈 앞에서도 맞는다
+}
+
 /// <summary>판정을 낸 단 — <c>tier</c> 는 시나리오 judges 의 이름, <c>kind</c> 는 판정자 종류.</summary>
 public sealed record SettledBy
 {

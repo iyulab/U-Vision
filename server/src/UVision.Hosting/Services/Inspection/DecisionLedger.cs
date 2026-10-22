@@ -111,6 +111,18 @@ public sealed class DecisionLedger(
         {
             switch (tier)
             {
+                // 결정론적 대조 — 장치가 읽은 코드와 기대 품번이 같으면 일치, 다르면 불일치(놓치면 안 되는 값이라
+                // 정책이 위로 보낸다). 코드가 없으면 기권. 기억 · 문턱이 없어 신뢰도는 1.
+                case ScenarioVocabulary.MatchTier:
+                    yield return new AnsweredJudge(
+                        new Tier { Id = tier, Kind = JudgeKind.System1, Version = "exact", CostRank = 0 },
+                        subject.Context is { ObservedCode: { } observed, ExpectedPart: { } expected }
+                            ? JudgeVerdict<string>.Answer(
+                                string.Equals(observed.Trim(), expected.Trim(), StringComparison.OrdinalIgnoreCase)
+                                    ? ScenarioVocabulary.Match : ScenarioVocabulary.Mismatch,
+                                1.0)
+                            : JudgeVerdict<string>.Abstain("no observed code"));
+                    break;
                 // ML 비활성이면 그 단은 없다(구성에 적혀 있어도). 활성인데 실패했으면 기권한 단으로 남는다.
                 case ScenarioVocabulary.MlTier when subject.Ml is { } ml:
                     yield return new AnsweredJudge(
@@ -123,7 +135,7 @@ public sealed class DecisionLedger(
                     yield return new AnsweredJudge(
                         new Tier { Id = tier, Kind = JudgeKind.Vlm, Version = $"{provider.Name}:{vlmOptions.Model}", CostRank = 2 },
                         subject.Vlm is { } v
-                            ? JudgeVerdict<string>.Answer(v.Verdict.ToString(), v.Confidence, v.Findings)
+                            ? JudgeVerdict<string>.Answer(subject.Scenario.ClassOf(v.Verdict), v.Confidence, v.Findings)
                             : JudgeVerdict<string>.Abstain("vlm unavailable"));
                     break;
             }
@@ -147,8 +159,10 @@ public sealed class DecisionLedger(
 /// <param name="Timestamp">판정 시각(ISO 8601 UTC) — 장부 날짜 버킷.</param>
 /// <param name="Vlm">VLM 답(null = 실패).</param>
 /// <param name="Ml">ML 결과(null = 비활성).</param>
+/// <param name="Context">요청 맥락(기대 품번 · 읽은 코드) — 대조 단의 입력.</param>
 public sealed record LedgerSubject(
-    string DecisionId, EffectiveScenario Scenario, string Timestamp, InspectionResult? Vlm, MlOutcome? Ml);
+    string DecisionId, EffectiveScenario Scenario, string Timestamp, InspectionResult? Vlm, MlOutcome? Ml,
+    InspectionContext? Context = null);
 
 /// <summary>실제로 쓴 결정 — 장부에서 라우터의 결정과 나란히 비교하기 위해 남긴다.</summary>
 /// <param name="Verdict">응답한 판정(null = fail-closed).</param>

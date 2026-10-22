@@ -53,7 +53,10 @@ public sealed class InspectionPipeline(
         Scenario scenario, InspectionCapture capture, CancellationToken cancellationToken)
     {
         var effective = EffectiveScenario.Resolve(scenario, classifier.IsEnabled);
-        var evidence = await GatherAsync(scenario, capture.Image, cancellationToken);
+        // 전용 ML 은 시나리오의 단에 있을 때만 부른다 — 기본 파생([ml, vlm])이면 지금과 같고, 오투입 확인처럼
+        // ML 이 뜻 없는 시나리오는 부르지 않는다.
+        var mlActive = classifier.IsEnabled && effective.Tiers.Contains(ScenarioVocabulary.MlTier);
+        var evidence = await GatherAsync(scenario, capture, mlActive, cancellationToken);
         var (stage, decision, dual) = await DecideAsync(scenario, evidence, cancellationToken);
         var result = evidence.Vlm;
         var ml = evidence.Ml?.Result;
@@ -67,9 +70,9 @@ public sealed class InspectionPipeline(
                 scenario.ScenarioId, decision.Reason);
 
             var failedAt = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
-            if (classifier.IsEnabled)
+            if (mlActive)
                 await WriteFailClosedMetricSafelyAsync(scenario.ScenarioId, ml, failedAt, cancellationToken);
-            var failedSubject = new LedgerSubject($"dec_{Guid.NewGuid():N}", effective, failedAt, result, evidence.Ml);
+            var failedSubject = new LedgerSubject($"dec_{Guid.NewGuid():N}", effective, failedAt, result, evidence.Ml, capture.Context);
             var failedRoute = await ledger.DecideAsync(failedSubject, cancellationToken);
             await ledger.RecordAsync(
                 failedSubject, failedRoute,
@@ -128,6 +131,8 @@ public sealed class InspectionPipeline(
             Agreement = agreement,
             RequiresReview = requiresReview,
             Posture = posture,
+            ExpectedPart = capture.Context?.ExpectedPart,
+            ObservedCode = capture.Context?.ObservedCode,
         };
 
         // must-succeed: system-of-record 이므로 영속화 실패 시 200 위장 금지(→500).
@@ -143,7 +148,7 @@ public sealed class InspectionPipeline(
         }
 
         // 결정 장부(관찰 전용) — 레코드가 생긴 뒤에 적어 장부가 없는 레코드를 가리키지 않게 한다.
-        var subject = new LedgerSubject(imageId, effective, timestamp, result, evidence.Ml);
+        var subject = new LedgerSubject(imageId, effective, timestamp, result, evidence.Ml, capture.Context);
         var route = await ledger.DecideAsync(subject, cancellationToken);
         await ledger.RecordAsync(
             subject, route,
@@ -153,12 +158,12 @@ public sealed class InspectionPipeline(
         // B3 관측성: ML 활성(②~③ 결선)일 때만 예측 신호를 메트릭 시계열로 흘린다.
         // 비활성(none=①단계)이면 메트릭도 없음 → inspect 부수효과가 ② 이전과 동일.
         // 영속화(must-succeed) 후 기록 — 메트릭은 관측이지 system-of-record 아니므로 실패는 degrade.
-        if (classifier.IsEnabled)
+        if (mlActive)
             await WriteMetricsSafelyAsync(
                 scenario.ScenarioId, imageId, timestamp, verdict, confidence, evidence.Ml, dual,
                 posture, cancellationToken);
 
-        if (classifier.IsEnabled
+        if (mlActive
             && (stage == AuthorityStage.CoPrimary || stage == AuthorityStage.MlPrimary))
             await CheckAutoDemoteSafelyAsync(scenario.ScenarioId, stage, timestamp, cancellationToken);
 
@@ -168,7 +173,7 @@ public sealed class InspectionPipeline(
             DecisionId = imageId,
             ScenarioId = scenario.ScenarioId,
             Timestamp = timestamp,
-            Class = verdict.ToString(),
+            Class = effective.ClassOf(verdict),
             SettledBy = new SettledBy { Tier = SourceName(decision), Kind = SourceName(decision) },
             Confidence = confidence,
             Findings = useMl ? null : findings,
@@ -196,8 +201,9 @@ public sealed class InspectionPipeline(
     /// VLM 실패는 null(fail-closed 신호), ML 비활성은 null, ML 실패는 <see cref="MlOutcome.Failed"/>.
     /// </summary>
     private async Task<JudgeEvidence> GatherAsync(
-        Scenario scenario, ReadOnlyMemory<byte> image, CancellationToken cancellationToken)
+        Scenario scenario, InspectionCapture capture, bool mlActive, CancellationToken cancellationToken)
     {
+        var image = capture.Image;
         // few-shot 기준 이미지 로드 — 실패는 판정을 막지 않는다(degrade: zero-shot 으로 진행).
         // 라벨당 장수는 시나리오 ReferenceCap(레버, 0=zero-shot). 음수 방어 clamp(잘못된 scenario.json).
         IReadOnlyList<ReferenceImage> references = [];
@@ -234,11 +240,12 @@ public sealed class InspectionPipeline(
             Name = scenario.Name,
             Criteria = scenario.Criteria,
             References = references,
+            ExpectedPart = capture.Context?.ExpectedPart,
         };
 
         // ML 은 원본으로 분류한다(MLoop 자체 전처리; VLM 다운스케일 사본 아님).
         var vlmTask = InspectSafelyAsync(vlmImage, context, cancellationToken);
-        Task<MlOutcome>? classifyTask = classifier.IsEnabled
+        Task<MlOutcome>? classifyTask = mlActive
             ? ClassifySafelyAsync(image, scenario.ScenarioId, cancellationToken)
             : null;
         await Task.WhenAll(
@@ -435,8 +442,10 @@ public sealed class InspectionPipeline(
 /// <param name="ContentType">검증된 형식(<c>image/jpeg</c>·<c>image/png</c>) — 저장 확장자를 정한다.</param>
 /// <param name="DeviceId">촬영 장치 식별자(선택).</param>
 /// <param name="DeviceLabel">촬영 장치 표시 이름(선택).</param>
+/// <param name="Context">요청 맥락 — 오투입 확인의 기대 품번 · 읽은 코드(선택).</param>
 public sealed record InspectionCapture(
-    ReadOnlyMemory<byte> Image, string ContentType, string? DeviceId, string? DeviceLabel);
+    ReadOnlyMemory<byte> Image, string ContentType, string? DeviceId, string? DeviceLabel,
+    InspectionContext? Context = null);
 
 /// <summary>판정 파이프라인의 결과 — 호출부(HTTP·다른 진입점)가 자기 표현으로 옮긴다.</summary>
 public abstract record InspectionOutcome

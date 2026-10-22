@@ -31,6 +31,7 @@ public class StorageTests : IDisposable
     [InlineData(".")]
     [InlineData("")]
     [InlineData("a:b")]
+    [InlineData("demo\n")] // 끝 줄바꿈 — 패턴 끝 앵커가 $ 면 통과했다
     public void Id_RejectsPathInjection(string bad)
     {
         // 변형이 아니라 거부 — 경로 주입·id 충돌 차단.

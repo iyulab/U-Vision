@@ -42,7 +42,8 @@ public static class InspectEndpoints
         VlmOptions options,
         CancellationToken cancellationToken)
     {
-        var (rejected, outcome) = await RunAsync(image, scenarioId, deviceId, deviceLabel, pipeline, options, cancellationToken);
+        var (rejected, outcome) = await RunAsync(
+            image, scenarioId, deviceId, deviceLabel, context: null, pipeline, options, cancellationToken);
         return rejected ?? outcome switch
         {
             InspectionOutcome.Completed c => Results.Ok(c.Response),
@@ -57,11 +58,22 @@ public static class InspectEndpoints
         [FromForm(Name = "scenario_id")] string scenarioId,
         [FromForm(Name = "device_id")] string? deviceId,
         [FromForm(Name = "device_label")] string? deviceLabel,
+        [FromForm(Name = "expected_part")] string? expectedPart,
+        [FromForm(Name = "observed_code")] string? observedCode,
         InspectionPipeline pipeline,
         VlmOptions options,
         CancellationToken cancellationToken)
     {
-        var (rejected, outcome) = await RunAsync(image, scenarioId, deviceId, deviceLabel, pipeline, options, cancellationToken);
+        var invalidContext = InspectionContext.Validate(expectedPart, "expected_part")
+            ?? InspectionContext.Validate(observedCode, "observed_code");
+        if (invalidContext is not null)
+            return Results.Problem(statusCode: 400, detail: invalidContext);
+        var context = expectedPart is null && observedCode is null
+            ? null
+            : new InspectionContext { ExpectedPart = expectedPart, ObservedCode = observedCode };
+
+        var (rejected, outcome) = await RunAsync(
+            image, scenarioId, deviceId, deviceLabel, context, pipeline, options, cancellationToken);
         return rejected ?? outcome switch
         {
             InspectionOutcome.Completed c => Results.Ok(c.V2),
@@ -76,7 +88,7 @@ public static class InspectEndpoints
     /// 요청이 거부되면 그 응답을, 아니면 판정 결과를 돌려준다.
     /// </summary>
     private static async Task<(IResult? Rejected, InspectionOutcome? Outcome)> RunAsync(
-        IFormFile image, string scenarioId, string? deviceId, string? deviceLabel,
+        IFormFile image, string scenarioId, string? deviceId, string? deviceLabel, InspectionContext? context,
         InspectionPipeline pipeline, VlmOptions options, CancellationToken cancellationToken)
     {
         var invalid = ImageUpload.Validate(image, options.MaxUploadSizeMb);
@@ -95,12 +107,17 @@ public static class InspectEndpoints
         if (scenario is null)
             return (Results.Problem(statusCode: 404, detail: $"시나리오 없음: {scenarioId}"), null);
 
+        // 오투입 확인은 기대 품번 없이는 판정할 것이 없다 — v1 은 이 필드가 없으므로 v2 로만 부를 수 있다.
+        if (scenario.Type == ScenarioVocabulary.Verification && string.IsNullOrWhiteSpace(context?.ExpectedPart))
+            return (Results.Problem(statusCode: 400,
+                detail: "verification 시나리오는 expected_part 가 필요하다(POST /v2/inspect)"), null);
+
         var data = await ImageUpload.ReadBytesAsync(image, cancellationToken);
         if (data is null)
             return (Results.Problem(statusCode: 400, detail: "빈 이미지"), null);
 
         return (null, await pipeline.RunAsync(
-            scenario, new InspectionCapture(data, image.ContentType, deviceId, deviceLabel), cancellationToken));
+            scenario, new InspectionCapture(data, image.ContentType, deviceId, deviceLabel, context), cancellationToken));
     }
 
     private static async Task<IResult> ListResultsAsync(
