@@ -1,0 +1,26 @@
+# Changelog
+
+Changes to the `UVision.Hosting` NuGet package. Versions 0.2.0 and 0.2.1 were never published; their changes ship in 0.3.0.
+
+## [0.3.0] - 2026-10-22
+
+### Security
+- Removed `SixLabors.ImageSharp`. Version 3.1.12 carries three high-severity advisories (GHSA-j3p4-wp97-rph4, GHSA-j9gm-c75j-xc9q, GHSA-jjfr-hcj7-qf5w) and two moderate ones (GHSA-gwg2-r3hj-4w44, GHSA-wmxv-xphr-5c9g). Restores with NuGet audit no longer report NU1902/NU1903 for this package.
+- Upgraded IronHive to 0.68.0, which clears the transitive MessagePack advisory GHSA-qhrr-8q5h-9q3h. The transitive Scriban and SQLitePCLRaw advisories that 0.1.x carried through IronHive 0.7.4 are also gone.
+
+### Added
+- First-run admin PIN setup. When no PIN is configured, `GET /api/u-vision/admin/status` reports `setup_required: true` and `POST /api/u-vision/admin/setup` sets the PIN with a one-time token written to the data directory (`admin-setup-token.txt`). The PIN is stored as a PBKDF2-SHA256 hash. A PIN set through configuration takes precedence and disables this path.
+
+### Changed
+- Image decoding and JPEG encoding now use SkiaSharp 4.153.1 (MIT). Server-side downscaling (`max_image_dimension`) uses a built-in separable bicubic resampler whose output matches the previous implementation within 1 level per channel on average. The re-encoded JPEG can differ slightly from earlier versions because the JPEG encoder changed.
+- Native assets: Windows and macOS natives come with `SkiaSharp`; Linux natives (glibc and musl, x64 and arm64) come with `SkiaSharp.NativeAssets.Linux.NoDependencies`, which needs no fontconfig. Consumers add nothing per platform. If your app already references `SkiaSharp.NativeAssets.Linux`, `dotnet publish` reports a duplicate `libSkiaSharp.so`; keep one package and exclude the other with `ExcludeAssets="all"`.
+- IronHive 0.68.0 requires `Microsoft.Extensions.*` 10.0.13 or later. A host that pins an older 10.0.x version of those packages gets NU1109 on restore; raise the pin.
+- Accepted upload formats are unchanged (JPEG and PNG).
+
+## [0.1.1] - 2026-06
+
+- Consumer integration guide, MIT license, minimal host sample.
+
+## [0.1.0] - 2026-06
+
+- First release: embeddable `AddUVision` / `UseUVision` with the built PWA.
