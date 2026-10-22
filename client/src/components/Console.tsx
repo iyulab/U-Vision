@@ -115,8 +115,9 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-slate-900 text-slate-100">
-      <header className="flex items-center justify-between border-b border-slate-700 px-6 py-4">
-        <div className="flex items-center gap-1">
+      <header className="flex items-center justify-between gap-3 border-b border-slate-700 px-6 py-4">
+        {/* 좁은 화면에서는 탭 줄이 가로로 넘친다(글자 단위 줄바꿈 대신) — 탭 이름은 한 줄을 지킨다. */}
+        <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
           <TabButton active={tab === 'scenarios'} onClick={() => setTab('scenarios')}>
             시나리오
           </TabButton>
@@ -135,7 +136,7 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
         </div>
         <button
           onClick={onClose}
-          className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium hover:bg-slate-600"
+          className="shrink-0 whitespace-nowrap rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium hover:bg-slate-600"
         >
           운영 화면
         </button>
@@ -186,7 +187,7 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+      className={`shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition ${
         active ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'
       }`}
     >

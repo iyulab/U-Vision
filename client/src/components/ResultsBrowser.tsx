@@ -4,6 +4,7 @@ import { deleteLabel, listLabels, listResultDates, listResults, putLabel, result
 import { getDeviceId } from '../lib/deviceIdentity'
 import { labelMapOf } from '../lib/labels'
 import { pendingReviewCount, reviewStateOf } from '../lib/review'
+import { percent, summarizeResults } from '../lib/resultSummary'
 import { ResultsTable } from './ResultsTable'
 import type { Scenario, StoredLabel, StoredResult } from '../lib/types'
 import { termOf } from '../lib/verification'
@@ -188,6 +189,8 @@ export function ResultsBrowser({
         )}
       </div>
 
+      {results.length > 0 && !loading && <SummaryStrip results={results} labels={labelMap} scenarioType={scenarioType} />}
+
       {/* ④-A 검토 큐 — ③ 2중체크가 불일치/저신뢰로 표면화한 건을 사람이 라벨로 해소한다. */}
       {hasMl && (
         <div className="flex items-center gap-3 text-sm">
@@ -240,6 +243,49 @@ export function ResultsBrowser({
         />
       )}
     </div>
+  )
+}
+
+/** 그날의 판정 요약 — 필터와 무관하게 그날 전부를 센다. */
+function SummaryStrip({
+  results,
+  labels,
+  scenarioType,
+}: {
+  results: StoredResult[]
+  labels: Map<string, StoredLabel>
+  scenarioType?: Scenario['type']
+}) {
+  const s = summarizeResults(results, labels)
+  return (
+    <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm" aria-label="판정 요약">
+      <div className="flex gap-2">
+        <dt className="text-slate-400">검사</dt>
+        <dd className="font-semibold text-white">{s.total}건</dd>
+      </div>
+      <div className="flex gap-2">
+        <dt className="text-slate-400">{termOf('OK', scenarioType)}</dt>
+        <dd className="font-semibold text-emerald-300">{s.ok}</dd>
+      </div>
+      <div className="flex gap-2">
+        <dt className="text-slate-400">{termOf('NG', scenarioType)}</dt>
+        <dd className="font-semibold text-red-300">
+          {s.ng}
+          {s.ngRate !== null && <span className="ml-1 font-normal text-slate-400">({percent(s.ngRate)})</span>}
+        </dd>
+      </div>
+      {s.labeled > 0 && (
+        <div className="flex gap-2">
+          <dt className="text-slate-400">사람 확인</dt>
+          <dd className="font-semibold text-white">
+            {s.labeled}건
+            <span className={`ml-1 font-normal ${s.corrected > 0 ? 'text-amber-300' : 'text-slate-400'}`}>
+              (판정과 다름 {s.corrected})
+            </span>
+          </dd>
+        </div>
+      )}
+    </dl>
   )
 }
 
