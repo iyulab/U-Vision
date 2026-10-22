@@ -28,6 +28,7 @@
 - **VLM 1차 선별 + 전용 ML 교차검증** — 기준 이미지(few-shot)·자연어 기준으로 OK/NG·소견·신뢰도. ML 병렬 2중체크로 불일치/저신뢰를 검토 큐로 표면화
 - **fail-safe 운영 자세** — 불일치는 운영 화면에 비차단 '검토 필요'(라인 유지·NG-safe), 검출원(VLM) 장애 시 자동 판정 대신 '판정 불가 — 사람 확인'(fail-closed). 발동률은 메트릭 대시보드로 관측
 - **시나리오 기반 설정** — 라인·검사 유형별로 기준 이미지·자연어 기준·ROI·정지 민감도·latency 레버 관리
+- **오투입 확인** — 작업자가 기대 품번을 넣고 촬영하면 기대 품번과 일치/불일치로 판정. 기기가 바코드를 읽을 수 있으면 읽은 코드와 먼저 대조하고, 비전 모델은 기대 품번을 들고 확인한다
 - **사람 라벨링 → 학습 데이터** — 결과에 OK/NG 라벨을 달아 ground-truth 축적, 전용 ML 학습입력으로 export
 - **온프레미스·주권** — GPUStack(셀프호스트 VLM)·MLoop(로컬 ML)로 외부 egress 0 경로. 데이터가 공장을 떠나지 않는다
 - **PWA — 설치 불필요** — URL 하나로 어디서든, 즉시 업데이트
@@ -76,6 +77,7 @@ ADMIN_PIN=               # 미설정 시 관리 엔드포인트 503 (운영은 �
 엔드포인트는 `/api/u-vision` 네임스페이스 아래에 있다.
 
 - `POST /api/u-vision/inspect` — 캡처 이미지 판정(multipart: `image`·`scenario_id`)
+- `POST /api/u-vision/v2/inspect` — 같은 판정을 시나리오 클래스 · 판정을 낸 단 · 판정 경로로(오투입 확인은 `expected_part` · `observed_code` 를 함께)
 - `GET /api/u-vision/scenarios` · `GET /api/u-vision/results?scenario_id=&date=`
 - 변경(생성/수정/삭제·업로드·export)은 `X-Admin-Pin` 헤더 필요
 
