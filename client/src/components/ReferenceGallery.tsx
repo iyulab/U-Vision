@@ -8,6 +8,11 @@ interface ReferenceGalleryProps {
   scenarioId: string
   /** 변경(업로드·삭제)을 PIN 과 함께 실행하는 중앙 러너(콘솔 소유). */
   runWithPin: (action: (pin: string) => Promise<void>) => Promise<PinRunResult>
+  /**
+   * 시나리오가 선언한 불량 유형의 이름(표시 이름, 없으면 id) — NG 기준의 유형 입력이 제안한다. 선언한 유형으로 적으면
+   * 판정 모델이 기준 이미지를 그 유형 id 와 잇는다(자유 설명도 그대로 받는다).
+   */
+  defectNames?: string[]
 }
 
 /**
@@ -15,7 +20,7 @@ interface ReferenceGalleryProps {
  * few-shot 판정 결합은 서버가 inspect 시 수행한다(판정 효과는 M0.1 게이트).
  * 변경은 시나리오 저장/삭제와 동일한 lazy-PIN 메커니즘({@link runWithPin})을 거친다.
  */
-export function ReferenceGallery({ scenarioId, runWithPin }: ReferenceGalleryProps) {
+export function ReferenceGallery({ scenarioId, runWithPin, defectNames = [] }: ReferenceGalleryProps) {
   const [refs, setRefs] = useState<Reference[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -72,6 +77,7 @@ export function ReferenceGallery({ scenarioId, runWithPin }: ReferenceGalleryPro
         scenarioId={scenarioId}
         busy={busy}
         withLabel
+        suggestions={defectNames}
         onUpload={(file, ngLabel) =>
           mutate((pin) => uploadReference(scenarioId, file, 'ng', ngLabel, pin).then(() => {}))
         }
@@ -88,6 +94,7 @@ function Group({
   scenarioId,
   busy,
   withLabel = false,
+  suggestions = [],
   onUpload,
   onDelete,
 }: {
@@ -97,6 +104,7 @@ function Group({
   scenarioId: string
   busy: boolean
   withLabel?: boolean
+  suggestions?: string[]
   onUpload: (file: File, ngLabel?: string) => void
   onDelete: (refId: string) => void
 }) {
@@ -119,8 +127,16 @@ function Group({
             value={ngLabel}
             onChange={(e) => setNgLabel(e.target.value)}
             placeholder="불량 유형(선택)"
+            list={suggestions.length > 0 ? `defect-names-${scenarioId}` : undefined}
             className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-xs text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
           />
+        )}
+        {withLabel && suggestions.length > 0 && (
+          <datalist id={`defect-names-${scenarioId}`}>
+            {suggestions.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
         )}
         <button
           type="button"

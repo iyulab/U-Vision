@@ -59,7 +59,7 @@ public sealed class IronHiveVlmProvider : IVlmProvider
             System = VlmPrompt.BuildSystemPrompt(scenario),
             Messages =
             [
-                Message.User([.. BuildContent(image, scenario.References)]),
+                Message.User([.. BuildContent(image, scenario.References, scenario.DefectClasses)]),
             ],
             // 구조화 출력(json_schema grammar 강제) — 유형을 선언한 시나리오는 유형 id 를 enum 으로 구속한 형태.
             OutputFormat = scenario.DefectClasses is { Count: > 0 } defects
@@ -169,7 +169,8 @@ public sealed class IronHiveVlmProvider : IVlmProvider
     /// few-shot 이 실제로 판정을 개선하는지는 M0.1(실 provider + 대표 이미지)에서만 확인된다.
     /// </summary>
     internal static List<MessageContent> BuildContent(
-        ReadOnlyMemory<byte> image, IReadOnlyList<ReferenceImage> references)
+        ReadOnlyMemory<byte> image, IReadOnlyList<ReferenceImage> references,
+        IReadOnlyList<ScenarioClass>? defectClasses = null)
     {
         var content = new List<MessageContent>();
 
@@ -181,10 +182,7 @@ public sealed class IronHiveVlmProvider : IVlmProvider
             });
             foreach (var reference in references)
             {
-                var label = reference.Label == ReferenceLabel.Ok
-                    ? "[OK 기준]"
-                    : $"[NG 기준{(string.IsNullOrEmpty(reference.NgLabel) ? "" : $" — {reference.NgLabel}")}]";
-                content.Add(new TextMessageContent { Value = label });
+                content.Add(new TextMessageContent { Value = VlmPrompt.ReferenceTag(reference, defectClasses) });
                 content.Add(new ImageMessageContent
                 {
                     Format = reference.IsPng ? ImageFormat.Png : ImageFormat.Jpeg,

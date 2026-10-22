@@ -38,5 +38,20 @@ public static class VlmPrompt
             : prompt;
     }
 
+    /// <summary>
+    /// few-shot 기준 이미지 앞에 붙이는 표지. NG 기준의 유형 설명이 시나리오가 선언한 유형(id 또는 표시 이름, 대소문자
+    /// 무시)이면 [불량 유형] 목록과 같은 <c>id(이름)</c> 로 말해 — 모델이 기준 이미지와 답할 id 를 잇게 — 그 밖의
+    /// 설명은 적힌 그대로 둔다.
+    /// </summary>
+    public static string ReferenceTag(ReferenceImage reference, IReadOnlyList<ScenarioClass>? defectClasses)
+    {
+        if (reference.Label == ReferenceLabel.Ok) return "[OK 기준]";
+        if (string.IsNullOrEmpty(reference.NgLabel)) return "[NG 기준]";
+        var declared = defectClasses?.FirstOrDefault(c =>
+            string.Equals(c.Id, reference.NgLabel, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(c.Label, reference.NgLabel, StringComparison.OrdinalIgnoreCase));
+        return $"[NG 기준 — {(declared is null ? reference.NgLabel : Describe(declared))}]";
+    }
+
     private static string Describe(ScenarioClass c) => c.Label is { } label ? $"{c.Id}({label})" : c.Id;
 }

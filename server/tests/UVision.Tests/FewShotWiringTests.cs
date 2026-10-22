@@ -50,6 +50,21 @@ public class FewShotWiringTests
             content.OfType<TextMessageContent>(), t => t.Value.Contains("솔더 브릿지"));
     }
 
+    [Theory]
+    [InlineData("scratch", "[NG 기준 — scratch(긁힘)]")]
+    [InlineData("긁힘", "[NG 기준 — scratch(긁힘)]")]
+    [InlineData("DENT", "[NG 기준 — dent]")]
+    [InlineData("녹", "[NG 기준 — 녹]")]
+    [InlineData(null, "[NG 기준]")]
+    public void ReferenceTag_NamesADeclaredDefectTypeByIdAndName(string? ngLabel, string expected)
+    {
+        IReadOnlyList<ScenarioClass> defects = [new() { Id = "scratch", Label = "긁힘" }, new() { Id = "dent" }];
+        var reference = new ReferenceImage { Data = new byte[] { 1 }, Label = ReferenceLabel.Ng, NgLabel = ngLabel };
+
+        Assert.Equal(expected, VlmPrompt.ReferenceTag(reference, defects));
+        Assert.Equal(ngLabel is null ? "[NG 기준]" : $"[NG 기준 — {ngLabel}]", VlmPrompt.ReferenceTag(reference, null));
+    }
+
     [Fact]
     public void BuildContent_PngTarget_IsLabeledPng()
     {
