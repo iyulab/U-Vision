@@ -2,6 +2,7 @@ import type { CaptureMode } from '../lib/captureMode'
 import { isInspectionFree } from '../lib/capturePolicy'
 import type { MotionConfig } from '../lib/motion'
 import type { Roi } from '../lib/roi'
+import { shortVerdictLabel } from '../lib/verification'
 import { useCamera } from '../hooks/useCamera'
 import { useContinuousCapture } from '../hooks/useContinuousCapture'
 import { useInspection } from '../hooks/useInspection'
@@ -82,6 +83,24 @@ export function CameraView({
       {inspection.pending > 0 && (
         <div className="absolute left-4 top-16 rounded-full bg-slate-700/90 px-4 py-2 text-sm font-medium text-white backdrop-blur">
           판정 대기 {inspection.pending}건
+        </div>
+      )}
+      {inspection.lateAlerts.length > 0 && (
+        <div className="absolute inset-x-0 top-40 z-10 flex justify-center">
+          <div className="flex items-center gap-4 rounded-xl bg-red-600/95 px-5 py-3 text-white shadow-lg">
+            <span className="text-sm font-semibold">
+              대기했다 판정된 {shortVerdictLabel(inspection.lateAlerts[0])} {inspection.lateAlerts.length}건 — 촬영{' '}
+              {inspection.lateAlerts
+                .map((a) => new Date(a.captured_at ?? a.timestamp).toLocaleTimeString('ko-KR'))
+                .join(', ')}
+            </span>
+            <button
+              onClick={inspection.dismissLateAlerts}
+              className="rounded-full bg-white px-4 py-1 text-sm font-semibold text-red-700"
+            >
+              확인
+            </button>
+          </div>
         </div>
       )}
       {inspection.queueNotice && (

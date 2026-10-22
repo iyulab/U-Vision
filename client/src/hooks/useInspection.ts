@@ -7,6 +7,7 @@ import { getCaptureSender, sendCapture } from '../lib/captureSend'
 import { type InspectionPhase } from '../lib/capturePolicy'
 import { getDeviceId, getDeviceLabel } from '../lib/deviceIdentity'
 import { classifyTriggerError } from '../lib/inspectionError'
+import { addLateAlert } from '../lib/lateResults'
 import type { SendOutcome } from '../lib/queueSender'
 import type { Roi } from '../lib/roi'
 import type { InspectResult, MlResult } from '../lib/types'
@@ -24,6 +25,10 @@ export interface InspectionState {
   pending: number
   /** 큐에서 늦게 보낸 캡처가 서버에서 거부됐을 때의 알림(현재 캡처의 오류와 따로 둔다). */
   queueNotice: string | null
+  /** 늦게 판정된 NG — 운영자가 확인할 때까지 남는다(현재 판정 · 차단 게이트와 따로). */
+  lateAlerts: InspectResult[]
+  /** 늦은 NG 알림을 확인했다. */
+  dismissLateAlerts: () => void
   /** 캡처→업로드→판정 1회 실행. 진행 중이면 무시(중복 트리거 방지). */
   trigger: () => void
   /** 차단 게이트(co-primary 불일치) 해제 — 작업자 명시 확인. blocked → done. */
@@ -60,6 +65,7 @@ export function useInspection(
   const [unavailable, setUnavailable] = useState<{ reason: string; mlHint?: MlResult } | null>(null)
   const [pending, setPending] = useState(0)
   const [queueNotice, setQueueNotice] = useState<string | null>(null)
+  const [lateAlerts, setLateAlerts] = useState<InspectResult[]>([])
   const inFlight = useRef(false)
   /** 지금 화면이 기다리는 캡처 — 큐 비우기가 먼저 보내도 이 캡처면 화면 판정으로 낸다. */
   const currentId = useRef<string | null>(null)
@@ -96,6 +102,7 @@ export function useInspection(
       } else if (o.kind === 'sent') {
         const late = { ...o.result, late: true, captured_at: o.item.capturedAt }
         setHistory((h) => [late, ...h].slice(0, HISTORY_LIMIT))
+        setLateAlerts((a) => addLateAlert(a, late))
       } else if (o.kind === 'failed') {
         setQueueNotice(`대기했던 캡처(${new Date(o.item.capturedAt).toLocaleTimeString('ko-KR')}) 판정 실패 — ${classifyTriggerError(o.error).error ?? '판정 불가'}`)
       }
@@ -110,7 +117,11 @@ export function useInspection(
       const sender = await getCaptureSender()
       if (!sender || cancelled) return
       await sender.drain(onDrained)
-      if (!cancelled) setPending(await sender.count())
+      if (cancelled) return
+      const left = await sender.count()
+      setPending(left)
+      // 다 보냈으면 «오프라인 — 저장됨» 상태를 내린다(다음 캡처를 기다리는 상태로).
+      if (left === 0) setPhase((p) => (p === 'queued' ? 'idle' : p))
     }
     void drain()
     window.addEventListener('online', drain)
@@ -197,5 +208,19 @@ export function useInspection(
     setPhase((p) => (p === 'blocked' ? 'done' : p))
   }, [])
 
-  return { phase, latest, history, error, unavailable, pending, queueNotice, trigger, acknowledge }
+  const dismissLateAlerts = useCallback(() => setLateAlerts([]), [])
+
+  return {
+    phase,
+    latest,
+    history,
+    error,
+    unavailable,
+    pending,
+    queueNotice,
+    lateAlerts,
+    dismissLateAlerts,
+    trigger,
+    acknowledge,
+  }
 }
