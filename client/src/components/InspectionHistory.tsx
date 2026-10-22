@@ -22,8 +22,9 @@ export function InspectionHistory({ items }: { items: InspectResult[] }) {
           >
             <span className={it.verdict === 'NG' ? 'text-red-400' : 'text-emerald-400'}>
               {shortVerdictLabel(it)}
+              {it.late && <span className="ml-1 text-[10px] text-amber-300">지연</span>}
             </span>
-            <span className="text-white/50">{formatTime(it.timestamp)}</span>
+            <span className="text-white/50">{formatTime(it.captured_at ?? it.timestamp)}</span>
           </li>
         ))}
       </ul>

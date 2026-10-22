@@ -171,6 +171,14 @@
                         "type": "string"
                       }
                     }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "captured_at": {
+                        "type": "string"
+                      }
+                    }
                   }
                 ]
               }
@@ -312,6 +320,14 @@
                     "type": "object",
                     "properties": {
                       "observed_code": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "captured_at": {
                         "type": "string"
                       }
                     }
@@ -3610,6 +3626,12 @@
             ]
           },
           "observed_code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "captured_at": {
             "type": [
               "null",
               "string"

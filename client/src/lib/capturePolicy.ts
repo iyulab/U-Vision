@@ -9,6 +9,8 @@ export type InspectionPhase =
   | 'idle'
   | 'capturing'
   | 'uploading'
+  /** 서버에 닿지 못해 캡처를 기기 큐에 남겼다 — 연결이 돌아오면 보낸다. 다음 캡처는 받는다. */
+  | 'queued'
   | 'done'
   | 'error'
   | 'rejected'
@@ -22,7 +24,8 @@ export function isInspectionFree(phase: InspectionPhase): boolean {
     phase === 'done' ||
     phase === 'error' ||
     phase === 'rejected' ||
-    phase === 'unavailable'
+    phase === 'unavailable' ||
+    phase === 'queued'
   )
 }
 

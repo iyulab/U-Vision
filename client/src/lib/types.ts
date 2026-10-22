@@ -26,6 +26,10 @@ export interface InspectResult {
   posture?: 'review_block'
   /** 시나리오 클래스(결과 v2 로 판정했을 때 — 오투입 확인의 'MATCH'·'MISMATCH'). 클라 표시용, 서버 v1 응답에는 없다. */
   class_label?: string
+  /** 큐에 쌓였다가 늦게 판정된 캡처(클라 표시용) — 그 사이 다른 캡처가 화면에 있었다. */
+  late?: boolean
+  /** 늦게 판정된 캡처의 실제 캡처 시각(클라 표시용 — `timestamp` 는 서버가 받은 시각). */
+  captured_at?: string
 }
 
 /** 서버 `InspectResultV2`(`POST /v2/inspect`) 미러 — 판정 불가(503)는 DetectionUnavailableError 로 온다. */

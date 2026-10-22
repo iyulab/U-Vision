@@ -79,6 +79,17 @@ export function CameraView({
         {statusLabel}
       </div>
 
+      {inspection.pending > 0 && (
+        <div className="absolute left-4 top-16 rounded-full bg-slate-700/90 px-4 py-2 text-sm font-medium text-white backdrop-blur">
+          판정 대기 {inspection.pending}건
+        </div>
+      )}
+      {inspection.queueNotice && (
+        <div className="absolute inset-x-0 top-28 flex justify-center">
+          <div className="rounded-lg bg-amber-600/90 px-4 py-2 text-sm text-white">{inspection.queueNotice}</div>
+        </div>
+      )}
+
       <VerdictBadge result={inspection.latest} phase={inspection.phase} aboveShutter={!auto} />
       <InspectionHistory items={inspection.history} />
 

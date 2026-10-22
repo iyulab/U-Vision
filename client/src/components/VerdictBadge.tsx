@@ -32,6 +32,17 @@ export function VerdictBadge({
 
   if (phase === 'unavailable') return null
 
+  if (phase === 'queued') {
+    return (
+      <div className={`absolute inset-x-0 bottom-0 flex justify-center ${bottom}`}>
+        <div className="flex flex-col items-center rounded-2xl bg-slate-700/90 px-8 py-4 text-center text-white backdrop-blur">
+          <span className="text-lg font-semibold">오프라인 — 캡처 저장됨</span>
+          <span className="mt-1 text-sm text-white/80">연결되면 자동으로 판정합니다. 다음 품목을 계속하세요.</span>
+        </div>
+      </div>
+    )
+  }
+
   if (!result) return null
 
   const ng = result.verdict === 'NG'

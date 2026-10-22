@@ -264,6 +264,38 @@ public class InspectTests : IClassFixture<UVisionApiFactory>
     }
 
     [Fact]
+    public async Task Inspect_StoresCapturedAt_NormalizedToUtc()
+    {
+        var client = _factory.CreateClient();
+        var form = Form(Jpeg, "image/jpeg", "demo");
+        form.Add(new StringContent("2026-10-22T09:15:30.250+09:00"), "captured_at");
+        var resp = await client.PostAsync("/api/u-vision/inspect", form);
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(body.TryGetProperty("captured_at", out _)); // 응답 모양은 그대로
+
+        var today = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var results = await (await client.GetAsync($"/api/u-vision/results?scenario_id=demo&date={today}"))
+            .Content.ReadFromJsonAsync<JsonElement>();
+        var match = results.EnumerateArray()
+            .First(r => r.GetProperty("image_id").GetString() == body.GetProperty("image_id").GetString());
+        Assert.Equal("2026-10-22T00:15:30.2500000Z", match.GetProperty("captured_at").GetString());
+    }
+
+    [Theory]
+    [InlineData("2026-10-22T09:15:30")] // 시간대 없음 — 장치 현지인지 알 수 없다
+    [InlineData("어제 오후")]
+    [InlineData("2026-13-40T00:00:00Z")]
+    public async Task Inspect_RejectsInvalidCapturedAt(string value)
+    {
+        var client = _factory.CreateClient();
+        var form = Form(Jpeg, "image/jpeg", "demo");
+        form.Add(new StringContent(value), "captured_at");
+        var resp = await client.PostAsync("/api/u-vision/inspect", form);
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [Fact]
     public async Task Inspect_WithoutDeviceFields_StillSucceeds_EmptyDevice()
     {
         var client = _factory.CreateClient();

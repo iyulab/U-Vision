@@ -29,6 +29,25 @@ export class DetectionUnavailableError extends Error {
   }
 }
 
+/**
+ * 서버에 닿지 못했다(fetch 자체 실패 — 오프라인 · 연결 끊김). HTTP 응답이 온 실패(ApiError · 판정 불가)와 달리
+ * 서버가 아무것도 결정하지 않았으므로, 캡처 큐는 이 오류일 때만 항목을 남겨 다시 보낸다.
+ */
+export class NetworkError extends Error {
+  constructor(cause: unknown) {
+    super('서버에 연결할 수 없음', { cause })
+    this.name = 'NetworkError'
+  }
+}
+
+async function post(url: string, body: FormData): Promise<Response> {
+  try {
+    return await fetch(url, { method: 'POST', body })
+  } catch (e) {
+    throw new NetworkError(e)
+  }
+}
+
 async function ensureOk(res: Response, what: string): Promise<void> {
   if (res.ok) return
   const detail = await res.text().catch(() => '')
@@ -41,14 +60,16 @@ export async function inspectImage(
   scenarioId: string,
   deviceId: string,
   deviceLabel: string,
+  capturedAt?: string,
 ): Promise<InspectResult> {
   const form = new FormData()
   form.append('image', image, 'capture.jpg')
   form.append('scenario_id', scenarioId)
   form.append('device_id', deviceId)
   form.append('device_label', deviceLabel)
+  if (capturedAt) form.append('captured_at', capturedAt)
 
-  const res = await fetch(`${API_BASE}/inspect`, { method: 'POST', body: form })
+  const res = await post(`${API_BASE}/inspect`, form)
   if (res.status === 503) {
     const body = (await res.json().catch(() => null)) as DetectionUnavailable | null
     if (body?.detection_unavailable)
@@ -68,6 +89,7 @@ export async function inspectImageV2(
   deviceId: string,
   deviceLabel: string,
   context: { expectedPart?: string; observedCode?: string },
+  capturedAt?: string,
 ): Promise<InspectResultV2> {
   const form = new FormData()
   form.append('image', image, 'capture.jpg')
@@ -76,8 +98,9 @@ export async function inspectImageV2(
   form.append('device_label', deviceLabel)
   if (context.expectedPart) form.append('expected_part', context.expectedPart)
   if (context.observedCode) form.append('observed_code', context.observedCode)
+  if (capturedAt) form.append('captured_at', capturedAt)
 
-  const res = await fetch(`${API_BASE}/v2/inspect`, { method: 'POST', body: form })
+  const res = await post(`${API_BASE}/v2/inspect`, form)
   if (res.status === 503) {
     const body = (await res.json().catch(() => null)) as InspectResultV2 | null
     if (body?.detection_unavailable) throw new DetectionUnavailableError(body.reason ?? 'unavailable')

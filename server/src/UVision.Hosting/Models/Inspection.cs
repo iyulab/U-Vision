@@ -169,6 +169,14 @@ public sealed record StoredResult
     [JsonPropertyName("observed_code")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ObservedCode { get; init; }
+
+    /// <summary>
+    /// 장치가 캡처한 시각(UTC ISO 8601) — 요청이 보냈을 때만. 오프라인 큐로 늦게 올라온 캡처의 실제 시각이다.
+    /// <c>timestamp</c> · 날짜 디렉터리는 그대로 서버가 받은 시각(메트릭 · 장부가 그 시각에 묶인다).
+    /// </summary>
+    [JsonPropertyName("captured_at")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CapturedAt { get; init; }
 }
 
 /// <summary>

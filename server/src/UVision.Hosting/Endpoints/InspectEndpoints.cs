@@ -62,12 +62,13 @@ public static class InspectEndpoints
         [FromForm(Name = "scenario_id")] string scenarioId,
         [FromForm(Name = "device_id")] string? deviceId,
         [FromForm(Name = "device_label")] string? deviceLabel,
+        [FromForm(Name = "captured_at")] string? capturedAt,
         InspectionPipeline pipeline,
         VlmOptions options,
         CancellationToken cancellationToken)
     {
         var (rejected, outcome) = await RunAsync(
-            image, scenarioId, deviceId, deviceLabel, context: null, pipeline, options, cancellationToken);
+            image, scenarioId, deviceId, deviceLabel, capturedAt, context: null, pipeline, options, cancellationToken);
         return rejected ?? outcome switch
         {
             InspectionOutcome.Completed c => Results.Ok(c.Response),
@@ -84,6 +85,7 @@ public static class InspectEndpoints
         [FromForm(Name = "device_label")] string? deviceLabel,
         [FromForm(Name = "expected_part")] string? expectedPart,
         [FromForm(Name = "observed_code")] string? observedCode,
+        [FromForm(Name = "captured_at")] string? capturedAt,
         InspectionPipeline pipeline,
         VlmOptions options,
         CancellationToken cancellationToken)
@@ -97,7 +99,7 @@ public static class InspectEndpoints
             : new InspectionContext { ExpectedPart = expectedPart, ObservedCode = observedCode };
 
         var (rejected, outcome) = await RunAsync(
-            image, scenarioId, deviceId, deviceLabel, context, pipeline, options, cancellationToken);
+            image, scenarioId, deviceId, deviceLabel, capturedAt, context, pipeline, options, cancellationToken);
         return rejected ?? outcome switch
         {
             InspectionOutcome.Completed c => Results.Ok(c.V2),
@@ -112,12 +114,14 @@ public static class InspectEndpoints
     /// 요청이 거부되면 그 응답을, 아니면 판정 결과를 돌려준다.
     /// </summary>
     private static async Task<(IResult? Rejected, InspectionOutcome? Outcome)> RunAsync(
-        IFormFile image, string scenarioId, string? deviceId, string? deviceLabel, InspectionContext? context,
-        InspectionPipeline pipeline, VlmOptions options, CancellationToken cancellationToken)
+        IFormFile image, string scenarioId, string? deviceId, string? deviceLabel, string? capturedAt,
+        InspectionContext? context, InspectionPipeline pipeline, VlmOptions options, CancellationToken cancellationToken)
     {
         var invalid = ImageUpload.Validate(image, options.MaxUploadSizeMb);
         if (invalid is not null)
             return (invalid, null);
+        if (!CaptureTime.TryNormalize(capturedAt, out var capturedAtUtc))
+            return (Results.Problem(statusCode: 400, detail: "captured_at 은 시간대가 있는 ISO 8601 시각이어야 한다"), null);
 
         Scenario? scenario;
         try
@@ -141,7 +145,7 @@ public static class InspectEndpoints
             return (Results.Problem(statusCode: 400, detail: "빈 이미지"), null);
 
         return (null, await pipeline.RunAsync(
-            scenario, new InspectionCapture(data, image.ContentType, deviceId, deviceLabel, context), cancellationToken));
+            scenario, new InspectionCapture(data, image.ContentType, deviceId, deviceLabel, context, capturedAtUtc), cancellationToken));
     }
 
     private static async Task<IResult> ListResultsAsync(

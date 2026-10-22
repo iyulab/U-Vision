@@ -133,6 +133,7 @@ public sealed class InspectionPipeline(
             Posture = posture,
             ExpectedPart = capture.Context?.ExpectedPart,
             ObservedCode = capture.Context?.ObservedCode,
+            CapturedAt = capture.CapturedAt,
         };
 
         // must-succeed: system-of-record 이므로 영속화 실패 시 200 위장 금지(→500).
@@ -443,9 +444,10 @@ public sealed class InspectionPipeline(
 /// <param name="DeviceId">촬영 장치 식별자(선택).</param>
 /// <param name="DeviceLabel">촬영 장치 표시 이름(선택).</param>
 /// <param name="Context">요청 맥락 — 오투입 확인의 기대 품번 · 읽은 코드(선택).</param>
+/// <param name="CapturedAt">장치가 캡처한 시각, 정규화된 UTC ISO 8601(선택 — <see cref="CaptureTime"/>).</param>
 public sealed record InspectionCapture(
     ReadOnlyMemory<byte> Image, string ContentType, string? DeviceId, string? DeviceLabel,
-    InspectionContext? Context = null);
+    InspectionContext? Context = null, string? CapturedAt = null);
 
 /// <summary>판정 파이프라인의 결과 — 호출부(HTTP·다른 진입점)가 자기 표현으로 옮긴다.</summary>
 public abstract record InspectionOutcome
