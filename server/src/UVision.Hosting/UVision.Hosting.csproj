@@ -43,11 +43,11 @@
 
   <ItemGroup>
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
-    <PackageReference Include="IronHive.Abstractions" Version="0.22.0" />
-    <PackageReference Include="IronHive.Core" Version="0.22.0" />
-    <PackageReference Include="IronHive.Providers.GoogleAI" Version="0.22.0" />
-    <PackageReference Include="IronHive.Providers.OpenAI" Version="0.22.0" />
-    <PackageReference Include="IronHive.Providers.OpenAI.Compatible" Version="0.22.0" />
+    <PackageReference Include="IronHive.Abstractions" Version="0.68.0" />
+    <PackageReference Include="IronHive.Core" Version="0.68.0" />
+    <PackageReference Include="IronHive.Providers.GoogleAI" Version="0.68.0" />
+    <PackageReference Include="IronHive.Providers.OpenAI" Version="0.68.0" />
+    <PackageReference Include="IronHive.Providers.OpenAI.Compatible" Version="0.68.0" />
   </ItemGroup>
 
   <!-- 빌드된 PWA(client/npm run build:embed 산출물)를 임베드. Task 9 에서 wwwroot 채움. -->
