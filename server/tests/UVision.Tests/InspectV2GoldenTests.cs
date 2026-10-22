@@ -121,19 +121,19 @@ public partial class InspectV2GoldenTests
 
     private const string ExpectedVlmOnly =
         """
-        {"decision_id":"img_ID","scenario_id":"demo","timestamp":"TS","class":"NG","settled_by":{"tier":"vlm","kind":"vlm"},"confidence":0.79,"findings":"모의 불량 소견: 표면 결함 의심 영역 검출(mock — 실제 판정 아님).","path":[{"tier":"vlm","outcome":"settled"}]}
+        {"decision_id":"img_ID","scenario_id":"demo","timestamp":"TS","class":"NG","settled_by":{"tier":"vlm","kind":"vlm"},"confidence":0.79,"findings":"모의 불량 소견: 표면 결함 의심 영역 검출(mock — 실제 판정 아님).","path":[{"tier":"vlm","outcome":"settled"}],"device_id":"tab-1","device_label":"라인1"}
         """;
     private const string ExpectedMl =
         """
-        {"decision_id":"img_ID","scenario_id":"demo","timestamp":"TS","class":"NG","settled_by":{"tier":"vlm","kind":"vlm"},"confidence":0.79,"findings":"모의 불량 소견: 표면 결함 의심 영역 검출(mock — 실제 판정 아님).","requires_review":false,"path":[{"tier":"ml","outcome":"escalated"},{"tier":"vlm","outcome":"settled"}]}
+        {"decision_id":"img_ID","scenario_id":"demo","timestamp":"TS","class":"NG","settled_by":{"tier":"vlm","kind":"vlm"},"confidence":0.79,"findings":"모의 불량 소견: 표면 결함 의심 영역 검출(mock — 실제 판정 아님).","requires_review":false,"path":[{"tier":"ml","outcome":"escalated"},{"tier":"vlm","outcome":"settled"}],"device_id":"tab-1","device_label":"라인1"}
         """;
     private const string ExpectedUnavailable =
         """
-        {"decision_id":"dec_ID","scenario_id":"demo","timestamp":"TS","path":[{"tier":"vlm","outcome":"abstained"}],"detection_unavailable":true,"reason":"vlm_unavailable"}
+        {"decision_id":"dec_ID","scenario_id":"demo","timestamp":"TS","path":[{"tier":"vlm","outcome":"abstained"}],"detection_unavailable":true,"reason":"vlm_unavailable","device_id":"tab-1","device_label":"라인1"}
         """;
     private const string ExpectedVerification =
         """
-        {"decision_id":"img_ID","scenario_id":"part","timestamp":"TS","class":"MISMATCH","settled_by":{"tier":"vlm","kind":"vlm"},"confidence":0.79,"findings":"모의 불량 소견: 표면 결함 의심 영역 검출(mock — 실제 판정 아님).","path":[{"tier":"match","outcome":"escalated"},{"tier":"vlm","outcome":"settled"}]}
+        {"decision_id":"img_ID","scenario_id":"part","timestamp":"TS","class":"MISMATCH","settled_by":{"tier":"vlm","kind":"vlm"},"confidence":0.79,"findings":"모의 불량 소견: 표면 결함 의심 영역 검출(mock — 실제 판정 아님).","path":[{"tier":"match","outcome":"escalated"},{"tier":"vlm","outcome":"settled"}],"device_id":"tab-1","device_label":"라인1"}
         """;
     private const string ExpectedVerificationStored =
         """

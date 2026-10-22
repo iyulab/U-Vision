@@ -57,6 +57,21 @@ public sealed record InspectResultV2
     [JsonPropertyName("reason")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Reason { get; init; }
+
+    // 캡처 출처 — 요청이 보냈을 때만. 이 결과를 그대로 싣는 판정 사건(웹훅)의 받는 쪽이 «어느 장치가 언제 찍었나»를 안다.
+
+    [JsonPropertyName("device_id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DeviceId { get; init; }
+
+    [JsonPropertyName("device_label")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DeviceLabel { get; init; }
+
+    /// <summary>장치 캡처 시각(UTC) — <c>timestamp</c> 는 서버가 받은 시각.</summary>
+    [JsonPropertyName("captured_at")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CapturedAt { get; init; }
 }
 
 /// <summary>

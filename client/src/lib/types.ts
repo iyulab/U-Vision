@@ -45,6 +45,10 @@ export interface InspectResultV2 {
   path?: { tier: string; outcome: 'settled' | 'shadowed' | 'escalated' | 'abstained' }[]
   detection_unavailable?: boolean
   reason?: string
+  device_id?: string
+  device_label?: string
+  /** 장치 캡처 시각(UTC) — 요청이 보냈을 때만. `timestamp` 는 서버가 받은 시각. */
+  captured_at?: string
 }
 
 /**

@@ -50,6 +50,27 @@ public class InspectV2Tests
     }
 
     [Fact]
+    public async Task CaptureOrigin_IsEchoed_WhenSent_AndOmittedOtherwise()
+    {
+        using var factory = new UVisionApiFactory();
+        var client = factory.CreateClient();
+
+        var plain = await (await client.PostAsync("/api/u-vision/v2/inspect", Form()))
+            .Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(plain.TryGetProperty("device_id", out _));
+        Assert.False(plain.TryGetProperty("captured_at", out _));
+
+        var form = Form();
+        form.Add(new StringContent("tab-9"), "device_id");
+        form.Add(new StringContent("2026-10-22T09:00:00+09:00"), "captured_at");
+        var body = await (await client.PostAsync("/api/u-vision/v2/inspect", form))
+            .Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("tab-9", body.GetProperty("device_id").GetString());
+        Assert.False(body.TryGetProperty("device_label", out _));
+        Assert.Equal("2026-10-22T00:00:00.0000000Z", body.GetProperty("captured_at").GetString());
+    }
+
+    [Fact]
     public async Task Completed_IsRecordedLikeV1_UnderTheDecisionId()
     {
         using var factory = new UVisionApiFactory();

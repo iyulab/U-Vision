@@ -96,6 +96,9 @@ public sealed class InspectionPipeline(
                     Path = PathStepV2.From(failedRoute),
                     DetectionUnavailable = true,
                     Reason = decision.Reason,
+                    DeviceId = NullIfEmpty(capture.DeviceId),
+                    DeviceLabel = NullIfEmpty(capture.DeviceLabel),
+                    CapturedAt = capture.CapturedAt,
                 });
         }
 
@@ -181,6 +184,9 @@ public sealed class InspectionPipeline(
             Findings = useMl ? null : findings,
             RequiresReview = requiresReview,
             Path = PathStepV2.From(route),
+            DeviceId = NullIfEmpty(capture.DeviceId),
+            DeviceLabel = NullIfEmpty(capture.DeviceLabel),
+            CapturedAt = capture.CapturedAt,
         };
 
         // 판정 사건(P4) — outbox 에 남기기만 한다(보내기는 따로). 관측 · 통합 경로라 실패는 degrade.
@@ -446,6 +452,8 @@ public sealed class InspectionPipeline(
     /// <summary>ML 라벨(class-agnostic 문자열) → Verdict. "ng"(대소문자 무시)=NG, 그 외=OK.</summary>
     private static Verdict ParseVerdict(string label) =>
         string.Equals(label, "NG", StringComparison.OrdinalIgnoreCase) ? Verdict.NG : Verdict.OK;
+
+    private static string? NullIfEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
 
     /// <summary>판정원 실행 결과 — VLM(null=실패) · ML(null=비활성).</summary>
     private sealed record JudgeEvidence(InspectionResult? Vlm, MlOutcome? Ml);

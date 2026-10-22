@@ -2556,6 +2556,24 @@
               "null",
               "string"
             ]
+          },
+          "device_id": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "device_label": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "captured_at": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
