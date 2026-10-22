@@ -1,0 +1,65 @@
+---
+import Page from './Page.astro';
+import { COPY, QUICKSTART_URL, SOURCE_URL, type Locale } from '../copy';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const c = COPY[locale];
+---
+
+<Page locale={locale} page="home" title={c.title} description={c.description}>
+  <section class="hero">
+    <h1>{c.headline}</h1>
+    <p class="lede" data-claim={c.lede.claim}>{c.lede.text}</p>
+    <p class="actions">
+      <a class="primary" href={QUICKSTART_URL}>{c.start}</a>
+      <a class="secondary" href={SOURCE_URL}>{c.readSource}</a>
+    </p>
+  </section>
+
+  <section class="facts">
+    {
+      c.sections.map(s => (
+        <article data-claim={s.claim}>
+          <h2>{s.heading}</h2>
+          <p>{s.body}</p>
+        </article>
+      ))
+    }
+  </section>
+
+  <section class="delivery" aria-labelledby="delivery-heading">
+    <h2 id="delivery-heading">{c.delivery.heading}</h2>
+    <dl>
+      {
+        c.delivery.items.map(item => (
+          <div data-claim={item.claim}>
+            <dt>{item.heading}</dt>
+            <dd>{item.body}</dd>
+          </div>
+        ))
+      }
+    </dl>
+  </section>
+
+  <section class="not" aria-labelledby="not-heading">
+    <h2 id="not-heading">{c.notHeading}</h2>
+    <ul>
+      {
+        c.not.map(item => (
+          <li data-claim={item.claim}>
+            <strong>{item.heading}</strong> {item.body}
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <section class="license" data-claim={c.license.claim}>
+    <h2>{c.license.heading}</h2>
+    <p>{c.license.body}</p>
+  </section>
+</Page>

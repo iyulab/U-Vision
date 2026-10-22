@@ -1,0 +1,72 @@
+---
+// The frame every page shares: the head (title, description, language alternates, link preview), the bar at
+// the top and the footer. The site sets no cookies and loads no tracking scripts — the only script is the
+// U-Platform affiliation element, which makes no network requests.
+import '../styles/site.css';
+import { COPY, PATHS, SITE_URL, SOURCE_URL, API_URL, NUGET_URL, CONTACT_URL, type Locale, type PageId } from '../copy';
+
+interface Props {
+  locale: Locale;
+  page: PageId;
+  title: string;
+  description: string;
+}
+
+const { locale, page, title, description } = Astro.props;
+const c = COPY[locale];
+const other: Locale = locale === 'ko' ? 'en' : 'ko';
+const url = (path: string) => new URL(path, SITE_URL).href;
+const canonical = url(PATHS[page][locale]);
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="ko" href={url(PATHS[page].ko)} />
+    <link rel="alternate" hreflang="en" href={url(PATHS[page].en)} />
+    <link rel="alternate" hreflang="x-default" href={url(PATHS[page].ko)} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="U-Vision" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content={locale === 'ko' ? 'ko_KR' : 'en_US'} />
+  </head>
+  <body>
+    <header class="bar">
+      <a class="mark" href={PATHS.home[locale]}>U-Vision</a>
+      <nav aria-label={locale === 'ko' ? '바로가기' : 'Shortcuts'}>
+        <a href={SOURCE_URL}>{c.footer.source}</a>
+        <a href={PATHS[page][other]} hreflang={other} lang={other}>{c.otherLanguage}</a>
+      </nav>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="foot">
+      <div class="foot-inner">
+        <nav aria-label={locale === 'ko' ? '사이트 바깥 링크' : 'Elsewhere'}>
+          <a href={SOURCE_URL}>{c.footer.source}</a>
+          <a href={API_URL}>{c.footer.api}</a>
+          <a href={NUGET_URL}>{c.footer.nuget}</a>
+          <a href={CONTACT_URL}>{c.footer.contact}</a>
+        </nav>
+        <div class="foot-meta">
+          <uplatform-affiliation product="u-vision" lang={locale} theme="light"></uplatform-affiliation>
+          <p>© 2026 iyulab</p>
+        </div>
+      </div>
+    </footer>
+    <script>
+      import '@uplatform/brand';
+    </script>
+  </body>
+</html>

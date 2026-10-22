@@ -1,0 +1,27 @@
+{
+  "name": "u-vision-site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The U-Vision introduction site",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "@uplatform/brand": "^0.4.0",
+    "astro": "^7.3.8"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

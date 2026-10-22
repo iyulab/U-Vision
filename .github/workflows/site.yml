@@ -1,0 +1,56 @@
+# Tests and builds the introduction site (site/) on every change to it, and deploys it to Cloudflare Pages
+# from main.
+#
+# It deploys only once the repository variable SITE_PAGES_PROJECT names the Pages project, with the secrets
+# CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID set. Until then every run builds the site and stops, so
+# nothing is published before the site has somewhere to go.
+name: Site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      # The site states facts backed by repository files; claims.test.ts checks those files still exist.
+      - 'client/src/**'
+      - 'server/src/**'
+      - 'server/openapi/**'
+      - '.github/workflows/site.yml'
+  pull_request:
+    paths:
+      - 'site/**'
+      - '.github/workflows/site.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      - name: Deploy to Cloudflare Pages
+        if: ${{ vars.SITE_PAGES_PROJECT != '' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy site/dist --project-name=${{ vars.SITE_PAGES_PROJECT }} --branch=main

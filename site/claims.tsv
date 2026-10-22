@@ -1,0 +1,20 @@
+# Every statement the site makes about U-Vision, its status, and where this repository backs it.
+# Not published: it sits outside public/ and the build never reads it. test/claims.test.ts matches its ids against
+# the claim ids in src/ (both ways) and checks that every ref exists. Change a sentence, change its row in the same commit.
+# status: works = works today · design = how it is built (a principle or a boundary) · vision = a goal, not built yet · promise = an operating commitment
+# ref: one or more repository paths, joined with " · ".
+claim	status	ref	context
+lede	works	README.md · client/src/workers/motionWorker.ts · server/src/UVision.Hosting/Services/Inspection/InspectionPipeline.cs	Still-triggered capture, judged by the server's vision model against scenario criteria and reference images; browser app
+capture	works	client/src/workers/motionWorker.ts · client/src/lib/sharpness.ts · client/src/hooks/useInspection.ts	On-device motion detection, blur rejection before upload, manual shutter
+verify	works	client/src/lib/barcode.ts · client/src/lib/verification.ts · server/src/UVision.Hosting/Models/InspectV2.cs	Expected part number, match/mismatch, code read on the device compared first
+offline	works	client/src/lib/captureQueue.ts · client/src/lib/queueSender.ts · server/src/UVision.Hosting/Models/CaptureTime.cs	Device-first capture queue, sent oldest first on reconnect, capture time stored
+crosscheck	works	server/src/UVision.Hosting/Services/DualCheck/DualCheckEvaluator.cs · client/src/lib/review.ts · server/src/UVision.Hosting/Services/Dataset/FileDatasetExporter.cs	Optional ML classifier alongside the VLM, review list, labels exported as training data
+failclosed	works	client/src/lib/inspectionError.ts · server/src/UVision.Hosting/Services/Inspection/InspectionPipeline.cs	VLM unavailable means "unable to decide", never an automatic OK
+selfhost	design	server/src/UVision.Hosting/Storage/StoragePaths.cs	File system storage, no database server
+models	works	server/src/UVision.Hosting/Services/Vlm/VlmProviderFactory.cs	Self-hosted OpenAI-compatible model server (GPUStack provider)
+embed	works	server/src/UVision.Hosting/UVisionMiddleware.cs · samples/MinimalHost	Standalone server or a NuGet package mounted in an ASP.NET Core app
+integrate	works	server/openapi/u-vision.json · server/src/UVision.Hosting/Services/Events/WebhookDispatcher.cs	OpenAPI document, signed CloudEvents webhooks
+no-accuracy-promise	design	server/src/UVision.Hosting/Services/Metrics/MetricsAggregator.cs · client/src/lib/review.ts	No accuracy claim; human labels and metrics for on-site measurement
+no-accounts	design	server/src/UVision.Hosting/Auth/AdminPin.cs	Single organization, open operator screen, admin PIN for changes
+no-cookies	promise	site/src/components/Page.astro · site/public/_headers	This site sets no cookies and loads no tracking scripts
+license	works	LICENSE	MIT
