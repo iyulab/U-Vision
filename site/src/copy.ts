@@ -21,6 +21,15 @@ export const API_URL = 'https://github.com/iyulab/U-Vision/blob/main/server/open
 export const NUGET_URL = 'https://www.nuget.org/packages/UVision.Hosting';
 export const CONTACT_URL = 'https://u-platform.kr/contact';
 
+/**
+ * A link to the contact form. The form fills in the product from `product` and the request type from `intent`;
+ * `topic` names the part of this page the visitor asked from — a roadmap claim id, or the section — so requests say
+ * which roadmap item they are about. The link carries no visitor data: it is the same for everyone.
+ */
+export function contactUrl(topic: string, intent: 'general' | 'demo' = 'general'): string {
+  return `${CONTACT_URL}?${new URLSearchParams({ product: 'u-vision', intent, topic })}`;
+}
+
 /** One statement the site makes, tied to its row in claims.tsv. */
 export interface Point {
   claim: string;
@@ -54,6 +63,8 @@ export interface Copy {
   nav: { screens: string; learning: string; roadmap: string; start: string; contact: string };
   hero: { headline: string; lede: Point; cta: string; secondary: string; pause: string; play: string };
   roadmapLabel: string;
+  /** The link beside a roadmap item that asks for it. */
+  ask: string;
   values: { heading: string; items: Item[] };
   features: Feature[];
   scenarios: { heading: string; intro: Point; edge: Point; items: Scenario[] };
@@ -103,6 +114,7 @@ export const COPY: Record<Locale, Copy> = {
       play: '영상 재생',
     },
     roadmapLabel: '로드맵',
+    ask: '필요하면 알려 주세요',
     values: {
       heading: '무엇이 달라지나',
       items: [
@@ -324,6 +336,7 @@ export const COPY: Record<Locale, Copy> = {
       play: 'Play video',
     },
     roadmapLabel: 'Roadmap',
+    ask: 'Need this? Tell us',
     values: {
       heading: 'What changes',
       items: [

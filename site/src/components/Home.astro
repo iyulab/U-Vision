@@ -2,7 +2,7 @@
 import Page from './Page.astro';
 import Shot from './Shot.astro';
 import Diagram from './Diagram.astro';
-import { COPY, CONTACT_URL, SOURCE_URL, API_URL, NUGET_URL, QUICKSTART_URL, type Locale, type Point } from '../copy';
+import { COPY, contactUrl, SOURCE_URL, API_URL, NUGET_URL, QUICKSTART_URL, type Locale, type Point } from '../copy';
 import { SLOTS, mediaPath } from '../media';
 
 interface Props {
@@ -22,7 +22,7 @@ const roadmapPoint = (p: Point) => p.roadmap === true;
         <h1 id="hero-heading">{c.hero.headline}</h1>
         <p class="lede" data-claim={c.hero.lede.claim}>{c.hero.lede.text}</p>
         <p class="actions">
-          <a class="button primary" href={CONTACT_URL}>{c.hero.cta}</a>
+          <a class="button primary" href={contactUrl('hero')}>{c.hero.cta}</a>
           <a class="button quiet" href="#operator">{c.hero.secondary}</a>
         </p>
       </div>
@@ -78,6 +78,7 @@ const roadmapPoint = (p: Point) => p.roadmap === true;
                 <li data-claim={p.claim} class:list={{ roadmap: roadmapPoint(p) }}>
                   {roadmapPoint(p) && <span class="chip">{c.roadmapLabel}</span>}
                   {p.text}
+                  {roadmapPoint(p) && <a class="ask" href={contactUrl(p.claim)}>{c.ask}</a>}
                 </li>
               ))}
             </ul>
@@ -107,6 +108,7 @@ const roadmapPoint = (p: Point) => p.roadmap === true;
               />
               <h3>{s.heading}</h3>
               <p>{s.body}</p>
+              {s.roadmap && <a class="ask" href={contactUrl(s.claim)}>{c.ask}</a>}
             </article>
           ))
         }
@@ -124,6 +126,7 @@ const roadmapPoint = (p: Point) => p.roadmap === true;
             <li data-claim={p.claim} class:list={{ roadmap: roadmapPoint(p) }}>
               {roadmapPoint(p) && <span class="chip">{c.roadmapLabel}</span>}
               {p.text}
+              {roadmapPoint(p) && <a class="ask" href={contactUrl(p.claim)}>{c.ask}</a>}
             </li>
           ))
         }
@@ -165,7 +168,7 @@ const roadmapPoint = (p: Point) => p.roadmap === true;
       <h2 id="demand-heading">{c.demand.heading}</h2>
       <p>{c.demand.body}</p>
       <p class="actions">
-        <a class="button primary" href={CONTACT_URL}>{c.demand.cta}</a>
+        <a class="button primary" href={contactUrl('demand')}>{c.demand.cta}</a>
       </p>
     </div>
   </section>
