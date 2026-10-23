@@ -155,6 +155,8 @@ export interface Reference {
 
 /** 시나리오 생성/수정 요청 본문 — 서버 `ScenarioInput` 미러(scenario_id 제외). */
 export interface ScenarioInput {
+  /** 생성할 때만 — 데이터 폴더 · 판정 사건 · CSV 에 남는 id(바꿀 수 없다). 비우면 서버가 이름에서 만든다. */
+  scenario_id?: string
   name: string
   criteria?: string
   roi?: ScenarioRoi

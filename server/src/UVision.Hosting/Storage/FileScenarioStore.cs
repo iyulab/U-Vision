@@ -48,10 +48,18 @@ public sealed partial class FileScenarioStore : IScenarioStore
         return results;
     }
 
-    public async Task<Scenario> CreateAsync(
+    public async Task<Scenario?> CreateAsync(
         ScenarioInput input, CancellationToken cancellationToken = default)
     {
-        var scenarioId = ResolveUniqueSlug(input.Name);
+        string scenarioId;
+        if (input.ScenarioId is { } requested)
+        {
+            scenarioId = StoragePaths.Id(requested); // 형식 위반이면 ArgumentException(→400)
+            if (Directory.Exists(_paths.ScenarioDir(scenarioId)))
+                return null; // 이미 있음(→409) — 정한 id 를 조용히 다른 값으로 바꾸지 않는다
+        }
+        else
+            scenarioId = ResolveUniqueSlug(input.Name);
         var scenario = input.ToScenario(scenarioId);
         await StoragePaths.AtomicWriteJsonAsync(
             _paths.ScenarioJson(scenarioId), scenario, cancellationToken);

@@ -17,10 +17,11 @@ public interface IScenarioStore
     Task<IReadOnlyList<Scenario>> ListAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// 새 시나리오를 만든다. id 는 <paramref name="input"/>.Name 에서 slug 로 도출하고
-    /// 충돌 시 접미(<c>-2</c>, <c>-3</c> …)한다. 확정 id 를 담은 시나리오를 반환한다.
+    /// 새 시나리오를 만든다. id 는 <paramref name="input"/>.ScenarioId 가 있으면 그 값(형식 위반이면
+    /// <see cref="ArgumentException"/>, 이미 있으면 null), 없으면 Name 에서 slug 로 도출하고 충돌 시 접미
+    /// (<c>-2</c>, <c>-3</c> …)한다. 확정 id 를 담은 시나리오를 반환한다.
     /// </summary>
-    Task<Scenario> CreateAsync(ScenarioInput input, CancellationToken cancellationToken = default);
+    Task<Scenario?> CreateAsync(ScenarioInput input, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 기존 시나리오를 갱신한다(id 불변). 없으면 <c>null</c>(→404),

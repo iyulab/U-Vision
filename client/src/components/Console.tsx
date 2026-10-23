@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import '@uplatform/brand'
 
 import { createScenario, deleteScenario, getAdminStatus, listScenarios, updateScenario } from '../lib/api'
+import { derivedScenarioId, isValidScenarioId, needsExplicitScenarioId } from '../lib/scenarioId'
 import { usePin, type PinRunResult } from '../hooks/usePin'
 import { useResource } from '../hooks/useResource'
 import { AdminSetup } from './AdminSetup'
@@ -44,6 +45,8 @@ interface ConsoleProps {
 
 interface DraftScenario {
   id?: string // 있으면 수정, 없으면 생성
+  /** 생성할 때 정하는 id(선택) — 비우면 서버가 이름에서 만든다. */
+  newId?: string
   name: string
   criteria: string
   roi: Roi
@@ -283,10 +286,13 @@ function ScenarioManager({
     if (!draft || !draft.name.trim()) return
     const parsed = parseDefects(draft.defects)
     if ('error' in parsed) return
+    const newId = draft.id ? '' : (draft.newId ?? '').trim()
+    if (newId && !isValidScenarioId(newId)) return
     // 불량 유형은 검사에서 바뀌었을 때만 보낸다 — 생략하면 서버가 저장된 classes 를 그대로 둔다.
     const defectsChanged =
       draft.type === 'inspection' && formatDefects(parsed.defects) !== formatDefects(draft.originalDefects)
     const input = {
+      ...(newId ? { scenario_id: newId } : {}),
       name: draft.name.trim(),
       criteria: draft.criteria.trim(),
       roi: toScenarioRoi(draft.roi),
@@ -510,6 +516,31 @@ function DefectsField({ draft, onChange }: { draft: DraftScenario; onChange: (d:
   )
 }
 
+/** 새 시나리오의 id — 비우면 서버가 이름에서 만든다. 한글 이름은 영문이 남지 않아 직접 정하라고 권한다. */
+function ScenarioIdField({ draft, onChange }: { draft: DraftScenario; onChange: (d: DraftScenario) => void }) {
+  const value = draft.newId ?? ''
+  const invalid = value.trim() !== '' && !isValidScenarioId(value.trim())
+  const recommend = value.trim() === '' && needsExplicitScenarioId(draft.name)
+  return (
+    <label className="block space-y-1">
+      <span className="text-sm text-slate-300">식별자 (선택)</span>
+      <input
+        value={value}
+        onChange={(e) => onChange({ ...draft, newId: e.target.value })}
+        placeholder={draft.name.trim() ? derivedScenarioId(draft.name) : '예: line3-misload'}
+        className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 font-mono text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
+      />
+      <span className={`block text-xs ${invalid || recommend ? 'text-amber-300' : 'text-slate-500'}`}>
+        {invalid
+          ? '영문 · 숫자 · . _ - 만 쓸 수 있습니다.'
+          : recommend
+            ? '이름에 영문이 없어 식별자가 알아보기 어려운 값이 됩니다 — 영문으로 정해 주세요(예: line3-misload).'
+            : '데이터 폴더 · 판정 사건 · CSV 에 남고, 만든 뒤 바꿀 수 없습니다. 비우면 이름에서 만듭니다.'}
+      </span>
+    </label>
+  )
+}
+
 function ScenarioForm({
   draft,
   busy,
@@ -540,6 +571,7 @@ function ScenarioForm({
             className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
           />
         </label>
+        {!draft.id && <ScenarioIdField draft={draft} onChange={onChange} />}
         <div className="space-y-1">
           <span className="text-sm text-slate-300">유형</span>
           <div className="flex gap-1.5">
@@ -601,7 +633,7 @@ function ScenarioForm({
           />
           <Slider
             label="최소 선명도"
-            hint="흐림 거부 기준 — 저장만(Phase 3 적용 예정)"
+            hint="이보다 흐린 캡처는 판정에 보내지 않고 다시 찍게 한다(0 = 끔)"
             min={0}
             max={300}
             value={draft.minSharpness}
@@ -650,7 +682,12 @@ function ScenarioForm({
           </button>
           <button
             onClick={onSave}
-            disabled={busy || !draft.name.trim() || 'error' in parseDefects(draft.defects)}
+            disabled={
+              busy ||
+              !draft.name.trim() ||
+              'error' in parseDefects(draft.defects) ||
+              (!draft.id && !!draft.newId?.trim() && !isValidScenarioId(draft.newId.trim()))
+            }
             className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-40"
           >
             저장

@@ -95,11 +95,20 @@ public sealed record Scenario
 }
 
 /// <summary>
-/// 시나리오 생성/수정 요청 본문 — <see cref="Scenario"/> 에서 서버가 결정하는 <c>scenario_id</c> 를 뺀 것.
-/// 생성 시 id 는 <see cref="Name"/> 에서 도출되고, 수정 시 id 는 경로에서 온다.
+/// 시나리오 생성/수정 요청 본문. 생성 시 id 는 <see cref="ScenarioId"/> 가 있으면 그 값, 없으면 <see cref="Name"/> 에서
+/// 도출되고, 수정 시 id 는 경로에서 온다(바뀌지 않는다).
 /// </summary>
 public sealed record ScenarioInput
 {
+    /// <summary>
+    /// 생성할 때 쓸 id(선택) — 데이터 폴더 · 결정 장부 · 판정 사건 · CSV 에 남고 만든 뒤 바뀌지 않는다. 글자는
+    /// 영문 · 숫자 · <c>. _ -</c> 만(그 밖 400), 이미 있으면 409. 비우면 이름의 영문 · 숫자에서 만든다 — 한글 이름은
+    /// 영문이 남지 않으므로 이 값을 준다. 수정 요청에서는 경로의 id 와 같아야 한다(다르면 400).
+    /// </summary>
+    [JsonPropertyName("scenario_id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ScenarioId { get; init; }
+
     [JsonPropertyName("name")] public required string Name { get; init; }
 
     [JsonPropertyName("criteria")] public string Criteria { get; init; } = "";

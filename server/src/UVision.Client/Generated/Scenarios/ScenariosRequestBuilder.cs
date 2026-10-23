@@ -68,6 +68,7 @@ namespace UVision.Client.Scenarios
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
         /// <exception cref="global::UVision.Client.Models.ProblemDetails">When receiving a 400 status code</exception>
         /// <exception cref="global::UVision.Client.Models.ProblemDetails">When receiving a 401 status code</exception>
+        /// <exception cref="global::UVision.Client.Models.ProblemDetails">When receiving a 409 status code</exception>
         /// <exception cref="global::UVision.Client.Models.AdminSetupRequiredResponse">When receiving a 503 status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -84,6 +85,7 @@ namespace UVision.Client.Scenarios
             {
                 { "400", global::UVision.Client.Models.ProblemDetails.CreateFromDiscriminatorValue },
                 { "401", global::UVision.Client.Models.ProblemDetails.CreateFromDiscriminatorValue },
+                { "409", global::UVision.Client.Models.ProblemDetails.CreateFromDiscriminatorValue },
                 { "503", global::UVision.Client.Models.AdminSetupRequiredResponse.CreateFromDiscriminatorValue },
             };
             return await RequestAdapter.SendAsync<global::UVision.Client.Models.Scenario>(requestInfo, global::UVision.Client.Models.Scenario.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);

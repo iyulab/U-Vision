@@ -40,12 +40,24 @@ public static class ScenarioEndpoints
             if (EffectiveScenario.Validate(input) is { } invalid)
                 return Results.Problem(statusCode: 400, detail: invalid);
 
-            var created = await store.CreateAsync(input, ct);
-            return Results.Created(ApiLocation.For(request, options, $"scenarios/{created.ScenarioId}"), created);
+            Scenario? created;
+            try
+            {
+                created = await store.CreateAsync(input, ct);
+            }
+            catch (ArgumentException)
+            {
+                return Results.Problem(statusCode: 400,
+                    detail: $"scenario_id 는 영문 · 숫자 · . _ - 만(128자 이하): {input.ScenarioId}");
+            }
+            return created is null
+                ? Results.Problem(statusCode: 409, detail: $"이미 있는 시나리오 id: {input.ScenarioId}")
+                : Results.Created(ApiLocation.For(request, options, $"scenarios/{created.ScenarioId}"), created);
         }).RequireAdminPin()
             .WithName("CreateScenario")
             .Produces<Scenario>(201)
-            .ProducesProblem(400);
+            .ProducesProblem(400)
+            .ProducesProblem(409);
 
         group.MapPut("/{id}",
             async (string id, ScenarioInput input, IScenarioStore store, CancellationToken ct) =>
@@ -53,6 +65,8 @@ public static class ScenarioEndpoints
             {
                 if (string.IsNullOrWhiteSpace(input.Name))
                     return Results.Problem(statusCode: 400, detail: "name 은 필수");
+                if (input.ScenarioId is { } other && other != id)
+                    return Results.Problem(statusCode: 400, detail: "시나리오 id 는 바꿀 수 없다");
                 if (EffectiveScenario.Validate(input) is { } invalid)
                     return Results.Problem(statusCode: 400, detail: invalid);
 

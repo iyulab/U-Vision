@@ -980,6 +980,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -3564,6 +3574,12 @@
         ],
         "type": "object",
         "properties": {
+          "scenario_id": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "name": {
             "type": "string"
           },

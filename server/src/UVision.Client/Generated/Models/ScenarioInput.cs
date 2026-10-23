@@ -72,6 +72,14 @@ namespace UVision.Client.Models
 #else
         public global::UVision.Client.Models.Roi Roi { get; set; }
 #endif
+        /// <summary>The scenario_id property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? ScenarioId { get; set; }
+#nullable restore
+#else
+        public string ScenarioId { get; set; }
+#endif
         /// <summary>The still_frames property</summary>
         public int? StillFrames { get; set; }
         /// <summary>The trigger property</summary>
@@ -134,6 +142,7 @@ namespace UVision.Client.Models
                 { "ng_labels", n => { NgLabels = n.GetObjectValue<global::UVision.Client.Models.ScenarioInput_ng_labels>(global::UVision.Client.Models.ScenarioInput_ng_labels.CreateFromDiscriminatorValue); } },
                 { "reference_cap", n => { ReferenceCap = n.GetIntValue(); } },
                 { "roi", n => { Roi = n.GetObjectValue<global::UVision.Client.Models.Roi>(global::UVision.Client.Models.Roi.CreateFromDiscriminatorValue); } },
+                { "scenario_id", n => { ScenarioId = n.GetStringValue(); } },
                 { "still_frames", n => { StillFrames = n.GetIntValue(); } },
                 { "trigger", n => { Trigger = n.GetStringValue(); } },
                 { "trust", n => { Trust = n.GetObjectValue<global::UVision.Client.Models.ScenarioTrust>(global::UVision.Client.Models.ScenarioTrust.CreateFromDiscriminatorValue); } },
@@ -158,6 +167,7 @@ namespace UVision.Client.Models
             writer.WriteObjectValue<global::UVision.Client.Models.ScenarioInput_ng_labels>("ng_labels", NgLabels);
             writer.WriteIntValue("reference_cap", ReferenceCap);
             writer.WriteObjectValue<global::UVision.Client.Models.Roi>("roi", Roi);
+            writer.WriteStringValue("scenario_id", ScenarioId);
             writer.WriteIntValue("still_frames", StillFrames);
             writer.WriteStringValue("trigger", Trigger);
             writer.WriteObjectValue<global::UVision.Client.Models.ScenarioTrust>("trust", Trust);

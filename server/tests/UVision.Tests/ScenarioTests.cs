@@ -59,6 +59,48 @@ public class ScenarioTests : IClassFixture<PinFactory>
     }
 
     [Fact]
+    public async Task Create_GivenId_KeepsIt_ForAKoreanName()
+    {
+        var resp = await Admin().PostAsync("/api/u-vision/scenarios",
+            JsonContent.Create(new { scenario_id = "line3-misload", name = "라인3 오투입 확인" }));
+        Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+        var created = await resp.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("line3-misload", created.GetProperty("scenario_id").GetString());
+        Assert.Equal("라인3 오투입 확인", created.GetProperty("name").GetString());
+        Assert.EndsWith("/scenarios/line3-misload", resp.Headers.Location!.ToString());
+    }
+
+    [Fact]
+    public async Task Create_GivenIdTaken_Returns409_NotASuffixedId()
+    {
+        var body = new { scenario_id = "taken-id", name = "첫째" };
+        Assert.Equal(HttpStatusCode.Created, (await Admin().PostAsync("/api/u-vision/scenarios", JsonContent.Create(body))).StatusCode);
+        var again = await Admin().PostAsync("/api/u-vision/scenarios", JsonContent.Create(body with { name = "둘째" }));
+        Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("라인3")]
+    [InlineData("../x")]
+    [InlineData("a b")]
+    [InlineData("..")]
+    public async Task Create_GivenIdOutsideTheAlphabet_Returns400(string id)
+    {
+        var resp = await Admin().PostAsync("/api/u-vision/scenarios", JsonContent.Create(new { scenario_id = id, name = "x" }));
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_WithAnotherId_Returns400_IdIsFixed()
+    {
+        var id = (await (await Admin().PostAsync("/api/u-vision/scenarios", Body("Fixed Id"))).Content
+            .ReadFromJsonAsync<JsonElement>()).GetProperty("scenario_id").GetString();
+        var put = await Admin().PutAsync($"/api/u-vision/scenarios/{id}",
+            JsonContent.Create(new { scenario_id = "renamed", name = "Fixed Id" }));
+        Assert.Equal(HttpStatusCode.BadRequest, put.StatusCode);
+    }
+
+    [Fact]
     public async Task Create_SameName_SuffixesOnCollision()
     {
         await Admin().PostAsync("/api/u-vision/scenarios", Body("Line A"));
