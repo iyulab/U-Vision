@@ -94,7 +94,7 @@ ADMIN_PIN=               # 미설정 시 관리 엔드포인트 503 (운영은 �
 - 변경(생성/수정/삭제·업로드·export)은 `X-Admin-Pin` 헤더 필요
 - 전체 계약: OpenAPI [`server/openapi/u-vision.json`](./server/openapi/u-vision.json) (단독 서버는 `/openapi/v1.json`)
 
-SDK 임베드 가이드는 [`server/src/UVision.Hosting/README.md`](./server/src/UVision.Hosting/README.md) 참고.
+엔진 서버를 직접 짓는 가이드 · 연동 방식은 [`server/src/UVision.Hosting/README.md`](./server/src/UVision.Hosting/README.md) 참고.
 
 ## 라이선스
 

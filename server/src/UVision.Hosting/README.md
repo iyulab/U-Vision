@@ -1,13 +1,19 @@
 # UVision.Hosting
 
-제조 현장용 **AI 비전 검사 PWA + API**를 ASP.NET Core 호스트에 임베드하는 라이브러리. 태블릿 카메라가 정지 감지로 자동 촬영 → VLM이 시나리오 기준으로 OK/NG 판정. 빌드된 PWA가 패키지(어셈블리)에 임베드되어 있어 **별도 정적 파일 배포가 필요 없다**.
+제조 현장용 **AI 비전 검사 PWA + API**를 ASP.NET Core 앱으로 띄우는 라이브러리. 태블릿 카메라가 정지 감지로 자동 촬영 → VLM이 시나리오 기준으로 OK/NG 판정. 빌드된 PWA가 패키지(어셈블리)에 임베드되어 있어 **별도 정적 파일 배포가 필요 없다**.
 
 - **PWA** 가 `BasePath`(기본 `/u-vision`)에 마운트
 - **API** 가 `ApiBasePath`(기본 `/api/u-vision`)에 마운트
 - 기본 VLM provider 는 `mock` → **API 키 없이 바로 동작**(연동 확인용)
 - 단일 조직 셀프호스트 전제(멀티테넌시·계정 시스템 없음)
 
-> 패턴: `AddUVision()` + `UseUVision()` + `MapUVisionEndpoints()`. vault-ai(`Iyu.VaultAi.v3.0`)와 동일한 임베드-SPA 통합 모델.
+> 패턴: `AddUVision()` + `UseUVision()` + `MapUVisionEndpoints()`. 단독 서버(`server/src/UVision.Api`)와 [`samples/MinimalHost`](https://github.com/iyulab/U-Vision/tree/main/samples/MinimalHost) 가 이 세 줄로 지어진다.
+
+### 어떻게 연동하나 — 엔진은 별도 앱으로
+
+U-Vision 은 **자기 프로세스에서 도는 엔진 서버**로 쓰는 것이 기본이다. 다른 시스템(MES · 업무 앱)은 그 서버의 HTTP API(OpenAPI 계약)와 판정 사건 웹훅으로 붙고, 화면이 필요하면 호스트의 리버스 프록시가 PWA 경로를 같은 출처로 실어 준다. 프로세스 경계는 라이선스 경계이기도 하다(아래 «라이선스»).
+
+이 패키지를 **기존 업무 앱의 프로세스 안에** 넣는 방식은 이미 그렇게 쓰는 소비자를 위한 **이행기 호환 경로**다 — 새 연동에는 권하지 않고, 소비자가 엔진 서버 + HTTP 연동으로 옮겨 갈 수단이 갖춰지면 없앤다(시점 미정, CHANGELOG 로 알린다).
 
 ## 설치
 

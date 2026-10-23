@@ -1,6 +1,8 @@
 # MinimalHost — UVision.Hosting 최소 소비앱 예제
 
-`UVision.Hosting` NuGet 패키지만 참조해 U-Vision 검사 PWA + API 를 호스팅하는 최소 ASP.NET Core 앱. **패키지 추가 + 3줄 와이어링**으로 동작함을 보이는 living example.
+`UVision.Hosting` NuGet 패키지만 참조해 U-Vision 검사 PWA + API 를 **자기 서버 앱으로** 띄우는 최소 ASP.NET Core 앱. **패키지 추가 + 3줄 와이어링**으로 동작함을 보이는 living example.
+
+> 이 앱은 엔진 서버 그 자체다 — 다른 업무 앱은 이 서버를 HTTP API · 웹훅으로 부른다. 업무 앱 프로세스 안에 패키지를 넣는 방식은 이행기 호환 경로다(패키지 README «어떻게 연동하나»).
 
 ```bash
 cd samples/MinimalHost

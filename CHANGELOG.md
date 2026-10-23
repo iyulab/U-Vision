@@ -6,6 +6,7 @@ Changes to the `UVision.Hosting` NuGet package. Versions 0.2.0 and 0.2.1 were ne
 
 ### Changed
 - **License: AGPL-3.0-or-later from this release on**, with a commercial license available from iyulab for organizations that cannot adopt AGPL terms. Versions up to and including 0.3.0 stay under MIT. Mounting this package inside an application makes that application subject to AGPL; an application that cannot be released under AGPL runs U-Vision as a separate server and talks to it over HTTP, or obtains a commercial license. Contributions require signing the CLA (`CLA.md`).
+- **Integration runs between applications.** The documented way to connect another system is to run U-Vision as its own server and use its HTTP API and inspection-event webhooks, with the PWA served through the host's reverse proxy when a screen is needed. Mounting `UVision.Hosting` inside an existing application stays available as a transition path for current consumers; it is not recommended for new integrations and will be removed once consumers can move (the removal will be announced here).
 
 ### Added
 - The admin console footer shows the U-Platform affiliation element (`@uplatform/brand` 0.4.0): one line linking to the U-Platform family, with the other products in a drop-down. It makes no network requests and sets no cookies.
