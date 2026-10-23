@@ -2,11 +2,12 @@ import { useState } from 'react'
 
 import { useResource } from '../hooks/useResource'
 
-import { getMetrics, getTrainingReadiness, listResultDates } from '../lib/api'
+import { getMemory, getMetrics, getTrainingReadiness, listResultDates } from '../lib/api'
 import { classNameOf } from '../lib/labels'
+import { formatDistance, hasMiss, memoryStatusLine } from '../lib/memory'
 import { formatPercent, fraction, hasNoMetricData, recallLead } from '../lib/metrics'
 import { readinessLine } from '../lib/training'
-import type { MetricsSummary, Scenario } from '../lib/types'
+import type { MemoryReport, MetricsSummary, Scenario } from '../lib/types'
 
 /**
  * 메트릭 대시보드(신뢰성 플라이휠 B3 소비) — 시나리오·날짜의 2중체크 관측 신호를 본다(무인증 읽기).
@@ -36,6 +37,12 @@ export function MetricsDashboard({
   const summary = metrics.data ?? null
   // 학습 준비는 날짜와 무관하다(시나리오의 라벨 전체) — 실패해도 대시보드는 그대로 보인다.
   const readiness = useResource(scenarioId || null, () => getTrainingReadiness(scenarioId), '학습 준비 조회 실패')
+  // 확정 사례 기억 — 꺼져 있으면 칸이 없다. 실패해도 대시보드는 그대로 보인다.
+  const memory = useResource(
+    scenarioId && date ? `${scenarioId}|${date}` : null,
+    () => getMemory(scenarioId, date),
+    '기억 조회 실패',
+  )
   const error = datesRes.error ?? metrics.error
   const loading = metrics.loading
 
@@ -83,6 +90,8 @@ export function MetricsDashboard({
           line={readinessLine(readiness.data, classNameOf(scenarios.find((s) => s.scenario_id === scenarioId)))}
         />}
 
+      {memory.data?.enabled && <MemoryPanel report={memory.data} />}
+
       {summary === null ? (
         <p className="text-sm text-slate-400">시나리오·날짜를 선택하세요.</p>
       ) : hasNoMetricData(summary) ? (
@@ -95,6 +104,65 @@ export function MetricsDashboard({
         </p>
       ) : (
         <Cards summary={summary} />
+      )}
+    </div>
+  )
+}
+
+/**
+ * 확정 사례 기억 — 상태와 문턱 재생 표. 기억은 아직 판정을 바꾸지 않으므로, 이 표는 «이 문턱이었다면 무엇을 답했고 얼마나
+ * 맞았나»를 보여 문턱을 사람이 고르게 한다. 놓침(OK 로 답했는데 사람이 불량)이 있는 문턱은 눈에 띄게.
+ */
+function MemoryPanel({ report }: { report: MemoryReport }) {
+  return (
+    <div className="rounded-2xl border border-slate-700 bg-slate-800/50 p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-slate-200">확정 사례 기억</h2>
+        <span className="text-xs text-slate-500">관찰만 합니다 — 판정은 바뀌지 않습니다</span>
+      </div>
+      <p className="text-sm text-slate-300">{memoryStatusLine(report)}</p>
+      {report.replay.length === 0 ? (
+        <p className="mt-3 text-xs text-slate-500">이 날짜에 기억이 비교한 검사가 없습니다.</p>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <caption className="mb-2 text-left text-xs text-slate-500">
+              문턱 재생 — 비교한 검사 {report.replayed}건. 거리가 문턱 안이고 이웃이 한 클래스로 모이면 답한 것으로 봅니다.
+            </caption>
+            <thead className="text-xs text-slate-400">
+              <tr>
+                <th className="py-1 pr-4 font-medium">문턱(거리)</th>
+                <th className="py-1 pr-4 font-medium">답함</th>
+                <th className="py-1 pr-4 font-medium">판정과 일치</th>
+                <th className="py-1 pr-4 font-medium">사람 라벨과 일치</th>
+                <th className="py-1 font-medium">놓침</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.replay.map((r) => (
+                <tr
+                  key={r.max_distance}
+                  className={`border-t border-slate-700 ${r.configured ? 'bg-slate-700/40 font-semibold text-white' : 'text-slate-300'}`}
+                >
+                  <td className="py-1 pr-4">
+                    {formatDistance(r.max_distance)}
+                    {r.configured && <span className="ml-1 text-xs font-normal text-slate-400">(설정)</span>}
+                  </td>
+                  <td className="py-1 pr-4">{r.answered}</td>
+                  <td className="py-1 pr-4">
+                    {formatPercent(r.teacher_agreement)} <span className="text-xs text-slate-500">({r.teacher_checked})</span>
+                  </td>
+                  <td className="py-1 pr-4">
+                    {formatPercent(r.label_agreement)} <span className="text-xs text-slate-500">({r.labeled})</span>
+                  </td>
+                  <td className={`py-1 ${hasMiss(r) ? 'text-amber-400' : ''}`}>
+                    {r.missed} <span className="text-xs text-slate-500">{formatPercent(r.miss_rate)}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )

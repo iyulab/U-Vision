@@ -1,4 +1,4 @@
-import type { AdminStatus, AuthorityState, DetectionUnavailable, EventsStatus, InspectResult, InspectResultV2, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
+import type { AdminStatus, AuthorityState, DetectionUnavailable, EventsStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
 import type { AuthorityStage } from './authority'
 import { resolveApiBase } from './runtimeConfig'
 
@@ -221,6 +221,15 @@ export async function getMetrics(scenarioId: string, date: string): Promise<Metr
   )
   await ensureOk(res, '메트릭 조회')
   return (await res.json()) as MetricsSummary
+}
+
+/** 확정 사례 기억의 상태와 그날의 문턱 재생(무인증 읽기). 꺼져 있으면 `enabled: false`. */
+export async function getMemory(scenarioId: string, date: string): Promise<MemoryReport> {
+  const res = await fetch(
+    `${API_BASE}/memory?scenario_id=${encodeURIComponent(scenarioId)}&date=${encodeURIComponent(date)}`,
+  )
+  await ensureOk(res, '기억 조회')
+  return (await res.json()) as MemoryReport
 }
 
 /** 전용 ML 학습 준비 신호(무인증 읽기) — 빌드 · 재빌드는 관리자가 한다. */

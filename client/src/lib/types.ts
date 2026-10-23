@@ -216,6 +216,35 @@ export interface TrainingReadiness {
   rebuild_suggested?: boolean
 }
 
+/** 확정 사례 기억 — 서버 `GET /memory`. 기억은 관찰 전용이다(판정을 바꾸지 않는다). */
+export interface MemoryReport {
+  scenario_id: string
+  date: string
+  /** 기억 단이 켜져 있고 이 시나리오의 단에 있는가. */
+  enabled: boolean
+  /** 지은 인코더 판 · 확정 사례 수 · 지은 시각 — 아직 안 지어졌으면 없음. */
+  encoder?: string
+  cases?: number
+  built_at?: string
+  /** 그날 기억이 거리를 남긴 판정 수. */
+  replayed: number
+  replay: MemoryReplayRow[]
+}
+
+/** 문턱 하나에서의 재생 — «이 문턱이었다면». 분모 0 이면 비율 null. */
+export interface MemoryReplayRow {
+  max_distance: number
+  configured: boolean
+  answered: number
+  teacher_checked: number
+  teacher_agreement: number | null
+  labeled: number
+  label_agreement: number | null
+  /** OK 로 답했는데 사람 라벨이 불량 — 기억에 맡겼다면 통과시켰을 오답. */
+  missed: number
+  miss_rate: number | null
+}
+
 export interface MetricsSummary {
   scenario_id: string
   date: string
