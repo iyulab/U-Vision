@@ -74,12 +74,13 @@ dotnet run --project src/UVision.Api --urls http://0.0.0.0:8000
 
 ### 엔진 서버로 띄우기 (컨테이너)
 
-현장에 설치할 때는 엔진을 별도 서버로 띄우고, 다른 시스템은 그 서버의 HTTP API · 웹훅으로 붙는다. `server/Dockerfile` 이 PWA 와 API 를 한 이미지로 짓는다(PWA 는 이미 빌드돼 들어 있어 Node 가 필요 없다).
+현장에 설치할 때는 엔진을 별도 서버로 띄우고, 다른 시스템은 그 서버의 HTTP API · 웹훅으로 붙는다. 이미지 하나에 PWA 와 API 가 함께 들어 있다(PWA 는 이미 빌드돼 들어 있어 Node 가 필요 없다).
+
+- **게시 이미지** — `ghcr.io/iyulab/u-vision:<판>`(0.4.0 부터, 판마다 `X.Y.Z` · `X.Y` 태그 · linux/amd64). 설치에는 판 태그를 쓴다 — `latest` 는 편의 태그라 다음 판이 나오면 다른 이미지가 된다.
+- **직접 짓기** — `server/Dockerfile`(`cd server && docker build -t u-vision:dev .`). 인터넷이 닿지 않는 현장은 `docker save` 로 만든 tarball 을 옮겨 `docker load` 한다.
 
 ```bash
-cd server
-docker build -t u-vision:0.3.0 .
-docker run -d -p 8080:8080 -v u-vision-data:/data   -e VLM_PROVIDER=gpustack -e VLM_ENDPOINT=http://<vlm-server>/v1 -e VLM_MODEL=<model>   u-vision:0.3.0
+docker run -d -p 8080:8080 -v u-vision-data:/data   -e VLM_PROVIDER=gpustack -e VLM_ENDPOINT=http://<vlm-server>/v1 -e VLM_MODEL=<model>   ghcr.io/iyulab/u-vision:<판>
 # → http://<host>:8080/u-vision/            (작업자 · 관리 화면)
 # → http://<host>:8080/api/u-vision/health  (API)
 ```
