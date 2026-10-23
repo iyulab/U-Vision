@@ -49,6 +49,22 @@ public class ScenarioV2Tests : IClassFixture<PinFactory>
         Assert.Equal(["ml", "vlm"], EffectiveScenario.Resolve(V1(), mlEnabled: true).Tiers);
     }
 
+    [Theory]
+    [InlineData(false, true, new[] { "memory", "vlm" })]
+    [InlineData(true, true, new[] { "memory", "ml", "vlm" })]
+    [InlineData(true, false, new[] { "ml", "vlm" })]
+    public void Resolve_PutsEnabledJudges_InCostOrder(bool ml, bool memory, string[] expected)
+    {
+        Assert.Equal(expected, EffectiveScenario.Resolve(V1(), mlEnabled: ml, memoryEnabled: memory).Tiers);
+    }
+
+    [Fact]
+    public void Resolve_Verification_NeverDerivesMemory()
+    {
+        var verification = V1() with { Type = "verification" };
+        Assert.Equal(["match", "vlm"], EffectiveScenario.Resolve(verification, mlEnabled: true, memoryEnabled: true).Tiers);
+    }
+
     [Fact]
     public void Resolve_ExplicitJudges_WinOverDerivation()
     {

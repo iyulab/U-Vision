@@ -31,6 +31,8 @@ public static class UVisionServiceExtensions
         // 확정 사례 임베딩 기억 단(system 1) — 기본 none(단 없음, 현재 동작 무변경). 잘못된 설정은 기동에서 멈춘다.
         services.AddSingleton(options.Memory);
         services.AddSingleton<Services.Memory.IImageEmbedder>(Services.Memory.ImageEmbedderFactory.Create(options.Memory));
+        services.AddSingleton<Services.Memory.CaseMemory>();
+        services.AddHostedService<Services.Memory.CaseMemorySyncService>();
 
         // 오라클(2차 의견 VLM, ④-B) — 기본 none(스윕 BackgroundService 즉시 종료, 동작 무변경).
         services.AddSingleton(options.Oracle);

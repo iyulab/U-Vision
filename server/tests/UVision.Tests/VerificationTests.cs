@@ -74,6 +74,7 @@ public class VerificationTests
 
     [Theory]
     [InlineData("""{"name":"x","type":"verification","judges":[{"tier":"ml"},{"tier":"vlm"}]}""")]
+    [InlineData("""{"name":"x","type":"verification","judges":[{"tier":"memory"},{"tier":"match"},{"tier":"vlm"}]}""")]
     [InlineData("""{"name":"x","type":"verification","classes":[{"id":"OK","settleable":true},{"id":"NG","must_catch":true}]}""")]
     [InlineData("""{"name":"x","judges":[{"tier":"match"},{"tier":"vlm"}]}""")]
     public void Validate_RejectsTiersOrClassesFromTheOtherType(string json)

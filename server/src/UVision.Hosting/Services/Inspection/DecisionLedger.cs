@@ -3,6 +3,7 @@ using HoneAI;
 using HoneAI.Routing;
 using UVision.Api.Configuration;
 using UVision.Api.Models;
+using UVision.Api.Services.Memory;
 using UVision.Api.Services.Ml;
 using UVision.Api.Services.Scenarios;
 using UVision.Api.Services.Vlm;
@@ -90,7 +91,11 @@ public sealed class DecisionLedger(
             return;
         try
         {
-            var record = provenance with { Annotations = operative.ToAnnotations() };
+            var annotations = new Dictionary<string, string>(operative.ToAnnotations(), StringComparer.Ordinal);
+            // 기억 단의 거리 · 이웃 수 · 인코더 판 — 문턱을 재생으로 고르는 원천 자료.
+            foreach (var (k, v) in subject.Memory?.ToAnnotations() ?? new Dictionary<string, string>())
+                annotations[k] = v;
+            var record = provenance with { Annotations = annotations };
             var date = StoragePaths.DateBucketOf(subject.Timestamp);
             var sink = _sinks.GetOrAdd(paths.LedgerJsonl(subject.Scenario.ScenarioId, date), p => new JsonlProvenanceSink(p));
             await sink.AppendAsync(subject.DecisionId, record, cancellationToken);
@@ -119,6 +124,14 @@ public sealed class DecisionLedger(
                         MatchJudge.Answer(subject.Context) is { } answer
                             ? JudgeVerdict<string>.Answer(answer, 1.0)
                             : JudgeVerdict<string>.Abstain("no observed code"));
+                    break;
+                // 확정 사례 기억 — 비활성이면 그 단은 없다(구성에 적혀 있어도). 답은 클래스 id, 기권은 사유와 함께.
+                case ScenarioVocabulary.MemoryTier when subject.Memory is { } memory:
+                    yield return new AnsweredJudge(
+                        new Tier { Id = tier, Kind = JudgeKind.System1, Version = memory.EncoderKey ?? "unknown", CostRank = 0 },
+                        memory.Answer is { Class: { } cls } recalled
+                            ? JudgeVerdict<string>.Answer(cls, recalled.Confidence)
+                            : JudgeVerdict<string>.Abstain(memory.AbstainReason ?? "abstained"));
                     break;
                 // ML 비활성이면 그 단은 없다(구성에 적혀 있어도). 활성인데 실패했으면 기권한 단으로 남는다.
                 case ScenarioVocabulary.MlTier when subject.Ml is { } ml:
@@ -157,9 +170,10 @@ public sealed class DecisionLedger(
 /// <param name="Vlm">VLM 답(null = 실패).</param>
 /// <param name="Ml">ML 결과(null = 비활성).</param>
 /// <param name="Context">요청 맥락(기대 품번 · 읽은 코드) — 대조 단의 입력.</param>
+/// <param name="Memory">확정 사례 기억의 답 · 기권(null = 비활성).</param>
 public sealed record LedgerSubject(
     string DecisionId, EffectiveScenario Scenario, string Timestamp, InspectionResult? Vlm, MlOutcome? Ml,
-    InspectionContext? Context = null);
+    InspectionContext? Context = null, MemoryOutcome? Memory = null);
 
 /// <summary>실제로 쓴 결정 — 장부에서 라우터의 결정과 나란히 비교하기 위해 남긴다.</summary>
 /// <param name="Verdict">응답한 판정(null = fail-closed).</param>

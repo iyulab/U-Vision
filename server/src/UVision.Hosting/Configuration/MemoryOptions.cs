@@ -30,4 +30,10 @@ public sealed class MemoryOptions
     /// 거리로 재생해 다시 고른다.
     /// </summary>
     public double MaxDistance { get; set; } = 0.15;
+
+    /// <summary>
+    /// 기억 동기화 주기(초, 최소 5). 동기화가 새 확정 사례를 임베딩하고 라벨 변경을 반영하므로, 라벨이 바뀐 뒤 기억에
+    /// 보이기까지 이만큼 걸린다.
+    /// </summary>
+    public int SyncIntervalSeconds { get; set; } = 60;
 }

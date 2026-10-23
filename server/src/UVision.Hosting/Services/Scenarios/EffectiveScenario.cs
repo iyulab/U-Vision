@@ -91,7 +91,8 @@ public sealed record EffectiveScenario(
 
     /// <param name="scenario">저장된 시나리오(경계에서 <see cref="Validate"/> 를 통과한 것).</param>
     /// <param name="mlEnabled">전용 ML 판정원이 켜져 있는가 — 단 순서를 파생할 때만 쓴다.</param>
-    public static EffectiveScenario Resolve(Scenario scenario, bool mlEnabled)
+    /// <param name="memoryEnabled">확정 사례 기억 단이 켜져 있는가 — 단 순서를 파생할 때만 쓴다(검사에만).</param>
+    public static EffectiveScenario Resolve(Scenario scenario, bool mlEnabled, bool memoryEnabled = false)
     {
         var type = scenario.Type ?? ScenarioVocabulary.Inspection;
         var verification = type == ScenarioVocabulary.Verification;
@@ -102,8 +103,7 @@ public sealed record EffectiveScenario(
             scenario.Classes is { Count: > 0 } classes ? classes : verification ? VerificationClasses : InspectionClasses,
             scenario.Judges is { Count: > 0 } judges ? judges.Select(j => j.Tier).ToList()
                 : verification ? [ScenarioVocabulary.MatchTier, ScenarioVocabulary.VlmTier]
-                : mlEnabled ? [ScenarioVocabulary.MlTier, ScenarioVocabulary.VlmTier]
-                : [ScenarioVocabulary.VlmTier],
+                : [.. InspectionTiers(mlEnabled, memoryEnabled)],
             scenario.Trust?.SliceKey ?? ScenarioVocabulary.ScenarioSlice,
             scenario.Trust?.Targets ?? ScenarioTargets.Default,
             scenario.Trust?.Training ?? ScenarioTraining.Default);
@@ -183,6 +183,14 @@ public sealed record EffectiveScenario(
         }
 
         return null;
+    }
+
+    // 검사의 기본 단 순서 — 비용 순(기억 → 전용 ML → VLM). 꺼진 판정원의 단은 없다.
+    private static IEnumerable<string> InspectionTiers(bool mlEnabled, bool memoryEnabled)
+    {
+        if (memoryEnabled) yield return ScenarioVocabulary.MemoryTier;
+        if (mlEnabled) yield return ScenarioVocabulary.MlTier;
+        yield return ScenarioVocabulary.VlmTier;
     }
 
     private static readonly Regex ClassId = new(@"^[A-Za-z0-9_-]{1,64}\z", RegexOptions.Compiled); // \z — $ 는 끝 줄바꿈 앞에서도 맞는다

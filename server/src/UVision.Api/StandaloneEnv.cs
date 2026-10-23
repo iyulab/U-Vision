@@ -23,6 +23,11 @@ internal static class StandaloneEnv
         Put("ML_TOKEN", "UVision:Ml:Token");
         Put("ML_IMAGE_COLUMN", "UVision:Ml:ImageColumn");
         Put("ML_REVIEW_CONFIDENCE_THRESHOLD", "UVision:Ml:ReviewConfidenceThreshold");
+        // 확정 사례 기억 단(system 1) — 기본 none(단 없음). 임베딩은 mloop serve 의 /embed.
+        Put("MEMORY_PROVIDER", "UVision:Memory:Provider");
+        Put("MEMORY_ENDPOINT", "UVision:Memory:Endpoint");
+        Put("MEMORY_ENCODER", "UVision:Memory:Encoder");
+        Put("MEMORY_TOKEN", "UVision:Memory:Token");
         Put("ADMIN_PIN", "UVision:AdminPin");
         // Storage__DataPath: .NET 시절부터 문서화된 기존 override 키(하위호환 보존). VLM_* 는 Python .env 유래.
         Put("Storage__DataPath", "UVision:Storage:DataPath");

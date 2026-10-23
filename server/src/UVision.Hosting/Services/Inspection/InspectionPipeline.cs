@@ -5,6 +5,7 @@ using UVision.Api.Models;
 using UVision.Api.Services.Authority;
 using UVision.Api.Services.Confidence;
 using UVision.Api.Services.DualCheck;
+using UVision.Api.Services.Memory;
 using UVision.Api.Services.Metrics;
 using UVision.Api.Services.Ml;
 using UVision.Api.Services.Posture;
@@ -29,6 +30,7 @@ namespace UVision.Api.Services.Inspection;
 public sealed class InspectionPipeline(
     IVlmProvider provider,
     IMlClassifier classifier,
+    CaseMemory memory,
     IConfidenceCalibrator calibrator,
     IScenarioStore scenarioStore,
     IInspectionStore inspectionStore,
@@ -53,11 +55,13 @@ public sealed class InspectionPipeline(
     public async Task<InspectionOutcome> RunAsync(
         Scenario scenario, InspectionCapture capture, CancellationToken cancellationToken)
     {
-        var effective = EffectiveScenario.Resolve(scenario, classifier.IsEnabled);
+        var effective = EffectiveScenario.Resolve(scenario, classifier.IsEnabled, memory.IsEnabled);
         // 전용 ML 은 시나리오의 단에 있을 때만 부른다 — 기본 파생([ml, vlm])이면 지금과 같고, 오투입 확인처럼
         // ML 이 뜻 없는 시나리오는 부르지 않는다.
         var mlActive = classifier.IsEnabled && effective.Tiers.Contains(ScenarioVocabulary.MlTier);
-        var evidence = await GatherAsync(scenario, effective, capture, mlActive, cancellationToken);
+        // 확정 사례 기억도 같다 — 시나리오의 단에 있을 때만(검사에만 있을 수 있다). Shadow 라 판정을 정하지 않고 장부에만 남는다.
+        var memoryActive = memory.IsEnabled && effective.Tiers.Contains(ScenarioVocabulary.MemoryTier);
+        var evidence = await GatherAsync(scenario, effective, capture, mlActive, memoryActive, cancellationToken);
         var (stage, decision, dual) = await DecideAsync(scenario, effective, evidence, cancellationToken);
         var result = evidence.Vlm;
         var ml = evidence.Ml?.Result;
@@ -73,7 +77,7 @@ public sealed class InspectionPipeline(
             var failedAt = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
             await WriteFailClosedMetricSafelyAsync(
                 scenario.ScenarioId, ml, failedAt, vlmOnly: !mlActive, MatchOf(effective, capture.Context), cancellationToken);
-            var failedSubject = new LedgerSubject($"dec_{Guid.NewGuid():N}", effective, failedAt, result, evidence.Ml, capture.Context);
+            var failedSubject = new LedgerSubject($"dec_{Guid.NewGuid():N}", effective, failedAt, result, evidence.Ml, capture.Context, evidence.Memory);
             var failedRoute = await ledger.DecideAsync(failedSubject, cancellationToken);
             await ledger.RecordAsync(
                 failedSubject, failedRoute,
@@ -164,7 +168,7 @@ public sealed class InspectionPipeline(
         }
 
         // 결정 장부(관찰 전용) — 레코드가 생긴 뒤에 적어 장부가 없는 레코드를 가리키지 않게 한다.
-        var subject = new LedgerSubject(imageId, effective, timestamp, result, evidence.Ml, capture.Context);
+        var subject = new LedgerSubject(imageId, effective, timestamp, result, evidence.Ml, capture.Context, evidence.Memory);
         var route = await ledger.DecideAsync(subject, cancellationToken);
         await ledger.RecordAsync(
             subject, route,
@@ -231,11 +235,12 @@ public sealed class InspectionPipeline(
     }
 
     /// <summary>
-    /// ① 판정원 실행 — 기준이미지를 싣고 VLM(주 판정)과 전용 ML(교차검증)을 병렬로 부른다.
-    /// VLM 실패는 null(fail-closed 신호), ML 비활성은 null, ML 실패는 <see cref="MlOutcome.Failed"/>.
+    /// ① 판정원 실행 — 기준이미지를 싣고 VLM(주 판정) · 전용 ML(교차검증) · 확정 사례 기억(Shadow)을 병렬로 부른다.
+    /// VLM 실패는 null(fail-closed 신호), ML 비활성은 null, ML 실패는 <see cref="MlOutcome.Failed"/>, 기억 비활성은 null
+    /// (기억의 실패는 기권으로 담긴다).
     /// </summary>
     private async Task<JudgeEvidence> GatherAsync(
-        Scenario scenario, EffectiveScenario effective, InspectionCapture capture, bool mlActive,
+        Scenario scenario, EffectiveScenario effective, InspectionCapture capture, bool mlActive, bool memoryActive,
         CancellationToken cancellationToken)
     {
         var image = capture.Image;
@@ -284,12 +289,18 @@ public sealed class InspectionPipeline(
         Task<MlOutcome>? classifyTask = mlActive
             ? ClassifySafelyAsync(image, scenario.ScenarioId, cancellationToken)
             : null;
+        // 기억도 원본으로 — 기억에 든 확정 사례도 원본에서 임베딩했다.
+        Task<MemoryOutcome>? recallTask = memoryActive
+            ? memory.RecallAsync(effective, image, cancellationToken)
+            : null;
         await Task.WhenAll(
-            [vlmTask, .. (classifyTask is not null ? [classifyTask] : Array.Empty<Task>())]);
+            [vlmTask, .. (classifyTask is not null ? [classifyTask] : Array.Empty<Task>()),
+                .. (recallTask is not null ? [recallTask] : Array.Empty<Task>())]);
 
         return new JudgeEvidence(
             AcceptVlm(await vlmTask, effective),
-            classifyTask is not null ? AcceptMl(await classifyTask, effective) : null);
+            classifyTask is not null ? AcceptMl(await classifyTask, effective) : null,
+            recallTask is not null ? await recallTask : null);
     }
 
     /// <summary>
@@ -514,8 +525,8 @@ public sealed class InspectionPipeline(
 
     private static string? NullIfEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
 
-    /// <summary>판정원 실행 결과 — VLM(null=실패) · ML(null=비활성).</summary>
-    private sealed record JudgeEvidence(InspectionResult? Vlm, MlOutcome? Ml);
+    /// <summary>판정원 실행 결과 — VLM(null=실패) · ML(null=비활성) · 기억(null=비활성).</summary>
+    private sealed record JudgeEvidence(InspectionResult? Vlm, MlOutcome? Ml, MemoryOutcome? Memory);
 }
 
 /// <summary>판정할 캡처 한 장 — 업로드 검증을 통과한 바이트와 그 출처.</summary>

@@ -4,6 +4,10 @@ Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0
 
 ## [Unreleased]
 
+### Added
+- Confirmed-case memory, a judge below the ML classifier and the vision model that answers from images people have labelled. It embeds each capture with a pretrained image encoder served by MLoop (`POST /embed`, MLoop 0.44.0 or later — the image contents are sent, so MLoop need not share a disk with U-Vision) and answers a class only when the `Neighbors` nearest labelled cases (default 5) all share it and the nearest is within `MaxDistance` cosine distance (default 0.15); otherwise it abstains. It only observes for now: its answer and distances are recorded in the decision ledger (`memory:*` annotations) and its step appears in the v2 `path`, while the verdict, the `/inspect` response and stored results are unchanged. It applies to inspection scenarios only — a verification's match or mismatch depends on the expected part, not on the image alone.
+- Configured under `UVision:Memory` (`MEMORY_*` for the standalone server): `Provider` (`none` by default, `mock`, `mloop`), `Endpoint`, `Encoder` (the id of an encoder installed in MLoop — U-Vision ships no weights), `Token`, `Neighbors`, `MaxDistance` and `SyncIntervalSeconds`. An unknown provider or a missing endpoint or encoder stops startup. A background sync embeds newly labelled images in batches of 64 and caches the vectors under `{DataPath}/{scenario}/memory/{encoder}/vectors.jsonl`, one directory per encoder version; the cache can be deleted and is rebuilt. Label changes reach the memory on the next sync. A scenario's `judges` accept the new `memory` tier.
+
 ## [0.4.0] - 2026-10-23
 
 ### Changed
