@@ -2,7 +2,7 @@
 import Page from './Page.astro';
 import Shot from './Shot.astro';
 import Diagram from './Diagram.astro';
-import { COPY, contactUrl, SOURCE_URL, API_URL, NUGET_URL, QUICKSTART_URL, type Locale, type Point } from '../copy';
+import { COPY, contactUrl, SOURCE_URL, type Locale, type Point } from '../copy';
 import { SLOTS, mediaPath } from '../media';
 
 interface Props {
@@ -76,7 +76,6 @@ const roadmapPoint = (p: Point) => p.roadmap === true;
             <ul class="points">
               {f.points.map(p => (
                 <li data-claim={p.claim} class:list={{ roadmap: roadmapPoint(p) }}>
-                  {roadmapPoint(p) && <span class="chip">{c.buildingLabel}</span>}
                   {p.text}
                   {roadmapPoint(p) && <a class="ask" href={contactUrl(p.claim)}>{c.ask}</a>}
                 </li>
@@ -91,7 +90,6 @@ const roadmapPoint = (p: Point) => p.roadmap === true;
   <section class="scenarios" id="scenarios" aria-labelledby="scenarios-heading">
     <div class="scenarios-inner">
       <div class="scenarios-head">
-        <span class="chip">{c.buildingLabel}</span>
         <h2 id="scenarios-heading">{c.scenarios.heading}</h2>
         <p data-claim={c.scenarios.intro.claim}>{c.scenarios.intro.text}</p>
         <p data-claim={c.scenarios.edge.claim}>{c.scenarios.edge.text}</p>
@@ -124,7 +122,6 @@ const roadmapPoint = (p: Point) => p.roadmap === true;
         {
           c.integration.points.map(p => (
             <li data-claim={p.claim} class:list={{ roadmap: roadmapPoint(p) }}>
-              {roadmapPoint(p) && <span class="chip">{c.buildingLabel}</span>}
               {p.text}
               {roadmapPoint(p) && <a class="ask" href={contactUrl(p.claim)}>{c.ask}</a>}
             </li>
@@ -173,18 +170,18 @@ const roadmapPoint = (p: Point) => p.roadmap === true;
     </div>
   </section>
 
-  <section class="tech" aria-labelledby="tech-heading">
-    <div>
-      <h2 id="tech-heading">{c.tech.heading}</h2>
-      <p data-claim={c.tech.claim}>{c.tech.body}</p>
-    </div>
-    <ul>
-      <li><a href={QUICKSTART_URL}>{c.tech.start}</a></li>
-      <li><a href={SOURCE_URL}>{c.tech.source}</a></li>
-      <li><a href={API_URL}>{c.tech.api}</a></li>
-      <li><a href={NUGET_URL}>{c.tech.nuget}</a></li>
-    </ul>
-  </section>
+  <p class="oss" data-claim={c.oss.claim}>
+    <a href={SOURCE_URL}>
+      <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+        />
+      </svg>
+      {c.oss.link}
+    </a>
+    <span>{c.oss.text}</span>
+  </p>
 
   <section class="not" aria-labelledby="not-heading">
     <h2 id="not-heading">{c.notHeading}</h2>

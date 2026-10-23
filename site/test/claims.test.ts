@@ -59,8 +59,8 @@ describe('public claims', () => {
     }
   });
 
-  // A goal must never read as something that works today: the page shows the roadmap label on exactly the
-  // statements whose row says vision, in both languages.
+  // A goal must never read as something that works today: exactly the statements whose row says vision are flagged
+  // (said in the future tense, with a request link beside them), in both languages.
   it('marks exactly the vision claims as roadmap', () => {
     const vision = rows.filter(r => r.status === 'vision').map(r => r.claim).sort();
     for (const locale of ['ko', 'en'] as const) {
@@ -86,8 +86,9 @@ describe('cookies', () => {
   });
 });
 
-// What is not built yet is marked «in development» and said in the future tense. The page does not call it a roadmap,
-// and does not call its pictures samples or mock-ups: they show what the product does or is being built to do.
+// What is not built yet is said in the future tense, with no «in development» label — the reader adopts it in a plant,
+// they do not track its development. The page does not call it a roadmap, and does not call its pictures samples or
+// mock-ups: they show what the product does or is being built to do.
 describe('wording', () => {
   const strings = (node: unknown): string[] =>
     typeof node === 'string'
@@ -100,6 +101,7 @@ describe('wording', () => {
     for (const locale of ['ko', 'en'] as const) {
       for (const text of strings(COPY[locale])) {
         expect(text, locale).not.toMatch(/로드맵|시안|샘플|예시|\broadmap\b|\bsamples?\b|\bmock-?ups?\b/i);
+        expect(text, locale).not.toMatch(/개발\s?중|in development|점선|dashed/i);
       }
     }
   });

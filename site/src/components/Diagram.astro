@@ -1,6 +1,7 @@
 ---
 // Where U-Vision sits on site: what comes in, where it judges, what goes out. Solid lines work today; dashed lines
-// are on the roadmap (the same rule as the dashed viewfinder brackets). Two drawings of the same thing: a wide one,
+// are being built (the same rule as the dashed viewfinder brackets) — drawn, not labelled: the sentences beside the
+// diagram say which parts are still coming. Two drawings of the same thing: a wide one,
 // and a tall one for narrow screens, where the wide one's text would shrink past reading.
 import { COPY, type Locale } from '../copy';
 
@@ -76,5 +77,4 @@ const d = COPY[locale].integration.diagram;
       <text x="348" y="452" text-anchor="end" class="planned-text">{d.orders}</text>
     </g>
   </svg>
-  <figcaption>{d.legend}</figcaption>
 </figure>

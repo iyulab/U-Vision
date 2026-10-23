@@ -88,6 +88,7 @@ p {
 
 /* every section shares one measure and gutter; full-bleed bands put an inner box at the same measure */
 main > section:not(.hero, .scenarios, .demand),
+main > .oss,
 .hero-inner,
 .scenarios-inner,
 .demand-inner,
@@ -228,20 +229,6 @@ main > section:not(.hero, .scenarios, .demand),
   display: block;
   width: 100%;
   height: auto;
-}
-
-/* the roadmap label: a dashed outline, like the brackets around what is not built yet */
-.chip {
-  display: inline-block;
-  border: 1.5px dashed currentColor;
-  border-radius: 999px;
-  padding: 0.05rem 0.6rem;
-  margin-right: 0.5rem;
-  font-size: 0.78rem;
-  font-weight: 700;
-  line-height: 1.5;
-  vertical-align: 0.1em;
-  color: var(--muted);
 }
 
 /* ── hero ────────────────────────────────────────────────────────────────── */
@@ -472,11 +459,6 @@ h2:lang(en),
   font-size: 1.05rem;
 }
 
-.scenarios .chip {
-  color: var(--on-dark-muted);
-  margin-bottom: 0.9rem;
-}
-
 .scenario-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -664,12 +646,6 @@ h2:lang(en),
   }
 }
 
-.diagram figcaption {
-  font-size: 0.85rem;
-  color: var(--muted);
-  margin-top: 0.5rem;
-}
-
 @media (max-width: 60rem) {
   .integration {
     grid-template-columns: minmax(0, 1fr);
@@ -799,45 +775,29 @@ h2:lang(en),
   }
 }
 
-/* ── for developers, and what it does not do ─────────────────────────────── */
-.tech {
+/* ── the source line, and what it does not do ────────────────────────────── */
+.oss {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 1.5rem 3rem;
-  padding-block: clamp(2.5rem, 5vw, 3.5rem);
+  align-items: center;
+  gap: 0.4rem 0.9rem;
+  padding-block: clamp(2rem, 4vw, 3rem);
+  margin-block: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
 }
 
-.tech h2,
+.oss a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
 .not h2 {
   font-size: 1.25rem;
   margin-bottom: 0.5rem;
-}
-
-.tech p {
-  color: var(--muted);
-  margin: 0;
-}
-
-.tech ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  align-items: center;
-}
-
-.tech li a {
-  display: inline-block;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0.45rem 1rem;
-  background: var(--surface);
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 0.95rem;
 }
 
 .not {

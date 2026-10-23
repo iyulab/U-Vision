@@ -1,7 +1,8 @@
 // Every sentence the site states about the product, in both languages. Each one that makes a claim
 // carries the id of its row in ../claims.tsv, which records the claim's status and where this
 // repository backs it — test/claims.test.ts keeps the two in step. A claim whose status is `vision`
-// is a goal, not built yet: the page marks it as in development (`roadmap: true` here).
+// is a goal, not built yet: the page says it in the future tense and offers to take requests for it (`roadmap: true`
+// here). The page carries no «in development» label — its reader is a plant's adopter, not a developer.
 
 import type { SlotId } from './media';
 
@@ -16,7 +17,6 @@ export type PageId = keyof typeof PATHS;
 
 export const SITE_URL = 'https://vision.u-platform.kr';
 export const SOURCE_URL = 'https://github.com/iyulab/U-Vision';
-export const QUICKSTART_URL = 'https://github.com/iyulab/U-Vision#readme';
 export const API_URL = 'https://github.com/iyulab/U-Vision/blob/main/server/openapi/u-vision.json';
 export const NUGET_URL = 'https://www.nuget.org/packages/UVision.Hosting';
 export const CONTACT_URL = 'https://u-platform.kr/contact';
@@ -62,7 +62,6 @@ export interface Copy {
   description: string;
   nav: { screens: string; learning: string; scenarios: string; start: string; contact: string };
   hero: { headline: string; lede: Point; cta: string; secondary: string; pause: string; play: string };
-  buildingLabel: string;
   /** The link beside a roadmap item that asks for it. */
   ask: string;
   values: { heading: string; items: Item[] };
@@ -83,13 +82,13 @@ export interface Copy {
       webhook: string;
       protocols: string;
       orders: string;
-      legend: string;
     };
   };
   delivery: { heading: string; items: Item[] };
   adoption: { heading: string; claim: string; steps: { heading: string; body: string }[] };
   demand: { heading: string; body: string; cta: string };
-  tech: { claim: string; heading: string; body: string; source: string; api: string; nuget: string; start: string };
+  /** One line under the page: the license, and a link to the source. */
+  oss: { claim: string; text: string; link: string };
   notHeading: string;
   not: Item[];
   footer: { source: string; api: string; nuget: string; contact: string };
@@ -113,7 +112,6 @@ export const COPY: Record<Locale, Copy> = {
       pause: '영상 멈춤',
       play: '영상 재생',
     },
-    buildingLabel: '개발 중',
     ask: '필요하면 알려 주세요',
     values: {
       heading: '무엇이 달라지나',
@@ -203,7 +201,7 @@ export const COPY: Record<Locale, Copy> = {
       },
       edge: {
         claim: 'edge',
-        text: '영상은 라인 옆 엣지 장치가 처리하고, 서버로는 판정할 사건과 잘라 낸 사진만 보냅니다. 연결이 끊기면 장치에 쌓았다가 다시 보냅니다.',
+        text: '영상은 라인 옆 엣지 장치가 처리하게 됩니다. 서버로는 판정할 사건과 잘라 낸 사진만 보내고, 연결이 끊기면 장치에 쌓았다가 다시 보냅니다.',
         roadmap: true,
       },
       items: [
@@ -211,21 +209,21 @@ export const COPY: Record<Locale, Copy> = {
           claim: 'scenario-counting',
           media: 'counting',
           heading: '수량 세기',
-          body: '컨베이어의 물건이 통과선을 지날 때마다 세고, 작업지시 계획과 나란히 봅니다. 겹쳐 지나간 건은 다시 확인합니다.',
+          body: '컨베이어의 물건이 통과선을 지날 때마다 세어 작업지시 계획과 나란히 보여 주게 됩니다. 겹쳐 지나간 건은 다시 확인합니다.',
           roadmap: true,
         },
         {
           claim: 'scenario-safety',
           media: 'safety',
           heading: '안전모 착용 감시',
-          body: '감시 구역 안 작업자의 안전모 착용을 봅니다. 한 장면이 아니라 몇 초간 이어질 때만 알리고, 얼굴은 판정하지 않습니다.',
+          body: '감시 구역 안 작업자의 안전모 착용을 보게 됩니다. 한 장면이 아니라 몇 초간 이어질 때만 알리고, 얼굴은 판정하지 않습니다.',
           roadmap: true,
         },
         {
           claim: 'scenario-anomaly',
           media: 'anomaly',
           heading: '이상 감지',
-          body: '불량 사진이 없어도 시작합니다. 정상 사진만으로 다른 곳을 찾아 표시하고, 비전 모델이 무엇이 다른지 설명합니다.',
+          body: '불량 사진이 없어도 시작할 수 있게 됩니다. 정상 사진만으로 다른 곳을 찾아 표시하고, 비전 모델이 무엇이 다른지 설명합니다.',
           roadmap: true,
         },
       ],
@@ -251,7 +249,6 @@ export const COPY: Record<Locale, Copy> = {
         webhook: '판정 결과 전달',
         protocols: 'MQTT · OPC UA',
         orders: '작업지시 · 기대 품번',
-        legend: '점선은 개발 중',
       },
     },
     delivery: {
@@ -289,14 +286,10 @@ export const COPY: Record<Locale, Copy> = {
       body: '여기 없는 검사도 좋습니다. 어떤 부품을, 어떤 기준으로, 하루 몇 건 보는지 알려 주시면 맞는 시작점을 함께 찾습니다. 무엇을 먼저 만들지도 이런 요청으로 정합니다.',
       cta: '도입 상담 요청',
     },
-    tech: {
+    oss: {
       claim: 'license',
-      heading: '개발 담당자께',
-      body: 'AGPL-3.0 오픈소스입니다. AGPL 조건으로 쓰기 어려운 조직에는 상용 라이선스를 드립니다. 설치 안내와 API 문서, 패키지가 공개되어 있습니다.',
-      source: '소스 코드',
-      api: 'API 문서(OpenAPI)',
-      nuget: 'NuGet 패키지',
-      start: '설치 안내',
+      text: 'AGPL-3.0 오픈소스 — AGPL 조건으로 쓰기 어려운 조직에는 상용 라이선스를 드립니다.',
+      link: 'GitHub',
     },
     notHeading: '하지 않는 것',
     not: [
@@ -335,7 +328,6 @@ export const COPY: Record<Locale, Copy> = {
       pause: 'Pause video',
       play: 'Play video',
     },
-    buildingLabel: 'In development',
     ask: 'Need this? Tell us',
     values: {
       heading: 'What changes',
@@ -425,7 +417,7 @@ export const COPY: Record<Locale, Copy> = {
       },
       edge: {
         claim: 'edge',
-        text: 'Video is processed by an edge device beside the line, which sends the server only the events to judge and the crops that go with them, holding them while the connection is down.',
+        text: 'Video will be processed by an edge device beside the line, which sends the server only the events to judge and the crops that go with them, holding them while the connection is down.',
         roadmap: true,
       },
       items: [
@@ -433,21 +425,21 @@ export const COPY: Record<Locale, Copy> = {
           claim: 'scenario-counting',
           media: 'counting',
           heading: 'Counting',
-          body: 'Counts items as they cross a line on the conveyor, beside the work order\'s plan. Items that pass overlapped are checked again.',
+          body: 'It will count items as they cross a line on the conveyor, beside the work order\'s plan. Items that pass overlapped are checked again.',
           roadmap: true,
         },
         {
           claim: 'scenario-safety',
           media: 'safety',
           heading: 'Hard-hat watch',
-          body: 'Watches for hard hats on workers inside a zone. It alerts only when a miss lasts several seconds, not on a single frame, and it never judges faces.',
+          body: 'It will watch for hard hats on workers inside a zone, alerting only when a miss lasts several seconds, not on a single frame, and never judging faces.',
           roadmap: true,
         },
         {
           claim: 'scenario-anomaly',
           media: 'anomaly',
           heading: 'Anomaly detection',
-          body: 'Starts without any defect images. It marks where a part differs from normal ones, and the vision model explains what is different.',
+          body: 'It will start without any defect images, marking where a part differs from normal ones while the vision model explains what is different.',
           roadmap: true,
         },
       ],
@@ -473,7 +465,6 @@ export const COPY: Record<Locale, Copy> = {
         webhook: 'Decisions sent out',
         protocols: 'MQTT · OPC UA',
         orders: 'Work orders · part numbers',
-        legend: 'Dashed lines are in development',
       },
     },
     delivery: {
@@ -511,14 +502,10 @@ export const COPY: Record<Locale, Copy> = {
       body: 'Even if it is not on this page. Tell us what parts, against what criteria and how many a day, and we will find a starting point together. Requests like yours decide what we build next.',
       cta: 'Request a consultation',
     },
-    tech: {
+    oss: {
       claim: 'license',
-      heading: 'For developers',
-      body: 'Open source under AGPL-3.0, with a commercial license for organizations that cannot adopt AGPL terms. Setup instructions, the API document and the package are public.',
-      source: 'Source code',
-      api: 'API document (OpenAPI)',
-      nuget: 'NuGet package',
-      start: 'Setup instructions',
+      text: 'Open source under AGPL-3.0 — a commercial license for organizations that cannot adopt AGPL terms.',
+      link: 'GitHub',
     },
     notHeading: 'What it does not do',
     not: [
