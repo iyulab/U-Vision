@@ -155,6 +155,29 @@ public class CaseMemoryTests
     }
 
     [Fact]
+    public async Task Sync_SkipsConflictedLabels_AndLabelsWithoutImage()
+    {
+        using var factory = new MemoryEnabledFactory();
+        var client = factory.CreateClient();
+        var imageId = (await (await client.PostAsync("/api/u-vision/inspect", Form(Jpeg(21)))).Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("image_id").GetString()!;
+        await client.PutAsJsonAsync("/api/u-vision/results/label", new LabelInput
+        { ScenarioId = "demo", Date = Today, ImageId = imageId, Label = "OK" });
+        // 블라인드 감사가 다른 답 — 감사 충돌이 풀릴 때까지 확정 사례가 아니다.
+        var audit = await client.PostAsJsonAsync("/api/u-vision/results/audit", new
+        { scenario_id = "demo", date = Today, image_id = imageId, label = "NG" });
+        Assert.Equal(HttpStatusCode.OK, audit.StatusCode);
+        // 짝 이미지가 없는 라벨(지워진 레코드) — 건너뛴다.
+        await factory.Services.GetRequiredService<Api.Storage.ILabelStore>()
+            .AppendLabelAsync("demo", Today, "img_gone", "OK", "test");
+
+        var memory = factory.Services.GetRequiredService<CaseMemory>();
+        Assert.Equal(0, await memory.SyncOnceAsync(CancellationToken.None));
+        // 판은 검사에서 이미 배웠으니 기억은 지어지되 비어 있다.
+        Assert.Equal(0, memory.StatusOf("demo")!.Value.Cases);
+    }
+
+    [Fact]
     public async Task RemovedLabel_LeavesMemory_OnNextSync()
     {
         using var factory = new MemoryEnabledFactory();

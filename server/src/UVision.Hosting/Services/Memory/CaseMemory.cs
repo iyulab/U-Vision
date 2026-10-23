@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using UVision.Api.Configuration;
 using UVision.Api.Models;
 using UVision.Api.Services.Scenarios;
-using UVision.Api.Services.Training;
+using UVision.Api.Services.Label;
 using UVision.Api.Storage;
 
 namespace UVision.Api.Services.Memory;
@@ -139,10 +139,19 @@ public sealed class CaseMemory(
 
     private async Task<int> SyncScenarioAsync(EffectiveScenario scenario, CancellationToken cancellationToken)
     {
-        // 확정 사례 = 사람이 확정했고 감사 충돌이 없고 시나리오가 선언한 클래스인 라벨(학습 후보와 같은 조인).
-        var confirmed = (await new TrainingCandidateSource(inspections, labels).LoadAsync(scenario.ScenarioId, cancellationToken)).Items
-            .Where(c => !c.Conflicted && scenario.ClassFor(c.Label) is not null)
-            .ToList();
+        // 확정 사례 = 사람이 확정했고 감사 충돌이 없고 시나리오가 선언한 클래스인 라벨. 라벨 사이드카만 읽는다 — 이 일은
+        // 주기마다 돌므로 판정 레코드 전부를 읽는 학습 후보 조인을 쓰지 않는다. 짝 이미지가 없는 라벨은 아래에서 건너뛴다.
+        var confirmed = new List<ConfirmedCase>();
+        foreach (var date in await inspections.ListDatesAsync(scenario.ScenarioId, cancellationToken))
+        {
+            foreach (var label in await labels.ListAsync(scenario.ScenarioId, date, cancellationToken))
+            {
+                if (label.OperativeLabel is { } operative
+                    && label.Audit?.Status != LabelAuditStatus.Conflicted
+                    && scenario.ClassFor(operative) is { } cls)
+                    confirmed.Add(new ConfirmedCase(label.ImageId, date, cls));
+            }
+        }
 
         var key = _encoderKey;
         var cached = key is null
@@ -152,7 +161,7 @@ public sealed class CaseMemory(
 
         foreach (var batch in confirmed.Where(c => !cached.ContainsKey(c.ImageId)).Chunk(IImageEmbedder.MaxBatch))
         {
-            var images = new List<(TrainingCandidate Case, ReadOnlyMemory<byte> Data)>(batch.Length);
+            var images = new List<(ConfirmedCase Case, ReadOnlyMemory<byte> Data)>(batch.Length);
             foreach (var c in batch)
             {
                 if (await inspections.ReadImageAsync(scenario.ScenarioId, c.Date, c.ImageId, cancellationToken) is { } image)
@@ -200,9 +209,11 @@ public sealed class CaseMemory(
 
         var cases = confirmed
             .Where(c => cached.ContainsKey(c.ImageId))
-            .Select(c => new MemoryCase(c.ImageId, scenario.ClassFor(c.Label)!, cached[c.ImageId]))
+            .Select(c => new MemoryCase(c.ImageId, c.Class, cached[c.ImageId]))
             .ToList();
         _snapshots[scenario.ScenarioId] = new Snapshot(key, cases, DateTimeOffset.UtcNow);
         return added;
     }
+
+    private sealed record ConfirmedCase(string ImageId, string Date, string Class);
 }
