@@ -87,6 +87,7 @@ docker run -d -p 8080:8080 -v u-vision-data:/data   -e VLM_PROVIDER=gpustack -e 
 - 시나리오 · 캡처 · 판정 결과 · 결정 장부는 모두 `/data` 에 쌓인다 — 볼륨을 붙이지 않으면 컨테이너와 함께 사라진다.
 - `ADMIN_PIN` 을 주지 않으면 첫 기동 때 `/data/admin-setup-token.txt` 가 생기고, 관리 화면에서 그 값으로 첫 PIN 을 정한다.
 - 서버는 비루트 사용자로 돈다. 카메라(`getUserMedia`)는 secure context 가 필요하므로 태블릿에서 쓰려면 앞에 HTTPS 리버스 프록시를 둔다.
+- 업무 앱과 같은 주소 아래에 화면을 싣는 리버스 프록시 설정은 [`samples/SameOriginMount`](./samples/SameOriginMount) 에 있다.
 
 ### 핵심 환경 변수
 

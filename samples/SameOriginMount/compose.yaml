@@ -1,0 +1,25 @@
+# Same-origin mount: a host reverse proxy in front of the U-Vision engine server.
+#   docker compose up --build
+#   → http://localhost:8200/            the host application
+#   → http://localhost:8200/u-vision/   U-Vision screens, on the host's origin
+services:
+  engine:
+    build: ../../server
+    environment:
+      ADMIN_PIN: ${ADMIN_PIN:-}
+      VLM_PROVIDER: ${VLM_PROVIDER:-mock}
+    volumes:
+      - u-vision-data:/data
+    # Not published: only the proxy reaches the engine.
+
+  proxy:
+    image: nginx:1.27-alpine
+    ports:
+      - "8200:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - engine
+
+volumes:
+  u-vision-data:
