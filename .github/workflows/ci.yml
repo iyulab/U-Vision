@@ -65,9 +65,22 @@ jobs:
       - run: dotnet restore UVision.slnx
       - run: dotnet build UVision.slnx --no-restore --configuration Release
       - run: dotnet test UVision.slnx --no-build --configuration Release
+      # UVision.Client 의 Generated/ 는 계약 문서(openapi/u-vision.json)에서 Kiota 로 만든 커밋된 산출물이다 — 다시
+      # 생성한 결과와 같아야 한다. 계약을 바꾸고 생성기를 돌리지 않았으면 여기서 멈춘다.
+      - run: dotnet tool restore
+      - name: Generated client matches the contract
+        run: |
+          dotnet run scripts/generate-client.cs
+          changes=$(git status --porcelain -- src/UVision.Client/Generated)
+          if [ -n "$changes" ]; then
+            echo "::error::server/src/UVision.Client/Generated is stale - run 'dotnet run scripts/generate-client.cs' in server/ and commit the result"
+            echo "$changes"
+            exit 1
+          fi
 
-      - name: Pack & Push UVision.Hosting (tag only)
+      - name: Pack & Push UVision.Hosting · UVision.Client (tag only)
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           dotnet pack src/UVision.Hosting/UVision.Hosting.csproj -c Release -o ${{ runner.temp }}/nupkg
+          dotnet pack src/UVision.Client/UVision.Client.csproj -c Release -o ${{ runner.temp }}/nupkg
           dotnet nuget push "${{ runner.temp }}/nupkg/*.nupkg" -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate

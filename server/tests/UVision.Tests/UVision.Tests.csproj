@@ -27,6 +27,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\UVision.Api\UVision.Api.csproj" />
     <ProjectReference Include="..\..\src\UVision.Hosting\UVision.Hosting.csproj" />
+    <ProjectReference Include="..\..\src\UVision.Client\UVision.Client.csproj" />
   </ItemGroup>
 
 </Project>

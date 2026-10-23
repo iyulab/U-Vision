@@ -13,7 +13,7 @@
 
 U-Vision 은 **자기 프로세스에서 도는 엔진 서버**로 쓰는 것이 기본이다. 다른 시스템(MES · 업무 앱)은 그 서버의 HTTP API(OpenAPI 계약)와 판정 사건 웹훅으로 붙고, 화면이 필요하면 호스트의 리버스 프록시가 PWA 경로를 같은 출처로 실어 준다([`samples/SameOriginMount`](https://github.com/iyulab/U-Vision/tree/main/samples/SameOriginMount)). 프로세스 경계는 라이선스 경계이기도 하다(아래 «라이선스»).
 
-이 패키지를 **기존 업무 앱의 프로세스 안에** 넣는 방식은 이미 그렇게 쓰는 소비자를 위한 **이행기 호환 경로**다 — 새 연동에는 권하지 않고, 소비자가 엔진 서버 + HTTP 연동으로 옮겨 갈 수단이 갖춰지면 없앤다(시점 미정, CHANGELOG 로 알린다).
+이 패키지를 **기존 업무 앱의 프로세스 안에** 넣는 방식은 이미 그렇게 쓰는 소비자를 위한 **이행기 호환 경로**다 — 새 연동에는 권하지 않는다. 옮겨 갈 수단은 엔진 서버 + [`UVision.Client`](https://github.com/iyulab/U-Vision/tree/main/server/src/UVision.Client)(계약에서 생성한 HTTP 클라이언트) + 같은 출처 마운트이고, 지금 이 방식으로 쓰는 소비자가 옮긴 판의 다음 minor 에서 없앤다(CHANGELOG 로 알린다).
 
 ## 설치
 

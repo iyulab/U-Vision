@@ -1,6 +1,6 @@
 # Changelog
 
-Changes to the `UVision.Hosting` NuGet package. Versions 0.2.0 and 0.2.1 were never published; their changes ship in 0.3.0.
+Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0.2.0 and 0.2.1 were never published; their changes ship in 0.3.0.
 
 ## [Unreleased]
 
@@ -9,6 +9,7 @@ Changes to the `UVision.Hosting` NuGet package. Versions 0.2.0 and 0.2.1 were ne
 - **Integration runs between applications.** The documented way to connect another system is to run U-Vision as its own server and use its HTTP API and inspection-event webhooks, with the PWA served through the host's reverse proxy when a screen is needed. Mounting `UVision.Hosting` inside an existing application stays available as a transition path for current consumers; it is not recommended for new integrations and will be removed once consumers can move (the removal will be announced here).
 
 ### Added
+- `UVision.Client`, a new package: a typed HTTP client for the engine server, generated with Kiota from the OpenAPI contract (`server/openapi/u-vision.json`). `UVisionClient.Create(httpClient, baseAddress, apiBasePath)` takes the address the engine is reached at (including any proxy prefix) and its API base path (default `/api/u-vision`); routes are relative to that base, so an engine under another base path needs no rewriting. Multipart uploads (`inspect`, `v2/inspect`, reference images) are sent as Kiota `MultipartBody` with the contract's field names as part names; documented error responses arrive as `ProblemDetails` or `DetectionUnavailableResponse` exceptions. Licensed MIT, unlike the engine: the client links into the calling application, on the other side of the process boundary. Depends on `Microsoft.Kiota.Bundle` 2.1.2.
 - `server/Dockerfile`: a container image of the engine server (PWA and API in one process). It publishes for the image's platform only, runs as the image's non-root user, listens on 8080 and keeps all server data under the `/data` volume. CI builds the image on every push; no image is published.
 - `samples/SameOriginMount`: a reverse proxy in front of the engine server that serves the U-Vision screens and API under a host application's own origin, passing `/u-vision/` and `/api/u-vision/` through unchanged.
 - The admin console footer shows the U-Platform affiliation element (`@uplatform/brand` 0.4.0): one line linking to the U-Platform family, with the other products in a drop-down. It makes no network requests and sets no cookies.

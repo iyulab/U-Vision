@@ -110,6 +110,7 @@ ADMIN_PIN=               # 미설정 시 관리 엔드포인트 503 (운영은 �
 - `GET /api/u-vision/scenarios` · `GET /api/u-vision/results?scenario_id=&date=`
 - 변경(생성/수정/삭제·업로드·export)은 `X-Admin-Pin` 헤더 필요
 - 전체 계약: OpenAPI [`server/openapi/u-vision.json`](./server/openapi/u-vision.json) (단독 서버는 `/openapi/v1.json`)
+- .NET 에서 부를 때: 계약에서 생성한 클라이언트 [`UVision.Client`](./server/src/UVision.Client/README.md)
 
 엔진 서버를 직접 짓는 가이드 · 연동 방식은 [`server/src/UVision.Hosting/README.md`](./server/src/UVision.Hosting/README.md) 참고.
 
@@ -119,5 +120,6 @@ ADMIN_PIN=               # 미설정 시 관리 엔드포인트 503 (운영은 �
 
 - 0.4.0 부터 AGPL 이다. 이미 게시된 0.3.0 이하의 `UVision.Hosting` 패키지는 MIT 그대로 남는다.
 - 다른 시스템과는 별도 앱으로 두고 HTTP API · 웹훅으로 연동하는 것이 기본이다. 네트워크 너머에서 부르는 쪽에는 AGPL 이 미치지 않는다.
+- 연동 앱 안에 들어가는 클라이언트 SDK [`server/src/UVision.Client`](./server/src/UVision.Client) 는 **MIT** 다([LICENSE](./server/src/UVision.Client/LICENSE)).
 - 기여에는 [CLA](./CLA.md) 서명이 필요하다 — [CONTRIBUTING](./CONTRIBUTING.md).
 - 화면의 U-Platform 소속 표시는 [`@uplatform/brand`](https://www.npmjs.com/package/@uplatform/brand) 패키지를 쓴다. 코드는 MIT, 마크와 제품명은 iyulab 의 상표로 이 리포의 라이선스 밖이다.
