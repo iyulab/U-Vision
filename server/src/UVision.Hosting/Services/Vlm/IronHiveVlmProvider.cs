@@ -18,8 +18,10 @@ namespace UVision.Api.Services.Vlm;
 /// 프롬프트로 JSON 을 강제하는 app-level 우회를 썼으나, 0.7.4 에서 GPUStack(llama.cpp) 라이브 검증 완료
 /// → 구조화 출력으로 복귀(우회 제거). 응답 파싱은 <see cref="ExtractJson"/> 으로 reasoning 모델의
 /// 머리말/펜스를 관용 처리한다(grammar 가 content 채널을 강제하나 방어적으로 유지).
-/// 상세: claudedocs/issues/closed/ISSUE-ironhive-*-jsonschema-llamacpp.md
-/// (원본: server/app/services/vlm/{openai,google}_provider.py 를 단일 어댑터로 통합)
+/// <para>
+/// UNVERIFIED: openai · google 실호출은 검증되지 않았다(API 키 없음) — 구조화 출력의 실제 응답 형태 · few-shot
+/// 판정 효과 · 지연은 키를 확보한 뒤 벤치마크 하네스로 재야 한다. 실측된 경로는 gpustack 뿐이다.
+/// </para>
 /// </summary>
 public sealed class IronHiveVlmProvider : IVlmProvider
 {

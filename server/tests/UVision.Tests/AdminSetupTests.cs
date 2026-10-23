@@ -38,6 +38,18 @@ public sealed class AdminSetupTests
     }
 
     [Fact]
+    public async Task Bootstrap_ReplacesAnEmptyLeftoverToken_WithoutTempFiles()
+    {
+        using var f = UVisionApiFactory.Create();
+        Directory.CreateDirectory(f.DataPath);
+        await File.WriteAllTextAsync(TokenPath(f), "  "); // 쓰다 끊긴 이전 기동이 남긴 빈 파일
+        _ = f.CreateClient();
+
+        Assert.NotEmpty(await ReadTokenAsync(f));
+        Assert.Equal([TokenPath(f)], Directory.GetFiles(f.DataPath, "admin-setup-token*"));
+    }
+
+    [Fact]
     public async Task Status_SetupRequired_WhenNoPin()
     {
         using var f = UVisionApiFactory.Create();

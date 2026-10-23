@@ -157,20 +157,12 @@ public sealed class AdminPinService
             }
 
             // 부트스트랩 대기 — 토큰 보장(재시작 간 idempotent).
-            string token;
-            if (File.Exists(tokenPath))
+            var token = File.Exists(tokenPath) ? (await File.ReadAllTextAsync(tokenPath, ct)).Trim() : "";
+            if (token.Length == 0)
             {
-                token = (await File.ReadAllTextAsync(tokenPath, ct)).Trim();
-                if (string.IsNullOrEmpty(token))
-                {
-                    token = GenerateToken();
-                    await File.WriteAllTextAsync(tokenPath, token, ct);
-                }
-            }
-            else
-            {
+                // 원자 쓰기 — 쓰다 끊겨도 빈 · 잘린 토큰 파일이 남지 않는다.
                 token = GenerateToken();
-                await File.WriteAllTextAsync(tokenPath, token, ct);
+                await StoragePaths.AtomicWriteAsync(tokenPath, Encoding.UTF8.GetBytes(token), ct);
             }
 
             _logger.LogWarning(

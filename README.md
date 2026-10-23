@@ -62,15 +62,15 @@
 git clone https://github.com/iyulab/U-Vision.git
 cd U-Vision
 
-# 프론트엔드
-cd client && npm install && npm run build   # dist/ 생성
-
-# 백엔드 (.NET 10) — 기본 mock provider 라 키 없이 기동
-cd ../server
+# 엔진 서버 (.NET 10) — 기본 mock provider 라 키 없이 기동, PWA 는 빌드돼 서버에 들어 있다
+cd server
 dotnet run --project src/UVision.Api --urls http://0.0.0.0:8000
+# → http://localhost:8000/u-vision/   (작업자 · 관리 화면)
 ```
 
-기본 VLM provider 는 `mock` 이라 API 키 없이도 서버·테스트가 전부 동작한다. 셀프호스트 VLM 사용 시 GPU 를 권장한다.
+기본 VLM provider 는 `mock` 이라 API 키 없이도 서버·테스트가 전부 동작한다(이미지를 보지 않는 모의 판정). 셀프호스트 VLM 사용 시 GPU 를 권장한다.
+
+화면을 고칠 때는 `cd client && npm install && npm run dev`(HTTPS 개발 서버 — 카메라는 secure context 필요)로 띄우고, 서버에 실리는 PWA 는 `npm run build:embed` 로 다시 굽는다(`server/src/UVision.Hosting/wwwroot`, 커밋 대상).
 
 ### 엔진 서버로 띄우기 (컨테이너)
 
@@ -80,11 +80,12 @@ dotnet run --project src/UVision.Api --urls http://0.0.0.0:8000
 - **직접 짓기** — `server/Dockerfile`(`cd server && docker build -t u-vision:dev .`). 인터넷이 닿지 않는 현장은 `docker save` 로 만든 tarball 을 옮겨 `docker load` 한다.
 
 ```bash
-docker run -d -p 8080:8080 -v u-vision-data:/data   -e VLM_PROVIDER=gpustack -e VLM_ENDPOINT=http://<vlm-server>/v1 -e VLM_MODEL=<model>   ghcr.io/iyulab/u-vision:<판>
+docker run -d -p 8080:8080 -v u-vision-data:/data   -e VLM_PROVIDER=gpustack -e VLM_ENDPOINT=http://<vlm-server> -e VLM_MODEL=<model>   ghcr.io/iyulab/u-vision:<판>
 # → http://<host>:8080/u-vision/            (작업자 · 관리 화면)
 # → http://<host>:8080/api/u-vision/health  (API)
 ```
 
+- `VLM_ENDPOINT` 는 경로 없는 서버 주소다 — gpustack provider 가 `/v1-openai/` 를 붙인다.
 - 시나리오 · 캡처 · 판정 결과 · 결정 장부는 모두 `/data` 에 쌓인다 — 볼륨을 붙이지 않으면 컨테이너와 함께 사라진다.
 - `ADMIN_PIN` 을 주지 않으면 첫 기동 때 `/data/admin-setup-token.txt` 가 생기고, 관리 화면에서 그 값으로 첫 PIN 을 정한다.
 - 서버는 비루트 사용자로 돈다. 카메라(`getUserMedia`)는 secure context 가 필요하므로 태블릿에서 쓰려면 앞에 HTTPS 리버스 프록시를 둔다.
@@ -98,9 +99,9 @@ docker run -d -p 8080:8080 -v u-vision-data:/data   -e VLM_PROVIDER=gpustack -e 
 VITE_API_BASE_URL=https://your-server.example.com/api/u-vision
 
 # server/.env
-VLM_PROVIDER=mock        # mock | openai | google | gpustack | vllm
+VLM_PROVIDER=mock        # mock | gpustack | openai | google (vllm 은 예약 — 아직 없음)
 ML_PROVIDER=none         # none | mock | mloop
-ADMIN_PIN=               # 미설정 시 관리 엔드포인트 503 (운영은 정상)
+ADMIN_PIN=               # 미설정이면 첫 기동에 데이터 폴더의 admin-setup-token.txt 로 관리 화면에서 첫 PIN 을 정한다
 ```
 
 ## API
@@ -110,7 +111,7 @@ ADMIN_PIN=               # 미설정 시 관리 엔드포인트 503 (운영은 �
 - `POST /api/u-vision/inspect` — 캡처 이미지 판정(multipart: `image`·`scenario_id`)
 - `POST /api/u-vision/v2/inspect` — 같은 판정을 시나리오 클래스 · 판정을 낸 단 · 판정 경로로(오투입 확인은 `expected_part` · `observed_code` 를 함께)
 - `GET /api/u-vision/scenarios` · `GET /api/u-vision/results?scenario_id=&date=`
-- 변경(생성/수정/삭제·업로드·export)은 `X-Admin-Pin` 헤더 필요
+- 시나리오 · 기준 이미지 · 모델 · 데이터셋 · 권한 단계 변경은 `X-Admin-Pin` 헤더 필요. 작업자가 하는 사람 라벨 · 블라인드 감사는 운영 화면 기능이라 PIN 없이 받는다
 - 전체 계약: OpenAPI [`server/openapi/u-vision.json`](./server/openapi/u-vision.json) (단독 서버는 `/openapi/v1.json`)
 - .NET 에서 부를 때: 계약에서 생성한 클라이언트 [`UVision.Client`](./server/src/UVision.Client/README.md)
 

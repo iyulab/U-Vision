@@ -24,6 +24,7 @@ public static class VlmProviderFactory
                 return new MockVlmProvider();
 
             case "openai":
+                // UNVERIFIED: 실호출 미검증(API 키 없음) — 구조화 출력 응답 형태 · 지연. IronHiveVlmProvider 머리 주석.
                 return new IronHiveVlmProvider(
                     IronHiveBuilders.BuildMessageService(b => b.AddOpenAIProviders(
                         "openai",
@@ -33,6 +34,7 @@ public static class VlmProviderFactory
                     options.Model);
 
             case "google":
+                // UNVERIFIED: 실호출 미검증(API 키 없음) — 구조화 출력 응답 형태 · 지연. IronHiveVlmProvider 머리 주석.
                 return new IronHiveVlmProvider(
                     IronHiveBuilders.BuildMessageService(b => b.AddGoogleAIProviders(
                         "google",
