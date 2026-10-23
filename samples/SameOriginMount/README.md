@@ -25,10 +25,26 @@ docker compose up --build
 
 ASP.NET Core 업무 앱이라면 nginx 대신 앱 앞의 리버스 프록시(YARP 등)로 같은 두 경로를 같은 규칙으로 넘기면 된다.
 
+## 업무 앱 서버에서 부르기 (.NET)
+
+업무 앱의 서버 코드는 같은 프록시 주소로 엔진 API 를 부른다 — 계약에서 생성한 [`UVision.Client`](../../server/src/UVision.Client/README.md)(MIT):
+
+```csharp
+var client = UVisionClient.Create(httpClient, new Uri("http://localhost:8200/"));
+var health = await client.Health.GetAsync();
+
+var form = new MultipartBody();
+form.AddOrReplacePart("image", "image/jpeg", File.OpenRead("capture.jpg"), "capture.jpg");
+form.AddOrReplacePart("scenario_id", "text/plain", "pcb-top");
+var result = await client.V2.Inspect.PostAsync(form, c => c.Headers.Add("Idempotency-Key", captureId));
+```
+
+관리 호출(시나리오 생성 등)은 `httpClient` 에 `X-Admin-Pin` 헤더를 붙인다.
+
 ## 운영에서 더할 것
 
 - **HTTPS** — 태블릿 카메라(`getUserMedia`)는 secure context 가 필요하다. 프록시에서 TLS 를 끝낸다.
 - **데이터** — 엔진의 모든 데이터는 `u-vision-data` 볼륨(`/data`)에 있다. 백업 대상이다.
 - **관리 PIN** — `ADMIN_PIN` 을 주거나, 비워 두고 첫 기동 때 `/data/admin-setup-token.txt` 의 값으로 관리 화면에서 정한다.
 
-> 확인된 것: 프록시 너머로 화면 · manifest · service worker · API(시나리오 생성 · 판정) 응답, `/u-vision` 이동, 엔진 포트 비공개(데스크톱 브라우저 없이 HTTP 로). 태블릿(iOS Safari · Android Chrome)에서의 카메라 · 설치 동작은 아직 실기기로 확인하지 않았다.
+> 확인된 것: 프록시 너머로 화면 · manifest · service worker · API(시나리오 생성 · 판정) 응답, `/u-vision` 이동, 엔진 포트 비공개(데스크톱 브라우저 없이 HTTP 로). `UVision.Client` 로 같은 프록시 너머 왕복 — health · 시나리오 생성 · 삭제 · v1 · v2 판정 · `Idempotency-Key` 재전송(같은 판정 id) · 결과 조회 · 없는 시나리오 404 · PIN 없는 관리 호출 401(mock VLM). 태블릿(iOS Safari · Android Chrome)에서의 카메라 · 설치 동작은 아직 실기기로 확인하지 않았다.
