@@ -3,7 +3,7 @@ using UVision.Api.Services.Vlm;
 
 namespace UVision.Api.Services.Oracle;
 
-/// <summary>OracleOptions.Provider 로 구체 오라클 선택(VlmProviderFactory 동형). cloud 는 E4 결선 후.</summary>
+/// <summary>OracleOptions.Provider 로 구체 오라클 선택(VlmProviderFactory 동형). 셀프호스트만 — cloud 오라클은 없다.</summary>
 public static class OracleProviderFactory
 {
     public static IOracleProvider Create(OracleOptions o)
@@ -12,15 +12,14 @@ public static class OracleProviderFactory
         {
             case "none":
                 return new DisabledOracleProvider();
-            case "gpustack":
+            case ProviderNames.OpenAICompatible:
+                if (string.IsNullOrWhiteSpace(o.Endpoint))
+                    throw new ArgumentException("oracle provider openai-compatible 은 Endpoint(서버 주소)가 필요하다");
                 return new VlmOracleProvider(
-                    new IronHiveVlmProvider(IronHiveBuilders.GpuStack(o.Endpoint, o.ApiKey), "oracle-gpustack", o.Model),
+                    new IronHiveVlmProvider(IronHiveBuilders.OpenAICompatible(o.Endpoint, o.ApiKey), "oracle", o.Model),
                     isCloud: false);
-            case "openai":
-            case "google":
-                throw new NotImplementedException("cloud 오라클은 E4 egress 결선 후 — 키 BLOCKED(vllm 패턴 동형)");
             default:
-                throw new ArgumentException($"알 수 없는 oracle provider: {o.Provider}");
+                throw new ArgumentException(ProviderNames.Unknown("oracle", o.Provider, ProviderNames.Oracle));
         }
     }
 }

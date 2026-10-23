@@ -3,9 +3,9 @@ namespace UVision.Api.Configuration;
 /// <summary>오라클(④-B) 설정 — config 섹션 UVision:Oracle. 기본 none = 비활성(스윕 미동작).</summary>
 public sealed class OracleOptions
 {
-    /// <summary>none | gpustack. (openai/google = cloud, E4 결선 후 — 현재 NotImplemented.)</summary>
+    /// <summary>none | openai-compatible(셀프호스트). cloud 오라클은 없다 — 그 밖 값은 기동에서 거부.</summary>
     public string Provider { get; set; } = "none";
-    public string Endpoint { get; set; } = "";        // gpustack base URL
+    public string Endpoint { get; set; } = "";        // OpenAI 호환 서버 주소
     public string ApiKey { get; set; } = "";
     public string Model { get; set; } = "";           // 더 센 모델(주 VLM 보다 큰)
     public int SweepIntervalSeconds { get; set; } = 60;

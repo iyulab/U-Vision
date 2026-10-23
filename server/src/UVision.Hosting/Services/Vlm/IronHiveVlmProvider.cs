@@ -9,7 +9,7 @@ using UVision.Api.Models;
 namespace UVision.Api.Services.Vlm;
 
 /// <summary>
-/// ironhive(IMessageService) 기반 VLM 어댑터 — openai/google/gpustack 모두 처리한다.
+/// ironhive(IMessageService) 기반 VLM 어댑터 — openai-compatible(셀프호스트) · openai · google 을 모두 처리한다.
 /// ironhive 가 provider 추상화·비전 입력을 흡수하므로 provider 별 구현을 분리하지 않는다.
 ///
 /// 출력 계약은 ironhive 구조화 출력(<c>Output = typeof(InspectionResult)</c>)으로 강제한다 —
@@ -20,7 +20,7 @@ namespace UVision.Api.Services.Vlm;
 /// 머리말/펜스를 관용 처리한다(grammar 가 content 채널을 강제하나 방어적으로 유지).
 /// <para>
 /// UNVERIFIED: openai · google 실호출은 검증되지 않았다(API 키 없음) — 구조화 출력의 실제 응답 형태 · few-shot
-/// 판정 효과 · 지연은 키를 확보한 뒤 벤치마크 하네스로 재야 한다. 실측된 경로는 gpustack 뿐이다.
+/// 판정 효과 · 지연은 키를 확보한 뒤 벤치마크 하네스로 재야 한다. 실측된 경로는 셀프호스트(GPUStack 서버)뿐이다.
 /// </para>
 /// </summary>
 public sealed class IronHiveVlmProvider : IVlmProvider

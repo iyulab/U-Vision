@@ -59,10 +59,10 @@ app.Run();
 {
   "UVision": {
     "Vlm": {
-      "Provider": "mock",      // mock | openai | google | gpustack
+      "Provider": "mock",      // mock | openai-compatible | openai | google
       "Model": "gpt-4o",
       "ApiKey": "",            // openai/google
-      "Endpoint": "",          // gpustack 등 OpenAI 호환 self-host base URL
+      "Endpoint": "",          // openai-compatible 서버 주소(/v1 은 자동으로 붙는다)
       "MaxUploadSizeMb": 10
     },
     "Ml": {
@@ -88,10 +88,10 @@ app.Run();
 }
 ```
 
-실제 VLM provider 연동 예(GPUStack, OpenAI 호환 self-host):
+실제 VLM provider 연동 예(OpenAI 호환 셀프호스트 서버 — GPUStack · vLLM · Ollama 등):
 
 ```jsonc
-"Vlm": { "Provider": "gpustack", "Model": "qwen2.5-vl", "Endpoint": "http://gpu-host:8080" }
+"Vlm": { "Provider": "openai-compatible", "Model": "qwen2.5-vl", "Endpoint": "http://gpu-host:8080" }
 ```
 
 ### ③ 2중체크 (VLM + 전용 ML 교차검증)

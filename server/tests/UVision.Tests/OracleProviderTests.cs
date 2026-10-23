@@ -15,22 +15,29 @@ public class OracleProviderTests
     }
 
     [Fact]
-    public void Gpustack_IsEnabled_NotCloud()
+    public void OpenAICompatible_IsEnabled_NotCloud()
     {
         var p = OracleProviderFactory.Create(new OracleOptions
         {
-            Provider = "gpustack", Endpoint = "http://localhost:9999", Model = "big",
+            Provider = "openai-compatible", Endpoint = "http://localhost:9999", Model = "big",
         });
         Assert.True(p.IsEnabled);
         Assert.False(p.IsCloud);
     }
 
     [Theory]
-    [InlineData("openai")]
+    [InlineData("openai")]   // cloud 오라클은 없다 — 이미지가 밖으로 나가는 경로
     [InlineData("google")]
-    public void Cloud_NotImplemented(string provider)
+    [InlineData("gpustack")] // 옛 이름 — openai-compatible 로 옮긴다
+    public void UnbuiltProvider_IsRejected_NamingTheAcceptedValues(string provider)
     {
-        Assert.Throws<NotImplementedException>(() =>
+        var ex = Assert.Throws<ArgumentException>(() =>
             OracleProviderFactory.Create(new OracleOptions { Provider = provider }));
+        Assert.Contains("openai-compatible", ex.Message);
     }
+
+    [Fact]
+    public void OpenAICompatible_WithoutEndpoint_IsRejected() =>
+        Assert.Throws<ArgumentException>(() =>
+            OracleProviderFactory.Create(new OracleOptions { Provider = "openai-compatible" }));
 }

@@ -17,9 +17,10 @@ public static class UVisionServiceExtensions
             ?? new UVisionOptions();
         services.AddSingleton(options);
 
-        // VLM provider — singleton(ironhive hive 1회 빌드).
+        // VLM provider — singleton(ironhive hive 1회 빌드). 등록할 때 만든다: 잘못된 provider · 빠진 Endpoint 는 첫 판정
+        // 요청이 아니라 기동에서 멈춘다.
         services.AddSingleton(options.Vlm);
-        services.AddSingleton<IVlmProvider>(_ => VlmProviderFactory.Create(options.Vlm));
+        services.AddSingleton<IVlmProvider>(VlmProviderFactory.Create(options.Vlm));
 
         // 전용 ML 분류기(신뢰성 플라이휠 ②~③) — 기본 none(VLM 단독, 현재 동작 무변경).
         services.AddSingleton(options.Ml);
@@ -29,8 +30,7 @@ public static class UVisionServiceExtensions
 
         // 오라클(2차 의견 VLM, ④-B) — 기본 none(스윕 BackgroundService 즉시 종료, 동작 무변경).
         services.AddSingleton(options.Oracle);
-        services.AddSingleton<Services.Oracle.IOracleProvider>(_ =>
-            Services.Oracle.OracleProviderFactory.Create(options.Oracle));
+        services.AddSingleton<Services.Oracle.IOracleProvider>(Services.Oracle.OracleProviderFactory.Create(options.Oracle));
         services.AddSingleton<Services.Oracle.OracleSweepService>();
         services.AddHostedService<Services.Oracle.OracleSweepBackgroundService>();
 

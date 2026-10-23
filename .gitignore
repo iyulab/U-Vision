@@ -12,13 +12,11 @@ bin/
 obj/
 *.user
 
-# Python (레거시 — .NET 마이그레이션으로 제거됨, 잔여 venv/캐시 무시)
+# Python — 사이트 화면 캡처 스크립트(site/studio/capture.py)의 캐시 · 가상환경
 __pycache__/
 *.py[cod]
 .venv/
 venv/
-*.egg-info/
-.pytest_cache/
 
 # Env (실제 비밀값 — .env.example만 커밋)
 .env
@@ -28,10 +26,9 @@ venv/
 server/data/
 server/src/UVision.Api/data/
 samples/**/uvision-data/
-# 레거시 잔재(순수 파일시스템 전환 전)
+# 파생 색인 파일(정본은 파일 저장소 — 색인은 다시 만들 수 있으므로 커밋하지 않는다)
 *.db
 *.sqlite
-server/uploads/
 
 # 벤치마크 샘플 이미지(현장/민감 이미지 — 커밋 금지)
 server/benchmark/sample-images/

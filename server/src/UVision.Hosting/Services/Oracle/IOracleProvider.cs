@@ -10,9 +10,9 @@ public interface IOracleProvider
 {
     string Name { get; }
     bool IsEnabled { get; }   // none → false. 스윕이 게이트.
-    bool IsCloud { get; }     // gpustack → false(egress 아님). cloud(미래) → true.
+    bool IsCloud { get; }     // 셀프호스트 → false(egress 아님).
 
-    /// <summary>이미지 1장에 2차 소견을 낸다. UNVERIFIED: 실 gpustack 왕복은 모델/키 확보 후 검증.</summary>
+    /// <summary>이미지 1장에 2차 소견을 낸다. UNVERIFIED: 실 셀프호스트 서버 왕복은 모델 확보 후 검증.</summary>
     Task<InspectionResult> SecondOpinionAsync(
         ReadOnlyMemory<byte> image, ScenarioContext scenario, CancellationToken cancellationToken = default);
 }

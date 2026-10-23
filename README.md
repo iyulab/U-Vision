@@ -52,7 +52,7 @@
 | 프론트엔드 | React 19 (SPA) + PWA (Vite 8 + Service Worker) + Tailwind v4 |
 | 정지 감지 | OffscreenCanvas 픽셀 차분 — Web Worker 분리 |
 | 서버 | ASP.NET Core (.NET 10, Minimal API) |
-| VLM 백엔드 | ironhive(openai/google) · GPUStack(셀프호스트) · vLLM(예약) |
+| VLM 백엔드 | ironhive — OpenAI 호환 셀프호스트 서버(GPUStack · vLLM · Ollama 등) · openai · google |
 | 전용 ML | MLoop image-classification(`mloop serve` HTTP 경계) |
 | 저장소 | 순수 파일시스템 (DB 없음) |
 
@@ -80,12 +80,12 @@ dotnet run --project src/UVision.Api --urls http://0.0.0.0:8000
 - **직접 짓기** — `server/Dockerfile`(`cd server && docker build -t u-vision:dev .`). 인터넷이 닿지 않는 현장은 `docker save` 로 만든 tarball 을 옮겨 `docker load` 한다.
 
 ```bash
-docker run -d -p 8080:8080 -v u-vision-data:/data   -e VLM_PROVIDER=gpustack -e VLM_ENDPOINT=http://<vlm-server> -e VLM_MODEL=<model>   ghcr.io/iyulab/u-vision:<판>
+docker run -d -p 8080:8080 -v u-vision-data:/data   -e VLM_PROVIDER=openai-compatible -e VLM_ENDPOINT=http://<vlm-server> -e VLM_MODEL=<model>   ghcr.io/iyulab/u-vision:<판>
 # → http://<host>:8080/u-vision/            (작업자 · 관리 화면)
 # → http://<host>:8080/api/u-vision/health  (API)
 ```
 
-- `VLM_ENDPOINT` 는 경로 없는 서버 주소다 — gpustack provider 가 `/v1-openai/` 를 붙인다.
+- `VLM_ENDPOINT` 는 서버 주소다 — 표준 경로 `/v1` 은 자동으로 붙는다(이미 적었으면 그대로).
 - 시나리오 · 캡처 · 판정 결과 · 결정 장부는 모두 `/data` 에 쌓인다 — 볼륨을 붙이지 않으면 컨테이너와 함께 사라진다.
 - `ADMIN_PIN` 을 주지 않으면 첫 기동 때 `/data/admin-setup-token.txt` 가 생기고, 관리 화면에서 그 값으로 첫 PIN 을 정한다.
 - 서버는 비루트 사용자로 돈다. 카메라(`getUserMedia`)는 secure context 가 필요하므로 태블릿에서 쓰려면 앞에 HTTPS 리버스 프록시를 둔다.
@@ -99,7 +99,7 @@ docker run -d -p 8080:8080 -v u-vision-data:/data   -e VLM_PROVIDER=gpustack -e 
 VITE_API_BASE_URL=https://your-server.example.com/api/u-vision
 
 # server/.env
-VLM_PROVIDER=mock        # mock | gpustack | openai | google (vllm 은 예약 — 아직 없음)
+VLM_PROVIDER=mock        # mock | openai-compatible(GPUStack · vLLM · Ollama 등) | openai | google
 ML_PROVIDER=none         # none | mock | mloop
 ADMIN_PIN=               # 미설정이면 첫 기동에 데이터 폴더의 admin-setup-token.txt 로 관리 화면에서 첫 PIN 을 정한다
 ```

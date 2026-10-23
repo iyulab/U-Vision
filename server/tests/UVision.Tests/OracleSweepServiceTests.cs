@@ -46,7 +46,7 @@ public class OracleSweepServiceTests : IDisposable
     private OracleSweepService Service(StoragePaths paths, IOracleProvider oracle, OracleOptions? opt = null) =>
         new(oracle, new FileScenarioStore(paths), new FileInspectionStore(paths),
             new FileReferenceStore(paths), new FileLabelStore(paths),
-            opt ?? new OracleOptions { Provider = "gpustack", BatchCap = 10, LookbackDays = 2 },
+            opt ?? new OracleOptions { Provider = "openai-compatible", BatchCap = 10, LookbackDays = 2 },
             NullLoggerFactory.Instance);
 
     [Fact]
@@ -153,7 +153,7 @@ public class OracleSweepServiceTests : IDisposable
         var s0 = await SeedReviewResultAsync(paths, "sc-a", today, "a1");
         await AddReviewResultAsync(paths, s0, today, "a2");
         var s1 = await SeedReviewResultAsync(paths, "sc-b", today, "b1");
-        var svc = Service(paths, new FakeOracle(Verdict.NG), new OracleOptions { Provider = "gpustack", BatchCap = 1, LookbackDays = 1 });
+        var svc = Service(paths, new FakeOracle(Verdict.NG), new OracleOptions { Provider = "openai-compatible", BatchCap = 1, LookbackDays = 1 });
 
         await svc.SweepOnceAsync(default); // tick0: 시작 s0 → a1
         await svc.SweepOnceAsync(default); // tick1: 회전 시작 s1 → b1

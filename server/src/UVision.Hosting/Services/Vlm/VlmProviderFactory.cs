@@ -3,7 +3,6 @@ using IronHive.Abstractions.Messages;
 using IronHive.Core;
 using IronHive.Providers.GoogleAI;
 using IronHive.Providers.OpenAI;
-using IronHive.Providers.OpenAI.Compatible.GpuStack;
 using Microsoft.Extensions.DependencyInjection;
 using UVision.Api.Configuration;
 
@@ -42,20 +41,17 @@ public static class VlmProviderFactory
                     "google",
                     options.Model);
 
-            case "gpustack":
-                // GPUStack — OpenAI 호환 셀프호스트(/v1-openai/). ironhive 1급 provider 가 base URL·경로를 흡수.
-                // Endpoint 는 경로 없는 서버 base URL(예: http://host:8080) — GpuStackConfig 가 /v1-openai/ 를 붙인다.
+            case ProviderNames.OpenAICompatible:
+                // 셀프호스트 서버 — Endpoint 는 서버 주소(예: http://host:8080), ironhive 가 /v1 을 붙인다.
+                if (string.IsNullOrWhiteSpace(options.Endpoint))
+                    throw new ArgumentException("VLM provider openai-compatible 은 Endpoint(서버 주소)가 필요하다");
                 return new IronHiveVlmProvider(
-                    IronHiveBuilders.GpuStack(options.Endpoint, options.ApiKey),
-                    "gpustack",
+                    IronHiveBuilders.OpenAICompatible(options.Endpoint, options.ApiKey),
+                    ProviderNames.OpenAICompatible,
                     options.Model);
 
-            case "vllm":
-                // P5(엣지 추론)에서 구현. 인터페이스만 예약.
-                throw new NotImplementedException("vLLM 어댑터는 P5(엣지 추론 모드)에서 구현 예정");
-
             default:
-                throw new ArgumentException($"알 수 없는 VLM provider: {options.Provider}");
+                throw new ArgumentException(ProviderNames.Unknown("VLM", options.Provider, ProviderNames.Vlm));
         }
     }
 

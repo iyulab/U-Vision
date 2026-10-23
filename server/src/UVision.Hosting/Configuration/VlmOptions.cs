@@ -6,7 +6,7 @@ namespace UVision.Api.Configuration;
 /// </summary>
 public sealed class VlmOptions
 {
-    /// <summary>mock | openai | google | gpustack | vllm</summary>
+    /// <summary>mock | openai-compatible | openai | google(<see cref="Services.Vlm.ProviderNames"/>)</summary>
     public string Provider { get; set; } = "mock";
 
     public string Model { get; set; } = "gpt-4o";
@@ -14,8 +14,8 @@ public sealed class VlmOptions
     public string ApiKey { get; set; } = "";
 
     /// <summary>
-    /// 셀프호스트/OpenAI 호환 provider(gpustack 등)의 서버 base URL — 경로 없이(예: http://host:8080).
-    /// 클라우드 provider(openai/google)는 사용하지 않는다.
+    /// openai-compatible 의 서버 주소(예: http://host:8080) — ironhive 가 표준 경로 <c>/v1</c> 를 붙인다(이미 있으면
+    /// 그대로). 클라우드 provider(openai/google)는 사용하지 않는다.
     /// </summary>
     public string Endpoint { get; set; } = "";
 

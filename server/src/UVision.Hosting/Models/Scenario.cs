@@ -61,7 +61,7 @@ public sealed record Scenario
 
     /// <summary>
     /// cloud 오라클(④-B·egress) 허용 여부 — per-scenario opt-in(기본 false=deny). 온프레미스 주권 가드.
-    /// 로컬 오라클(gpustack)은 egress 아니므로 이 값과 무관. cloud provider 결선 전까지는 가드만 선재.
+    /// 로컬 오라클(openai-compatible)은 egress 아니므로 이 값과 무관. cloud provider 결선 전까지는 가드만 선재.
     /// </summary>
     [JsonPropertyName("allow_cloud_egress")] public bool AllowCloudEgress { get; init; }
 
@@ -129,7 +129,7 @@ public sealed record ScenarioInput
 
     /// <summary>
     /// cloud 오라클(④-B·egress) 허용 여부 — per-scenario opt-in(기본 false=deny). 온프레미스 주권 가드.
-    /// 로컬 오라클(gpustack)은 egress 아니므로 이 값과 무관. cloud provider 결선 전까지는 가드만 선재.
+    /// 로컬 오라클(openai-compatible)은 egress 아니므로 이 값과 무관. cloud provider 결선 전까지는 가드만 선재.
     /// </summary>
     [JsonPropertyName("allow_cloud_egress")] public bool AllowCloudEgress { get; init; }
 

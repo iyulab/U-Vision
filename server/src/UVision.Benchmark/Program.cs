@@ -45,7 +45,7 @@ var providerName = opts.GetValueOrDefault("provider", "mock");
 var model = opts.GetValueOrDefault("model", "gpt-4o");
 var criteria = opts.GetValueOrDefault("criteria", DefaultCriteria);
 var outPath = opts.GetValueOrDefault("out");
-// 셀프호스트 provider(gpustack) base URL — --endpoint 우선, 없으면 VLM_ENDPOINT 환경변수.
+// openai-compatible 서버 주소 — --endpoint 우선, 없으면 VLM_ENDPOINT 환경변수.
 var endpoint = opts.GetValueOrDefault("endpoint")
     ?? Environment.GetEnvironmentVariable("VLM_ENDPOINT") ?? "";
 // few-shot 기준 이미지: --refs-dir/{ok,ng} 에서 로드(라벨당 최대 --refs-cap, 기본 3). 누수 방지 위해
@@ -197,7 +197,7 @@ string RenderReport(List<Row> rs, string prov, string mdl, (string Model, double
         sb.AppendLine();
         sb.AppendLine("> ⚠️ **mock provider** — 이미지를 보지 않는다. 아래 정확도/판정은 "
             + "**파이프라인 흐름 시연일 뿐 의미 없음**. 실측은 키 확보 후 "
-            + "`--provider openai|google` 로 재실행(= M0.1).");
+            + "`--provider openai-compatible|openai|google` 로 재실행.");
     }
 
     if (labeled.Count > 0)
