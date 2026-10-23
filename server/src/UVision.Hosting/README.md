@@ -7,7 +7,7 @@
 - 기본 VLM provider 는 `mock` → **API 키 없이 바로 동작**(연동 확인용)
 - 단일 조직 셀프호스트 전제(멀티테넌시·계정 시스템 없음)
 
-> 패턴: `AddUVision()` + `UseUVision()` + `MapUVisionEndpoints()`. 단독 서버(`server/src/UVision.Api`)와 [`samples/MinimalHost`](https://github.com/iyulab/U-Vision/tree/main/samples/MinimalHost) 가 이 세 줄로 지어진다.
+> 패턴: `AddUVision()` + `UseUVision()` + `MapUVisionEndpoints()`. 단독 서버([`server/src/UVision.Api`](https://github.com/iyulab/U-Vision/blob/main/server/src/UVision.Api/Program.cs))가 이 세 줄로 지어진다.
 
 ### 어떻게 연동하나 — 엔진은 별도 앱으로
 
@@ -49,7 +49,7 @@ app.Run();
 
 > `getUserMedia`(카메라)·Wake Lock 은 **secure context** 필수 — 운영 시 HTTPS(또는 `localhost`)로 서빙한다.
 
-전체 동작 예제: [`samples/MinimalHost`](https://github.com/iyulab/U-Vision/tree/main/samples/MinimalHost).
+전체 동작 예제: 단독 서버 [`server/src/UVision.Api/Program.cs`](https://github.com/iyulab/U-Vision/blob/main/server/src/UVision.Api/Program.cs). 다른 앱에서 엔진을 부르는 예제는 [`samples/ClientIntegration`](https://github.com/iyulab/U-Vision/tree/main/samples/ClientIntegration)(`UVision.Client`).
 
 ## 설정 (config 섹션 `UVision`)
 

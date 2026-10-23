@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!-- The client package only: the engine runs as its own server and this app talks to it over HTTP.
+       Kept at the version of server/src/UVision.Client — CI packs that project and builds this sample against it. -->
+  <ItemGroup>
+    <PackageReference Include="UVision.Client" Version="0.3.0" />
+  </ItemGroup>
+
+</Project>

@@ -112,6 +112,12 @@ jobs:
           done
       - run: dotnet build UVision.slnx --no-restore --configuration Release
       - run: dotnet test UVision.slnx --no-build --configuration Release
+      # samples/ClientIntegration 은 패키지만 참조한다 — 이 커밋의 UVision.Client 를 임시 피드로 묶어 그 위에서 짓는다.
+      # 판을 올리고 예제의 Version 을 따라 올리지 않으면 restore 가 여기서 멈춘다.
+      - name: Samples build against this commit's packages
+        run: |
+          dotnet pack src/UVision.Client/UVision.Client.csproj --no-build -c Release -o "$RUNNER_TEMP/feed"
+          dotnet build ../samples/ClientIntegration -c Release -p:RestoreAdditionalProjectSources="$RUNNER_TEMP/feed"
       # UVision.Client 의 Generated/ 는 계약 문서(openapi/u-vision.json)에서 Kiota 로 만든 커밋된 산출물이다 — 다시
       # 생성한 결과와 같아야 한다. 계약을 바꾸고 생성기를 돌리지 않았으면 여기서 멈춘다.
       - run: dotnet tool restore

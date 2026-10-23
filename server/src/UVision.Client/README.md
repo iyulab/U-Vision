@@ -31,6 +31,7 @@ Console.WriteLine($"{result?.Class} by {result?.SettledBy?.Tier}");
 var scenarios = await client.Scenarios.GetAsync();
 ```
 
+- **동작 예제** — [`samples/ClientIntegration`](https://github.com/iyulab/U-Vision/tree/main/samples/ClientIntegration): 시나리오 목록 · 판정 · 검토 대기 · 503 · 거부 처리.
 - **기준 경로** — 엔진의 API 기준 경로(기본 `/api/u-vision`)는 `Create` 의 `apiBasePath` 로 넘긴다. 경로는 그 아래 상대 경로다(`client.Inspect` = `{주소}{기준 경로}/inspect`).
 - **관리 호출** — 시나리오 생성 · 수정 · 업로드 같은 변경은 `X-Admin-Pin` 헤더가 필요하다. 넘기는 `HttpClient` 에 붙이거나 요청마다 `requestConfiguration` 의 `Headers` 로 붙인다.
 - **오류** — 계약에 적힌 오류 응답은 예외로 온다: `ProblemDetails`(400 · 404 · 413 · 415 · 422 · 500), 판정 불가는 `DetectionUnavailableResponse`(503). `ResponseStatusCode` 로 상태를 읽는다.
