@@ -2373,6 +2373,21 @@
           }
         }
       },
+      "ContestedBy": {
+        "required": [
+          "tier",
+          "class"
+        ],
+        "type": "object",
+        "properties": {
+          "tier": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string"
+          }
+        }
+      },
       "DatasetClassCount": {
         "required": [
           "class_dir",
@@ -2717,6 +2732,21 @@
               "null",
               "boolean"
             ]
+          },
+          "posture": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "contested_by": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ContestedBy"
+            }
           },
           "path": {
             "type": [

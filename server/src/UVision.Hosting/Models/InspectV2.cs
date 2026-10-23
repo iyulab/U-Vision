@@ -41,6 +41,18 @@ public sealed record InspectResultV2
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? RequiresReview { get; init; }
 
+    /// <summary>운영 자세 — 확인 전까지 다음 캡처를 막아야 할 때만 <c>review_block</c>.</summary>
+    [JsonPropertyName("posture")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Posture { get; init; }
+
+    /// <summary>
+    /// 확정된 클래스와 다른 must-catch 답을 낸 아래 단(예: 장치가 읽은 코드가 기대 품번과 다름) — 있으면 판정은 검토 대기다.
+    /// </summary>
+    [JsonPropertyName("contested_by")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ContestedBy>? ContestedBy { get; init; }
+
     /// <summary>
     /// 판정 라우터의 단별 경로(비용 순). 신뢰 정책이 생기기 전에는 라우터가 관찰만 하므로, 아래 단은 답해도
     /// <c>shadowed</c>(또는 꼭 잡을 값이면 <c>escalated</c>)이고 꼭대기가 <c>settled</c> 다.
@@ -110,6 +122,14 @@ public sealed record SettledBy
     [JsonPropertyName("tier")] public required string Tier { get; init; }
 
     [JsonPropertyName("kind")] public required string Kind { get; init; }
+}
+
+/// <summary>확정에 맞선 아래 단의 답 — <c>tier</c> 는 시나리오 judges 의 이름, <c>class</c> 는 그 단이 낸 must-catch 클래스.</summary>
+public sealed record ContestedBy
+{
+    [JsonPropertyName("tier")] public required string Tier { get; init; }
+
+    [JsonPropertyName("class")] public required string Class { get; init; }
 }
 
 /// <summary>라우터 경로 한 단 — <c>settled</c> · <c>shadowed</c> · <c>escalated</c> · <c>abstained</c>.</summary>

@@ -116,11 +116,8 @@ public sealed class DecisionLedger(
                 case ScenarioVocabulary.MatchTier:
                     yield return new AnsweredJudge(
                         new Tier { Id = tier, Kind = JudgeKind.System1, Version = "exact", CostRank = 0 },
-                        subject.Context is { ObservedCode: { } observed, ExpectedPart: { } expected }
-                            ? JudgeVerdict<string>.Answer(
-                                string.Equals(observed.Trim(), expected.Trim(), StringComparison.OrdinalIgnoreCase)
-                                    ? ScenarioVocabulary.Match : ScenarioVocabulary.Mismatch,
-                                1.0)
+                        MatchJudge.Answer(subject.Context) is { } answer
+                            ? JudgeVerdict<string>.Answer(answer, 1.0)
                             : JudgeVerdict<string>.Abstain("no observed code"));
                     break;
                 // ML 비활성이면 그 단은 없다(구성에 적혀 있어도). 활성인데 실패했으면 기권한 단으로 남는다.

@@ -17,6 +17,8 @@ export function toInspectResult(v2: InspectResultV2): InspectResult {
     timestamp: v2.timestamp,
     image_id: v2.decision_id,
     requires_review: v2.requires_review,
+    posture: v2.posture,
+    contested_by: v2.contested_by,
     class_label: v2.class,
   }
 }

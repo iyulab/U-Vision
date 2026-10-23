@@ -121,6 +121,13 @@ public sealed class InspectionPipeline(
         var agreement = decision.SurfaceMl ? dual?.Agreement : null;
         var requiresReview = decision.SurfaceMl ? dual?.RequiresReview : null;
         var posture = decision.Posture == InspectionPosture.ReviewBlock ? "review_block" : null;
+        // must-catch 충돌 — 아래 단이 잡은 값을 위 단이 뒤집었으면 확정하지 않고 사람에게 막아 세운다.
+        var contests = MustCatchGuard.Contests(effective, capture.Context, decidedClass);
+        if (contests.Count > 0)
+        {
+            requiresReview = true;
+            posture = "review_block";
+        }
 
         var stored = new StoredResult
         {
@@ -188,6 +195,8 @@ public sealed class InspectionPipeline(
             Confidence = confidence,
             Findings = useMl ? null : findings,
             RequiresReview = requiresReview,
+            Posture = posture,
+            ContestedBy = contests.Count > 0 ? contests : null,
             Path = PathStepV2.From(route),
             DeviceId = NullIfEmpty(capture.DeviceId),
             DeviceLabel = NullIfEmpty(capture.DeviceLabel),

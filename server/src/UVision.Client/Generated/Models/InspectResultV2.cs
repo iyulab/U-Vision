@@ -33,6 +33,14 @@ namespace UVision.Client.Models
 #endif
         /// <summary>The confidence property</summary>
         public double? Confidence { get; set; }
+        /// <summary>The contested_by property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::UVision.Client.Models.ContestedBy>? ContestedBy { get; set; }
+#nullable restore
+#else
+        public List<global::UVision.Client.Models.ContestedBy> ContestedBy { get; set; }
+#endif
         /// <summary>The decision_id property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -76,6 +84,14 @@ namespace UVision.Client.Models
 #nullable restore
 #else
         public List<global::UVision.Client.Models.PathStepV2> Path { get; set; }
+#endif
+        /// <summary>The posture property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Posture { get; set; }
+#nullable restore
+#else
+        public string Posture { get; set; }
 #endif
         /// <summary>The reason property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -139,12 +155,14 @@ namespace UVision.Client.Models
                 { "captured_at", n => { CapturedAt = n.GetStringValue(); } },
                 { "class", n => { Class = n.GetStringValue(); } },
                 { "confidence", n => { Confidence = n.GetDoubleValue(); } },
+                { "contested_by", n => { ContestedBy = n.GetCollectionOfObjectValues<global::UVision.Client.Models.ContestedBy>(global::UVision.Client.Models.ContestedBy.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "decision_id", n => { DecisionId = n.GetStringValue(); } },
                 { "detection_unavailable", n => { DetectionUnavailable = n.GetBoolValue(); } },
                 { "device_id", n => { DeviceId = n.GetStringValue(); } },
                 { "device_label", n => { DeviceLabel = n.GetStringValue(); } },
                 { "findings", n => { Findings = n.GetStringValue(); } },
                 { "path", n => { Path = n.GetCollectionOfObjectValues<global::UVision.Client.Models.PathStepV2>(global::UVision.Client.Models.PathStepV2.CreateFromDiscriminatorValue)?.AsList(); } },
+                { "posture", n => { Posture = n.GetStringValue(); } },
                 { "reason", n => { Reason = n.GetStringValue(); } },
                 { "requires_review", n => { RequiresReview = n.GetBoolValue(); } },
                 { "scenario_id", n => { ScenarioId = n.GetStringValue(); } },
@@ -162,12 +180,14 @@ namespace UVision.Client.Models
             writer.WriteStringValue("captured_at", CapturedAt);
             writer.WriteStringValue("class", Class);
             writer.WriteDoubleValue("confidence", Confidence);
+            writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.ContestedBy>("contested_by", ContestedBy);
             writer.WriteStringValue("decision_id", DecisionId);
             writer.WriteBoolValue("detection_unavailable", DetectionUnavailable);
             writer.WriteStringValue("device_id", DeviceId);
             writer.WriteStringValue("device_label", DeviceLabel);
             writer.WriteStringValue("findings", Findings);
             writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.PathStepV2>("path", Path);
+            writer.WriteStringValue("posture", Posture);
             writer.WriteStringValue("reason", Reason);
             writer.WriteBoolValue("requires_review", RequiresReview);
             writer.WriteStringValue("scenario_id", ScenarioId);

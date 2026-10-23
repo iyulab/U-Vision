@@ -2,7 +2,10 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using UVision.Api.Models;
+using UVision.Api.Services.Inspection;
 using UVision.Api.Services.Scenarios;
 using UVision.Api.Services.Vlm;
 using UVision.Api.Storage;
@@ -42,9 +45,13 @@ public class VerificationTests
         return form;
     }
 
-    private static async Task<JsonElement> V2Async(UVisionApiFactory factory, string? expected, string? observed)
+    private static async Task<JsonElement> V2Async(
+        UVisionApiFactory factory, string? expected, string? observed, IVlmProvider? vlm = null)
     {
-        var resp = await factory.CreateClient().PostAsync("/api/u-vision/v2/inspect", Form(expected, observed));
+        var client = vlm is null
+            ? factory.CreateClient()
+            : factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton(vlm))).CreateClient();
+        var resp = await client.PostAsync("/api/u-vision/v2/inspect", Form(expected, observed));
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         return await resp.Content.ReadFromJsonAsync<JsonElement>();
     }
@@ -94,6 +101,58 @@ public class VerificationTests
         var body = await V2Async(factory, "P-100", "P-200");
 
         Assert.Equal([("match", "escalated"), ("vlm", "settled")], PathOf(body));
+    }
+
+    [Fact]
+    public async Task DifferentCode_VlmSaysMatch_IsHeldForReview_NotSettled()
+    {
+        using var factory = new UVisionApiFactory();
+        await SeedAsync(factory);
+        var body = await V2Async(factory, "A123", "B999", new FixedVlm(Verdict.OK));
+
+        Assert.Equal("MATCH", body.GetProperty("class").GetString());
+        Assert.True(body.GetProperty("requires_review").GetBoolean());
+        Assert.Equal("review_block", body.GetProperty("posture").GetString());
+        var contest = Assert.Single(body.GetProperty("contested_by").EnumerateArray());
+        Assert.Equal("match", contest.GetProperty("tier").GetString());
+        Assert.Equal("MISMATCH", contest.GetProperty("class").GetString());
+
+        // 레코드도 검토 대기로 남는다 — 결과 조회의 검토 큐가 이 건을 집는다.
+        var record = Assert.Single((await factory.CreateClient()
+            .GetFromJsonAsync<JsonElement>($"/api/u-vision/results?scenario_id={Id}")).EnumerateArray());
+        Assert.True(record.GetProperty("requires_review").GetBoolean());
+        Assert.Equal("review_block", record.GetProperty("posture").GetString());
+    }
+
+    [Theory]
+    [InlineData("P-100", "P-200", false)] // 아래가 잡은 불일치를 위가 확인 — 충돌 아님
+    [InlineData("P-100", "P-100", false)] // 아래 일치(settleable)를 위가 불일치로 — must-catch 를 뒤집은 것이 아님
+    [InlineData("P-100", null, false)]    // 아래가 기권
+    public async Task WithoutOverruledMustCatch_NothingIsHeld(string expected, string? observed, bool vlmOk)
+    {
+        using var factory = new UVisionApiFactory();
+        await SeedAsync(factory);
+        var body = await V2Async(factory, expected, observed, new FixedVlm(vlmOk ? Verdict.OK : Verdict.NG));
+
+        Assert.False(body.TryGetProperty("requires_review", out _));
+        Assert.False(body.TryGetProperty("posture", out _));
+        Assert.False(body.TryGetProperty("contested_by", out _));
+    }
+
+    [Fact]
+    public void Guard_CountsOnlyMustCatchAnswersThatDifferFromTheDecision()
+    {
+        var e = EffectiveScenario.Resolve(new Scenario { ScenarioId = Id, Name = Id, Type = "verification" }, mlEnabled: false);
+        var differ = new InspectionContext { ExpectedPart = "A", ObservedCode = "B" };
+
+        Assert.Single(MustCatchGuard.Contests(e, differ, "MATCH"));
+        Assert.Empty(MustCatchGuard.Contests(e, differ, "MISMATCH"));
+        Assert.Empty(MustCatchGuard.Contests(e, differ with { ObservedCode = " a" }, "MISMATCH"));
+        Assert.Empty(MustCatchGuard.Contests(e, differ with { ObservedCode = null }, "MATCH"));
+
+        // 대조 단이 없는 검사 시나리오는 셀 아래 단이 없다.
+        var inspection = EffectiveScenario.Resolve(new Scenario { ScenarioId = Id, Name = Id }, mlEnabled: false);
+        Assert.Empty(MustCatchGuard.Contests(inspection, differ, "OK"));
     }
 
     [Fact]
@@ -170,5 +229,14 @@ public class VerificationTests
         var prompt = VlmPrompt.BuildSystemPrompt(plain with { ExpectedPart = "P-100" });
         Assert.StartsWith(VlmPrompt.BuildSystemPrompt(plain), prompt);
         Assert.Contains("기대 품번: P-100", prompt);
+    }
+
+    private sealed class FixedVlm(Verdict verdict) : IVlmProvider
+    {
+        public string Name => "fixed";
+
+        public Task<InspectionResult> InspectAsync(
+            ReadOnlyMemory<byte> image, ScenarioContext scenario, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new InspectionResult { Verdict = verdict, Findings = "", Confidence = 0.9 });
     }
 }

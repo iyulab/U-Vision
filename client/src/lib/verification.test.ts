@@ -33,6 +33,20 @@ describe('verification', () => {
     expect(toInspectResult({ ...base, class: 'OK' })).toMatchObject({ verdict: 'OK' })
   })
 
+  it('대조 단이 잡은 불일치를 위 단이 뒤집으면 차단 자세 · 충돌을 그대로 싣는다', () => {
+    const held = toInspectResult({
+      decision_id: 'img_1',
+      scenario_id: 'part',
+      timestamp: 'TS',
+      class: 'MATCH',
+      requires_review: true,
+      posture: 'review_block',
+      contested_by: [{ tier: 'match', class: 'MISMATCH' }],
+    })
+    expect(held).toMatchObject({ verdict: 'OK', requires_review: true, posture: 'review_block' })
+    expect(held.contested_by).toEqual([{ tier: 'match', class: 'MISMATCH' }])
+  })
+
   it('배지 문구 — 오투입은 일치/불일치, 검사는 OK/NG', () => {
     expect(verdictLabel({ verdict: 'OK', class_label: 'MATCH' })).toBe('✅ 일치')
     expect(verdictLabel({ verdict: 'NG', class_label: 'MISMATCH' })).toBe('❌ 불일치')

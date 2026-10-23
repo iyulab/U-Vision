@@ -24,12 +24,20 @@ export interface InspectResult {
   requires_review?: boolean
   /** 운영 자세(A1) — 차단형 확인 게이트일 때만 'review_block'. 그 외 부재. */
   posture?: 'review_block'
+  /** 확정에 맞선 아래 단의 must-catch 답(결과 v2 로 판정했을 때만) — 있으면 검토 대기. */
+  contested_by?: ContestedBy[]
   /** 시나리오 클래스(결과 v2 로 판정했을 때 — 오투입 확인의 'MATCH'·'MISMATCH'). 클라 표시용, 서버 v1 응답에는 없다. */
   class_label?: string
   /** 큐에 쌓였다가 늦게 판정된 캡처(클라 표시용) — 그 사이 다른 캡처가 화면에 있었다. */
   late?: boolean
   /** 늦게 판정된 캡처의 실제 캡처 시각(클라 표시용 — `timestamp` 는 서버가 받은 시각). */
   captured_at?: string
+}
+
+/** 서버 `ContestedBy` 미러 — 확정에 맞선 아래 단(`tier`)과 그 단이 낸 must-catch 클래스. */
+export interface ContestedBy {
+  tier: string
+  class: string
 }
 
 /** 서버 `InspectResultV2`(`POST /v2/inspect`) 미러 — 판정 불가(503)는 DetectionUnavailableError 로 온다. */
@@ -42,6 +50,10 @@ export interface InspectResultV2 {
   confidence?: number
   findings?: string
   requires_review?: boolean
+  /** 확인 전까지 다음 캡처를 막아야 할 때만 'review_block'. */
+  posture?: 'review_block'
+  /** 확정된 클래스와 다른 must-catch 답을 낸 아래 단(예: 읽은 코드가 기대 품번과 다름). */
+  contested_by?: ContestedBy[]
   path?: { tier: string; outcome: 'settled' | 'shadowed' | 'escalated' | 'abstained' }[]
   detection_unavailable?: boolean
   reason?: string
