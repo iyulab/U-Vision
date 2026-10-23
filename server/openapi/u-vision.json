@@ -2870,6 +2870,10 @@
           "scenario_id",
           "date",
           "inspections",
+          "ml_checked",
+          "match_mismatches",
+          "match_abstained",
+          "contested",
           "ml_degraded",
           "fail_closed",
           "agreements",
@@ -2895,6 +2899,38 @@
             "type": "string"
           },
           "inspections": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "ml_checked": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "match_mismatches": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "match_abstained": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "contested": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",

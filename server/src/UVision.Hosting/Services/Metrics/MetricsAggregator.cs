@@ -13,6 +13,9 @@ public static class MetricsAggregator
 {
     private const string NgLabel = "NG";
 
+    /// <summary>메트릭 행 <c>match</c> 의 기권 값.</summary>
+    public const string MatchAbstained = "abstained";
+
     /// <param name="rows">해당 시나리오·날짜의 메트릭 row(예측 신호).</param>
     /// <param name="labels">같은 날짜 버킷의 사람 라벨(정답) — image_id 로 조인.</param>
     /// <param name="options">권한 이양 레버(A1) — 격상 자격 임계.</param>
@@ -62,6 +65,8 @@ public static class MetricsAggregator
 
         int failClosed = 0;
         int inspections = 0;  // 비-fail-closed (rows.Count 대신)
+        int mlChecked = 0;    // 그 가운데 ML 을 물은 건 — ML 비율의 분모
+        int matchMismatches = 0, matchAbstained = 0, contested = 0;
         int degraded = 0, agreements = 0, reviews = 0, oraclePending = 0;
         int labeled = 0, labeledNg = 0, vlmNgHits = 0, mlNgScored = 0, mlNgHits = 0;
 
@@ -73,11 +78,22 @@ public static class MetricsAggregator
                 continue;  // verdict 없는 행 — 기존 집계 제외
             }
             inspections++;
+            if (r.Match == ScenarioVocabulary.Mismatch) matchMismatches++;
+            else if (r.Match == MatchAbstained) matchAbstained++;
+            if (r.Contested) contested++;
 
-            if (r.MlDegraded)
+            if (r.VlmOnly)
+            {
+                // ML 을 묻지 않은 판정 — ML 비율에는 들지 않고, VLM recall 만 센다.
+            }
+            else if (r.MlDegraded)
+            {
+                mlChecked++;
                 degraded++;
+            }
             else
             {
+                mlChecked++;
                 if (r.Agreement == true) agreements++;
                 if (r.RequiresReview == true)
                 {
@@ -107,17 +123,17 @@ public static class MetricsAggregator
             }
         }
 
-        int nonDegraded = inspections - degraded;
+        int nonDegraded = mlChecked - degraded;
         var vlmRecall = Rate(vlmNgHits, labeledNg);
         var mlRecall = Rate(mlNgHits, mlNgScored);
         var agreementRate = Rate(agreements, nonDegraded);
 
         // 격상 자격 신호(A1): 표본 충분 + 조건 전부 충족 → true; 표본 충분·계산 가능·조건 미달 → false; 데이터 불충분 → null.
-        bool? eligible = (inspections >= options.MinWindow
+        bool? eligible = (mlChecked >= options.MinWindow
             && vlmRecall is { } vr && mlRecall is { } mr && agreementRate is { } ar
             && mr >= vr && mr >= options.RecallFloor && ar >= options.AgreementFloor)
             ? true
-            : (inspections >= options.MinWindow && vlmRecall is not null && mlRecall is not null && agreementRate is not null
+            : (mlChecked >= options.MinWindow && vlmRecall is not null && mlRecall is not null && agreementRate is not null
                 ? false      // 표본 충분·계산 가능하나 조건 미달 → 명시 false
                 : null);     // 데이터 불충분 → null(위장 금지)
 
@@ -126,6 +142,10 @@ public static class MetricsAggregator
             ScenarioId = scenarioId,
             Date = date,
             Inspections = inspections,
+            MlChecked = mlChecked,
+            MatchMismatches = matchMismatches,
+            MatchAbstained = matchAbstained,
+            Contested = contested,
             MlDegraded = degraded,
             Agreements = agreements,
             ReviewsRequired = reviews,
@@ -144,7 +164,7 @@ public static class MetricsAggregator
             FailClosedRate = Rate(failClosed, inspections + failClosed),
             AgreementRate = agreementRate,
             ReviewRate = Rate(reviews, nonDegraded),
-            DegradeRate = Rate(degraded, inspections),
+            DegradeRate = Rate(degraded, mlChecked),
             VlmNgRecall = vlmRecall,
             MlNgRecall = mlRecall,
             LabelConsistencyRate = Rate(labelConsistent, audited),

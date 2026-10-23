@@ -66,7 +66,8 @@ public partial class InspectGoldenTests
 
         Assert.Equal(ExpectedVlmOnlyBody, body);
         Assert.Equal(ExpectedVlmOnlyStored, stored);
-        Assert.Null(metrics); // ML 비활성 → 메트릭 부수효과 없음
+        // ML 비활성(① 단계)도 메트릭 행을 남긴다 — ML 필드 없이 vlm_only. 응답 · 레코드는 그대로다.
+        Assert.Equal(ExpectedVlmOnlyMetrics, metrics);
     }
 
     [Fact]
@@ -139,6 +140,9 @@ public partial class InspectGoldenTests
           "requires_review": false
         }
         """.ReplaceLineEndings("\n");
+    private static readonly string ExpectedVlmOnlyMetrics = """
+        {"image_id":"img_ID","timestamp":"TS","verdict":"NG","vlm_confidence":0.79,"ml_label":null,"ml_confidence":null,"agreement":null,"requires_review":null,"ml_degraded":false,"vlm_only":true}
+        """.ReplaceLineEndings("\n") + "\n";
     private static readonly string ExpectedMlMetrics = """
         {"image_id":"img_ID","timestamp":"TS","verdict":"NG","vlm_confidence":0.79,"ml_label":"ng","ml_confidence":0.6922,"agreement":true,"requires_review":false,"ml_degraded":false}
         """.ReplaceLineEndings("\n") + "\n";

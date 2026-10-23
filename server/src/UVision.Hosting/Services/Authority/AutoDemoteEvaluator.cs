@@ -16,7 +16,7 @@ public static class AutoDemoteEvaluator
         // ML 이 운영 판정에 영향을 주는 단계만 대상(advisory/shadow 는 이미 VLM 기준선).
         if (stage != AuthorityStage.CoPrimary && stage != AuthorityStage.MlPrimary)
             return null;
-        if (summary.Inspections < options.MinWindow)
+        if (summary.MlChecked < options.MinWindow) // ML 을 물은 건만 — ① 단계 행(vlm_only)은 ML 신뢰의 표본이 아니다
             return null;
         if (summary.MlNgRecall is not { } ml || summary.VlmNgRecall is not { } vlm)
             return null; // 측정 불가 → 함부로 내리지 않음(정직)

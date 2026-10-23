@@ -122,6 +122,33 @@ public class VerificationTests
             .GetFromJsonAsync<JsonElement>($"/api/u-vision/results?scenario_id={Id}")).EnumerateArray());
         Assert.True(record.GetProperty("requires_review").GetBoolean());
         Assert.Equal("review_block", record.GetProperty("posture").GetString());
+
+        // ① 단계 관측 — ML 없는 오투입 확인도 메트릭 행을 남기고, 대조 단의 답과 충돌을 적는다.
+        var metricsFile = Path.Combine(factory.DataPath, Id, "metrics", $"{DateTime.UtcNow:yyyy-MM-dd}.jsonl");
+        var row = JsonSerializer.Deserialize<JsonElement>(Assert.Single(await File.ReadAllLinesAsync(metricsFile)));
+        Assert.True(row.GetProperty("vlm_only").GetBoolean());
+        Assert.Equal("MISMATCH", row.GetProperty("match").GetString());
+        Assert.True(row.GetProperty("contested").GetBoolean());
+
+        var summary = await factory.CreateClient().GetFromJsonAsync<JsonElement>(
+            $"/api/u-vision/metrics?scenario_id={Id}&date={DateTime.UtcNow:yyyy-MM-dd}");
+        Assert.Equal(1, summary.GetProperty("inspections").GetInt32());
+        Assert.Equal(1, summary.GetProperty("match_mismatches").GetInt32());
+        Assert.Equal(1, summary.GetProperty("contested").GetInt32());
+        Assert.Equal(0, summary.GetProperty("ml_checked").GetInt32());
+    }
+
+    [Fact]
+    public async Task NoCode_IsCountedAsAbstainedMatch()
+    {
+        using var factory = new UVisionApiFactory();
+        await SeedAsync(factory);
+        await V2Async(factory, "P-100", observed: null);
+
+        var summary = await factory.CreateClient().GetFromJsonAsync<JsonElement>(
+            $"/api/u-vision/metrics?scenario_id={Id}&date={DateTime.UtcNow:yyyy-MM-dd}");
+        Assert.Equal(1, summary.GetProperty("match_abstained").GetInt32());
+        Assert.Equal(0, summary.GetProperty("match_mismatches").GetInt32());
     }
 
     [Theory]

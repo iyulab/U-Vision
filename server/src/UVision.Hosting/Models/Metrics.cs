@@ -55,6 +55,24 @@ public sealed record MetricsRow
     [JsonPropertyName("posture")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Posture { get; init; }
+
+    /// <summary>
+    /// 전용 ML 을 묻지 않은 판정(ML 비활성 · 시나리오 단에 ML 없음) — 플라이휠 ① 단계의 행. ML 비율의 분모에 들지 않는다.
+    /// 이 필드가 없는 행은 ML 을 물은 행이다(ML 활성일 때만 행을 남기던 시절의 행 포함).
+    /// </summary>
+    [JsonPropertyName("vlm_only")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool VlmOnly { get; init; }
+
+    /// <summary>대조 단(오투입 확인)의 답 — <c>MATCH</c> · <c>MISMATCH</c> · <c>abstained</c>(읽은 코드 없음). 대조 단이 없으면 생략.</summary>
+    [JsonPropertyName("match")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Match { get; init; }
+
+    /// <summary>위 단이 아래 단의 must-catch 답과 다른 클래스로 확정해 검토 대기로 남은 판정.</summary>
+    [JsonPropertyName("contested")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Contested { get; init; }
 }
 
 /// <summary>
@@ -74,8 +92,20 @@ public sealed record MetricsSummary
 
     [JsonPropertyName("date")] public required string Date { get; init; }
 
-    /// <summary>ML 활성 inspect 건(비-fail-closed — fail-closed 행 제외). 기존 비율의 분모.</summary>
+    /// <summary>판정 건(비-fail-closed — fail-closed 행 제외). ML 여부와 무관하다.</summary>
     [JsonPropertyName("inspections")] public required int Inspections { get; init; }
+
+    /// <summary>그 가운데 전용 ML 을 물은 건 — ML 비율(일치 · 검토 · degrade)과 격상 자격의 분모.</summary>
+    [JsonPropertyName("ml_checked")] public required int MlChecked { get; init; }
+
+    /// <summary>대조 단이 불일치(<c>MISMATCH</c>)로 답한 건 — 오투입 확인.</summary>
+    [JsonPropertyName("match_mismatches")] public required int MatchMismatches { get; init; }
+
+    /// <summary>대조 단이 기권한 건(읽은 코드 없음) — 오투입 확인에서 코드 읽기가 얼마나 빠지는지.</summary>
+    [JsonPropertyName("match_abstained")] public required int MatchAbstained { get; init; }
+
+    /// <summary>위 단이 아래 단의 must-catch 답을 뒤집어 검토 대기로 남은 건.</summary>
+    [JsonPropertyName("contested")] public required int Contested { get; init; }
 
     /// <summary>ML 분류 실패(degrade)로 2중체크 못 한 건.</summary>
     [JsonPropertyName("ml_degraded")] public required int MlDegraded { get; init; }

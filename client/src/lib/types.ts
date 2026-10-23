@@ -219,7 +219,14 @@ export interface TrainingReadiness {
 export interface MetricsSummary {
   scenario_id: string
   date: string
+  /** 판정 건 — ML 여부와 무관. */
   inspections: number
+  /** 그 가운데 전용 ML 을 물은 건 — ML 비율 · 격상 자격의 분모. */
+  ml_checked: number
+  /** 오투입 확인: 대조 단이 불일치로 답한 건 · 읽은 코드가 없어 기권한 건 · 위 단이 뒤집어 검토로 남은 건. */
+  match_mismatches: number
+  match_abstained: number
+  contested: number
   ml_degraded: number
   agreements: number
   reviews_required: number

@@ -71,8 +71,8 @@ public sealed class InspectionPipeline(
                 scenario.ScenarioId, decision.Reason);
 
             var failedAt = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
-            if (mlActive)
-                await WriteFailClosedMetricSafelyAsync(scenario.ScenarioId, ml, failedAt, cancellationToken);
+            await WriteFailClosedMetricSafelyAsync(
+                scenario.ScenarioId, ml, failedAt, vlmOnly: !mlActive, MatchOf(effective, capture.Context), cancellationToken);
             var failedSubject = new LedgerSubject($"dec_{Guid.NewGuid():N}", effective, failedAt, result, evidence.Ml, capture.Context);
             var failedRoute = await ledger.DecideAsync(failedSubject, cancellationToken);
             await ledger.RecordAsync(
@@ -172,13 +172,13 @@ public sealed class InspectionPipeline(
                 effective.IsMultiClass ? decidedClass : null),
             cancellationToken);
 
-        // B3 관측성: ML 활성(②~③ 결선)일 때만 예측 신호를 메트릭 시계열로 흘린다.
-        // 비활성(none=①단계)이면 메트릭도 없음 → inspect 부수효과가 ② 이전과 동일.
+        // B3 관측성: 판정마다 메트릭 행 하나 — ML 이 없는 ① 단계도 쌓여야 ①→② 전환 근거가 ① 에서 모인다. ML 을 묻지
+        // 않은 행은 vlm_only 로 표시해 ML 비율에서 빠진다. 응답 · 레코드는 이 기록과 무관하다(wire 불변).
         // 영속화(must-succeed) 후 기록 — 메트릭은 관측이지 system-of-record 아니므로 실패는 degrade.
-        if (mlActive)
-            await WriteMetricsSafelyAsync(
-                scenario.ScenarioId, imageId, timestamp, verdict, confidence, evidence.Ml, dual,
-                posture, cancellationToken);
+        await WriteMetricsSafelyAsync(
+            scenario.ScenarioId, imageId, timestamp, verdict, confidence, evidence.Ml, dual,
+            posture, vlmOnly: !mlActive, MatchOf(effective, capture.Context), contested: contests.Count > 0,
+            cancellationToken);
 
         if (mlActive
             && (stage == AuthorityStage.CoPrimary || stage == AuthorityStage.MlPrimary))
@@ -393,10 +393,11 @@ public sealed class InspectionPipeline(
 
     /// <summary>
     /// fail-closed 메트릭 행을 기록하되 실패를 삼킨다(관측 — degrade-safe). verdict 없는 행이라
-    /// <c>posture="fail_closed"</c>·verdict/vlm_confidence=null. ML 활성 경로에서만 호출.
+    /// <c>posture="fail_closed"</c>·verdict/vlm_confidence=null. ML 을 묻지 않았으면 vlm_only.
     /// </summary>
     private async Task WriteFailClosedMetricSafelyAsync(
-        string scenarioId, MlClassification? ml, string timestamp, CancellationToken cancellationToken)
+        string scenarioId, MlClassification? ml, string timestamp, bool vlmOnly, string? match,
+        CancellationToken cancellationToken)
     {
         var row = new MetricsRow
         {
@@ -408,6 +409,8 @@ public sealed class InspectionPipeline(
             MlConfidence = ml?.Confidence,
             Posture = MetricsRow.PostureFailClosed,
             MlDegraded = false,
+            VlmOnly = vlmOnly,
+            Match = match,
         };
         try
         {
@@ -426,7 +429,7 @@ public sealed class InspectionPipeline(
     /// <para>
     /// row 는 <paramref name="outcome"/> 에서 구성한다: 분류 성공(<c>outcome.Result</c>)이면 dual 의
     /// ml/agreement/review 를 채우고, degrade(<c>outcome.Failed</c>)면 ml_* 를 null·<c>ml_degraded=true</c>.
-    /// 이 메서드는 ML enabled 경로에서만 호출된다(비활성은 outcome 이 null → 호출 안 함).
+    /// ML 을 묻지 않은 판정(<paramref name="vlmOnly"/>)은 outcome · dual 이 null 이라 ml_* 가 비고 vlm_only 로 남는다.
     /// </para>
     /// <para>
     /// Shadow 단계(<c>SurfaceMl=false</c>)에서는 응답에서 <c>dual?.MlLabel</c>·<c>Agreement</c>·
@@ -436,7 +439,7 @@ public sealed class InspectionPipeline(
     private async Task WriteMetricsSafelyAsync(
         string scenarioId, string imageId, string timestamp,
         Verdict verdict, double confidence, MlOutcome? outcome, DualCheckResult? dual,
-        string? posture, CancellationToken cancellationToken)
+        string? posture, bool vlmOnly, string? match, bool contested, CancellationToken cancellationToken)
     {
         var degraded = outcome?.Failed ?? false;
         var row = new MetricsRow
@@ -451,6 +454,9 @@ public sealed class InspectionPipeline(
             RequiresReview = dual?.RequiresReview,
             MlDegraded = degraded,
             Posture = posture, // review_block 관측(B3) — null 이면 생략, 집계는 비-fail_closed 로 카운트
+            VlmOnly = vlmOnly,
+            Match = match,
+            Contested = contested,
         };
         try { await metricsStore.AppendAsync(scenarioId, row, cancellationToken); }
         catch (Exception ex)
@@ -459,6 +465,12 @@ public sealed class InspectionPipeline(
                 "메트릭 기록 실패 — 관측만 누락 (scenario={ScenarioId}, image={ImageId})", scenarioId, imageId);
         }
     }
+
+    /// <summary>대조 단의 답(메트릭용) — 시나리오에 대조 단이 없으면 null, 읽은 코드가 없으면 기권.</summary>
+    private static string? MatchOf(EffectiveScenario effective, InspectionContext? context) =>
+        effective.Tiers.Contains(ScenarioVocabulary.MatchTier)
+            ? MatchJudge.Answer(context) ?? Services.Metrics.MetricsAggregator.MatchAbstained
+            : null;
 
     /// <summary>
     /// A1 자동격하: ML 영향 단계(co-primary/ml-primary)에서 N건마다 재집계 → 열화 시 안전쪽 1단계 하향.

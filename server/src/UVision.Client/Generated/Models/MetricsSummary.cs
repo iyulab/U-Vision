@@ -20,6 +20,8 @@ namespace UVision.Client.Models
         public int? Agreements { get; set; }
         /// <summary>The audited property</summary>
         public int? Audited { get; set; }
+        /// <summary>The contested property</summary>
+        public int? Contested { get; set; }
         /// <summary>The date property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -46,6 +48,12 @@ namespace UVision.Client.Models
         public int? Labeled { get; set; }
         /// <summary>The labeled_ng property</summary>
         public int? LabeledNg { get; set; }
+        /// <summary>The match_abstained property</summary>
+        public int? MatchAbstained { get; set; }
+        /// <summary>The match_mismatches property</summary>
+        public int? MatchMismatches { get; set; }
+        /// <summary>The ml_checked property</summary>
+        public int? MlChecked { get; set; }
         /// <summary>The ml_degraded property</summary>
         public int? MlDegraded { get; set; }
         /// <summary>The ml_ng_hits property</summary>
@@ -110,6 +118,7 @@ namespace UVision.Client.Models
                 { "agreement_rate", n => { AgreementRate = n.GetDoubleValue(); } },
                 { "agreements", n => { Agreements = n.GetIntValue(); } },
                 { "audited", n => { Audited = n.GetIntValue(); } },
+                { "contested", n => { Contested = n.GetIntValue(); } },
                 { "date", n => { Date = n.GetStringValue(); } },
                 { "degrade_rate", n => { DegradeRate = n.GetDoubleValue(); } },
                 { "fail_closed", n => { FailClosed = n.GetIntValue(); } },
@@ -120,6 +129,9 @@ namespace UVision.Client.Models
                 { "label_consistent", n => { LabelConsistent = n.GetIntValue(); } },
                 { "labeled", n => { Labeled = n.GetIntValue(); } },
                 { "labeled_ng", n => { LabeledNg = n.GetIntValue(); } },
+                { "match_abstained", n => { MatchAbstained = n.GetIntValue(); } },
+                { "match_mismatches", n => { MatchMismatches = n.GetIntValue(); } },
+                { "ml_checked", n => { MlChecked = n.GetIntValue(); } },
                 { "ml_degraded", n => { MlDegraded = n.GetIntValue(); } },
                 { "ml_ng_hits", n => { MlNgHits = n.GetIntValue(); } },
                 { "ml_ng_recall", n => { MlNgRecall = n.GetDoubleValue(); } },
@@ -147,6 +159,7 @@ namespace UVision.Client.Models
             writer.WriteDoubleValue("agreement_rate", AgreementRate);
             writer.WriteIntValue("agreements", Agreements);
             writer.WriteIntValue("audited", Audited);
+            writer.WriteIntValue("contested", Contested);
             writer.WriteStringValue("date", Date);
             writer.WriteDoubleValue("degrade_rate", DegradeRate);
             writer.WriteIntValue("fail_closed", FailClosed);
@@ -157,6 +170,9 @@ namespace UVision.Client.Models
             writer.WriteIntValue("label_consistent", LabelConsistent);
             writer.WriteIntValue("labeled", Labeled);
             writer.WriteIntValue("labeled_ng", LabeledNg);
+            writer.WriteIntValue("match_abstained", MatchAbstained);
+            writer.WriteIntValue("match_mismatches", MatchMismatches);
+            writer.WriteIntValue("ml_checked", MlChecked);
             writer.WriteIntValue("ml_degraded", MlDegraded);
             writer.WriteIntValue("ml_ng_hits", MlNgHits);
             writer.WriteDoubleValue("ml_ng_recall", MlNgRecall);

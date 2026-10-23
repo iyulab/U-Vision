@@ -114,13 +114,14 @@ function ReadinessLine({ line }: { line: ReturnType<typeof readinessLine> }) {
 }
 
 function Cards({ summary }: { summary: MetricsSummary }) {
-  const nonDegraded = summary.inspections - summary.ml_degraded
+  const nonDegraded = summary.ml_checked - summary.ml_degraded
+  const matchSeen = summary.match_mismatches + summary.match_abstained + summary.contested > 0
   const lead = recallLead(summary.vlm_ng_recall, summary.ml_ng_recall)
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Stat label="검사" value={String(summary.inspections)} sub="ML 2중체크 건" />
+        <Stat label="검사" value={String(summary.inspections)} sub={`ML 2중체크 ${summary.ml_checked}건`} />
         <Stat
           label="일치율"
           value={formatPercent(summary.agreement_rate)}
@@ -135,7 +136,7 @@ function Cards({ summary }: { summary: MetricsSummary }) {
         <Stat
           label="ML degrade"
           value={formatPercent(summary.degrade_rate)}
-          sub={`${fraction(summary.ml_degraded, summary.inspections)} 분류 실패`}
+          sub={`${fraction(summary.ml_degraded, summary.ml_checked)} 분류 실패`}
           warn={summary.ml_degraded > 0}
         />
         <Stat
@@ -144,6 +145,14 @@ function Cards({ summary }: { summary: MetricsSummary }) {
           sub={`${fraction(summary.fail_closed, summary.inspections + summary.fail_closed)} fail-closed`}
           warn={summary.fail_closed > 0}
         />
+        {matchSeen && (
+          <Stat
+            label="코드 대조"
+            value={`불일치 ${summary.match_mismatches}`}
+            sub={`코드 못 읽음 ${summary.match_abstained} · 판정과 맞섬 ${summary.contested}`}
+            warn={summary.contested > 0}
+          />
+        )}
         <Stat
           label="라벨 일관성"
           value={formatPercent(summary.label_consistency_rate)}
@@ -177,12 +186,12 @@ function Cards({ summary }: { summary: MetricsSummary }) {
         </div>
         {summary.promotion_eligible === true && (
           <div className="mt-3 rounded-lg bg-emerald-500/15 px-4 py-2 text-sm font-semibold text-emerald-300">
-            ✅ 격상 가능 신호 — ML NG recall ≥ VLM·≥0.95·일치율 ≥0.9 충족(표본 {summary.inspections}). 확정은 관리자.
+            ✅ 격상 가능 신호 — ML NG recall ≥ VLM·≥0.95·일치율 ≥0.9 충족(표본 {summary.ml_checked}). 확정은 관리자.
           </div>
         )}
         {summary.promotion_eligible === false && (
           <p className="mt-3 text-xs text-slate-500">
-            격상 조건 미충족(표본 {summary.inspections}) — ML이 VLM 수준의 NG recall·일치율에 아직 못 미칩니다.
+            격상 조건 미충족(표본 {summary.ml_checked}) — ML이 VLM 수준의 NG recall·일치율에 아직 못 미칩니다.
           </p>
         )}
       </div>

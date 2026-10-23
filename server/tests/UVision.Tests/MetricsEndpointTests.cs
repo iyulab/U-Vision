@@ -76,17 +76,23 @@ public class MetricsEndpointTests
     }
 
     [Fact]
-    public async Task MlDisabled_Inspect_WritesNoMetrics_SideEffectFreeze()
+    public async Task MlDisabled_Inspect_CountsInspections_WithoutMlRatios()
     {
-        // 기본 팩토리 = ML none(①단계) → 메트릭 파일조차 생기지 않아야 한다(② 이전 부수효과 동결).
+        // 기본 팩토리 = ML none(① 단계) → 판정은 세되, ML 을 묻지 않았으니 ML 비율 · 격상 자격은 없다.
         await using var factory = new UVisionApiFactory();
         var client = factory.CreateClient();
 
-        var resp = await client.PostAsync("/api/u-vision/inspect", Form("demo"));
-        resp.EnsureSuccessStatusCode();
+        (await client.PostAsync("/api/u-vision/inspect", Form("demo"))).EnsureSuccessStatusCode();
+        (await client.PostAsync("/api/u-vision/inspect", Form("demo"))).EnsureSuccessStatusCode();
 
-        Assert.Empty(await ReadMetrics(factory));
-        Assert.False(Directory.Exists(Path.Combine(factory.DataPath, "demo", "metrics")));
+        var row = Assert.Single((await ReadMetrics(factory)).Take(1));
+        Assert.True(row.VlmOnly);
+        var summary = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/u-vision/metrics?scenario_id=demo&date={DateTime.UtcNow:yyyy-MM-dd}");
+        Assert.Equal(2, summary.GetProperty("inspections").GetInt32());
+        Assert.Equal(0, summary.GetProperty("ml_checked").GetInt32());
+        Assert.False(summary.TryGetProperty("agreement_rate", out var ar) && ar.ValueKind != JsonValueKind.Null);
+        Assert.False(summary.TryGetProperty("degrade_rate", out var dr) && dr.ValueKind != JsonValueKind.Null);
     }
 
     [Fact]
