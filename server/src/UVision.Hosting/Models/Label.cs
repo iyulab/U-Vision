@@ -75,7 +75,7 @@ public sealed record LabelEvent
 {
     [JsonPropertyName("label")] public required string Label { get; init; }
 
-    /// <summary>라벨러 식별 = device UUID(cycle-35 재사용, D4). 구 이벤트/불가 시 "".</summary>
+    /// <summary>라벨러 식별 = 장치 UUID(촬영 기록과 같은 값). 구 이벤트/불가 시 "".</summary>
     [JsonPropertyName("by")] public required string By { get; init; }
 
     /// <summary>이벤트 시각. ISO-8601 UTC.</summary>

@@ -5,8 +5,8 @@ namespace UVision.Api.Imaging;
 /// <summary>
 /// 이미지를 longest-side <c>maxDim</c> px 로 축소하고 JPEG(q85) 재인코딩한다.
 ///
-/// VLM vision 토큰 ≈ 픽셀수이므로 해상도 축소가 prefill latency 를 줄이는 레버다(M0.1 cycle-24~26 측정:
-/// 256px 가 크로메이트/qwen3 에서 full-res recall 근접 + latency 1/5). sweet spot 은 모델/구성 의존이라
+/// VLM vision 토큰 ≈ 픽셀수이므로 해상도 축소가 prefill latency 를 줄이는 레버다(벤치마크 하네스 측정:
+/// 한 표면 결함 데이터셋 · qwen3 계열에서 256px 가 원본 해상도 recall 에 근접하면서 지연 1/5). sweet spot 은 모델/구성 의존이라
 /// 하드코딩 불가 — 시나리오 <c>max_image_dimension</c> 으로 query+refs 에 대칭 적용한다.
 ///
 /// 벤치마크(UVision.Benchmark)와 production(InspectEndpoints)이 이 단일 구현을 공유한다 —

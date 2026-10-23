@@ -6,7 +6,7 @@ namespace UVision.Api.Services.Ml;
 /// Mock ML 분류기 — 키/모델 없이 plumbing 을 구동하는 결정론적 구현(테스트·데모).
 ///
 /// ⚠️ 정직성: 이미지 내용을 보지 않는다. 바이트 해시로 ok/ng 를 결정론적으로 가른다.
-/// 실제 분류 검증은 MloopClassifier(C41) + 학습 모델 + 실데이터 스파이크(FW-3)에서만 가능하다.
+/// 실제 분류 검증은 MloopClassifier + 학습 모델 + 실데이터로만 가능하다.
 ///
 /// <para>
 /// 분기 바이트는 <see cref="MockVlmProvider"/>(digest[0]) 와 <b>독립</b>(digest[2])이다 — 동일

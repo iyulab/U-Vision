@@ -11,7 +11,7 @@ using Xunit;
 namespace UVision.Tests;
 
 /// <summary>
-/// FW-1 — 사람 라벨 사이드카 → MLoop 이미지분류 입력 레이아웃 export.
+/// 사람 라벨 사이드카 → MLoop 이미지분류 입력 레이아웃 export.
 /// 신뢰성 플라이휠 ②(전용 ML 빌드)의 데이터 준비 단계 검증.
 /// </summary>
 public class DatasetExportTests

@@ -8,7 +8,7 @@ namespace UVision.Api.Storage;
 /// <c>{scenario}/metrics/{yyyy-MM-dd}.jsonl</c> append-only 메트릭 저장소(B3).
 /// 날짜는 row timestamp(UTC)에서 도출 — 검사 결과(<see cref="FileInspectionStore"/>)와 같은 날짜 버킷.
 /// <para>
-/// 동시 inspect(OP-B 무손실 연속 캐던스)가 같은 날짜 파일에 append 할 수 있으므로 프로세스 내
+/// 동시 inspect(연속 촬영)가 같은 날짜 파일에 append 할 수 있으므로 프로세스 내
 /// 쓰기를 <see cref="SemaphoreSlim"/> 로 직렬화한다 — 단일 호스트 전제(헌법 ⑤)라 cross-process 락은
 /// 불필요. 한 줄 = 한 row(jsonl), 줄 단위 atomic 성을 락이 보장한다.
 /// </para>

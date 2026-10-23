@@ -22,7 +22,7 @@ export function hasNoMetricData(summary: MetricsSummary): boolean {
 }
 
 /**
- * VLM·ML NG recall 비교 결과 — 대시보드가 우열을 강조(FW-3 "ML>VLM" 이 운영서 유지되는지).
+ * VLM·ML NG recall 비교 결과 — 대시보드가 우열을 강조(전용 ML 이 VLM 보다 NG 를 잘 잡는지 운영 데이터로 확인).
  * 둘 중 하나라도 측정 불가(null)면 비교 안 함('none').
  */
 export type RecallLead = 'ml' | 'vlm' | 'tie' | 'none'

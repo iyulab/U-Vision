@@ -8,7 +8,7 @@ using Xunit;
 namespace UVision.Tests;
 
 /// <summary>
-/// FW-1 데이터셋 export 엔드포인트 — export 생성=PIN, 조회=무인증.
+/// 데이터셋 export 엔드포인트 — export 생성=PIN, 조회=무인증.
 /// </summary>
 public class DatasetEndpointTests : IClassFixture<PinFactory>
 {

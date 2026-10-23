@@ -16,7 +16,7 @@ using UVision.Api.Services.Vlm;
 //   # 실측 (키 확보 후) — ground truth 는 images-dir/{ok,ng}/ 하위폴더로 라벨링
 //   VLM_API_KEY=sk-... dotnet run --project src/UVision.Benchmark -- \
 //       --images-dir ./samples --provider openai --model gpt-4o \
-//       --out ../claudedocs/spikes/vlm-benchmark.md
+//       --out ./vlm-benchmark.md
 
 const string DefaultCriteria =
     "제품 표면에 긁힘, 이물질, 균열, 솔더 브릿지 등 외관 결함이 없어야 한다. " +

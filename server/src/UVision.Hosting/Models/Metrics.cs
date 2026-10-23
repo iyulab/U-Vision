@@ -64,8 +64,8 @@ public sealed record MetricsRow
 /// 비율은 편의(대시보드 직독)다. 비율은 분모 0 이면 <c>null</c>(undefined 를 0.0 으로 위장하지 않음 — 정직성).
 /// </para>
 /// <para>
-/// NG recall 은 사람 라벨(cycle-37 사이드카)을 정답으로 image_id 조인해 산출한다 — VLM·ML 따로
-/// (FW-3 의 "ML &gt; VLM NG recall" 비교가 운영에서도 유지되는지의 데이터 근거, A1 권한이양 입력).
+/// NG recall 은 사람 라벨(사이드카)을 정답으로 image_id 조인해 산출한다 — VLM·ML 따로
+/// (전용 ML 이 VLM 보다 NG 를 잘 잡는지 운영에서 확인하는 근거 — ML 권한 단계를 올릴 입력).
 /// </para>
 /// </summary>
 public sealed record MetricsSummary

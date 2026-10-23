@@ -14,8 +14,8 @@ using Xunit;
 namespace UVision.Tests;
 
 /// <summary>
-/// FW-2 — MloopClassifier 계약 테스트(fake HTTP handler). MLoop.API /predict 계약(소스 확인) 대비
-/// 요청 구성·응답 파싱·에러 처리를 검증. 실 mloop serve 왕복은 FW-3 게이트(UNVERIFIED).
+/// MloopClassifier 계약 테스트(fake HTTP handler). MLoop.API /predict 계약(소스 확인) 대비
+/// 요청 구성·응답 파싱·에러 처리를 검증. 실 mloop serve 왕복은 이 테스트 밖이다.
 /// </summary>
 public class MloopClassifierTests
 {

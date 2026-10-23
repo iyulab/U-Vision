@@ -10,8 +10,8 @@ import type { MetricsSummary, Scenario } from '../lib/types'
 
 /**
  * 메트릭 대시보드(신뢰성 플라이휠 B3 소비) — 시나리오·날짜의 2중체크 관측 신호를 본다(무인증 읽기).
- * agreement·검토·ML degrade 율 + **VLM↔ML NG recall 비교**(FW-3 "ML>VLM" 이 운영서 유지되는지의
- * 데이터 근거 = A1 권한이양 입력). 메트릭 날짜 버킷은 결과와 동일하므로 날짜 목록을 공유한다.
+ * agreement·검토·ML degrade 율 + **VLM↔ML NG recall 비교**(전용 ML 이 VLM 보다 NG 를 잘 잡는지 운영
+ * 데이터로 확인 — ML 권한 단계를 올릴 근거). 메트릭 날짜 버킷은 결과와 동일하므로 날짜 목록을 공유한다.
  */
 export function MetricsDashboard({
   scenarios,

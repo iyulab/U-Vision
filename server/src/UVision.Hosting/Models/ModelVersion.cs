@@ -27,7 +27,7 @@ public sealed record ModelVersionManifest
     /// <summary>등록 시각. ISO-8601 UTC.</summary>
     [JsonPropertyName("created_at")] public required string CreatedAt { get; init; }
 
-    /// <summary>등록한 태블릿 식별자(cycle-35 device UUID 재사용). 누락 시 "".</summary>
+    /// <summary>등록한 태블릿 식별자(장치 UUID). 누락 시 "".</summary>
     [JsonPropertyName("created_by")] public string CreatedBy { get; init; } = "";
 
     [JsonPropertyName("note")] public string? Note { get; init; }

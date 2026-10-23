@@ -9,7 +9,7 @@ using Xunit;
 
 namespace UVision.Tests;
 
-/// <summary>FW-2 — IMlClassifier seam(none/mock 팩토리·결정론·DI 배선). 현재 동작 무변경(none 기본).</summary>
+/// <summary>IMlClassifier seam(none/mock 팩토리·결정론·DI 배선). 현재 동작 무변경(none 기본).</summary>
 public class MlClassifierTests
 {
     private static readonly byte[] Sample = [10, 20, 30, 40, 50];

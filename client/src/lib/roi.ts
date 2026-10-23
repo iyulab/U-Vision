@@ -13,7 +13,7 @@ export const DEFAULT_ROI: Roi = { x: 0.2, y: 0.2, width: 0.6, height: 0.6 }
 
 /**
  * 서버 wire(`ScenarioRoi`, `w`/`h`) ↔ 클라 `Roi`(`width`/`height`) 변환.
- * 둘 다 0~1 상대좌표이므로 **필드명 매핑만**(해상도 변환 없음 — cycle-21 ROI=relative 통일).
+ * 둘 다 0~1 상대좌표이므로 **필드명 매핑만**(해상도 변환 없음 — 서버도 상대좌표로 저장한다).
  */
 export function fromScenarioRoi(s: ScenarioRoi): Roi {
   return { x: s.x, y: s.y, width: s.w, height: s.h }

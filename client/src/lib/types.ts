@@ -173,7 +173,7 @@ export interface ScenarioInput {
 /** 라벨 이력 이벤트(C1 provenance) — 서버 `LabelEvent` 미러. */
 export interface LabelEvent {
   label: string
-  /** 라벨러 = device UUID(cycle-35). 구 이벤트 시 ''. */
+  /** 라벨러 = 장치 UUID(태블릿마다 하나). 구 이벤트 시 ''. */
   by: string
   at: string
   mode: 'label' | 'audit' | 'oracle'
