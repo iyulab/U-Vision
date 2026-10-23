@@ -35,5 +35,8 @@ public class AddUVisionTests
         Assert.NotNull(sp.GetRequiredService<UVisionOptions>());
         Assert.NotNull(sp.GetRequiredService<AdminPinOptions>());
         Assert.NotNull(sp.GetRequiredService<VlmOptions>());
+        // 기억 단은 기본 꺼짐 — 등록은 되지만 판정에 끼지 않는다.
+        Assert.False(sp.GetRequiredService<UVision.Api.Services.Memory.IImageEmbedder>().IsEnabled);
+        Assert.NotNull(sp.GetRequiredService<IMemoryVectorStore>());
     }
 }
