@@ -39,7 +39,8 @@ jobs:
           fi
 
   # 엔진 컨테이너 이미지 — push 마다 지어지는지 보고, v* 태그에서만 GHCR 에 게시한다(태그 push 가 곧 게시 = 사람 게이트).
-  # 판은 git 태그: v0.4.0 → 0.4.0 · 0.4 · latest. 첫 게시는 linux/amd64 만 — arm64 는 실측 뒤 platforms 에 더한다.
+  # 판은 git 태그: v0.4.0 → 0.4.0 · 0.4 · latest. linux/amd64 · linux/arm64 한 매니페스트 — SDK 는 러너 아키에서 교차
+  # publish 하고(Dockerfile), 최종 단계의 RUN 만 arm64 에뮬레이션(QEMU)으로 돈다.
   image:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -48,6 +49,9 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v6
+      - uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
       - uses: docker/setup-buildx-action@v4
       - id: meta
         uses: docker/metadata-action@v6
@@ -69,7 +73,7 @@ jobs:
       - uses: docker/build-push-action@v7
         with:
           context: server
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: ${{ startsWith(github.ref, 'refs/tags/v') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

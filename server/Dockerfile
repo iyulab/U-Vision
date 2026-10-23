@@ -4,7 +4,9 @@
 # Everything the server keeps (scenarios, captures, results, ledger, the one-time admin setup token)
 # lives under /data — mount a volume there, or it is lost with the container.
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# The SDK runs on the build machine's platform and cross-publishes for the target one (framework-dependent
+# output needs no target-platform toolchain), so a multi-platform build never runs the SDK under emulation.
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 # Publish for the image's own platform only: without a runtime identifier every OS's native libraries
 # (SQLite, Skia, ...) ride along and the image is several times larger.
 ARG TARGETARCH
