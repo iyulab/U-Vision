@@ -52,7 +52,7 @@ public sealed class CaseMemory(
     MemoryOptions options,
     ILogger<CaseMemory> logger)
 {
-    private sealed record Snapshot(string EncoderKey, IReadOnlyList<MemoryCase> Cases);
+    private sealed record Snapshot(string EncoderKey, IReadOnlyList<MemoryCase> Cases, DateTimeOffset BuiltAt);
 
     private readonly ConcurrentDictionary<string, Snapshot> _snapshots = new(StringComparer.Ordinal);
 
@@ -61,6 +61,10 @@ public sealed class CaseMemory(
 
     /// <summary>기억 단이 켜져 있는가(임베더가 있음).</summary>
     public bool IsEnabled => embedder.IsEnabled;
+
+    /// <summary>시나리오 기억의 지금 상태 — 지어진 판 · 사례 수 · 지은 시각. 아직 안 지어졌으면 null.</summary>
+    public (string EncoderKey, int Cases, DateTimeOffset BuiltAt)? StatusOf(string scenarioId) =>
+        _snapshots.TryGetValue(scenarioId, out var s) ? (s.EncoderKey, s.Cases.Count, s.BuiltAt) : null;
 
     /// <summary>질의 이미지 한 장의 답 또는 기권. 예외를 던지지 않는다.</summary>
     public async Task<MemoryOutcome> RecallAsync(
@@ -198,7 +202,7 @@ public sealed class CaseMemory(
             .Where(c => cached.ContainsKey(c.ImageId))
             .Select(c => new MemoryCase(c.ImageId, scenario.ClassFor(c.Label)!, cached[c.ImageId]))
             .ToList();
-        _snapshots[scenario.ScenarioId] = new Snapshot(key, cases);
+        _snapshots[scenario.ScenarioId] = new Snapshot(key, cases, DateTimeOffset.UtcNow);
         return added;
     }
 }

@@ -15,6 +15,7 @@ using UVision.Client.Datasets;
 using UVision.Client.Events;
 using UVision.Client.Health;
 using UVision.Client.Inspect;
+using UVision.Client.Memory;
 using UVision.Client.Metrics;
 using UVision.Client.Results;
 using UVision.Client.Scenarios;
@@ -51,6 +52,11 @@ namespace UVision.Client
         public global::UVision.Client.Inspect.InspectRequestBuilder Inspect
         {
             get => new global::UVision.Client.Inspect.InspectRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The memory property</summary>
+        public global::UVision.Client.Memory.MemoryRequestBuilder Memory
+        {
+            get => new global::UVision.Client.Memory.MemoryRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The metrics property</summary>
         public global::UVision.Client.Metrics.MetricsRequestBuilder Metrics

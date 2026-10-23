@@ -108,6 +108,53 @@ public class CaseMemoryTests
     }
 
     [Fact]
+    public async Task MemoryReport_ShowsStatus_AndReplaysTodaysLedger()
+    {
+        using var factory = new MemoryEnabledFactory();
+        var client = factory.CreateClient();
+        var image = Jpeg(11);
+
+        var before = await (await client.GetAsync("/api/u-vision/memory?scenario_id=demo")).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(before.GetProperty("enabled").GetBoolean());
+        Assert.False(before.TryGetProperty("encoder", out _)); // 아직 안 지어짐
+        Assert.Equal(0, before.GetProperty("replayed").GetInt32());
+        Assert.Empty(before.GetProperty("replay").EnumerateArray());
+
+        var imageId = (await (await client.PostAsync("/api/u-vision/inspect", Form(image))).Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("image_id").GetString()!;
+        await client.PutAsJsonAsync("/api/u-vision/results/label", new LabelInput
+        { ScenarioId = "demo", Date = Today, ImageId = imageId, Label = "OK" });
+        await factory.Services.GetRequiredService<CaseMemory>().SyncOnceAsync(CancellationToken.None);
+        var second = (await (await client.PostAsync("/api/u-vision/inspect", Form(image))).Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("image_id").GetString()!;
+        await client.PutAsJsonAsync("/api/u-vision/results/label", new LabelInput
+        { ScenarioId = "demo", Date = Today, ImageId = second, Label = "OK" });
+
+        var report = await (await client.GetAsync("/api/u-vision/memory?scenario_id=demo")).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(MockImageEmbedder.Identity.Key, report.GetProperty("encoder").GetString());
+        Assert.Equal(1, report.GetProperty("cases").GetInt32());
+        Assert.Equal(1, report.GetProperty("replayed").GetInt32()); // 첫 판정은 기억이 비어 거리를 남기지 않았다
+        var configured = report.GetProperty("replay").EnumerateArray().Single(r => r.GetProperty("configured").GetBoolean());
+        Assert.Equal(0.15, configured.GetProperty("max_distance").GetDouble());
+        Assert.Equal(1, configured.GetProperty("answered").GetInt32());
+        Assert.Equal(1, configured.GetProperty("labeled").GetInt32());
+        Assert.Equal(1.0, configured.GetProperty("label_agreement").GetDouble());
+        Assert.Equal(0, configured.GetProperty("missed").GetInt32());
+    }
+
+    [Fact]
+    public async Task MemoryReport_Disabled_IsEnabledFalse_UnknownScenario404_BadDate400()
+    {
+        using var factory = new UVisionApiFactory();
+        var client = factory.CreateClient();
+
+        var off = await (await client.GetAsync("/api/u-vision/memory?scenario_id=demo")).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(off.GetProperty("enabled").GetBoolean());
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/u-vision/memory?scenario_id=nope")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/u-vision/memory?scenario_id=demo&date=2026-13-40")).StatusCode);
+    }
+
+    [Fact]
     public async Task RemovedLabel_LeavesMemory_OnNextSync()
     {
         using var factory = new MemoryEnabledFactory();

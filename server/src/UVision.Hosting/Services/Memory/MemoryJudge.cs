@@ -7,10 +7,11 @@ public sealed record MemoryCase(string ImageId, string Class, float[] Vector);
 
 /// <summary>
 /// 기억 단의 답 — 답했으면 <see cref="Class"/>, 기권이면 <see cref="Abstained"/> 사유. 어느 쪽이든 최근접 거리와 본 이웃
-/// 수를 남긴다(장부에 적어 문턱을 재생으로 고르기 위해).
+/// 수를, 이웃이 한 클래스로 모였으면 그 클래스(<see cref="AgreedClass"/> — 문턱 밖이라 기권했어도)를 남긴다. 장부에 적어
+/// 문턱을 재생으로 고르기 위해서다: 더 넓은 문턱이었다면 무엇을 답했을지가 거기서 나온다.
 /// </summary>
 public sealed record MemoryAnswer(
-    string? Class, double Confidence, string? Abstained, double? NearestDistance, int Neighbors)
+    string? Class, double Confidence, string? Abstained, double? NearestDistance, int Neighbors, string? AgreedClass = null)
 {
     /// <summary>장부 annotation — 문턱 재생의 원천 자료.</summary>
     public IReadOnlyDictionary<string, string> ToAnnotations()
@@ -21,6 +22,8 @@ public sealed record MemoryAnswer(
         };
         if (NearestDistance is { } d)
             a["memory:nearest_distance"] = d.ToString("0.######", CultureInfo.InvariantCulture);
+        if (AgreedClass is not null)
+            a["memory:agreed_class"] = AgreedClass;
         return a;
     }
 }
@@ -50,8 +53,9 @@ public static class MemoryJudge
 
         if (nearest.Select(n => n.Class).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
             return new(null, 0, "neighbors disagree", closest, neighbors);
+        var agreed = nearest[0].Class;
         if (closest > maxDistance)
-            return new(null, 0, "nearest case beyond threshold", closest, neighbors);
-        return new(nearest[0].Class, Math.Clamp(1.0 - closest, 0.0, 1.0), null, closest, neighbors);
+            return new(null, 0, "nearest case beyond threshold", closest, neighbors, agreed);
+        return new(agreed, Math.Clamp(1.0 - closest, 0.0, 1.0), null, closest, neighbors, agreed);
     }
 }
