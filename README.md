@@ -72,6 +72,22 @@ dotnet run --project src/UVision.Api --urls http://0.0.0.0:8000
 
 기본 VLM provider 는 `mock` 이라 API 키 없이도 서버·테스트가 전부 동작한다. 셀프호스트 VLM 사용 시 GPU 를 권장한다.
 
+### 엔진 서버로 띄우기 (컨테이너)
+
+현장에 설치할 때는 엔진을 별도 서버로 띄우고, 다른 시스템은 그 서버의 HTTP API · 웹훅으로 붙는다. `server/Dockerfile` 이 PWA 와 API 를 한 이미지로 짓는다(PWA 는 이미 빌드돼 들어 있어 Node 가 필요 없다).
+
+```bash
+cd server
+docker build -t u-vision:0.3.0 .
+docker run -d -p 8080:8080 -v u-vision-data:/data   -e VLM_PROVIDER=gpustack -e VLM_ENDPOINT=http://<vlm-server>/v1 -e VLM_MODEL=<model>   u-vision:0.3.0
+# → http://<host>:8080/u-vision/            (작업자 · 관리 화면)
+# → http://<host>:8080/api/u-vision/health  (API)
+```
+
+- 시나리오 · 캡처 · 판정 결과 · 결정 장부는 모두 `/data` 에 쌓인다 — 볼륨을 붙이지 않으면 컨테이너와 함께 사라진다.
+- `ADMIN_PIN` 을 주지 않으면 첫 기동 때 `/data/admin-setup-token.txt` 가 생기고, 관리 화면에서 그 값으로 첫 PIN 을 정한다.
+- 서버는 비루트 사용자로 돈다. 카메라(`getUserMedia`)는 secure context 가 필요하므로 태블릿에서 쓰려면 앞에 HTTPS 리버스 프록시를 둔다.
+
 ### 핵심 환경 변수
 
 ```env

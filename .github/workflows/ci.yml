@@ -38,6 +38,14 @@ jobs:
             exit 1
           fi
 
+  # 엔진 컨테이너 이미지가 지어지는지만 본다(게시 없음 — 레지스트리 push 는 사람 게이트).
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - run: docker build -t u-vision:ci server
+
   server:
     runs-on: ubuntu-latest
     defaults:
