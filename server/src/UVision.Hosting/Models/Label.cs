@@ -49,6 +49,19 @@ public sealed record StoredLabel
     /// 없으면 null. operative 가 아니다(D2 위계) — <see cref="OperativeLabel"/> 과 대조해
     /// 사람 라벨러의 계통편향(systematic bias)을 flag-only 로 관측한다(메트릭 집계 입력).
     /// </summary>
+    /// <summary>
+    /// operative 라벨이 시험 데이터셋의 정답인가 — 라벨러가 <see cref="CaptureOrigin.LabelerPrefix"/> 로 시작한다(주입 도구가
+    /// 정답을 심을 때 쓰는 표기). 블라인드 감사는 사람 라벨의 일관성을 재는 것이라 이 라벨은 감사 표본에서 빠진다.
+    /// </summary>
+    [JsonIgnore]
+    public bool IsDatasetLabel =>
+        History?.LastOrDefault(e => e.Mode == LabelMode.Label)?.By.StartsWith(CaptureOrigin.LabelerPrefix, StringComparison.Ordinal) == true;
+
+    /// <summary>
+    /// 오라클(④-B)의 최신 2차 소견 = history 의 최신 <see cref="LabelMode.Oracle"/> 이벤트.
+    /// 없으면 null. operative 가 아니다(D2 위계) — <see cref="OperativeLabel"/> 과 대조해
+    /// 사람 라벨러의 계통편향(systematic bias)을 flag-only 로 관측한다(메트릭 집계 입력).
+    /// </summary>
     [JsonIgnore]
     public string? LatestOracleOpinion =>
         History?.LastOrDefault(e => e.Mode == LabelMode.Oracle)?.Label;

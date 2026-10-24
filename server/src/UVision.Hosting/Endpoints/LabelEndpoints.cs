@@ -117,8 +117,10 @@ public static class LabelEndpoints
         {
             var labels = await labelStore.ListAsync(scenarioId, date, cancellationToken);
             // 미감사(unaudited)만 표본 후보 — 결정론 해시 샘플링. 블라인드: image_id 만 반환.
+            // 데이터셋 정답(주입 도구가 심은 라벨)은 사람 라벨이 아니라 감사하지 않는다.
             var sample = labels
                 .Where(l => (l.Audit?.Status ?? LabelAuditStatus.Unaudited) == LabelAuditStatus.Unaudited)
+                .Where(l => !l.IsDatasetLabel)
                 .Where(l => LabelAuditEvaluator.IsSampled(l.ImageId, options.Value.SampleRatePercent))
                 .Select(l => l.ImageId)
                 .ToArray();

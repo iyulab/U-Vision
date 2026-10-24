@@ -12,6 +12,9 @@ public sealed record CaptureOrigin
     /// <summary>지금 받는 출처 — 시험 데이터셋 주입.</summary>
     public const string Dataset = "dataset";
 
+    /// <summary>데이터셋 정답을 라벨로 심을 때의 라벨러 표기 접두(<c>dataset:&lt;표본 목록&gt;</c>).</summary>
+    public const string LabelerPrefix = Dataset + ":";
+
     /// <summary>출처 종류(<see cref="Dataset"/>).</summary>
     public required string Kind { get; init; }
 

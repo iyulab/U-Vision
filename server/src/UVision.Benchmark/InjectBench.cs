@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.Kiota.Abstractions;
 using UVision.Client;
 using UVision.Client.Models;
+using CaptureOrigin = UVision.Api.Models.CaptureOrigin;
 
 namespace UVision.Benchmark;
 
@@ -57,7 +58,7 @@ internal static class InjectBench
                 {
                     await engine.Results.Label.PutAsync(new LabelInput
                     {
-                        ScenarioId = scenarioId, Date = ts[..10], ImageId = id, Label = s.Class, By = $"dataset:{name}",
+                        ScenarioId = scenarioId, Date = ts[..10], ImageId = id, Label = s.Class, By = CaptureOrigin.LabelerPrefix + name,
                     });
                     labeled++;
                 }

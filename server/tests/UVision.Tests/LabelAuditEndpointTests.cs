@@ -36,6 +36,25 @@ public class LabelAuditEndpointTests
     }
 
     [Fact]
+    public async Task AuditSample_SkipsDatasetGroundTruth()
+    {
+        using var factory = new UVisionApiFactory();
+        var c = factory.CreateClient();
+        // 사람 라벨과 주입 도구가 심은 데이터셋 정답을 같은 수만큼 — 표본은 해시로 뽑으니 충분히 많이.
+        for (var i = 0; i < 60; i++)
+        {
+            await LabelAsync(c, $"img_h{i}", "OK");
+            await c.PutAsJsonAsync($"{Base}/results/label", new LabelInput
+            { ScenarioId = "demo", Date = "2026-06-09", ImageId = $"img_d{i}", Label = "OK", By = CaptureOrigin.LabelerPrefix + "kamp-seq025" });
+        }
+
+        var ids = await c.GetFromJsonAsync<string[]>($"{Base}/results/audit-sample?scenario_id=demo&date=2026-06-09");
+
+        Assert.NotEmpty(ids!);
+        Assert.All(ids!, id => Assert.StartsWith("img_h", id));
+    }
+
+    [Fact]
     public async Task PostAudit_SameLabel_ReturnsConsistent_WithPriorLabel()
     {
         using var factory = new UVisionApiFactory();
