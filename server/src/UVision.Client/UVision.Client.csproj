@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <PackageId>UVision.Client</PackageId>
-    <Version>0.4.0</Version>
+    <Version>0.5.0</Version>
     <Description>Typed HTTP client for the U-Vision judgment engine, generated from its OpenAPI contract.</Description>
     <Authors>iyulab</Authors>
     <PackageProjectUrl>https://github.com/iyulab/U-Vision</PackageProjectUrl>

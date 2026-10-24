@@ -7,7 +7,7 @@
     <!-- RootNamespace=UVision.Api(어셈블리명과 다름): 임베드 리소스 논리명을 UVision.Api.wwwroot.* 로 고정 + 이동 코드의 네임스페이스 무변경 -->
     <RootNamespace>UVision.Api</RootNamespace>
     <PackageId>UVision.Hosting</PackageId>
-    <Version>0.4.0</Version>
+    <Version>0.5.0</Version>
     <Description>U-Vision AI 비전 검사 — 임베드 가능한 ASP.NET Core 기능 라이브러리(빌드된 PWA 임베드 + AddUVision/UseUVision).</Description>
     <Authors>iyulab</Authors>
     <PackageProjectUrl>https://github.com/iyulab/U-Vision</PackageProjectUrl>

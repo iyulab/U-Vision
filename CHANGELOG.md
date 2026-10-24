@@ -4,6 +4,8 @@ Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-24
+
 ### Changed
 - **Breaking: the `mloop` ML classifier sends the image itself and needs MLoop 0.45.0 or later.** `POST /predict` now receives the image contents as base64 (`{"images": [...]}`) instead of a row holding a path to a temporary file, so `mloop serve` no longer has to run on the same machine as U-Vision. `UVision:Ml:ImageColumn` (`ML_IMAGE_COLUMN`) is removed — MLoop picks the image column of an image-classification model itself. The classifier now takes the confidence MLoop reports for the prediction and no longer derives one from the class probabilities when it is missing; a prediction without a finite confidence counts as confidence 0. Migration: upgrade `mloop serve` to 0.45.0 or later and drop `ImageColumn` from configuration.
 - The confirmed-case memory needs MLoop 0.45.0 or later as well: 0.44.0 decoded images with an alpha channel (translucent PNGs) differently, and the encoder version it reports is the same in both, so the memory cannot tell the two apart.
