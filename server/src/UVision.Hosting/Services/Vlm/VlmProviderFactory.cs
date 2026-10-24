@@ -17,6 +17,9 @@ public static class VlmProviderFactory
 {
     public static IVlmProvider Create(VlmOptions options)
     {
+        if (options.TimeoutSeconds is < 0 or > 600)
+            throw new ArgumentException("UVision:Vlm:TimeoutSeconds 는 0(한도 없음) 또는 1~600 이어야 합니다");
+
         switch (options.Provider.ToLowerInvariant())
         {
             case "mock":

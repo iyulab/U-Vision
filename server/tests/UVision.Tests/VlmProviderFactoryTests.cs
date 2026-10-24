@@ -31,4 +31,11 @@ public class VlmProviderFactoryTests
         var ex = Assert.Throws<ArgumentException>(() => VlmProviderFactory.Create(new VlmOptions { Provider = provider }));
         Assert.Contains("openai-compatible", ex.Message);
     }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(601)]
+    public void TimeoutOutOfRange_IsRejected(int seconds) =>
+        Assert.Throws<ArgumentException>(() =>
+            VlmProviderFactory.Create(new VlmOptions { Provider = "mock", TimeoutSeconds = seconds }));
 }

@@ -4,6 +4,10 @@ Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0
 
 ## [Unreleased]
 
+### Added
+- `UVision:Vlm:TimeoutSeconds` (`VLM_TIMEOUT_SECONDS` for the standalone server): a time limit for the vision model call of one inspection, 0 (the default, no limit — as before) or 1 to 600, checked at startup. A reasoning model can think for minutes on some images and the provider SDK retries failed requests, so without a limit an operator waits until the model server or a gateway gives up. Past the limit the inspection is unavailable (503 `vlm_unavailable`), the same as a vision model failure; the limit covers the SDK's retries.
+- The benchmark tool's vision model run reads a sample list (`--manifest <name>`, `--split`, `--per-class N` spread evenly across each class), runs calls concurrently (`--concurrency N`), and records a failed call as a failed row — left out of the accuracy, counted in the report, exit code 3 — instead of stopping. The per-image table includes the model's findings.
+
 ## [0.5.0] - 2026-10-24
 
 ### Changed

@@ -88,4 +88,35 @@ public class FailClosedEndpointTests
             "/api/u-vision/results?scenario_id=demo");
         Assert.Equal(0, list.GetArrayLength());
     }
+
+    /// <summary>답하지 않는 VLM(멈춘 게이트웨이 · 오래 추론하는 모델) — 취소될 때까지 기다린다.</summary>
+    private sealed class HangingVlmProvider : IVlmProvider
+    {
+        public string Name => "hanging-vlm";
+        public async Task<InspectionResult> InspectAsync(
+            ReadOnlyMemory<byte> image, ScenarioContext scenario, CancellationToken ct = default)
+        {
+            await Task.Delay(Timeout.Infinite, ct);
+            throw new InvalidOperationException("unreachable");
+        }
+    }
+
+    [Fact]
+    public async Task VlmPastTimeLimit_Returns503_InsteadOfWaitingForTheGateway()
+    {
+        using var factory = new UVisionApiFactory();
+        var client = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
+        {
+            s.AddSingleton<IVlmProvider>(new HangingVlmProvider());
+            s.AddSingleton(new UVision.Api.Configuration.VlmOptions { TimeoutSeconds = 1 });
+        })).CreateClient();
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var resp = await client.PostAsync("/api/u-vision/inspect", Form("demo"));
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, resp.StatusCode);
+        var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("vlm_unavailable", json.GetProperty("reason").GetString());
+        Assert.InRange(sw.Elapsed, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(30));
+    }
 }

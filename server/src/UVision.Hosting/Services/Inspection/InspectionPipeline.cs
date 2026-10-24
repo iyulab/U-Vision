@@ -40,6 +40,7 @@ public sealed class InspectionPipeline(
     ILabelStore labelStore,
     DecisionLedger ledger,
     Events.DecisionEventPublisher events,
+    VlmOptions vlmOptions,
     MlOptions mlOptions,
     AuthorityOptions authorityOptions,
     ILogger<InspectionPipeline> logger)
@@ -372,14 +373,24 @@ public sealed class InspectionPipeline(
     /// <summary>
     /// VLM 판정을 호출하되 실패를 삼킨다 — ML 과 대칭. 실패 시 경고 로그 + null 반환(fail-closed 신호).
     /// VLM 은 must-succeed 검출원이나, 예외가 unhandled 500 로 새지 않도록 여기서 잡아 자세 사다리가
-    /// 정의된 503(판정 불가)으로 매핑하게 한다(③.5 E2).
+    /// 정의된 503(판정 불가)으로 매핑하게 한다(③.5 E2). 시간 한도(<see cref="VlmOptions.TimeoutSeconds"/>)는
+    /// provider 설정이 아니라 여기서 건다 — provider 와 무관한 판정 한 건의 총 예산이고, SDK 재시도도 그 안에 든다.
     /// </summary>
     private async Task<InspectionResult?> InspectSafelyAsync(
         ReadOnlyMemory<byte> image, ScenarioContext context, CancellationToken cancellationToken)
     {
+        using var limit = vlmOptions.TimeoutSeconds > 0 ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken) : null;
+        limit?.CancelAfter(TimeSpan.FromSeconds(vlmOptions.TimeoutSeconds));
         try
         {
-            return await provider.InspectAsync(image, context, cancellationToken);
+            return await provider.InspectAsync(image, context, limit?.Token ?? cancellationToken);
+        }
+        catch (OperationCanceledException) when (limit is { IsCancellationRequested: true } && !cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning(
+                "VLM 판정 시간 한도 {TimeoutSeconds}초 초과 — fail-closed(판정 불가) (provider={Provider}, scenario={ScenarioId})",
+                vlmOptions.TimeoutSeconds, provider.Name, context.ScenarioId);
+            return null;
         }
         catch (Exception ex)
         {
