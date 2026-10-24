@@ -24,10 +24,11 @@ public static class MemoryReplay
     /// <summary>설정 문턱과 함께 늘 보여 줄 문턱 사다리.</summary>
     public static readonly IReadOnlyList<double> Ladder = [0.05, 0.10, 0.15, 0.20, 0.30];
 
+    /// <param name="ladder">재생할 문턱(없으면 <see cref="Ladder"/>) — 오프라인 측정은 실 사진의 거리 분포에 맞춰 넓힌다.</param>
     public static IReadOnlyList<MemoryReplayRow> Run(
-        IReadOnlyList<ReplayCase> cases, EffectiveScenario scenario, double configured)
+        IReadOnlyList<ReplayCase> cases, EffectiveScenario scenario, double configured, IEnumerable<double>? ladder = null)
     {
-        var thresholds = Ladder.Append(configured).Distinct().Order().ToList();
+        var thresholds = (ladder ?? Ladder).Append(configured).Distinct().Order().ToList();
         return [.. thresholds.Select(t => RowAt(t, cases, scenario, configured))];
     }
 

@@ -17,6 +17,12 @@ using UVision.Api.Services.Vlm;
 //   VLM_API_KEY=sk-... dotnet run --project src/UVision.Benchmark -- \
 //       --images-dir ./samples --provider openai --model gpt-4o \
 //       --out ./vlm-benchmark.md
+//   # 표본 목록 짓기 — 데이터 루트의 {dir}/{분할}/{클래스}/ 를 GEN/u-vision/manifests/{name}.tsv 로(원본 무변경)
+//   UVISION_DATA_ROOT=... dotnet run --project src/UVision.Benchmark -- manifest --name <이름> //       --dir <루트 상대 폴더> --splits 학습=train,테스트=test --classes 정상=OK,불량=NG
+//       (같은 내용의 파일은 한 장으로, train 과 겹친 test 는 뺀다. 분할이 없는 데이터는 --splits Images=all —
+//        memory 가 leave-one-out 으로 잰다)
+//   # 기억 단 문턱 오프라인 재생 — train 을 기억에, test 를 질의로(MLoop /embed, VLM 없음)
+//   UVISION_DATA_ROOT=... MEMORY_ENDPOINT=http://localhost:5417 MEMORY_ENCODER=dinov2-small MEMORY_TOKEN=... //       dotnet run --project src/UVision.Benchmark -- memory --manifest <이름> [--neighbors 5] [--out report.md]
 
 const string DefaultCriteria =
     "제품 표면에 긁힘, 이물질, 균열, 솔더 브릿지 등 외관 결함이 없어야 한다. " +
@@ -36,6 +42,16 @@ var imageExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", 
 DotNetEnv.Env.TraversePath().Load();
 
 var opts = ParseArgs(args);
+
+// 하위 명령 — 측정 데이터 루트(UVISION_DATA_ROOT)를 쓰는 VLM 없는 측정. 없으면 아래 VLM 벤치마크.
+switch (args.FirstOrDefault())
+{
+    case "manifest":
+        return BuildManifest(opts);
+    case "memory":
+        return await UVision.Benchmark.MemoryBench.RunAsync(opts);
+}
+
 if (!opts.TryGetValue("images-dir", out var imagesDir))
 {
     Console.Error.WriteLine("이미지를 찾지 못함: --images-dir 필수");
@@ -128,6 +144,35 @@ Dictionary<string, string> ParseArgs(string[] argv)
     }
     return map;
 }
+
+int BuildManifest(Dictionary<string, string> o)
+{
+    if (UVision.Benchmark.DataRoot.Resolve(o) is not { } root) return 1;
+    if (!o.TryGetValue("name", out var name) || !o.TryGetValue("dir", out var dir)
+        || !o.TryGetValue("splits", out var splits) || !o.TryGetValue("classes", out var classes))
+    {
+        Console.Error.WriteLine("manifest: --name · --dir · --splits(폴더=train|test,…) · --classes(폴더=클래스,…) 필수");
+        return 1;
+    }
+    var build = UVision.Benchmark.SampleManifest.FromFolders(root, dir, Pairs(splits), Pairs(classes));
+    var samples = build.Samples;
+    if (samples.Count == 0)
+    {
+        Console.Error.WriteLine($"표본 0장: {Path.Combine(root, dir)}");
+        return 1;
+    }
+    var path = UVision.Benchmark.SampleManifest.PathFor(root, name);
+    UVision.Benchmark.SampleManifest.Write(path, samples);
+    foreach (var g in samples.GroupBy(x => (x.Split, x.Class)).OrderBy(g => g.Key))
+        Console.WriteLine($"{g.Key.Split}	{g.Key.Class}	{g.Count()}");
+    Console.WriteLine($"→ {path} ({samples.Count}장 — 같은 내용 {build.DuplicatesDropped}장 · train 과 겹친 test {build.LeaksDropped}장 뺌)");
+    return 0;
+}
+
+static Dictionary<string, string> Pairs(string spec) =>
+    spec.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(p => p.Split('=', 2))
+        .ToDictionary(p => p[0], p => p.Length == 2 ? p[1] : throw new ArgumentException($"'폴더=값' 꼴이 아니다: {p[0]}"));
 
 // few-shot 기준 이미지 로드 — {dir}/ok, {dir}/ng 에서 라벨당 최대 cap 장. 파일명 정렬로 결정론적.
 List<ReferenceImage> LoadReferences(string dir, int cap)
