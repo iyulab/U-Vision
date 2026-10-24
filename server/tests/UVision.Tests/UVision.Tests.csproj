@@ -28,6 +28,8 @@
     <ProjectReference Include="..\..\src\UVision.Api\UVision.Api.csproj" />
     <ProjectReference Include="..\..\src\UVision.Hosting\UVision.Hosting.csproj" />
     <ProjectReference Include="..\..\src\UVision.Client\UVision.Client.csproj" />
+    <!-- 측정 도구의 순수 로직(표본 목록 중복 · 누수 제거). 별칭 — Benchmark 의 최상위 Program 이 전역에 보이지 않게. -->
+    <ProjectReference Include="..\..\src\UVision.Benchmark\UVision.Benchmark.csproj" Aliases="bench" />
   </ItemGroup>
 
 </Project>

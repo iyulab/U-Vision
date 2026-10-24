@@ -11,6 +11,11 @@
     <PackageReference Include="DotNetEnv" Version="3.2.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- 표본 목록 등 순수 로직의 단위 테스트(테스트는 extern alias 로 참조 — 최상위 Program 이 Api 의 Program 과 겹치지 않게). -->
+    <InternalsVisibleTo Include="UVision.Tests" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
