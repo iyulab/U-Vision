@@ -20,7 +20,7 @@
  ⑤ 자가강화: 재학습 · A/B · 점진 권한 이양  ──↺ 다시 ①로
 ```
 
-> **정직한 경계(현재 구현):** 현재 VLM 이 OK/NG verdict 를 직접 산출(주 판정)하고, 전용 ML 이 교차검증(additive·기본 비활성)으로 결선되어 불일치/저신뢰를 검토 큐로 표면화한다(불일치는 운영 화면에 비차단 '검토 필요'로 알리되 라인은 멈추지 않는 **advisory·NG-safe**; 주 검출원 VLM 이 사용 불가하면 자동 판정 대신 '판정 불가 — 사람 확인'으로 **fail-closed**). 사람 라벨링은 선택적 ground-truth 수집이다. 실 ML serve 통합은 검증됐다(mloop `serve /predict` 왕복 e2e). VLM→트리아지 격하·ML 판정 권한 이양은 데이터 근거로 진행될 진화 단계다(④~⑤).
+> **정직한 경계(현재 구현):** 현재 VLM 이 OK/NG verdict 를 직접 산출(주 판정)하고, 전용 ML 이 교차검증(additive·기본 비활성)으로 결선되어 불일치/저신뢰를 검토 큐로 표면화한다(불일치는 운영 화면에 비차단 '검토 필요'로 알리되 라인은 멈추지 않는 **advisory·NG-safe**; 주 검출원 VLM 이 사용 불가하면 자동 판정 대신 '판정 불가 — 사람 확인'으로 **fail-closed**). 사람 라벨링은 선택적 ground-truth 수집이다. 실 ML serve 통합은 검증됐다(mloop `serve /predict` 왕복 e2e — 0.45.0 부터 이미지를 내용으로 보내 MLoop 이 다른 기계에 있어도 된다). VLM→트리아지 격하·ML 판정 권한 이양은 데이터 근거로 진행될 진화 단계다(④~⑤).
 
 ## 주요 기능
 
@@ -53,7 +53,7 @@
 | 정지 감지 | OffscreenCanvas 픽셀 차분 — Web Worker 분리 |
 | 서버 | ASP.NET Core (.NET 10, Minimal API) |
 | VLM 백엔드 | ironhive — OpenAI 호환 셀프호스트 서버(GPUStack · vLLM · Ollama 등) · openai · google |
-| 전용 ML | MLoop image-classification(`mloop serve` HTTP 경계) |
+| 전용 ML | MLoop image-classification(`mloop serve` 0.45.0+ HTTP 경계 — 이미지 내용 입력, 호출 시간 제한) |
 | 저장소 | 순수 파일시스템 (DB 없음) |
 
 ## 빠른 시작
