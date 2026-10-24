@@ -35,6 +35,22 @@ public class SampleManifestTests
     }
 
     [Fact]
+    public void Pick_SpreadsEachClassAcrossTheWholeList_AndKeepsTheSplit()
+    {
+        List<Sample> samples =
+        [
+            .. Enumerable.Range(0, 10).Select(i => S($"ng/{i}", "test", "NG", $"n{i}")),
+            .. Enumerable.Range(0, 4).Select(i => S($"ok/{i}", "test", "OK", $"o{i}")),
+            S("ok/train", "train", "OK", "t0"),
+        ];
+
+        var picked = SampleManifest.Pick(samples, "test", perClass: 5);
+
+        Assert.Equal(["ng/0", "ng/2", "ng/4", "ng/6", "ng/8", "ok/0", "ok/1", "ok/2", "ok/3"], picked.Select(s => s.Path));
+        Assert.Equal(samples.Count, SampleManifest.Pick(samples, split: null, perClass: int.MaxValue).Count);
+    }
+
+    [Fact]
     public void WriteThenRead_RoundTrips()
     {
         var path = Path.Combine(Path.GetTempPath(), "uv-manifest-" + Guid.NewGuid().ToString("N") + ".tsv");

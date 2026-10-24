@@ -17,6 +17,9 @@ using UVision.Api.Services.Vlm;
 //   VLM_API_KEY=sk-... dotnet run --project src/UVision.Benchmark -- \
 //       --images-dir ./samples --provider openai --model gpt-4o \
 //       --out ./vlm-benchmark.md
+//   # 표본 목록에서 — --images-dir 대신 데이터 루트의 목록을(클래스 OK/NG 만), 클래스마다 고르게 --per-class 장
+//   UVISION_DATA_ROOT=... VLM_API_KEY=... VLM_ENDPOINT=... dotnet run --project src/UVision.Benchmark -- \
+//       --manifest <이름> [--split test] [--per-class 20] --provider openai-compatible --model <모델> [--concurrency 4]
 //   # 표본 목록 짓기 — 데이터 루트의 {dir}/{분할}/{클래스}/ 를 GEN/u-vision/manifests/{name}.tsv 로(원본 무변경)
 //   UVISION_DATA_ROOT=... dotnet run --project src/UVision.Benchmark -- manifest --name <이름> //       --dir <루트 상대 폴더> --splits 학습=train,테스트=test --classes 정상=OK,불량=NG
 //       (같은 내용의 파일은 한 장으로, train 과 겹친 test 는 뺀다. 분할이 없는 데이터는 --splits Images=all —
@@ -57,11 +60,29 @@ switch (args.FirstOrDefault())
         return await UVision.Benchmark.InjectBench.RunAsync(opts);
 }
 
-if (!opts.TryGetValue("images-dir", out var imagesDir))
+List<(string Name, string Path, Verdict? Truth)> images;
+if (opts.TryGetValue("manifest", out var manifestName))
 {
-    Console.Error.WriteLine("이미지를 찾지 못함: --images-dir 필수");
+    if (UVision.Benchmark.DataRoot.Resolve(opts) is not { } dataRoot) return 1;
+    var perClass = int.TryParse(opts.GetValueOrDefault("per-class"), out var pc) && pc > 0 ? pc : int.MaxValue;
+    var picked = UVision.Benchmark.SampleManifest.Pick(
+        UVision.Benchmark.SampleManifest.Read(UVision.Benchmark.SampleManifest.PathFor(dataRoot, manifestName)),
+        opts.GetValueOrDefault("split"), perClass);
+    // 이 벤치마크는 OK/NG 판정을 잰다 — 그 밖 클래스(유형 · 품번)는 건너뛴다.
+    images = [.. picked
+        .Where(x => Enum.TryParse<Verdict>(x.Class, out _))
+        .Select(x => (x.Path, Path.Combine(dataRoot, x.Path), (Verdict?)Enum.Parse<Verdict>(x.Class)))];
+}
+else if (opts.TryGetValue("images-dir", out var imagesDir))
+{
+    images = [.. DiscoverImages(imagesDir).Select(x => (Path.GetFileName(x.Path), x.Path, x.Truth))];
+}
+else
+{
+    Console.Error.WriteLine("이미지를 찾지 못함: --images-dir 또는 --manifest 필수");
     return 1;
 }
+var concurrency = int.TryParse(opts.GetValueOrDefault("concurrency"), out var cc) && cc > 0 ? cc : 1;
 var providerName = opts.GetValueOrDefault("provider", "mock");
 var model = opts.GetValueOrDefault("model", "gpt-4o");
 var criteria = opts.GetValueOrDefault("criteria", DefaultCriteria);
@@ -84,10 +105,9 @@ if (downscale > 0)
         .ToList();
 }
 
-var images = DiscoverImages(imagesDir);
 if (images.Count == 0)
 {
-    Console.Error.WriteLine($"이미지를 찾지 못함: {imagesDir}");
+    Console.Error.WriteLine("판정할 이미지 0장");
     return 1;
 }
 
@@ -108,21 +128,40 @@ var scenario = new ScenarioContext
 Console.WriteLine($"few-shot 기준 이미지: {references.Count}장"
     + (references.Count > 0 ? $" (OK {references.Count(r => r.Label == ReferenceLabel.Ok)}/NG {references.Count(r => r.Label == ReferenceLabel.Ng)})" : " (zero-shot)"));
 
-var rows = new List<Row>();
-foreach (var (path, truth) in images)
+// 건별 실패(시간 초과 · 응답 형태 · 서버 오류)는 그 건만 실패로 남기고 측정을 이어 간다 — 수백 장 측정이 한 건에 죽지 않게.
+// 실패는 정확도 분모에서 빠지고 리포트에 따로 센다(조용히 버리지 않는다).
+using var gate = new SemaphoreSlim(concurrency);
+var done = 0;
+var rows = (await Task.WhenAll(images.Select(async item =>
 {
-    var data = await File.ReadAllBytesAsync(path);
-    if (downscale > 0)
+    await gate.WaitAsync();
+    try
     {
-        data = ImageDownscaler.Downscale(data, downscale);
+        var data = await File.ReadAllBytesAsync(item.Path);
+        if (downscale > 0)
+        {
+            data = ImageDownscaler.Downscale(data, downscale);
+        }
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var result = await provider.InspectAsync(data, scenario);
+            return new Row(item.Name, item.Truth, result.Verdict, result.Confidence, sw.Elapsed.TotalMilliseconds, result.Findings, null);
+        }
+        catch (Exception ex)
+        {
+            return new Row(item.Name, item.Truth, null, 0, sw.Elapsed.TotalMilliseconds, null, ex.GetType().Name + ": " + ex.Message);
+        }
     }
-    var sw = Stopwatch.StartNew();
-    var result = await provider.InspectAsync(data, scenario);
-    sw.Stop();
-    rows.Add(new Row(Path.GetFileName(path), truth, result.Verdict, result.Confidence, sw.Elapsed.TotalMilliseconds));
-}
+    finally
+    {
+        gate.Release();
+        Console.Error.Write($"\r판정 {Interlocked.Increment(ref done)}/{images.Count}");
+    }
+}))).ToList();
+Console.Error.WriteLine();
 
-var report = RenderReport(rows, provider.Name, model, pricing, references.Count, downscale);
+var report = RenderReport(rows, provider.Name, model, pricing, references.Count, downscale, concurrency);
 Console.WriteLine(report);
 if (outPath is not null)
 {
@@ -131,7 +170,7 @@ if (outPath is not null)
     await File.WriteAllTextAsync(full, report, Encoding.UTF8);
     Console.WriteLine($"\n→ 리포트 저장: {full}");
 }
-return 0;
+return rows.Any(r => r.Error is not null) ? 3 : 0;
 
 // ── helpers ──────────────────────────────────────────────────────────────
 
@@ -227,9 +266,11 @@ List<(string Path, Verdict? Truth)> DiscoverImages(string dir)
     return items;
 }
 
-string RenderReport(List<Row> rs, string prov, string mdl, (string Model, double In, double Out)[] price, int refCount, int downscaleDim)
+string RenderReport(List<Row> all, string prov, string mdl, (string Model, double In, double Out)[] price, int refCount, int downscaleDim, int parallel)
 {
-    var latencies = rs.Select(r => r.LatencyMs).OrderBy(x => x).ToList();
+    var failed = all.Where(r => r.Error is not null).ToList();
+    var rs = all.Where(r => r.Error is null).ToList();
+    var latencies = rs.Select(r => r.LatencyMs).DefaultIfEmpty(0).OrderBy(x => x).ToList();
     var labeled = rs.Where(r => r.Truth is not null).ToList();
     var p50 = Median(latencies);
     var p95 = latencies[Math.Min(latencies.Count - 1, (int)(latencies.Count * 0.95))];
@@ -239,8 +280,8 @@ string RenderReport(List<Row> rs, string prov, string mdl, (string Model, double
     sb.AppendLine($"- provider: `{prov}` / model: `{mdl}`");
     sb.AppendLine($"- 모드: {(refCount > 0 ? $"**few-shot** (기준 이미지 {refCount}장)" : "**zero-shot** (criteria 텍스트만)")}");
     sb.AppendLine($"- 다운스케일: {(downscaleDim > 0 ? $"longest-side **{downscaleDim}px** (JPEG q85)" : "없음(원본)")}");
-    sb.AppendLine($"- 이미지 수: {rs.Count} (라벨됨 {labeled.Count})");
-    sb.AppendLine(Inv($"- latency: p50 **{p50:F0} ms**, p95 **{p95:F0} ms**, min {latencies.Min():F0} / max {latencies.Max():F0}"));
+    sb.AppendLine($"- 이미지 수: {all.Count} — 판정 {rs.Count} (라벨됨 {labeled.Count}) · **실패 {failed.Count}**");
+    sb.AppendLine(Inv($"- latency(동시 {parallel}): p50 **{p50:F0} ms**, p95 **{p95:F0} ms**, min {latencies.Min():F0} / max {latencies.Max():F0}"));
 
     if (prov == "mock")
     {
@@ -266,12 +307,13 @@ string RenderReport(List<Row> rs, string prov, string mdl, (string Model, double
     }
 
     sb.AppendLine().AppendLine("## 건별 결과").AppendLine();
-    sb.AppendLine("| 이미지 | 정답 | 판정 | confidence | latency(ms) |");
-    sb.AppendLine("|---|---|---|---|---|");
-    foreach (var r in rs)
+    sb.AppendLine("| 이미지 | 정답 | 판정 | confidence | latency(ms) | 근거 |");
+    sb.AppendLine("|---|---|---|---|---|---|");
+    foreach (var r in all)
     {
         var truth = r.Truth?.ToString() ?? "-";
-        sb.AppendLine(Inv($"| {r.Name} | {truth} | {r.Verdict} | {r.Confidence:F2} | {r.LatencyMs:F0} |"));
+        var verdict = r.Verdict?.ToString() ?? "**실패**";
+        sb.AppendLine(Inv($"| {r.Name} | {truth} | {verdict} | {r.Confidence:F2} | {r.LatencyMs:F0} | {Cell(r.Error ?? r.Findings ?? "")} |"));
     }
 
     sb.AppendLine().AppendLine("## 비용 참조").AppendLine();
@@ -298,4 +340,11 @@ static double Median(List<double> sorted)
 
 static string Inv(FormattableString s) => s.ToString(CultureInfo.InvariantCulture);
 
-internal readonly record struct Row(string Name, Verdict? Truth, Verdict Verdict, double Confidence, double LatencyMs);
+// 표 칸 하나 — 줄바꿈 · 세로선을 지우고 길면 자른다.
+static string Cell(string text)
+{
+    var flat = text.ReplaceLineEndings(" ").Replace('|', '/');
+    return flat.Length <= 160 ? flat : flat[..160] + "…";
+}
+
+internal readonly record struct Row(string Name, Verdict? Truth, Verdict? Verdict, double Confidence, double LatencyMs, string? Findings, string? Error);

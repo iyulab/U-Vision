@@ -92,6 +92,23 @@ internal static class SampleManifest
         return samples;
     }
 
+    /// <summary>
+    /// 측정할 표본을 고른다 — 분할로 거르고(<c>null</c> 이면 전체), 클래스마다 최대 <paramref name="perClass"/> 장을 목록 전체에
+    /// 고르게 띄워 뽑는다. 앞에서부터 자르면 파일 번호 순(대개 촬영 순)의 한 구간만 재게 된다. 결정론적 — 다시 돌려도 같은 표본.
+    /// </summary>
+    public static List<Sample> Pick(IReadOnlyList<Sample> samples, string? split, int perClass)
+    {
+        var picked = new List<Sample>();
+        foreach (var group in samples.Where(s => split is null || s.Split == split).GroupBy(s => s.Class))
+        {
+            var all = group.ToList();
+            var n = Math.Min(perClass, all.Count);
+            for (var i = 0; i < n; i++)
+                picked.Add(all[(int)((long)i * all.Count / n)]);
+        }
+        return picked;
+    }
+
     private static string Hash(string file)
     {
         using var stream = File.OpenRead(file);
