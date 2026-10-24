@@ -33,6 +33,12 @@ public sealed class VlmOptions
     /// </summary>
     public int MaxOutputTokens { get; set; } = 4096;
 
+    /// <summary>
+    /// 생각하는 모델의 추론 강도 — 비우면(기본) 보내지 않는다(서버 · 모델 기본값). <c>none</c> · <c>minimal</c> · <c>low</c> ·
+    /// <c>medium</c> · <c>high</c> · <c>xhigh</c>. 서버가 받지 않으면 효과가 없다 — 켜기 전에 그 서버에서 지연이 줄어드는지 잰다.
+    /// </summary>
+    public string? ThinkingEffort { get; set; }
+
     /// <summary>업로드 크기 상한(MB) — DoS 방지.</summary>
     public int MaxUploadSizeMb { get; set; } = 10;
 }

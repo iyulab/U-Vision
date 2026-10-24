@@ -21,6 +21,7 @@ public static class VlmProviderFactory
             throw new ArgumentException("UVision:Vlm:TimeoutSeconds 는 0(한도 없음) 또는 1~600 이어야 합니다");
         if (options.MaxOutputTokens is < 256 or > 131072)
             throw new ArgumentException("UVision:Vlm:MaxOutputTokens 는 256~131072 이어야 합니다");
+        var effort = ParseEffort(options.ThinkingEffort);
 
         switch (options.Provider.ToLowerInvariant())
         {
@@ -36,7 +37,8 @@ public static class VlmProviderFactory
                         OpenAIServiceType.Messages)),
                     "openai",
                     options.Model,
-                    options.MaxOutputTokens);
+                    options.MaxOutputTokens,
+                    effort);
 
             case "google":
                 // UNVERIFIED: 실호출 미검증(API 키 없음) — 구조화 출력 응답 형태 · 지연. IronHiveVlmProvider 머리 주석.
@@ -46,7 +48,8 @@ public static class VlmProviderFactory
                         new GoogleAIConfig { ApiKey = options.ApiKey })),
                     "google",
                     options.Model,
-                    options.MaxOutputTokens);
+                    options.MaxOutputTokens,
+                    effort);
 
             case ProviderNames.OpenAICompatible:
                 // 셀프호스트 서버 — Endpoint 는 서버 주소(예: http://host:8080), ironhive 가 /v1 을 붙인다.
@@ -56,11 +59,25 @@ public static class VlmProviderFactory
                     IronHiveBuilders.OpenAICompatible(options.Endpoint, options.ApiKey),
                     ProviderNames.OpenAICompatible,
                     options.Model,
-                    options.MaxOutputTokens);
+                    options.MaxOutputTokens,
+                    effort);
 
             default:
                 throw new ArgumentException(ProviderNames.Unknown("VLM", options.Provider, ProviderNames.Vlm));
         }
     }
 
+    /// <summary>추론 강도 설정 값 — 비면 null(보내지 않음), 지어진 값 밖은 받는 값을 알려 주며 거부.</summary>
+    internal static MessageThinkingEffort? ParseEffort(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToLowerInvariant() switch
+        {
+            "none" => MessageThinkingEffort.None,
+            "minimal" => MessageThinkingEffort.Minimal,
+            "low" => MessageThinkingEffort.Low,
+            "medium" => MessageThinkingEffort.Medium,
+            "high" => MessageThinkingEffort.High,
+            "xhigh" => MessageThinkingEffort.XHigh,
+            _ => throw new ArgumentException(
+                $"UVision:Vlm:ThinkingEffort '{value}' — 받는 값: none · minimal · low · medium · high · xhigh (비우면 보내지 않음)"),
+        };
 }

@@ -13,12 +13,20 @@ public class IronHiveVlmProviderTruncationTests
 {
     private sealed class FixedMessageService(MessageDoneReason reason, string? text) : IMessageService
     {
+        public MessageRequest? LastRequest { get; private set; }
+
         public Task<MessageResponse> GenerateMessageAsync(MessageRequest request, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new MessageResponse
+            Task.FromResult(Record(request, new MessageResponse
             {
                 DoneReason = reason,
                 Message = Message.Assistant(text is null ? [] : [new TextMessageContent { Value = text }]),
-            });
+            }));
+
+        private MessageResponse Record(MessageRequest request, MessageResponse response)
+        {
+            LastRequest = request;
+            return response;
+        }
 
         public IReadOnlyDictionary<string, IMessageGenerator> Generators => throw new NotSupportedException();
 
@@ -52,5 +60,17 @@ public class IronHiveVlmProviderTruncationTests
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.InspectAsync(new byte[] { 0xFF, 0xD8 }, Scenario));
 
         Assert.DoesNotContain("출력 토큰 한도", ex.Message);
+    }
+
+    [Fact]
+    public async Task ThinkingEffortAndTokenLimit_AreSentWithTheRequest()
+    {
+        var service = new FixedMessageService(MessageDoneReason.EndTurn, "{\"verdict\":\"OK\",\"findings\":\"\",\"confidence\":0.9}");
+        var provider = new IronHiveVlmProvider(service, "openai-compatible", "m", 8192, MessageThinkingEffort.None);
+
+        await provider.InspectAsync(new byte[] { 0xFF, 0xD8 }, Scenario);
+
+        Assert.Equal(8192, service.LastRequest!.MaxTokens);
+        Assert.Equal(MessageThinkingEffort.None, service.LastRequest.ThinkingEffort);
     }
 }

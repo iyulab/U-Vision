@@ -45,4 +45,21 @@ public class VlmProviderFactoryTests
     public void MaxOutputTokensOutOfRange_IsRejected(int tokens) =>
         Assert.Throws<ArgumentException>(() =>
             VlmProviderFactory.Create(new VlmOptions { Provider = "mock", MaxOutputTokens = tokens }));
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(" ", null)]
+    [InlineData("None", IronHive.Abstractions.Messages.MessageThinkingEffort.None)]
+    [InlineData("low", IronHive.Abstractions.Messages.MessageThinkingEffort.Low)]
+    [InlineData("xhigh", IronHive.Abstractions.Messages.MessageThinkingEffort.XHigh)]
+    public void ThinkingEffort_EmptyIsNotSent_NamesMapCaseInsensitively(string? value, IronHive.Abstractions.Messages.MessageThinkingEffort? expected) =>
+        Assert.Equal(expected, VlmProviderFactory.ParseEffort(value));
+
+    [Fact]
+    public void UnknownThinkingEffort_IsRejected_NamingTheAcceptedValues()
+    {
+        var ex = Assert.Throws<ArgumentException>(() =>
+            VlmProviderFactory.Create(new VlmOptions { Provider = "mock", ThinkingEffort = "max" }));
+        Assert.Contains("minimal", ex.Message);
+    }
 }

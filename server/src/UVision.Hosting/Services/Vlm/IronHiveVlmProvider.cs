@@ -38,13 +38,17 @@ public sealed class IronHiveVlmProvider : IVlmProvider
     private readonly IMessageService _messageService;
     private readonly string _model;
     private readonly int _maxOutputTokens;
+    private readonly MessageThinkingEffort? _thinkingEffort;
 
-    public IronHiveVlmProvider(IMessageService messageService, string providerName, string model, int maxOutputTokens = 4096)
+    public IronHiveVlmProvider(
+        IMessageService messageService, string providerName, string model, int maxOutputTokens = 4096,
+        MessageThinkingEffort? thinkingEffort = null)
     {
         _messageService = messageService;
         Name = providerName;
         _model = model;
         _maxOutputTokens = maxOutputTokens;
+        _thinkingEffort = thinkingEffort;
     }
 
     public string Name { get; }
@@ -68,6 +72,7 @@ public sealed class IronHiveVlmProvider : IVlmProvider
                 ? OutputFormat.For(TypedSchema([.. defects.Select(c => c.Id)]))
                 : OutputFormat.For<InspectionResult>(),
             MaxTokens = _maxOutputTokens,      // reasoning 모델 truncation 방지(위 주석)
+            ThinkingEffort = _thinkingEffort,  // null 이면 보내지 않음 — 서버 · 모델 기본값
         };
 
         var response = await _messageService.GenerateMessageAsync(request, cancellationToken);
