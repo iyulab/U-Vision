@@ -66,7 +66,7 @@ public static class MetricsAggregator
         int failClosed = 0;
         int inspections = 0;  // 비-fail-closed (rows.Count 대신)
         int mlChecked = 0;    // 그 가운데 ML 을 물은 건 — ML 비율의 분모
-        int matchMismatches = 0, matchAbstained = 0, contested = 0;
+        int matchMismatches = 0, matchAbstained = 0, contested = 0, datasetInspections = 0;
         int degraded = 0, agreements = 0, reviews = 0, oraclePending = 0;
         int labeled = 0, labeledNg = 0, vlmNgHits = 0, mlNgScored = 0, mlNgHits = 0;
 
@@ -81,6 +81,7 @@ public static class MetricsAggregator
             if (r.Match == ScenarioVocabulary.Mismatch) matchMismatches++;
             else if (r.Match == MatchAbstained) matchAbstained++;
             if (r.Contested) contested++;
+            if (r.Origin == CaptureOrigin.Dataset) datasetInspections++;
 
             if (r.VlmOnly)
             {
@@ -146,6 +147,7 @@ public static class MetricsAggregator
             MatchMismatches = matchMismatches,
             MatchAbstained = matchAbstained,
             Contested = contested,
+            DatasetInspections = datasetInspections,
             MlDegraded = degraded,
             Agreements = agreements,
             ReviewsRequired = reviews,

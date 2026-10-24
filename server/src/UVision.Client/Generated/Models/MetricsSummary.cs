@@ -22,6 +22,8 @@ namespace UVision.Client.Models
         public int? Audited { get; set; }
         /// <summary>The contested property</summary>
         public int? Contested { get; set; }
+        /// <summary>The dataset_inspections property</summary>
+        public int? DatasetInspections { get; set; }
         /// <summary>The date property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -119,6 +121,7 @@ namespace UVision.Client.Models
                 { "agreements", n => { Agreements = n.GetIntValue(); } },
                 { "audited", n => { Audited = n.GetIntValue(); } },
                 { "contested", n => { Contested = n.GetIntValue(); } },
+                { "dataset_inspections", n => { DatasetInspections = n.GetIntValue(); } },
                 { "date", n => { Date = n.GetStringValue(); } },
                 { "degrade_rate", n => { DegradeRate = n.GetDoubleValue(); } },
                 { "fail_closed", n => { FailClosed = n.GetIntValue(); } },
@@ -160,6 +163,7 @@ namespace UVision.Client.Models
             writer.WriteIntValue("agreements", Agreements);
             writer.WriteIntValue("audited", Audited);
             writer.WriteIntValue("contested", Contested);
+            writer.WriteIntValue("dataset_inspections", DatasetInspections);
             writer.WriteStringValue("date", Date);
             writer.WriteDoubleValue("degrade_rate", DegradeRate);
             writer.WriteIntValue("fail_closed", FailClosed);

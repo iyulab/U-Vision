@@ -359,6 +359,22 @@
                         "type": "string"
                       }
                     }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "origin": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "origin_ref": {
+                        "type": "string"
+                      }
+                    }
                   }
                 ]
               }
@@ -2757,6 +2773,12 @@
           },
           "captured_at": {
             "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          },
+          "origin_ref": {
+            "type": "string"
           }
         }
       },
@@ -2964,6 +2986,7 @@
           "vlm_ng_hits",
           "ml_ng_scored",
           "ml_ng_hits",
+          "dataset_inspections",
           "agreement_rate",
           "review_rate",
           "degrade_rate",
@@ -2999,6 +3022,10 @@
             "format": "int32"
           },
           "contested": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dataset_inspections": {
             "type": "integer",
             "format": "int32"
           },
@@ -3774,6 +3801,12 @@
             "type": "string"
           },
           "captured_at": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          },
+          "origin_ref": {
             "type": "string"
           },
           "class": {

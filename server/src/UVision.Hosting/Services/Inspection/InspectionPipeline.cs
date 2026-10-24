@@ -76,8 +76,10 @@ public sealed class InspectionPipeline(
 
             var failedAt = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
             await WriteFailClosedMetricSafelyAsync(
-                scenario.ScenarioId, ml, failedAt, vlmOnly: !mlActive, MatchOf(effective, capture.Context), cancellationToken);
-            var failedSubject = new LedgerSubject($"dec_{Guid.NewGuid():N}", effective, failedAt, result, evidence.Ml, capture.Context, evidence.Memory);
+                scenario.ScenarioId, ml, failedAt, vlmOnly: !mlActive, MatchOf(effective, capture.Context), capture.Origin?.Kind,
+                cancellationToken);
+            var failedSubject = new LedgerSubject(
+                $"dec_{Guid.NewGuid():N}", effective, failedAt, result, evidence.Ml, capture.Context, evidence.Memory, capture.Origin);
             var failedRoute = await ledger.DecideAsync(failedSubject, cancellationToken);
             await ledger.RecordAsync(
                 failedSubject, failedRoute,
@@ -103,6 +105,8 @@ public sealed class InspectionPipeline(
                     DeviceId = NullIfEmpty(capture.DeviceId),
                     DeviceLabel = NullIfEmpty(capture.DeviceLabel),
                     CapturedAt = capture.CapturedAt,
+                    Origin = capture.Origin?.Kind,
+                    OriginRef = capture.Origin?.Ref,
                 });
         }
 
@@ -151,6 +155,8 @@ public sealed class InspectionPipeline(
             ExpectedPart = capture.Context?.ExpectedPart,
             ObservedCode = capture.Context?.ObservedCode,
             CapturedAt = capture.CapturedAt,
+            Origin = capture.Origin?.Kind,
+            OriginRef = capture.Origin?.Ref,
             // 불량 유형을 나누는 시나리오만 — 이분 판정 · 오투입 확인의 레코드는 verdict 가 곧 클래스(byte 보존).
             Class = effective.IsMultiClass ? decidedClass : null,
         };
@@ -168,7 +174,8 @@ public sealed class InspectionPipeline(
         }
 
         // 결정 장부(관찰 전용) — 레코드가 생긴 뒤에 적어 장부가 없는 레코드를 가리키지 않게 한다.
-        var subject = new LedgerSubject(imageId, effective, timestamp, result, evidence.Ml, capture.Context, evidence.Memory);
+        var subject = new LedgerSubject(
+            imageId, effective, timestamp, result, evidence.Ml, capture.Context, evidence.Memory, capture.Origin);
         var route = await ledger.DecideAsync(subject, cancellationToken);
         await ledger.RecordAsync(
             subject, route,
@@ -182,7 +189,7 @@ public sealed class InspectionPipeline(
         await WriteMetricsSafelyAsync(
             scenario.ScenarioId, imageId, timestamp, verdict, confidence, evidence.Ml, dual,
             posture, vlmOnly: !mlActive, MatchOf(effective, capture.Context), contested: contests.Count > 0,
-            cancellationToken);
+            capture.Origin?.Kind, cancellationToken);
 
         if (mlActive
             && (stage == AuthorityStage.CoPrimary || stage == AuthorityStage.MlPrimary))
@@ -205,6 +212,8 @@ public sealed class InspectionPipeline(
             DeviceId = NullIfEmpty(capture.DeviceId),
             DeviceLabel = NullIfEmpty(capture.DeviceLabel),
             CapturedAt = capture.CapturedAt,
+            Origin = capture.Origin?.Kind,
+            OriginRef = capture.Origin?.Ref,
         };
 
         // 판정 사건(P4) — outbox 에 남기기만 한다(보내기는 따로). 관측 · 통합 경로라 실패는 degrade.
@@ -407,7 +416,7 @@ public sealed class InspectionPipeline(
     /// <c>posture="fail_closed"</c>·verdict/vlm_confidence=null. ML 을 묻지 않았으면 vlm_only.
     /// </summary>
     private async Task WriteFailClosedMetricSafelyAsync(
-        string scenarioId, MlClassification? ml, string timestamp, bool vlmOnly, string? match,
+        string scenarioId, MlClassification? ml, string timestamp, bool vlmOnly, string? match, string? origin,
         CancellationToken cancellationToken)
     {
         var row = new MetricsRow
@@ -422,6 +431,7 @@ public sealed class InspectionPipeline(
             MlDegraded = false,
             VlmOnly = vlmOnly,
             Match = match,
+            Origin = origin,
         };
         try
         {
@@ -450,7 +460,7 @@ public sealed class InspectionPipeline(
     private async Task WriteMetricsSafelyAsync(
         string scenarioId, string imageId, string timestamp,
         Verdict verdict, double confidence, MlOutcome? outcome, DualCheckResult? dual,
-        string? posture, bool vlmOnly, string? match, bool contested, CancellationToken cancellationToken)
+        string? posture, bool vlmOnly, string? match, bool contested, string? origin, CancellationToken cancellationToken)
     {
         var degraded = outcome?.Failed ?? false;
         var row = new MetricsRow
@@ -468,6 +478,7 @@ public sealed class InspectionPipeline(
             VlmOnly = vlmOnly,
             Match = match,
             Contested = contested,
+            Origin = origin,
         };
         try { await metricsStore.AppendAsync(scenarioId, row, cancellationToken); }
         catch (Exception ex)
@@ -536,9 +547,10 @@ public sealed class InspectionPipeline(
 /// <param name="DeviceLabel">촬영 장치 표시 이름(선택).</param>
 /// <param name="Context">요청 맥락 — 오투입 확인의 기대 품번 · 읽은 코드(선택).</param>
 /// <param name="CapturedAt">장치가 캡처한 시각, 정규화된 UTC ISO 8601(선택 — <see cref="CaptureTime"/>).</param>
+/// <param name="Origin">캡처 출처 — 시험 데이터셋 주입이면(선택, 없으면 현장 촬영 — <see cref="CaptureOrigin"/>).</param>
 public sealed record InspectionCapture(
     ReadOnlyMemory<byte> Image, string ContentType, string? DeviceId, string? DeviceLabel,
-    InspectionContext? Context = null, string? CapturedAt = null);
+    InspectionContext? Context = null, string? CapturedAt = null, CaptureOrigin? Origin = null);
 
 /// <summary>판정 파이프라인의 결과 — 호출부(HTTP·다른 진입점)가 자기 표현으로 옮긴다.</summary>
 public abstract record InspectionOutcome

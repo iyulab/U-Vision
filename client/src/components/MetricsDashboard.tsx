@@ -188,6 +188,12 @@ function Cards({ summary }: { summary: MetricsSummary }) {
 
   return (
     <div className="space-y-6">
+      {summary.dataset_inspections > 0 && (
+        <p className="rounded-lg bg-sky-900/40 px-4 py-2 text-sm text-sky-200">
+          검사 {summary.inspections}건 가운데 {summary.dataset_inspections}건은 시험 데이터셋에서 넣은 판정입니다 — 아래 수치는 현장
+          촬영과 섞여 있습니다.
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Stat label="검사" value={String(summary.inspections)} sub={`ML 2중체크 ${summary.ml_checked}건`} />
         <Stat

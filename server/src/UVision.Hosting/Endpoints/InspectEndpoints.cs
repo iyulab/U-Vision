@@ -71,7 +71,7 @@ public static class InspectEndpoints
         VlmOptions options,
         CancellationToken cancellationToken) =>
         RunAsync(
-            "inspect", image, scenarioId, deviceId, deviceLabel, capturedAt, context: null, idempotencyKey,
+            "inspect", image, scenarioId, deviceId, deviceLabel, capturedAt, context: null, origin: null, idempotencyKey,
             outcome => outcome switch
             {
                 InspectionOutcome.Completed c => (Results.Ok(c.Response), c.Response),
@@ -89,6 +89,8 @@ public static class InspectEndpoints
         [FromForm(Name = "expected_part")] string? expectedPart,
         [FromForm(Name = "observed_code")] string? observedCode,
         [FromForm(Name = "captured_at")] string? capturedAt,
+        [FromForm(Name = "origin")] string? origin,
+        [FromForm(Name = "origin_ref")] string? originRef,
         [FromHeader(Name = InspectionReplays.KeyHeader)] string? idempotencyKey,
         InspectionPipeline pipeline,
         InspectionReplays replays,
@@ -96,15 +98,18 @@ public static class InspectEndpoints
         CancellationToken cancellationToken)
     {
         var invalidContext = InspectionContext.Validate(expectedPart, "expected_part")
-            ?? InspectionContext.Validate(observedCode, "observed_code");
+            ?? InspectionContext.Validate(observedCode, "observed_code")
+            ?? CaptureOrigin.Validate(origin, originRef);
         if (invalidContext is not null)
             return Results.Problem(statusCode: 400, detail: invalidContext);
         var context = expectedPart is null && observedCode is null
             ? null
             : new InspectionContext { ExpectedPart = expectedPart, ObservedCode = observedCode };
 
+        var captureOrigin = origin is null ? null : new CaptureOrigin { Kind = origin, Ref = originRef };
+
         return await RunAsync(
-            "v2/inspect", image, scenarioId, deviceId, deviceLabel, capturedAt, context, idempotencyKey,
+            "v2/inspect", image, scenarioId, deviceId, deviceLabel, capturedAt, context, captureOrigin, idempotencyKey,
             outcome => outcome switch
             {
                 InspectionOutcome.Completed c => (Results.Ok(c.V2), c.V2),
@@ -122,7 +127,7 @@ public static class InspectEndpoints
     /// </summary>
     private static async Task<IResult> RunAsync(
         string operation, IFormFile image, string scenarioId, string? deviceId, string? deviceLabel, string? capturedAt,
-        InspectionContext? context, string? idempotencyKey,
+        InspectionContext? context, CaptureOrigin? origin, string? idempotencyKey,
         Func<InspectionOutcome, (IResult Result, object? Replayable)> respond,
         InspectionPipeline pipeline, InspectionReplays replays, VlmOptions options, CancellationToken cancellationToken)
     {
@@ -156,7 +161,7 @@ public static class InspectEndpoints
         if (data is null)
             return Results.Problem(statusCode: 400, detail: "빈 이미지");
 
-        var capture = new InspectionCapture(data, image.ContentType, deviceId, deviceLabel, context, capturedAtUtc);
+        var capture = new InspectionCapture(data, image.ContentType, deviceId, deviceLabel, context, capturedAtUtc, origin);
         if (idempotencyKey is null)
             return respond(await pipeline.RunAsync(scenario, capture, cancellationToken)).Result;
 

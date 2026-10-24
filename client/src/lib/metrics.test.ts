@@ -12,6 +12,7 @@ function makeSummary(overrides: Partial<MetricsSummary>): MetricsSummary {
     ml_checked: 0,
     match_mismatches: 0,
     match_abstained: 0,
+    dataset_inspections: 0,
     contested: 0,
     ml_degraded: 0,
     agreements: 0,

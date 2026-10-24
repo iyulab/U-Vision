@@ -77,6 +77,22 @@ namespace UVision.Client.Models
 #endif
         /// <summary>The primary error message.</summary>
         public override string Message { get => base.Message; }
+        /// <summary>The origin property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Origin { get; set; }
+#nullable restore
+#else
+        public string Origin { get; set; }
+#endif
+        /// <summary>The origin_ref property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? OriginRef { get; set; }
+#nullable restore
+#else
+        public string OriginRef { get; set; }
+#endif
         /// <summary>The path property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -161,6 +177,8 @@ namespace UVision.Client.Models
                 { "device_id", n => { DeviceId = n.GetStringValue(); } },
                 { "device_label", n => { DeviceLabel = n.GetStringValue(); } },
                 { "findings", n => { Findings = n.GetStringValue(); } },
+                { "origin", n => { Origin = n.GetStringValue(); } },
+                { "origin_ref", n => { OriginRef = n.GetStringValue(); } },
                 { "path", n => { Path = n.GetCollectionOfObjectValues<global::UVision.Client.Models.PathStepV2>(global::UVision.Client.Models.PathStepV2.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "posture", n => { Posture = n.GetStringValue(); } },
                 { "reason", n => { Reason = n.GetStringValue(); } },
@@ -186,6 +204,8 @@ namespace UVision.Client.Models
             writer.WriteStringValue("device_id", DeviceId);
             writer.WriteStringValue("device_label", DeviceLabel);
             writer.WriteStringValue("findings", Findings);
+            writer.WriteStringValue("origin", Origin);
+            writer.WriteStringValue("origin_ref", OriginRef);
             writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.PathStepV2>("path", Path);
             writer.WriteStringValue("posture", Posture);
             writer.WriteStringValue("reason", Reason);

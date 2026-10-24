@@ -73,6 +73,11 @@ public sealed record MetricsRow
     [JsonPropertyName("contested")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Contested { get; init; }
+
+    /// <summary>캡처 출처 — 시험 데이터셋에서 넣은 판정이면 <c>dataset</c>. 현장 촬영이면 생략.</summary>
+    [JsonPropertyName("origin")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Origin { get; init; }
 }
 
 /// <summary>
@@ -106,6 +111,11 @@ public sealed record MetricsSummary
 
     /// <summary>위 단이 아래 단의 must-catch 답을 뒤집어 검토 대기로 남은 건.</summary>
     [JsonPropertyName("contested")] public required int Contested { get; init; }
+
+    /// <summary>
+    /// 판정 건 가운데 시험 데이터셋에서 넣은 것(<c>origin: dataset</c>) — 0 이 아니면 이 집계에 현장 촬영이 아닌 판정이 섞여 있다.
+    /// </summary>
+    [JsonPropertyName("dataset_inspections")] public int DatasetInspections { get; init; }
 
     /// <summary>ML 분류 실패(degrade)로 2중체크 못 한 건.</summary>
     [JsonPropertyName("ml_degraded")] public required int MlDegraded { get; init; }

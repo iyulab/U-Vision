@@ -98,6 +98,22 @@ namespace UVision.Client.Models
 #else
         public string ObservedCode { get; set; }
 #endif
+        /// <summary>The origin property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Origin { get; set; }
+#nullable restore
+#else
+        public string Origin { get; set; }
+#endif
+        /// <summary>The origin_ref property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? OriginRef { get; set; }
+#nullable restore
+#else
+        public string OriginRef { get; set; }
+#endif
         /// <summary>The posture property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -163,6 +179,8 @@ namespace UVision.Client.Models
                 { "image_id", n => { ImageId = n.GetStringValue(); } },
                 { "ml", n => { Ml = n.GetObjectValue<global::UVision.Client.Models.MlResult>(global::UVision.Client.Models.MlResult.CreateFromDiscriminatorValue); } },
                 { "observed_code", n => { ObservedCode = n.GetStringValue(); } },
+                { "origin", n => { Origin = n.GetStringValue(); } },
+                { "origin_ref", n => { OriginRef = n.GetStringValue(); } },
                 { "posture", n => { Posture = n.GetStringValue(); } },
                 { "requires_review", n => { RequiresReview = n.GetBoolValue(); } },
                 { "scenario_id", n => { ScenarioId = n.GetStringValue(); } },
@@ -189,6 +207,8 @@ namespace UVision.Client.Models
             writer.WriteStringValue("image_id", ImageId);
             writer.WriteObjectValue<global::UVision.Client.Models.MlResult>("ml", Ml);
             writer.WriteStringValue("observed_code", ObservedCode);
+            writer.WriteStringValue("origin", Origin);
+            writer.WriteStringValue("origin_ref", OriginRef);
             writer.WriteStringValue("posture", Posture);
             writer.WriteBoolValue("requires_review", RequiresReview);
             writer.WriteStringValue("scenario_id", ScenarioId);

@@ -84,6 +84,16 @@ public sealed record InspectResultV2
     [JsonPropertyName("captured_at")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? CapturedAt { get; init; }
+
+    /// <summary>캡처 출처 — 시험 데이터셋에서 넣은 판정이면 <c>dataset</c>(<see cref="CaptureOrigin"/>). 현장 촬영이면 생략.</summary>
+    [JsonPropertyName("origin")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Origin { get; init; }
+
+    /// <summary>출처 안의 표본 식별 — 요청이 보냈을 때만.</summary>
+    [JsonPropertyName("origin_ref")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OriginRef { get; init; }
 }
 
 /// <summary>

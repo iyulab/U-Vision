@@ -300,6 +300,8 @@ export interface InspectResultV2 {
   device_id?: string
   device_label?: string
   captured_at?: string
+  origin?: string
+  origin_ref?: string
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
@@ -389,6 +391,7 @@ export interface MetricsSummary {
   match_mismatches: number
   match_abstained: number
   contested: number
+  dataset_inspections: number
   ml_degraded: number
   fail_closed: number
   agreements: number
@@ -633,6 +636,8 @@ export interface StoredResult {
   expected_part?: string
   observed_code?: string
   captured_at?: string
+  origin?: string
+  origin_ref?: string
   class?: string
 }
 /**

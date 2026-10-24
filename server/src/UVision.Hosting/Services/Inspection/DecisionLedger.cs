@@ -95,6 +95,13 @@ public sealed class DecisionLedger(
             // 기억 단의 거리 · 이웃 수 · 인코더 판 — 문턱을 재생으로 고르는 원천 자료.
             foreach (var (k, v) in subject.Memory?.ToAnnotations() ?? new Dictionary<string, string>())
                 annotations[k] = v;
+            // 시험 데이터셋에서 넣은 판정 — 관문 판정 · 문턱 재생이 현장 데이터와 나눠 볼 수 있게.
+            if (subject.Origin is { } origin)
+            {
+                annotations["origin:kind"] = origin.Kind;
+                if (origin.Ref is { } originRef)
+                    annotations["origin:ref"] = originRef;
+            }
             var record = provenance with { Annotations = annotations };
             var date = StoragePaths.DateBucketOf(subject.Timestamp);
             var sink = _sinks.GetOrAdd(paths.LedgerJsonl(subject.Scenario.ScenarioId, date), p => new JsonlProvenanceSink(p));
@@ -173,7 +180,7 @@ public sealed class DecisionLedger(
 /// <param name="Memory">확정 사례 기억의 답 · 기권(null = 비활성).</param>
 public sealed record LedgerSubject(
     string DecisionId, EffectiveScenario Scenario, string Timestamp, InspectionResult? Vlm, MlOutcome? Ml,
-    InspectionContext? Context = null, MemoryOutcome? Memory = null);
+    InspectionContext? Context = null, MemoryOutcome? Memory = null, CaptureOrigin? Origin = null);
 
 /// <summary>실제로 쓴 결정 — 장부에서 라우터의 결정과 나란히 비교하기 위해 남긴다.</summary>
 /// <param name="Verdict">응답한 판정(null = fail-closed).</param>
