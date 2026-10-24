@@ -32,19 +32,19 @@ public sealed class IronHiveVlmProvider : IVlmProvider
         PropertyNameCaseInsensitive = true,
     };
 
-    // reasoning 모델(예: GPUStack 의 qwen3 계열)은 답(JSON) 앞에 사고 토큰을 소비한다. 한도가 낮으면
-    // 사고가 예산을 다 써 content 가 빈 채로 truncate(finish_reason=length)되어 역직렬화가 실패한다.
-    // 사고 + 구조화 JSON 이 함께 들어가도록 넉넉히 둔다. (비추론 provider 엔 영향 없음 — 짧게 끝남.)
-    private const int MaxOutputTokens = 4096;
-
+    // reasoning 모델(예: qwen3 계열)은 답(JSON) 앞에 사고 토큰을 소비한다. 한도가 낮으면 사고가 예산을 다 써
+    // content 가 빈 채로(또는 JSON 중간에서) 끊겨(finish_reason=length) 역직렬화가 실패한다 — 그 경우를 아래에서
+    // «출력 토큰 한도»로 밝혀 던진다. 한도는 설정(VlmOptions.MaxOutputTokens)이다.
     private readonly IMessageService _messageService;
     private readonly string _model;
+    private readonly int _maxOutputTokens;
 
-    public IronHiveVlmProvider(IMessageService messageService, string providerName, string model)
+    public IronHiveVlmProvider(IMessageService messageService, string providerName, string model, int maxOutputTokens = 4096)
     {
         _messageService = messageService;
         Name = providerName;
         _model = model;
+        _maxOutputTokens = maxOutputTokens;
     }
 
     public string Name { get; }
@@ -67,7 +67,7 @@ public sealed class IronHiveVlmProvider : IVlmProvider
             OutputFormat = scenario.DefectClasses is { Count: > 0 } defects
                 ? OutputFormat.For(TypedSchema([.. defects.Select(c => c.Id)]))
                 : OutputFormat.For<InspectionResult>(),
-            MaxTokens = MaxOutputTokens,       // reasoning 모델 truncation 방지(위 주석)
+            MaxTokens = _maxOutputTokens,      // reasoning 모델 truncation 방지(위 주석)
         };
 
         var response = await _messageService.GenerateMessageAsync(request, cancellationToken);
@@ -77,17 +77,32 @@ public sealed class IronHiveVlmProvider : IVlmProvider
             .Select(c => c.Value)
             .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
 
+        // 한도에서 끊긴 응답은 답이 없거나 JSON 이 잘려 있다 — 원인을 «응답 없음 · 역직렬화 실패»로 가리지 않고 밝힌다.
+        var truncated = response.DoneReason == MessageDoneReason.MaxTokens;
         if (string.IsNullOrWhiteSpace(json))
         {
-            throw new InvalidOperationException(
-                $"VLM provider '{Name}' 가 텍스트 응답을 반환하지 않음.");
+            throw new InvalidOperationException(truncated
+                ? TruncatedMessage()
+                : $"VLM provider '{Name}' 가 텍스트 응답을 반환하지 않음.");
         }
 
-        var result = ParseAnswer(ExtractJson(json), typed: scenario.DefectClasses is { Count: > 0 })
-            ?? throw new InvalidOperationException($"VLM 응답 역직렬화 실패: {json}");
+        InspectionResult? result;
+        try
+        {
+            result = ParseAnswer(ExtractJson(json), typed: scenario.DefectClasses is { Count: > 0 });
+        }
+        catch (JsonException) when (truncated)
+        {
+            throw new InvalidOperationException(TruncatedMessage());
+        }
+        if (result is null) throw new InvalidOperationException($"VLM 응답 역직렬화 실패: {json}");
 
         return result with { Confidence = NormalizeConfidence(result.Confidence) };
     }
+
+    private string TruncatedMessage() =>
+        $"VLM provider '{Name}' 의 응답이 출력 토큰 한도({_maxOutputTokens})에서 끊김 — 추론이 답 전에 한도를 다 썼다. "
+        + "UVision:Vlm:MaxOutputTokens(VLM_MAX_OUTPUT_TOKENS)를 서버 문맥 길이 안에서 늘릴 것.";
 
     /// <summary>
     /// 유형을 나누는 판정의 출력 스키마 — <c>defect_class</c> 를 선언한 유형 id(OK 면 null)로 구속한다. 유형이

@@ -139,6 +139,9 @@ var vlmOptions = new VlmOptions
     Model = model,
     ApiKey = Environment.GetEnvironmentVariable("VLM_API_KEY") ?? "",
     Endpoint = endpoint,
+    // 생각하는 모델은 어려운 장면에서 기본 4096 을 추론에 다 쓴다 — 측정은 --max-output-tokens(또는 VLM_MAX_OUTPUT_TOKENS)로 올린다.
+    MaxOutputTokens = int.TryParse(opts.GetValueOrDefault("max-output-tokens")
+        ?? Environment.GetEnvironmentVariable("VLM_MAX_OUTPUT_TOKENS"), out var mot) ? mot : new VlmOptions().MaxOutputTokens,
 };
 var provider = VlmProviderFactory.Create(vlmOptions);
 var scenario = new ScenarioContext

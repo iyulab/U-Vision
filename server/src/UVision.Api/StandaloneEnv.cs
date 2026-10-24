@@ -16,6 +16,7 @@ internal static class StandaloneEnv
         Put("VLM_API_KEY", "UVision:Vlm:ApiKey");
         Put("VLM_ENDPOINT", "UVision:Vlm:Endpoint");
         Put("VLM_TIMEOUT_SECONDS", "UVision:Vlm:TimeoutSeconds");
+        Put("VLM_MAX_OUTPUT_TOKENS", "UVision:Vlm:MaxOutputTokens");
         Put("MAX_UPLOAD_SIZE_MB", "UVision:Vlm:MaxUploadSizeMb");
         // 전용 ML 분류기(③ 2중체크) — VLM_* 와 대칭인 평면 env. 기본 none(VLM 단독).
         Put("ML_PROVIDER", "UVision:Ml:Provider");

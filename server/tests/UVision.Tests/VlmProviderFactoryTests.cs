@@ -38,4 +38,11 @@ public class VlmProviderFactoryTests
     public void TimeoutOutOfRange_IsRejected(int seconds) =>
         Assert.Throws<ArgumentException>(() =>
             VlmProviderFactory.Create(new VlmOptions { Provider = "mock", TimeoutSeconds = seconds }));
+
+    [Theory]
+    [InlineData(255)]
+    [InlineData(131073)]
+    public void MaxOutputTokensOutOfRange_IsRejected(int tokens) =>
+        Assert.Throws<ArgumentException>(() =>
+            VlmProviderFactory.Create(new VlmOptions { Provider = "mock", MaxOutputTokens = tokens }));
 }

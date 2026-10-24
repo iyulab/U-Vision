@@ -19,6 +19,8 @@ public static class VlmProviderFactory
     {
         if (options.TimeoutSeconds is < 0 or > 600)
             throw new ArgumentException("UVision:Vlm:TimeoutSeconds 는 0(한도 없음) 또는 1~600 이어야 합니다");
+        if (options.MaxOutputTokens is < 256 or > 131072)
+            throw new ArgumentException("UVision:Vlm:MaxOutputTokens 는 256~131072 이어야 합니다");
 
         switch (options.Provider.ToLowerInvariant())
         {
@@ -33,7 +35,8 @@ public static class VlmProviderFactory
                         new OpenAIConfig { ApiKey = options.ApiKey },
                         OpenAIServiceType.Messages)),
                     "openai",
-                    options.Model);
+                    options.Model,
+                    options.MaxOutputTokens);
 
             case "google":
                 // UNVERIFIED: 실호출 미검증(API 키 없음) — 구조화 출력 응답 형태 · 지연. IronHiveVlmProvider 머리 주석.
@@ -42,7 +45,8 @@ public static class VlmProviderFactory
                         "google",
                         new GoogleAIConfig { ApiKey = options.ApiKey })),
                     "google",
-                    options.Model);
+                    options.Model,
+                    options.MaxOutputTokens);
 
             case ProviderNames.OpenAICompatible:
                 // 셀프호스트 서버 — Endpoint 는 서버 주소(예: http://host:8080), ironhive 가 /v1 을 붙인다.
@@ -51,7 +55,8 @@ public static class VlmProviderFactory
                 return new IronHiveVlmProvider(
                     IronHiveBuilders.OpenAICompatible(options.Endpoint, options.ApiKey),
                     ProviderNames.OpenAICompatible,
-                    options.Model);
+                    options.Model,
+                    options.MaxOutputTokens);
 
             default:
                 throw new ArgumentException(ProviderNames.Unknown("VLM", options.Provider, ProviderNames.Vlm));

@@ -26,6 +26,13 @@ public sealed class VlmOptions
     /// </summary>
     public int TimeoutSeconds { get; set; }
 
+    /// <summary>
+    /// 판정 한 건의 모델 출력 토큰 상한(기본 4096, 256~131072). 생각하는(reasoning) 모델은 답(JSON) 앞에 추론 토큰을 쓰므로, 어려운
+    /// 장면에서 추론이 상한을 다 쓰면 답 없이 끝난다(판정 불가 — 로그에 «출력 토큰 한도»로 남는다). 그런 모델은 올린다 — 서버의 문맥 길이를
+    /// 넘기면 서버가 요청을 거부하니 그 안에서. 생각하지 않는 모델은 짧게 끝나 영향이 없다.
+    /// </summary>
+    public int MaxOutputTokens { get; set; } = 4096;
+
     /// <summary>업로드 크기 상한(MB) — DoS 방지.</summary>
     public int MaxUploadSizeMb { get; set; } = 10;
 }
