@@ -22,10 +22,15 @@ using UVision.Api.Services.Vlm;
 //       --manifest <이름> [--split test] [--per-class 20] --provider openai-compatible --model <모델> [--concurrency 4]
 //   # 표본 목록 짓기 — 데이터 루트의 {dir}/{분할}/{클래스}/ 를 GEN/u-vision/manifests/{name}.tsv 로(원본 무변경)
 //   UVISION_DATA_ROOT=... dotnet run --project src/UVision.Benchmark -- manifest --name <이름> //       --dir <루트 상대 폴더> --splits 학습=train,테스트=test --classes 정상=OK,불량=NG
+//       분할을 데이터셋의 CSV 가 정하면 --split-csv <dir 기준 CSV> [--object <대상>] — 예: VisA
+//       --dir PUB/visa/VisA_20220922 --split-csv split_csv/2cls_highshot.csv --object pcb1 --splits train=train,test=test --classes normal=OK,anomaly=NG
 //       (같은 내용의 파일은 한 장으로, train 과 겹친 test 는 뺀다. 분할이 없는 데이터는 --splits Images=all —
 //        memory 가 leave-one-out 으로 잰다)
 //   # 기억 단 문턱 오프라인 재생 — train 을 기억에, test 를 질의로(MLoop /embed, VLM 없음)
 //   UVISION_DATA_ROOT=... MEMORY_ENDPOINT=http://localhost:5417 MEMORY_ENCODER=dinov2-small MEMORY_TOKEN=... //       dotnet run --project src/UVision.Benchmark -- memory --manifest <이름> [--neighbors 5] [--out report.md]
+//   # 전용 ML 분류기 정확도 — train 분할을 MLoop 학습 폴더로 내보내고(mloop train 은 그 폴더에서), test 분할을 /predict 로
+//   UVISION_DATA_ROOT=... dotnet run --project src/UVision.Benchmark -- classify --manifest <이름> --export <프로젝트>/datasets/images
+//   UVISION_DATA_ROOT=... ML_TOKEN=... dotnet run --project src/UVision.Benchmark -- classify --manifest <이름> --endpoint http://localhost:5417 [--model default] [--per-class N] [--max-per-minute 55]
 //   # 시험 데이터셋 주입 — 표본을 실행 중인 엔진의 /v2/inspect 로(origin=dataset), --label 이면 정답을 사람 라벨로 심음
 //   UVISION_DATA_ROOT=... dotnet run --project src/UVision.Benchmark -- inject --manifest <이름> --scenario <id> \
 //       --engine http://localhost:8080 [--split test] [--limit N] [--label]
@@ -58,6 +63,8 @@ switch (args.FirstOrDefault())
         return await UVision.Benchmark.MemoryBench.RunAsync(opts);
     case "inject":
         return await UVision.Benchmark.InjectBench.RunAsync(opts);
+    case "classify":
+        return await UVision.Benchmark.ClassifyBench.RunAsync(opts);
 }
 
 List<(string Name, string Path, Verdict? Truth)> images;
@@ -195,10 +202,14 @@ int BuildManifest(Dictionary<string, string> o)
     if (!o.TryGetValue("name", out var name) || !o.TryGetValue("dir", out var dir)
         || !o.TryGetValue("splits", out var splits) || !o.TryGetValue("classes", out var classes))
     {
-        Console.Error.WriteLine("manifest: --name · --dir · --splits(폴더=train|test,…) · --classes(폴더=클래스,…) 필수");
+        Console.Error.WriteLine("manifest: --name · --dir · --splits(폴더 또는 CSV 값=train|test,…) · --classes(폴더 또는 CSV 값=클래스,…) 필수"
+            + " — 선택 --split-csv <dir 기준 CSV> [--object <대상>]");
         return 1;
     }
-    var build = UVision.Benchmark.SampleManifest.FromFolders(root, dir, Pairs(splits), Pairs(classes));
+    // --split-csv: 폴더가 아니라 데이터셋의 분할 CSV 가 분할을 정한다(값=train|test 사상, --object 로 대상 하나만).
+    var build = o.TryGetValue("split-csv", out var splitCsv)
+        ? UVision.Benchmark.SampleManifest.FromSplitCsv(root, dir, splitCsv, o.GetValueOrDefault("object"), Pairs(splits), Pairs(classes))
+        : UVision.Benchmark.SampleManifest.FromFolders(root, dir, Pairs(splits), Pairs(classes));
     var samples = build.Samples;
     if (samples.Count == 0)
     {

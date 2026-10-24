@@ -49,6 +49,49 @@ internal static class SampleManifest
     }
 
     /// <summary>
+    /// 데이터셋이 함께 주는 분할 CSV(머리줄에 <c>split</c> · <c>label</c> · <c>image</c> 열, 선택 <c>object</c>)를 읽는다 — 폴더가
+    /// 분할을 나타내지 않는 데이터셋(VisA 의 <c>split_csv/2cls_highshot.csv</c> 등)용. 이미지 경로는 <paramref name="dir"/> 기준.
+    /// 값은 사상표로 바꾸고 사상표에 없는 행은 건너뛴다. 그 뒤는 <see cref="FromFolders"/> 와 같다(중복 · 누수 제거).
+    /// </summary>
+    public static ManifestBuild FromSplitCsv(
+        string dataRoot, string dir, string csv, string? objectName,
+        IReadOnlyDictionary<string, string> splits, IReadOnlyDictionary<string, string> classes)
+    {
+        var root = System.IO.Path.Combine(dataRoot, dir);
+        var rows = ParseSplitCsv(File.ReadAllLines(System.IO.Path.Combine(root, csv), Encoding.UTF8), objectName, splits, classes);
+        return Dedupe(rows.Select(r =>
+        {
+            var file = System.IO.Path.Combine(root, r.Image);
+            return new Sample(Relative(dataRoot, file), r.Split, r.Class, Hash(file));
+        }));
+    }
+
+    /// <summary>분할 CSV 의 행 → (이미지 상대 경로, 분할, 클래스). 열은 머리줄 이름으로 찾는다 — 순서에 기대지 않는다.</summary>
+    internal static List<(string Image, string Split, string Class)> ParseSplitCsv(
+        IReadOnlyList<string> lines, string? objectName,
+        IReadOnlyDictionary<string, string> splits, IReadOnlyDictionary<string, string> classes)
+    {
+        if (lines.Count == 0) throw new InvalidDataException("분할 CSV 가 비어 있다");
+        var header = lines[0].Split(',').Select(h => h.Trim()).ToList();
+        int Col(string name) => header.IndexOf(name) is var i and >= 0
+            ? i : throw new InvalidDataException($"분할 CSV 에 '{name}' 열이 없다(머리줄: {lines[0]})");
+        var (split, label, image) = (Col("split"), Col("label"), Col("image"));
+        var obj = objectName is null ? -1 : Col("object");
+        var rows = new List<(string, string, string)>();
+        for (var n = 1; n < lines.Count; n++)
+        {
+            if (lines[n].Length == 0) continue;
+            var cols = lines[n].Split(',');
+            if (cols.Length != header.Count)
+                throw new InvalidDataException($"분할 CSV {n + 1}행의 열이 {cols.Length}개(머리줄 {header.Count}개) — 쉼표가 든 경로는 읽지 않는다");
+            if (obj >= 0 && cols[obj] != objectName) continue;
+            if (splits.TryGetValue(cols[split], out var s) && classes.TryGetValue(cols[label], out var c))
+                rows.Add((cols[image], s, c));
+        }
+        return rows;
+    }
+
+    /// <summary>
     /// 경로 순으로 첫 장만 남긴다(같은 분할 안에서 같은 내용). 그다음 train 에 있는 내용을 test 에서 뺀다. 같은 내용이 서로 다른
     /// 클래스로 붙어 있으면 라벨이 모순이라 멈춘다 — 어느 쪽이 맞는지 이 도구는 모른다.
     /// </summary>

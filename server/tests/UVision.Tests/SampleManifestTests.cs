@@ -51,6 +51,30 @@ public class SampleManifestTests
     }
 
     [Fact]
+    public void SplitCsv_FindsColumnsByName_FiltersTheObject_AndSkipsUnmappedValues()
+    {
+        string[] lines =
+        [
+            "object,split,label,image,mask",
+            "pcb1,train,normal,pcb1/Normal/1.JPG,",
+            "pcb1,test,anomaly,pcb1/Anomaly/2.JPG,pcb1/Mask/2.png",
+            "pcb2,train,normal,pcb2/Normal/3.JPG,",
+            "pcb1,val,normal,pcb1/Normal/4.JPG,",
+        ];
+        var rows = SampleManifest.ParseSplitCsv(lines, "pcb1",
+            new Dictionary<string, string> { ["train"] = "train", ["test"] = "test" },
+            new Dictionary<string, string> { ["normal"] = "OK", ["anomaly"] = "NG" });
+
+        Assert.Equal([("pcb1/Normal/1.JPG", "train", "OK"), ("pcb1/Anomaly/2.JPG", "test", "NG")], rows);
+    }
+
+    [Fact]
+    public void SplitCsv_RowWithTheWrongColumnCount_Stops() =>
+        Assert.Throws<InvalidDataException>(() => SampleManifest.ParseSplitCsv(
+            ["split,label,image", "train,normal,a,b.JPG"], null,
+            new Dictionary<string, string> { ["train"] = "train" }, new Dictionary<string, string> { ["normal"] = "OK" }));
+
+    [Fact]
     public void WriteThenRead_RoundTrips()
     {
         var path = Path.Combine(Path.GetTempPath(), "uv-manifest-" + Guid.NewGuid().ToString("N") + ".tsv");
