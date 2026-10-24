@@ -34,6 +34,11 @@ public static class UVisionServiceExtensions
         services.AddSingleton<Services.Memory.CaseMemory>();
         services.AddHostedService<Services.Memory.CaseMemorySyncService>();
 
+        // ML · 기억이 mloop 이면 기동 뒤 한 번 판을 확인해 알린다(로그만 — 판정 · 기동 무변경).
+        services.AddHttpClient(Services.Mloop.MloopVersionCheckService.HttpClientName,
+            c => c.Timeout = TimeSpan.FromSeconds(5));
+        services.AddHostedService<Services.Mloop.MloopVersionCheckService>();
+
         // 오라클(2차 의견 VLM, ④-B) — 기본 none(스윕 BackgroundService 즉시 종료, 동작 무변경).
         services.AddSingleton(options.Oracle);
         services.AddSingleton<Services.Oracle.IOracleProvider>(Services.Oracle.OracleProviderFactory.Create(options.Oracle));
