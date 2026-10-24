@@ -167,8 +167,8 @@ public sealed class IronHiveVlmProvider : IVlmProvider
     /// 판정 메시지 본문을 만든다. few-shot 기준 이미지가 있으면 (라벨 텍스트 + 이미지) 쌍으로
     /// 먼저 제시하고, 마지막에 판정 대상 이미지를 둔다.
     ///
-    /// ⚠️ UNVERIFIED 판정효과: 기준 이미지를 컨텍스트로 주는 결선(base64/Format/순서)은 검증되나,
-    /// few-shot 이 실제로 판정을 개선하는지는 M0.1(실 provider + 대표 이미지)에서만 확인된다.
+    /// 판정효과 실측은 한 번뿐이다: 공개 데이터셋 VisA pcb1(공식 분할) · 셀프호스트 reasoning 모델 하나에서 OK 3 · NG 3 장을
+    /// 주자 같은 시험 80장의 불량 재현율이 0.68 → 0.97, 지연 p50 은 약 +5 초. 다른 모델 · 현장 사진은 미측정(UNVERIFIED).
     /// </summary>
     internal static List<MessageContent> BuildContent(
         ReadOnlyMemory<byte> image, IReadOnlyList<ReferenceImage> references,

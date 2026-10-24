@@ -39,14 +39,6 @@ const string DefaultCriteria =
     "제품 표면에 긁힘, 이물질, 균열, 솔더 브릿지 등 외관 결함이 없어야 한다. " +
     "결함이 보이면 NG, 깨끗하면 OK.";
 
-// USD per 1M tokens — 공개가 기준(참고용). 실 토큰은 provider usage 로 채운다.
-var pricing = new (string Model, double In, double Out)[]
-{
-    ("gpt-4o", 2.50, 10.00),
-    ("gemini-2.5-flash", 0.30, 2.50),
-    ("gemini-1.5-pro", 1.25, 5.00),
-};
-
 var imageExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png" };
 
 // 개발 편의: .env 로딩(VLM_API_KEY 등).
@@ -99,12 +91,31 @@ var endpoint = opts.GetValueOrDefault("endpoint")
     ?? Environment.GetEnvironmentVariable("VLM_ENDPOINT") ?? "";
 // few-shot 기준 이미지: --refs-dir/{ok,ng} 에서 로드(라벨당 최대 --refs-cap, 기본 3). 누수 방지 위해
 // 평가셋(--images-dir)과 다른 디렉토리(예: 학습셋)를 지정할 것. 미지정 시 zero-shot.
+// --refs-manifest <이름>: 표본 목록의 train 분할에서 클래스마다 --refs-cap 장을 고르게 — 평가는 test 에서 하므로 겹치지 않는다.
 var refsDir = opts.GetValueOrDefault("refs-dir");
+var refsManifest = opts.GetValueOrDefault("refs-manifest");
 var refsCap = int.TryParse(opts.GetValueOrDefault("refs-cap"), out var rc) ? rc : 3;
 // --downscale <maxdim>: 설정 시 query·refs 를 longest-side maxdim 으로 축소 후 JPEG 재인코딩(측정 전용).
 // 0/미설정이면 원본 그대로(다운스케일 없음). latency/recall 절충 실험용.
 var downscale = int.TryParse(opts.GetValueOrDefault("downscale"), out var ds) && ds > 0 ? ds : 0;
-var references = refsDir is null ? [] : LoadReferences(refsDir, refsCap);
+List<ReferenceImage> references;
+if (refsManifest is not null)
+{
+    if (UVision.Benchmark.DataRoot.Resolve(opts) is not { } refsRoot) return 1;
+    references = [.. UVision.Benchmark.SampleManifest.Pick(
+            UVision.Benchmark.SampleManifest.Read(UVision.Benchmark.SampleManifest.PathFor(refsRoot, refsManifest)), "train", refsCap)
+        .Where(x => x.Class is "OK" or "NG")
+        .Select(x => new ReferenceImage
+        {
+            Data = File.ReadAllBytes(Path.Combine(refsRoot, x.Path)),
+            Label = x.Class == "OK" ? ReferenceLabel.Ok : ReferenceLabel.Ng,
+            IsPng = Path.GetExtension(x.Path).Equals(".png", StringComparison.OrdinalIgnoreCase),
+        })];
+}
+else
+{
+    references = refsDir is null ? [] : LoadReferences(refsDir, refsCap);
+}
 if (downscale > 0)
 {
     references = references
@@ -168,7 +179,7 @@ var rows = (await Task.WhenAll(images.Select(async item =>
 }))).ToList();
 Console.Error.WriteLine();
 
-var report = RenderReport(rows, provider.Name, model, pricing, references.Count, downscale, concurrency);
+var report = RenderReport(rows, provider.Name, model, references.Count, downscale, concurrency);
 Console.WriteLine(report);
 if (outPath is not null)
 {
@@ -277,7 +288,7 @@ List<(string Path, Verdict? Truth)> DiscoverImages(string dir)
     return items;
 }
 
-string RenderReport(List<Row> all, string prov, string mdl, (string Model, double In, double Out)[] price, int refCount, int downscaleDim, int parallel)
+string RenderReport(List<Row> all, string prov, string mdl, int refCount, int downscaleDim, int parallel)
 {
     var failed = all.Where(r => r.Error is not null).ToList();
     var rs = all.Where(r => r.Error is null).ToList();
@@ -326,18 +337,6 @@ string RenderReport(List<Row> all, string prov, string mdl, (string Model, doubl
         var verdict = r.Verdict?.ToString() ?? "**실패**";
         sb.AppendLine(Inv($"| {r.Name} | {truth} | {verdict} | {r.Confidence:F2} | {r.LatencyMs:F0} | {Cell(r.Error ?? r.Findings ?? "")} |"));
     }
-
-    sb.AppendLine().AppendLine("## 비용 참조").AppendLine();
-    sb.AppendLine("건별 실 토큰은 provider usage 로 채워야 한다(키 확보 후 TODO). 단가(USD/1M tok):").AppendLine();
-    sb.AppendLine("| model | input | output |");
-    sb.AppendLine("|---|---|---|");
-    foreach (var (m, pin, pout) in price)
-    {
-        var mark = m == mdl ? " ←" : "";
-        sb.AppendLine(Inv($"| {m} | ${pin:F2} | ${pout:F2}{mark} |"));
-    }
-    if (!price.Any(p => p.Model == mdl))
-        sb.AppendLine().AppendLine($"> `{mdl}` 단가 미등록 — 표에 추가 필요.");
 
     return sb.ToString();
 }
