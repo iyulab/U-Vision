@@ -14,6 +14,8 @@ public static class OpenApiContract
 {
     public static OpenApiOptions AddUVisionContract(this OpenApiOptions options)
     {
+        var omittedRefs = new System.Collections.Concurrent.ConcurrentBag<(string SchemaId, string Property)>();
+
         options.AddDocumentTransformer((document, _, _) =>
         {
             var version = typeof(UVisionOptions).Assembly.GetName().Version;
@@ -47,8 +49,46 @@ public static class OpenApiContract
                 schema.Type = type & ~JsonSchemaType.String;
                 schema.Pattern = null;
             }
+
+            // `WhenWritingNull` 속성은 null 일 때 wire 에서 빠진다 — null 로 오는 일이 없다. 생성기는 C# 의 nullable 을 보고
+            // «null 이거나 값»으로 적는데, 그러면 생성된 클라이언트 타입이 오지 않는 null 을 처리하게 된다. 계약은 «생략되거나
+            // 값»(required 아님 + null 없음)으로 적는다. null 을 실제로 쓰는 nullable(예: 분모 0 인 비율)은 그대로 둔다.
+            if (context.JsonTypeInfo.Kind == System.Text.Json.Serialization.Metadata.JsonTypeInfoKind.Object
+                && schema.Properties is { Count: > 0 } properties)
+            {
+                foreach (var property in context.JsonTypeInfo.Properties)
+                {
+                    if (!OmittedWhenNull(property) || !properties.TryGetValue(property.Name, out var prop))
+                        continue;
+                    if (prop.Type is { } t && (t & JsonSchemaType.Null) != 0 && prop is OpenApiSchema concrete)
+                        concrete.Type = t & ~JsonSchemaType.Null;
+                    else
+                        omittedRefs.Add((context.JsonTypeInfo.Type.Name, property.Name)); // 참조 타입 — 문서에서 oneOf 를 푼다
+                }
+            }
+            return Task.CompletedTask;
+        });
+
+        // 참조 타입 속성은 생성기가 문서를 지을 때 `oneOf [null, $ref]` 로 감싼다(스키마 변환 뒤) — 모아 둔 속성을 여기서 푼다.
+        options.AddDocumentTransformer((document, _, _) =>
+        {
+            foreach (var (schemaId, name) in omittedRefs)
+            {
+                if (document.Components?.Schemas is not { } schemas
+                    || !schemas.TryGetValue(schemaId, out var owner) || owner.Properties is not { } properties
+                    || !properties.TryGetValue(name, out var prop) || prop.OneOf is not { Count: 2 } oneOf)
+                    continue;
+                var nonNull = oneOf.Where(s => s.Type != JsonSchemaType.Null).ToList();
+                if (nonNull.Count == 1)
+                    properties[name] = nonNull[0];
+            }
             return Task.CompletedTask;
         });
         return options;
     }
+
+    private static bool OmittedWhenNull(System.Text.Json.Serialization.Metadata.JsonPropertyInfo property) =>
+        property.AttributeProvider?.GetCustomAttributes(typeof(System.Text.Json.Serialization.JsonIgnoreAttribute), inherit: true)
+            .OfType<System.Text.Json.Serialization.JsonIgnoreAttribute>()
+            .Any(a => a.Condition == System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull) == true;
 }

@@ -2519,14 +2519,7 @@
             }
           },
           "selection": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/DatasetSelection"
-              }
-            ]
+            "$ref": "#/components/schemas/DatasetSelection"
           }
         }
       },
@@ -2614,14 +2607,7 @@
             "type": "string"
           },
           "ml_hint": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/MlResult"
-              }
-            ]
+            "$ref": "#/components/schemas/MlResult"
           }
         }
       },
@@ -2689,32 +2675,16 @@
             "type": "string"
           },
           "ml": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/MlResult"
-              }
-            ]
+            "$ref": "#/components/schemas/MlResult"
           },
           "agreement": {
-            "type": [
-              "null",
-              "boolean"
-            ]
+            "type": "boolean"
           },
           "requires_review": {
-            "type": [
-              "null",
-              "boolean"
-            ]
+            "type": "boolean"
           },
           "posture": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           }
         }
       },
@@ -2736,60 +2706,32 @@
             "type": "string"
           },
           "class": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "settled_by": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/SettledBy"
-              }
-            ]
+            "$ref": "#/components/schemas/SettledBy"
           },
           "confidence": {
-            "type": [
-              "null",
-              "number"
-            ],
+            "type": "number",
             "format": "double"
           },
           "findings": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "requires_review": {
-            "type": [
-              "null",
-              "boolean"
-            ]
+            "type": "boolean"
           },
           "posture": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "contested_by": {
-            "type": [
-              "null",
-              "array"
-            ],
+            "type": "array",
             "items": {
               "$ref": "#/components/schemas/ContestedBy"
             }
           },
           "path": {
-            "type": [
-              "null",
-              "array"
-            ],
+            "type": "array",
             "items": {
               "$ref": "#/components/schemas/PathStepV2"
             }
@@ -2798,28 +2740,16 @@
             "type": "boolean"
           },
           "reason": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "device_id": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "device_label": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "captured_at": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           }
         }
       },
@@ -2833,10 +2763,7 @@
             "type": "string"
           },
           "at": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           }
         }
       },
@@ -2981,23 +2908,14 @@
             "type": "boolean"
           },
           "encoder": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "cases": {
-            "type": [
-              "null",
-              "integer"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "built_at": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "replayed": {
             "type": "integer",
@@ -3188,10 +3106,7 @@
             "format": "double"
           },
           "promotion_eligible": {
-            "type": [
-              "null",
-              "boolean"
-            ]
+            "type": "boolean"
           }
         }
       },
@@ -3210,10 +3125,7 @@
             "format": "double"
           },
           "model_version": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           }
         }
       },
@@ -3344,35 +3256,20 @@
         "type": "object",
         "properties": {
           "type": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "title": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "status": {
-            "type": [
-              "null",
-              "integer"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "detail": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "instance": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           }
         }
       },
@@ -3538,44 +3435,25 @@
             "type": "boolean"
           },
           "type": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "trigger": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "classes": {
-            "type": [
-              "null",
-              "array"
-            ],
+            "type": "array",
             "items": {
               "$ref": "#/components/schemas/ScenarioClass"
             }
           },
           "judges": {
-            "type": [
-              "null",
-              "array"
-            ],
+            "type": "array",
             "items": {
               "$ref": "#/components/schemas/ScenarioJudge"
             }
           },
           "trust": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/ScenarioTrust"
-              }
-            ]
+            "$ref": "#/components/schemas/ScenarioTrust"
           }
         }
       },
@@ -3589,10 +3467,7 @@
             "type": "string"
           },
           "label": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "settleable": {
             "type": "boolean"
@@ -3609,10 +3484,7 @@
         "type": "object",
         "properties": {
           "scenario_id": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "name": {
             "type": "string"
@@ -3743,30 +3615,13 @@
         "type": "object",
         "properties": {
           "slice_key": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "targets": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/ScenarioTargets"
-              }
-            ]
+            "$ref": "#/components/schemas/ScenarioTargets"
           },
           "training": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/ScenarioTraining"
-              }
-            ]
+            "$ref": "#/components/schemas/ScenarioTraining"
           }
         }
       },
@@ -3796,32 +3651,19 @@
             "type": "string"
           },
           "label": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "timestamp": {
             "type": "string"
           },
           "history": {
-            "type": [
-              "null",
-              "array"
-            ],
+            "type": "array",
             "items": {
               "$ref": "#/components/schemas/LabelEvent"
             }
           },
           "audit": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/LabelAudit"
-              }
-            ]
+            "$ref": "#/components/schemas/LabelAudit"
           }
         }
       },
@@ -3866,56 +3708,28 @@
             "type": "string"
           },
           "ml": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/MlResult"
-              }
-            ]
+            "$ref": "#/components/schemas/MlResult"
           },
           "agreement": {
-            "type": [
-              "null",
-              "boolean"
-            ]
+            "type": "boolean"
           },
           "requires_review": {
-            "type": [
-              "null",
-              "boolean"
-            ]
+            "type": "boolean"
           },
           "posture": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "expected_part": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "observed_code": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "captured_at": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "class": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           }
         }
       },
@@ -3962,22 +3776,13 @@
             "format": "int32"
           },
           "build_ready": {
-            "type": [
-              "null",
-              "boolean"
-            ]
+            "type": "boolean"
           },
           "active_version": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "new_labels_since_model": {
-            "type": [
-              "null",
-              "integer"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "rebuild_min_new_labels": {
@@ -3985,10 +3790,7 @@
             "format": "int32"
           },
           "rebuild_suggested": {
-            "type": [
-              "null",
-              "boolean"
-            ]
+            "type": "boolean"
           }
         }
       },
@@ -4018,16 +3820,10 @@
             "format": "int32"
           },
           "oldest_pending_at": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "last_error": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           }
         }
       }
