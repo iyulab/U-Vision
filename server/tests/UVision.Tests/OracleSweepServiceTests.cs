@@ -30,7 +30,7 @@ public class OracleSweepServiceTests : IDisposable
     {
         var scenarioStore = new FileScenarioStore(paths);
         var scenario = await scenarioStore.CreateAsync(new ScenarioInput { Name = name }, default);
-        var scenarioId = scenario.ScenarioId; // slug 도출 결과 id 사용
+        var scenarioId = scenario!.ScenarioId; // slug 도출 결과 id 사용
 
         var store = new FileInspectionStore(paths);
         var stored = new StoredResult

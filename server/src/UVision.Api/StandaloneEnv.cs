@@ -21,7 +21,6 @@ internal static class StandaloneEnv
         Put("ML_ENDPOINT", "UVision:Ml:Endpoint");
         Put("ML_MODEL", "UVision:Ml:Model");
         Put("ML_TOKEN", "UVision:Ml:Token");
-        Put("ML_IMAGE_COLUMN", "UVision:Ml:ImageColumn");
         Put("ML_REVIEW_CONFIDENCE_THRESHOLD", "UVision:Ml:ReviewConfidenceThreshold");
         // 확정 사례 기억 단(system 1) — 기본 none(단 없음). 임베딩은 mloop serve 의 /embed.
         Put("MEMORY_PROVIDER", "UVision:Memory:Provider");

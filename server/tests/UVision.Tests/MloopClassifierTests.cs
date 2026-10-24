@@ -14,7 +14,7 @@ using Xunit;
 namespace UVision.Tests;
 
 /// <summary>
-/// MloopClassifier 계약 테스트(fake HTTP handler). MLoop.API /predict 계약(소스 확인) 대비
+/// MloopClassifier 계약 테스트(fake HTTP handler). MLoop.API /predict 계약(0.45.0 소스 확인 — 이미지 내용 입력) 대비
 /// 요청 구성·응답 파싱·에러 처리를 검증. 실 mloop serve 왕복은 이 테스트 밖이다.
 /// </summary>
 public class MloopClassifierTests
@@ -63,7 +63,7 @@ public class MloopClassifierTests
           "task": "image-classification",
           "count": 1,
           "predictions": [
-            { "predictedLabel": "ng", "probabilities": { "class_0": 0.18, "class_1": 0.82 }, "score": null }
+            { "predictedLabel": "ng", "probabilities": { "class_0": 0.18, "class_1": 0.82 }, "score": null, "confidence": 0.82 }
           ],
           "warnings": []
         }
@@ -76,13 +76,13 @@ public class MloopClassifierTests
         var result = await Build(handler).ClassifyAsync(Image, "demo");
 
         Assert.Equal("ng", result.Label);
-        Assert.Equal(0.82, result.Confidence, precision: 3); // argmax 확률
+        Assert.Equal(0.82, result.Confidence, precision: 3); // 서버 confidence
         Assert.Equal(2, result.Scores.Count);
         Assert.Equal(0.82, result.Scores["class_1"], precision: 3);
     }
 
     [Fact]
-    public async Task Classify_SendsImagePathRow_WithBearer_ToPredictEndpoint()
+    public async Task Classify_SendsImageContentsAsBase64_WithBearer_ToPredictEndpoint()
     {
         var handler = new FakeHandler(HttpStatusCode.OK, OkResponse);
         await Build(handler).ClassifyAsync(Image, "demo");
@@ -91,18 +91,11 @@ public class MloopClassifierTests
         Assert.Contains("predict?name=default", handler.LastRequest.RequestUri!.ToString());
         Assert.Equal("Bearer", handler.LastRequest.Headers.Authorization!.Scheme);
         Assert.Equal("jwt-abc", handler.LastRequest.Headers.Authorization.Parameter);
-        // 기본 이미지 컬럼명(ImagePath)으로 경로를 보낸다.
-        Assert.Contains("ImagePath", handler.LastRequestBody);
-    }
-
-    [Fact]
-    public async Task Classify_RespectsConfiguredImageColumn()
-    {
-        var handler = new FakeHandler(HttpStatusCode.OK, OkResponse);
-        var opts = new MlOptions { Endpoint = "http://mloop.test", Model = "default", ImageColumn = "ImageSource" };
-        await Build(handler, opts).ClassifyAsync(Image, "demo");
-
-        Assert.Contains("ImageSource", handler.LastRequestBody);
+        // 경로 행이 아니라 {"images": ["<base64>"]} — mloop serve 가 다른 호스트여도 된다.
+        using var body = System.Text.Json.JsonDocument.Parse(handler.LastRequestBody!);
+        var images = body.RootElement.GetProperty("images");
+        Assert.Equal(1, images.GetArrayLength());
+        Assert.Equal(Image, Convert.FromBase64String(images[0].GetString()!));
     }
 
     [Fact]
@@ -122,27 +115,17 @@ public class MloopClassifierTests
     }
 
     [Fact]
-    public async Task Classify_ClampsOutOfRangeConfidence_AtBoundary()
+    public async Task Classify_MissingServerConfidence_IsZero_NotDerived()
     {
-        // 비정상 확률(>1)을 그대로 흘리면 calibrator·DualCheck 게이팅이 오염된다 — 경계에서 [0,1] 정규화.
+        // 0.45.0+ 는 이미지 분류에 confidence 를 늘 준다 — 없으면 확률에서 파생하지 않고 0(신뢰도 주장 없음).
         var handler = new FakeHandler(HttpStatusCode.OK,
-            """{"predictions":[{"predictedLabel":"ng","probabilities":{"ng":1.5,"ok":0.2}}]}""");
+            """{"predictions":[{"predictedLabel":"ng","probabilities":{"ng":0.9,"ok":0.1}}]}""");
         var result = await Build(handler).ClassifyAsync(Image, "demo");
-        Assert.Equal(1.0, result.Confidence); // raw 1.5 → clamp 1.0
+        Assert.Equal(0.0, result.Confidence);
+        Assert.Equal(0.9, result.Scores["ng"], precision: 3); // 원시 확률은 그대로 보존
     }
 
-    [Fact]
-    public async Task Classify_NegativeScore_ClampedToZero_AtBoundary()
-    {
-        var handler = new FakeHandler(HttpStatusCode.OK,
-            """{"predictions":[{"predictedLabel":"ng","probabilities":null,"score":-0.5}]}""");
-        var result = await Build(handler).ClassifyAsync(Image, "demo");
-        Assert.Equal(0.0, result.Confidence); // raw -0.5 → clamp 0.0
-    }
-
-    // MLoop confidence 계약 소비(MLoop 0.19.0 예정, [Unreleased]) --------
-    // 서버가 정규화 confidence ∈ [0,1] 를 직접 주면 그것을 단일 권위로 소비하고,
-    // 구버전 서버(null)는 기존 max-prob/score 파생으로 폴백한다(하위호환).
+    // MLoop confidence 계약 소비 — 서버의 정규화 confidence ∈ [0,1] 가 단일 권위 --------
 
     [Fact]
     public async Task Classify_PrefersServerConfidence_OverDerivedMaxProb()
@@ -175,17 +158,6 @@ public class MloopClassifierTests
         Assert.Equal(0.0, result.Confidence);
     }
 
-    [Fact]
-    public async Task Classify_DeletesTempFile()
-    {
-        // 임시 파일이 남지 않는다(요청 전후 temp 디렉토리의 uvision-ml-* 수 불변).
-        var handler = new FakeHandler(HttpStatusCode.OK, OkResponse);
-        var before = Directory.GetFiles(Path.GetTempPath(), "uvision-ml-*").Length;
-        await Build(handler).ClassifyAsync(Image, "demo");
-        var after = Directory.GetFiles(Path.GetTempPath(), "uvision-ml-*").Length;
-        Assert.Equal(before, after);
-    }
-
     // B1: resolver 결선 계약 테스트 ------------------------------------
 
     [Fact]
@@ -206,7 +178,7 @@ public class MloopClassifierTests
             var handler = new CapturingHandler(req =>
             {
                 capturedQuery = req.RequestUri!.Query;
-                return """{"predictions":[{"predictedLabel":"ng","probabilities":{"ng":0.9,"ok":0.1}}]}""";
+                return """{"predictions":[{"predictedLabel":"ng","probabilities":{"ng":0.9,"ok":0.1},"confidence":0.9}]}""";
             });
             var http = new HttpClient(handler) { BaseAddress = new Uri("http://fake/") };
             var classifier = new MloopClassifier(
@@ -237,7 +209,7 @@ public class MloopClassifierTests
             var handler = new CapturingHandler(req =>
             {
                 capturedQuery = req.RequestUri!.Query;
-                return """{"predictions":[{"predictedLabel":"ok","probabilities":{"ok":0.8,"ng":0.2}}]}""";
+                return """{"predictions":[{"predictedLabel":"ok","probabilities":{"ok":0.8,"ng":0.2},"confidence":0.8}]}""";
             });
             var http = new HttpClient(handler) { BaseAddress = new Uri("http://fake/") };
             var classifier = new MloopClassifier(

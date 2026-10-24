@@ -70,7 +70,6 @@ app.Run();
       "Endpoint": "",          // mloop serve base URL(예: http://host:5000)
       "Model": "default",      // 학습 모델 이름
       "Token": "",             // mloop serve JWT Bearer
-      "ImageColumn": "ImagePath",
       "ReviewConfidenceThreshold": 0.0  // ③ 2중체크: VLM/ML 신뢰도가 이 값 미만이면 requires_review(0=불일치만)
     },
     "Storage": {
