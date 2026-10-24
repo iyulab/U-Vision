@@ -22,6 +22,17 @@ jobs:
           cache: npm
           cache-dependency-path: client/package-lock.json
       - run: npm ci
+      # wire 타입(src/lib/contract.gen.ts)은 서버 계약(server/openapi/u-vision.json)에서 생성해 커밋한다 — 계약을 바꾸고
+      # 다시 생성하지 않았으면 여기서 멈춘다.
+      - run: npm run generate:types
+      - name: Wire types match the contract
+        run: |
+          changes=$(git status --porcelain -- src/lib/contract.gen.ts)
+          if [ -n "$changes" ]; then
+            echo "::error::client/src/lib/contract.gen.ts is stale - run 'npm run generate:types' in client/ and commit the result"
+            echo "$changes"
+            exit 1
+          fi
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test

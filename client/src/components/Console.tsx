@@ -65,7 +65,8 @@ interface DraftScenario {
   originalDefects: Defect[]
 }
 
-type ScenarioType = 'inspection' | 'verification'
+/** 시나리오 유형 — 이 화면이 고를 수 있는 것은 'inspection' · 'verification' 이고, 모르는 유형(서버가 더 지은 것)은 그대로 둔다. */
+type ScenarioType = string
 
 /**
  * 관리 콘솔 — **무인증 진입** + 탭(시나리오 / 결과 조회).

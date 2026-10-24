@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { deleteReference, listReferences, referenceUrl, uploadReference } from '../lib/api'
 import type { PinRunResult } from '../hooks/usePin'
 import type { Reference } from '../lib/types'
+import { splitReferences } from '../lib/references'
 
 interface ReferenceGalleryProps {
   scenarioId: string
@@ -53,8 +54,7 @@ export function ReferenceGallery({ scenarioId, runWithPin, defectNames = [] }: R
     }
   }
 
-  const ok = refs.filter((r) => r.label === 'ok')
-  const ng = refs.filter((r) => r.label === 'ng')
+  const { ok, ng } = splitReferences(refs)
 
   return (
     <div className="space-y-4 rounded-lg border border-slate-700 p-4">
