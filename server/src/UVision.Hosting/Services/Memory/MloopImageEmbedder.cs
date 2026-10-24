@@ -9,8 +9,9 @@ namespace UVision.Api.Services.Memory;
 /// MLoop <c>mloop serve</c> 의 <c>POST /embed</c> 를 쓰는 임베더 — 프로세스 경계로만 소비한다(전용 ML 분류기와 같은 꼴).
 /// 이미지 <b>내용</b>을 base64 로 보내므로 MLoop 이 같은 호스트에 있을 필요가 없다.
 /// <para>
-/// 검증 범위: MLoop 0.44.0 소스에서 확인한 계약을 fake-handler 계약 테스트가 가드한다. 실 인코더와의 왕복은
-/// 아직 하지 않았다(UNVERIFIED — 설치 쪽 인코더가 정해진 뒤).
+/// 검증 범위: MLoop 0.44.0 소스에서 확인한 계약을 fake-handler 계약 테스트가 가드한다. 실 <c>mloop serve</c> 0.45.0 +
+/// <c>dinov2-small</c> 인코더로 라벨 12장 기억을 짓고 2장을 질의해 둘 다 맞는 클래스를 가장 가까운 이웃으로 찾았다
+/// (2026-10-24, 합성 이미지 — 실 현장 사진 · 운영 규모의 문턱은 아직 측정 전).
 /// </para>
 /// </summary>
 public sealed class MloopImageEmbedder(HttpClient http, MemoryOptions options) : IImageEmbedder

@@ -17,7 +17,8 @@ namespace UVision.Api.Services.Ml;
 /// </para>
 /// <para>
 /// 검증 범위: MLoop 0.45.0 소스에서 확인한 계약을 fake-handler 계약 테스트가 가드한다. 내용 입력으로 실
-/// <c>mloop serve</c> 와 왕복한 것은 아직 없다(UNVERIFIED — 경로 입력 시절 v0.15.0 왕복 2장만 있었다).
+/// <c>mloop serve</c> 0.45.0 + 합성 이미지로 학습한 2클래스 모델과의 <c>/inspect</c> 왕복을 2장(OK 1 · NG 1)으로
+/// 확인했다(2026-10-24 — 둘 다 정답, MLoop confidence 0.99+). 운영 규모의 정확도·지연은 아직 측정 전이다.
 /// </para>
 /// </summary>
 // TODO(upstream: HoneAI IMLoopClient 이미지 내용 예측) — 엔진은 MLoop 을 HoneAI HttpMLoopClient 로 부르기로 했으나
