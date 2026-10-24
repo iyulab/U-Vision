@@ -2,12 +2,13 @@ using System.Net;
 using System.Text.Json;
 using UVision.Api.Configuration;
 using UVision.Api.Services.Memory;
+using UVision.Api.Services.Mloop;
 using Xunit;
 
 namespace UVision.Tests;
 
 /// <summary>
-/// MloopImageEmbedder 계약 테스트(fake HTTP handler) — MLoop 0.44.0 <c>POST /embed</c> 계약(소스 확인) 대비 요청 구성 ·
+/// MloopImageEmbedder 계약 테스트(fake HTTP handler) — HoneAI <c>IMLoopClient.EmbedAsync</c> 를 거친 MLoop <c>POST /embed</c> 계약(0.45.0 소스 확인) 대비 요청 구성 ·
 /// 응답 파싱 · 오류. 실 <c>mloop serve</c> + 인코더 왕복은 이 테스트 밖이다.
 /// </summary>
 public class MloopImageEmbedderTests
@@ -31,7 +32,7 @@ public class MloopImageEmbedderTests
     }
 
     private static MloopImageEmbedder Build(FakeHandler handler, string token = "jwt-abc") =>
-        new(new HttpClient(handler) { BaseAddress = new Uri("http://mloop.test/") },
+        new(MloopClient.Create("http://mloop.test", 30, token, handler),
             new MemoryOptions { Provider = "mloop", Endpoint = "http://mloop.test", Encoder = "dinov2 small", Token = token });
 
     private const string OkResponse = """

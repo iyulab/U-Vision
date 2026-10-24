@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using UVision.Api.Configuration;
 using UVision.Api.Models;
 using UVision.Api.Services.Ml;
+using UVision.Api.Services.Mloop;
 using UVision.Api.Services.Models;
 using UVision.Api.Storage;
 using Xunit;
@@ -14,7 +15,7 @@ using Xunit;
 namespace UVision.Tests;
 
 /// <summary>
-/// MloopClassifier 계약 테스트(fake HTTP handler). MLoop.API /predict 계약(0.45.0 소스 확인 — 이미지 내용 입력) 대비
+/// MloopClassifier 계약 테스트(fake HTTP handler) — HoneAI <c>IMLoopClient.PredictImagesAsync</c> 를 거친 MLoop.API /predict 계약(0.45.0 소스 확인 — 이미지 내용 입력) 대비
 /// 요청 구성·응답 파싱·에러 처리를 검증. 실 mloop serve 왕복은 이 테스트 밖이다.
 /// </summary>
 public class MloopClassifierTests
@@ -50,8 +51,7 @@ public class MloopClassifierTests
 
     private static MloopClassifier Build(FakeHandler handler, MlOptions? options = null)
     {
-        var http = new HttpClient(handler) { BaseAddress = new Uri("http://mloop.test/") };
-        return new MloopClassifier(http, options ?? new MlOptions
+        return new MloopClassifier(MloopClient.Create("http://mloop.test", 30, "jwt-abc", handler), options ?? new MlOptions
         {
             Provider = "mloop", Endpoint = "http://mloop.test", Model = "default", Token = "jwt-abc",
         });
@@ -180,9 +180,8 @@ public class MloopClassifierTests
                 capturedQuery = req.RequestUri!.Query;
                 return """{"predictions":[{"predictedLabel":"ng","probabilities":{"ng":0.9,"ok":0.1},"confidence":0.9}]}""";
             });
-            var http = new HttpClient(handler) { BaseAddress = new Uri("http://fake/") };
             var classifier = new MloopClassifier(
-                http, new MlOptions { Provider = "mloop", Model = "default" }, resolver);
+                MloopClient.Create("http://fake", 30, null, handler), new MlOptions { Provider = "mloop", Model = "default" }, resolver);
 
             var result = await classifier.ClassifyAsync(new byte[] { 1, 2, 3 }, "chromate");
 
@@ -211,9 +210,8 @@ public class MloopClassifierTests
                 capturedQuery = req.RequestUri!.Query;
                 return """{"predictions":[{"predictedLabel":"ok","probabilities":{"ok":0.8,"ng":0.2},"confidence":0.8}]}""";
             });
-            var http = new HttpClient(handler) { BaseAddress = new Uri("http://fake/") };
             var classifier = new MloopClassifier(
-                http, new MlOptions { Provider = "mloop", Model = "default" }, resolver);
+                MloopClient.Create("http://fake", 30, null, handler), new MlOptions { Provider = "mloop", Model = "default" }, resolver);
 
             var result = await classifier.ClassifyAsync(new byte[] { 1 }, "chromate");
 
