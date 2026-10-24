@@ -2356,7 +2356,11 @@
       "AuthorityState": {
         "required": [
           "stage",
-          "updated_at"
+          "updated_at",
+          "previous_stage",
+          "updated_by",
+          "reason",
+          "history"
         ],
         "type": "object",
         "properties": {
@@ -2398,7 +2402,9 @@
           "from",
           "to",
           "at",
-          "mode"
+          "mode",
+          "by",
+          "reason"
         ],
         "type": "object",
         "properties": {
@@ -2596,7 +2602,8 @@
       },
       "DetectionUnavailableResponse": {
         "required": [
-          "reason"
+          "reason",
+          "detection_unavailable"
         ],
         "type": "object",
         "properties": {
@@ -2827,7 +2834,11 @@
           "teacher_checked",
           "labeled",
           "missed",
-          "labeled_defects"
+          "labeled_defects",
+          "teacher_agreement",
+          "label_agreement",
+          "miss_rate",
+          "defect_pass_rate"
         ],
         "type": "object",
         "properties": {
@@ -2952,7 +2963,16 @@
           "labeled_ng",
           "vlm_ng_hits",
           "ml_ng_scored",
-          "ml_ng_hits"
+          "ml_ng_hits",
+          "agreement_rate",
+          "review_rate",
+          "degrade_rate",
+          "vlm_ng_recall",
+          "ml_ng_recall",
+          "fail_closed_rate",
+          "label_consistency_rate",
+          "oracle_consistency_rate",
+          "oracle_coverage_rate"
         ],
         "type": "object",
         "properties": {
@@ -3131,7 +3151,9 @@
       },
       "ModelListResponse": {
         "required": [
-          "versions"
+          "versions",
+          "active_version",
+          "previous_version"
         ],
         "type": "object",
         "properties": {
@@ -3156,6 +3178,10 @@
         }
       },
       "ModelPointerResponse": {
+        "required": [
+          "active_version",
+          "previous_version"
+        ],
         "type": "object",
         "properties": {
           "active_version": {
@@ -3188,7 +3214,12 @@
           "version",
           "scenario_id",
           "model_name",
-          "created_at"
+          "created_at",
+          "endpoint",
+          "export_id",
+          "metrics",
+          "created_by",
+          "note"
         ],
         "type": "object",
         "properties": {
@@ -3299,7 +3330,8 @@
       "ReferenceInfo": {
         "required": [
           "ref_id",
-          "label"
+          "label",
+          "ng_label"
         ],
         "type": "object",
         "properties": {
@@ -3318,7 +3350,12 @@
         }
       },
       "ReferenceLabel": {
-        "type": "integer"
+        "enum": [
+          0,
+          1
+        ],
+        "type": "integer",
+        "description": "0 = ok reference, 1 = ng reference"
       },
       "RegisterModelInput": {
         "required": [
@@ -3389,7 +3426,16 @@
       "Scenario": {
         "required": [
           "scenario_id",
-          "name"
+          "name",
+          "criteria",
+          "roi",
+          "motion_threshold",
+          "still_frames",
+          "min_sharpness",
+          "max_image_dimension",
+          "reference_cap",
+          "ng_labels",
+          "allow_cloud_egress"
         ],
         "type": "object",
         "properties": {
@@ -3675,7 +3721,9 @@
           "findings",
           "confidence",
           "timestamp",
-          "image_file"
+          "image_file",
+          "device_id",
+          "device_label"
         ],
         "type": "object",
         "properties": {

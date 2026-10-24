@@ -14,7 +14,7 @@ namespace UVision.Client.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>The label property</summary>
+        /// <summary>0 = ok reference, 1 = ng reference</summary>
         public int? Label { get; set; }
         /// <summary>The ng_label property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
