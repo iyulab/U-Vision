@@ -16,23 +16,29 @@ public sealed record ReplayCase(string? AgreedClass, double NearestDistance, str
 /// 맞았나»를 문턱마다 센다. 문턱을 사람이 감으로 쓰지 않고 이 표로 고른다(설계 §4).
 /// <para>
 /// <b>놓침</b>은 기억이 확정 가능한 클래스(OK)로 답했는데 사람 라벨이 놓치면 안 되는 클래스(불량)인 건이다 — 기억이 Active 가
-/// 되면 그대로 통과했을 위험한 오답이다. 비율의 분모가 0 이면 비율은 null(«데이터 없음»을 0 으로 꾸미지 않는다).
+/// 되면 그대로 통과했을 위험한 오답이다. 놓침률(분모 = 라벨 있는 답)과 함께 불량 통과율(분모 = 라벨이 불량인 재생 건 전체)을
+/// 센다 — 불량이 드물면 놓침률은 작아 보여도 불량 여럿이 지나간다. 비율의 분모가 0 이면 비율은 null(«데이터 없음»을 0 으로 꾸미지 않는다).
 /// </para>
 /// </summary>
 public static class MemoryReplay
 {
-    /// <summary>설정 문턱과 함께 늘 보여 줄 문턱 사다리.</summary>
-    public static readonly IReadOnlyList<double> Ladder = [0.05, 0.10, 0.15, 0.20, 0.30];
+    /// <summary>
+    /// 설정 문턱과 함께 늘 보여 줄 문턱 사다리 — 작은 쪽이 촘촘하다. 실 이미지(dinov2-small)의 최근접 거리는 대부분 0.06 아래라
+    /// 문턱이 실제로 가르는 구간이 0.01~0.05 다(2026-10-24 오프라인 재생).
+    /// </summary>
+    public static readonly IReadOnlyList<double> Ladder = [0.01, 0.02, 0.03, 0.05, 0.10, 0.15, 0.20, 0.30];
 
     /// <param name="ladder">재생할 문턱(없으면 <see cref="Ladder"/>) — 오프라인 측정은 실 사진의 거리 분포에 맞춰 넓힌다.</param>
     public static IReadOnlyList<MemoryReplayRow> Run(
         IReadOnlyList<ReplayCase> cases, EffectiveScenario scenario, double configured, IEnumerable<double>? ladder = null)
     {
         var thresholds = (ladder ?? Ladder).Append(configured).Distinct().Order().ToList();
-        return [.. thresholds.Select(t => RowAt(t, cases, scenario, configured))];
+        var labeledDefects = cases.Count(c => c.HumanLabel is not null && IsMustCatch(scenario, c.HumanLabel));
+        return [.. thresholds.Select(t => RowAt(t, cases, scenario, configured, labeledDefects))];
     }
 
-    private static MemoryReplayRow RowAt(double t, IReadOnlyList<ReplayCase> cases, EffectiveScenario scenario, double configured)
+    private static MemoryReplayRow RowAt(
+        double t, IReadOnlyList<ReplayCase> cases, EffectiveScenario scenario, double configured, int labeledDefects)
     {
         var answered = cases.Where(c => c.AgreedClass is not null && c.NearestDistance <= t).ToList();
         var taught = answered.Where(c => c.TeacherClass is not null).ToList();
@@ -50,6 +56,8 @@ public static class MemoryReplay
             LabelAgreement = Rate(labeled.Count(c => Same(c.AgreedClass!, c.HumanLabel!)), labeled.Count),
             Missed = missed,
             MissRate = Rate(missed, labeled.Count),
+            LabeledDefects = labeledDefects,
+            DefectPassRate = Rate(missed, labeledDefects),
         };
     }
 

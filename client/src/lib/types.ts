@@ -243,6 +243,10 @@ export interface MemoryReplayRow {
   /** OK 로 답했는데 사람 라벨이 불량 — 기억에 맡겼다면 통과시켰을 오답. */
   missed: number
   miss_rate: number | null
+  /** 재생한 판정 가운데 사람 라벨이 불량인 수(문턱과 무관) — 불량 통과율의 분모. */
+  labeled_defects: number
+  /** 놓침 / 라벨 있는 불량 — 불량 가운데 OK 로 지나갔을 비율. */
+  defect_pass_rate: number | null
 }
 
 export interface MetricsSummary {

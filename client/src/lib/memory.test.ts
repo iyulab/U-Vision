@@ -15,6 +15,8 @@ const row = (over: Partial<MemoryReplayRow>): MemoryReplayRow => ({
   label_agreement: null,
   missed: 0,
   miss_rate: null,
+  labeled_defects: 0,
+  defect_pass_rate: null,
   ...over,
 })
 

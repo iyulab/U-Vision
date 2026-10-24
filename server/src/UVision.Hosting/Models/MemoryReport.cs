@@ -66,4 +66,15 @@ public sealed record MemoryReplayRow
 
     /// <summary>놓침 / 라벨 있는 답(분모 0 이면 null).</summary>
     [JsonPropertyName("miss_rate")] public double? MissRate { get; init; }
+
+    /// <summary>
+    /// 재생한 판정 가운데 사람 라벨이 불량(놓치면 안 되는 클래스)인 수 — 문턱과 무관하게 같다. 불량 통과율의 분모.
+    /// </summary>
+    [JsonPropertyName("labeled_defects")] public required int LabeledDefects { get; init; }
+
+    /// <summary>
+    /// 놓침 / 라벨 있는 불량 — «불량 가운데 몇 장을 OK 로 지나가게 했나»(분모 0 이면 null). 놓침률은 분모가 답한 수라 불량이
+    /// 드문 현장에서 위험을 작게 보인다.
+    /// </summary>
+    [JsonPropertyName("defect_pass_rate")] public double? DefectPassRate { get; init; }
 }

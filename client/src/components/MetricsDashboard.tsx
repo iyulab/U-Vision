@@ -127,7 +127,7 @@ function MemoryPanel({ report }: { report: MemoryReport }) {
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <caption className="mb-2 text-left text-xs text-slate-500">
-              문턱 재생 — 비교한 검사 {report.replayed}건. 거리가 문턱 안이고 이웃이 한 클래스로 모이면 답한 것으로 봅니다.
+              문턱 재생 — 비교한 검사 {report.replayed}건. 거리가 문턱 안이고 이웃이 한 클래스로 모이면 답한 것으로 봅니다. 불량 통과 = 기억이 OK 로 답했을 불량 / 사람이 불량이라 한 검사.
             </caption>
             <thead className="text-xs text-slate-400">
               <tr>
@@ -135,7 +135,7 @@ function MemoryPanel({ report }: { report: MemoryReport }) {
                 <th className="py-1 pr-4 font-medium">답함</th>
                 <th className="py-1 pr-4 font-medium">판정과 일치</th>
                 <th className="py-1 pr-4 font-medium">사람 라벨과 일치</th>
-                <th className="py-1 font-medium">놓침</th>
+                <th className="py-1 font-medium">불량 통과</th>
               </tr>
             </thead>
             <tbody>
@@ -156,7 +156,7 @@ function MemoryPanel({ report }: { report: MemoryReport }) {
                     {formatPercent(r.label_agreement)} <span className="text-xs text-slate-500">({r.labeled})</span>
                   </td>
                   <td className={`py-1 ${hasMiss(r) ? 'text-amber-400' : ''}`}>
-                    {r.missed} <span className="text-xs text-slate-500">{formatPercent(r.miss_rate)}</span>
+                    {r.missed}/{r.labeled_defects} <span className="text-xs text-slate-500">{formatPercent(r.defect_pass_rate)}</span>
                   </td>
                 </tr>
               ))}

@@ -2899,7 +2899,8 @@
           "answered",
           "teacher_checked",
           "labeled",
-          "missed"
+          "missed",
+          "labeled_defects"
         ],
         "type": "object",
         "properties": {
@@ -2941,6 +2942,17 @@
             "format": "int32"
           },
           "miss_rate": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "labeled_defects": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "defect_pass_rate": {
             "type": [
               "null",
               "number"

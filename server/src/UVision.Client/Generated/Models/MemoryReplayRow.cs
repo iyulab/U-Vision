@@ -18,10 +18,14 @@ namespace UVision.Client.Models
         public int? Answered { get; set; }
         /// <summary>The configured property</summary>
         public bool? Configured { get; set; }
+        /// <summary>The defect_pass_rate property</summary>
+        public double? DefectPassRate { get; set; }
         /// <summary>The label_agreement property</summary>
         public double? LabelAgreement { get; set; }
         /// <summary>The labeled property</summary>
         public int? Labeled { get; set; }
+        /// <summary>The labeled_defects property</summary>
+        public int? LabeledDefects { get; set; }
         /// <summary>The max_distance property</summary>
         public double? MaxDistance { get; set; }
         /// <summary>The missed property</summary>
@@ -59,8 +63,10 @@ namespace UVision.Client.Models
             {
                 { "answered", n => { Answered = n.GetIntValue(); } },
                 { "configured", n => { Configured = n.GetBoolValue(); } },
+                { "defect_pass_rate", n => { DefectPassRate = n.GetDoubleValue(); } },
                 { "label_agreement", n => { LabelAgreement = n.GetDoubleValue(); } },
                 { "labeled", n => { Labeled = n.GetIntValue(); } },
+                { "labeled_defects", n => { LabeledDefects = n.GetIntValue(); } },
                 { "max_distance", n => { MaxDistance = n.GetDoubleValue(); } },
                 { "miss_rate", n => { MissRate = n.GetDoubleValue(); } },
                 { "missed", n => { Missed = n.GetIntValue(); } },
@@ -77,8 +83,10 @@ namespace UVision.Client.Models
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteIntValue("answered", Answered);
             writer.WriteBoolValue("configured", Configured);
+            writer.WriteDoubleValue("defect_pass_rate", DefectPassRate);
             writer.WriteDoubleValue("label_agreement", LabelAgreement);
             writer.WriteIntValue("labeled", Labeled);
+            writer.WriteIntValue("labeled_defects", LabeledDefects);
             writer.WriteDoubleValue("max_distance", MaxDistance);
             writer.WriteIntValue("missed", Missed);
             writer.WriteDoubleValue("miss_rate", MissRate);
