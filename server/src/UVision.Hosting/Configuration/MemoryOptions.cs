@@ -22,6 +22,13 @@ public sealed class MemoryOptions
     /// <summary>mloop serve JWT Bearer 토큰(<c>/embed</c> 는 인증 필요). 비어 있으면 헤더 미부착.</summary>
     public string Token { get; set; } = "";
 
+    /// <summary>
+    /// mloop serve 한 번 호출의 시간 제한(초, 1~600). 질의(한 장)와 동기화(최대 64장 묶음)가 같은 클라이언트를 쓴다 —
+    /// 넘으면 질의는 기권, 동기화는 다음 주기에 다시 한다. 기본 30 — CPU 에서 인코더 첫 호출 ~0.6초 · 이후 한 장
+    /// ~0.1초 실측(2026-10-24)이라 64장 묶음과 느린 장비에 여유를 둔다.
+    /// </summary>
+    public int TimeoutSeconds { get; set; } = 30;
+
     /// <summary>답하려면 모두 같은 클래스여야 하는 최근접 이웃 수. 기억이 이보다 적으면 기권한다.</summary>
     public int Neighbors { get; set; } = 5;
 

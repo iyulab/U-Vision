@@ -22,8 +22,14 @@ public static class MlClassifierFactory
             case "mloop":
                 if (string.IsNullOrWhiteSpace(options.Endpoint))
                     throw new ArgumentException("mloop provider 는 Endpoint(mloop serve base URL) 설정이 필요합니다");
+                if (options.TimeoutSeconds is < 1 or > 600)
+                    throw new ArgumentException("UVision:Ml:TimeoutSeconds 는 1~600 이어야 합니다");
                 // 상대 경로(predict?name=) 해석을 위해 base URL 에 trailing slash 보장.
-                var http = new HttpClient { BaseAddress = new Uri(options.Endpoint.TrimEnd('/') + "/") };
+                var http = new HttpClient
+                {
+                    BaseAddress = new Uri(options.Endpoint.TrimEnd('/') + "/"),
+                    Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds),
+                };
                 return new MloopClassifier(http, options, resolver);
 
             default:

@@ -35,7 +35,8 @@ public sealed class OracleSweepBackgroundService : BackgroundService
                 var n = await svc.SweepOnceAsync(stoppingToken);
                 if (n > 0) _log.LogInformation("오라클 스윕 — {Count}건 처리", n);
             }
-            catch (OperationCanceledException) { break; }
+            // 종료 신호만 루프를 끝낸다 — HTTP 시간 초과도 OperationCanceledException 이라 그것까지 끝내면 스윕이 영영 멈춘다.
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex) { _log.LogWarning(ex, "오라클 스윕 실패 — 다음 주기 재시도"); }
 
             try { await Task.Delay(delay, stoppingToken); }

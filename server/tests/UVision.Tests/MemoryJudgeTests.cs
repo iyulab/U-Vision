@@ -119,6 +119,15 @@ public class MemoryJudgeTests
             Provider = provider, Endpoint = endpoint, Encoder = encoder, Neighbors = neighbors, MaxDistance = maxDistance,
         }));
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(601)]
+    public void Factory_RejectsTimeoutOutOfRange(int seconds) =>
+        Assert.Throws<ArgumentException>(() => ImageEmbedderFactory.Create(new MemoryOptions
+        {
+            Provider = "mloop", Endpoint = "http://mloop.test", Encoder = "dinov2-small", TimeoutSeconds = seconds,
+        }));
+
     [Fact]
     public async Task VectorStore_LastLineWins_SkipsTruncatedLine_AndRejectsBadKey()
     {

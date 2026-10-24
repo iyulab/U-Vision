@@ -27,8 +27,14 @@ public static class ImageEmbedderFactory
                     throw new ArgumentException("memory provider mloop 는 Endpoint(mloop serve base URL) 설정이 필요합니다");
                 if (string.IsNullOrWhiteSpace(options.Encoder))
                     throw new ArgumentException("memory provider mloop 는 Encoder(mloop encoder list 의 id) 설정이 필요합니다");
+                if (options.TimeoutSeconds is < 1 or > 600)
+                    throw new ArgumentException("UVision:Memory:TimeoutSeconds 는 1~600 이어야 합니다");
                 // 상대 경로(embed?encoder=) 해석을 위해 base URL 에 trailing slash 보장.
-                var http = new HttpClient { BaseAddress = new Uri(options.Endpoint.TrimEnd('/') + "/") };
+                var http = new HttpClient
+                {
+                    BaseAddress = new Uri(options.Endpoint.TrimEnd('/') + "/"),
+                    Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds),
+                };
                 return new MloopImageEmbedder(http, options);
 
             default:

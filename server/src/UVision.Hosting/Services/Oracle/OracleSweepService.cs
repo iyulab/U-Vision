@@ -71,6 +71,10 @@ public sealed class OracleSweepService
                         await ProcessAsync(scenario, date, r.ImageId, ct);
                         processed++;
                     }
+                    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                    {
+                        throw; // 종료 — 남은 항목마다 실패 경고를 남기지 않는다
+                    }
                     catch (Exception ex)
                     {
                         _log.LogWarning(ex, "오라클 처리 실패 — 다음 항목 계속 (sc={Sc}, img={Img})",

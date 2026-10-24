@@ -23,7 +23,8 @@ public sealed class CaseMemorySyncService(CaseMemory memory, MemoryOptions optio
                 var added = await memory.SyncOnceAsync(stoppingToken);
                 if (added > 0) log.LogInformation("기억 동기화 — 확정 사례 {Count}건 임베딩", added);
             }
-            catch (OperationCanceledException) { break; }
+            // 종료 신호만 루프를 끝낸다 — HTTP 시간 초과도 OperationCanceledException 이라 그것까지 끝내면 동기화가 영영 멈춘다.
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex) { log.LogWarning(ex, "기억 동기화 실패 — 다음 주기 재시도"); }
 
             try { await Task.Delay(delay, stoppingToken); }

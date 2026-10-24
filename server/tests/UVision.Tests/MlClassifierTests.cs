@@ -46,6 +46,13 @@ public class MlClassifierTests
         Assert.True(c.IsEnabled);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(601)]
+    public void Factory_Mloop_RejectsTimeoutOutOfRange(int seconds) =>
+        Assert.Throws<ArgumentException>(() => MlClassifierFactory.Create(
+            new MlOptions { Provider = "mloop", Endpoint = "http://localhost:5000", TimeoutSeconds = seconds }));
+
     [Fact]
     public void Factory_Unknown_Throws()
     {

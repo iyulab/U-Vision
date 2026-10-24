@@ -236,11 +236,26 @@ public class CaseMemoryTests
         Assert.False(p.Annotations!.ContainsKey("memory:encoder"));
     }
 
-    private sealed class ThrowingEmbedder : IImageEmbedder
+    [Fact]
+    public async Task EmbedderTimeout_AbstainsLikeAnyFailure_AndInspectionProceeds()
+    {
+        // HttpClient.Timeout 은 요청 토큰이 아니라 TaskCanceledException(안에 TimeoutException)으로 끝난다 — 판정 취소가
+        // 아니므로 기권해야 한다(취소로 보고 던지면 /inspect 가 실패한다).
+        using var factory = new MemoryEnabledFactory();
+        var client = factory.WithWebHostBuilder(b => b.ConfigureServices(s =>
+            s.AddSingleton<IImageEmbedder>(new ThrowingEmbedder(
+                new TaskCanceledException("timed out", new TimeoutException()))))).CreateClient();
+
+        var resp = await client.PostAsync("/api/u-vision/inspect", Form(Jpeg(4)));
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        Assert.Equal(StepOutcome.Abstained, Assert.Single(await LedgerAsync(factory)).Provenance.Path![0].Outcome);
+    }
+
+    private sealed class ThrowingEmbedder(Exception? failure = null) : IImageEmbedder
     {
         public string Name => "throwing";
         public bool IsEnabled => true;
         public Task<ImageEmbeddings> EmbedAsync(IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default) =>
-            throw new HttpRequestException("connection refused");
+            throw failure ?? new HttpRequestException("connection refused");
     }
 }
