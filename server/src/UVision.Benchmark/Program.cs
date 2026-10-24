@@ -28,6 +28,8 @@ using UVision.Api.Services.Vlm;
 //        memory 가 leave-one-out 으로 잰다)
 //   # 기억 단 문턱 오프라인 재생 — train 을 기억에, test 를 질의로(MLoop /embed, VLM 없음)
 //   UVISION_DATA_ROOT=... MEMORY_ENDPOINT=http://localhost:5417 MEMORY_ENCODER=dinov2-small MEMORY_TOKEN=... //       dotnet run --project src/UVision.Benchmark -- memory --manifest <이름> [--neighbors 5] [--out report.md]
+//   # COCO 상자 → 부품 크롭 표본 목록(한 장에 부품 여럿 — 부품 한 개 = 표본 한 장). Training/Validation 을 --append 로 한 목록에
+//   UVISION_DATA_ROOT=... dotnet run --project src/UVision.Benchmark -- crops --name <이름> --coco-dir <주석 폴더;…> //       --image-dir <이미지 폴더;…> --split train --classes 정상_역삽=OK,불량_역삽=NG [--pad 0.1] [--min-side 24] [--append]
 //   # 전용 ML 분류기 정확도 — train 분할을 MLoop 학습 폴더로 내보내고(mloop train 은 그 폴더에서), test 분할을 /predict 로
 //   UVISION_DATA_ROOT=... dotnet run --project src/UVision.Benchmark -- classify --manifest <이름> --export <프로젝트>/datasets/images
 //   UVISION_DATA_ROOT=... ML_TOKEN=... dotnet run --project src/UVision.Benchmark -- classify --manifest <이름> --endpoint http://localhost:5417 [--model default] [--per-class N] [--max-per-minute 55]
@@ -57,6 +59,8 @@ switch (args.FirstOrDefault())
         return await UVision.Benchmark.InjectBench.RunAsync(opts);
     case "classify":
         return await UVision.Benchmark.ClassifyBench.RunAsync(opts);
+    case "crops":
+        return UVision.Benchmark.CocoCrops.Run(opts, Pairs);
 }
 
 List<(string Name, string Path, Verdict? Truth)> images;
