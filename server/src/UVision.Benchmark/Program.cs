@@ -23,6 +23,9 @@ using UVision.Api.Services.Vlm;
 //        memory 가 leave-one-out 으로 잰다)
 //   # 기억 단 문턱 오프라인 재생 — train 을 기억에, test 를 질의로(MLoop /embed, VLM 없음)
 //   UVISION_DATA_ROOT=... MEMORY_ENDPOINT=http://localhost:5417 MEMORY_ENCODER=dinov2-small MEMORY_TOKEN=... //       dotnet run --project src/UVision.Benchmark -- memory --manifest <이름> [--neighbors 5] [--out report.md]
+//   # 시험 데이터셋 주입 — 표본을 실행 중인 엔진의 /v2/inspect 로(origin=dataset), --label 이면 정답을 사람 라벨로 심음
+//   UVISION_DATA_ROOT=... dotnet run --project src/UVision.Benchmark -- inject --manifest <이름> --scenario <id> \
+//       --engine http://localhost:8080 [--split test] [--limit N] [--label]
 
 const string DefaultCriteria =
     "제품 표면에 긁힘, 이물질, 균열, 솔더 브릿지 등 외관 결함이 없어야 한다. " +
@@ -50,6 +53,8 @@ switch (args.FirstOrDefault())
         return BuildManifest(opts);
     case "memory":
         return await UVision.Benchmark.MemoryBench.RunAsync(opts);
+    case "inject":
+        return await UVision.Benchmark.InjectBench.RunAsync(opts);
 }
 
 if (!opts.TryGetValue("images-dir", out var imagesDir))

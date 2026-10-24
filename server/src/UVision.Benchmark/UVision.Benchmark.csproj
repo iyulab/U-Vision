@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\UVision.Hosting\UVision.Hosting.csproj" />
+    <!-- inject 가 실행 중인 엔진을 공개 클라이언트로 부른다(소비자와 같은 길). -->
+    <ProjectReference Include="..\UVision.Client\UVision.Client.csproj" />
   </ItemGroup>
 
   <ItemGroup>

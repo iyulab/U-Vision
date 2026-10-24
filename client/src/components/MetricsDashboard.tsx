@@ -5,7 +5,7 @@ import { useResource } from '../hooks/useResource'
 import { getMemory, getMetrics, getTrainingReadiness, listResultDates } from '../lib/api'
 import { classNameOf } from '../lib/labels'
 import { formatDistance, hasMiss, memoryStatusLine } from '../lib/memory'
-import { formatPercent, fraction, hasNoMetricData, recallLead } from '../lib/metrics'
+import { datasetNotice, formatPercent, fraction, hasNoMetricData, recallLead } from '../lib/metrics'
 import { readinessLine } from '../lib/training'
 import type { MemoryReport, MetricsSummary, Scenario } from '../lib/types'
 
@@ -185,15 +185,11 @@ function Cards({ summary }: { summary: MetricsSummary }) {
   const nonDegraded = summary.ml_checked - summary.ml_degraded
   const matchSeen = summary.match_mismatches + summary.match_abstained + summary.contested > 0
   const lead = recallLead(summary.vlm_ng_recall, summary.ml_ng_recall)
+  const notice = datasetNotice(summary)
 
   return (
     <div className="space-y-6">
-      {summary.dataset_inspections > 0 && (
-        <p className="rounded-lg bg-sky-900/40 px-4 py-2 text-sm text-sky-200">
-          검사 {summary.inspections}건 가운데 {summary.dataset_inspections}건은 시험 데이터셋에서 넣은 판정입니다 — 아래 수치는 현장
-          촬영과 섞여 있습니다.
-        </p>
-      )}
+      {notice && <p className="rounded-lg bg-sky-900/40 px-4 py-2 text-sm text-sky-200">{notice}</p>}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Stat label="검사" value={String(summary.inspections)} sub={`ML 2중체크 ${summary.ml_checked}건`} />
         <Stat

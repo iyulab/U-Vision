@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatPercent, fraction, hasNoMetricData, recallLead } from './metrics'
+import { datasetNotice, formatPercent, fraction, hasNoMetricData, recallLead } from './metrics'
 import type { MetricsSummary } from './types'
 
 /** 최소 MetricsSummary 픽스처 — 필수 필드만 채움. */
@@ -90,5 +90,15 @@ describe('recallLead', () => {
     expect(recallLead(null, 0.9)).toBe('none')
     expect(recallLead(0.9, null)).toBe('none')
     expect(recallLead(null, null)).toBe('none')
+  })
+})
+
+describe('datasetNotice', () => {
+  it('주입 판정이 없으면 아무것도 말하지 않는다', () => {
+    expect(datasetNotice({ inspections: 5, dataset_inspections: 0 })).toBeNull()
+  })
+  it('전부 주입이면 현장 수치가 아니라고, 일부면 섞여 있다고 말한다', () => {
+    expect(datasetNotice({ inspections: 63, dataset_inspections: 63 })).toContain('모두')
+    expect(datasetNotice({ inspections: 10, dataset_inspections: 3 })).toContain('10건 가운데 3건')
   })
 })

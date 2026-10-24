@@ -33,3 +33,14 @@ export function recallLead(vlm: number | null, ml: number | null): RecallLead {
   if (vlm > ml) return 'vlm'
   return 'tie'
 }
+
+/**
+ * 시험 데이터셋에서 넣은 판정이 집계에 있으면 그 사실 한 줄 — 없으면 null. 전부 주입이면 현장 수치가 아니라는 것을,
+ * 일부면 섞여 있다는 것을 말한다.
+ */
+export function datasetNotice(s: Pick<MetricsSummary, 'inspections' | 'dataset_inspections'>): string | null {
+  if (s.dataset_inspections <= 0) return null
+  if (s.dataset_inspections >= s.inspections)
+    return `검사 ${s.inspections}건 모두 시험 데이터셋에서 넣은 판정입니다 — 현장 촬영 수치가 아닙니다.`
+  return `검사 ${s.inspections}건 가운데 ${s.dataset_inspections}건은 시험 데이터셋에서 넣은 판정입니다 — 아래 수치는 현장 촬영과 섞여 있습니다.`
+}
