@@ -16,6 +16,7 @@ Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0
 
 ### Changed
 - When the vision model stops at the output token limit, the inspection's failure now says so (the limit and the setting to raise) instead of reporting an empty or malformed answer.
+- The benchmark tool's reports no longer keep web addresses that appear in a failed call's message (they are replaced by `<url>`).
 
 ## [0.5.0] - 2026-10-24
 

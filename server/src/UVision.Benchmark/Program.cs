@@ -362,11 +362,6 @@ static double Median(List<double> sorted)
 
 static string Inv(FormattableString s) => s.ToString(CultureInfo.InvariantCulture);
 
-// 표 칸 하나 — 줄바꿈 · 세로선을 지우고 길면 자른다.
-static string Cell(string text)
-{
-    var flat = text.ReplaceLineEndings(" ").Replace('|', '/');
-    return flat.Length <= 160 ? flat : flat[..160] + "…";
-}
+static string Cell(string text) => UVision.Benchmark.ReportText.Cell(text);
 
 internal readonly record struct Row(string Name, Verdict? Truth, Verdict? Verdict, double Confidence, double LatencyMs, string? Findings, string? Error);

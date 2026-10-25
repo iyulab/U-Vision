@@ -67,3 +67,19 @@ public class ReportSummaryTests
         Assert.True(table.IndexOf("| a |", StringComparison.Ordinal) < table.IndexOf("| b |", StringComparison.Ordinal));
     }
 }
+
+/// <summary>리포트 표 칸 — 실패 사유에 섞인 주소는 리포트에 남지 않는다.</summary>
+public class ReportTextTests
+{
+    [Fact]
+    public void Cell_RemovesUrls_Newlines_AndPipes_AndTruncates()
+    {
+        var cell = ReportText.Cell("HttpRequestException: Connection refused (https://gateway.example:8443/openai/v1/chat)\nline | two");
+
+        Assert.DoesNotContain("example", cell);
+        Assert.DoesNotContain('\n', cell);
+        Assert.DoesNotContain('|', cell);
+        Assert.Contains("<url>", cell);
+        Assert.Equal(161, ReportText.Cell(new string('가', 400)).Length);
+    }
+}
