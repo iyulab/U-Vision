@@ -33,6 +33,8 @@ using UVision.Api.Services.Vlm;
 //   # 전용 ML 분류기 정확도 — train 분할을 MLoop 학습 폴더로 내보내고(mloop train 은 그 폴더에서), test 분할을 /predict 로
 //   UVISION_DATA_ROOT=... dotnet run --project src/UVision.Benchmark -- classify --manifest <이름> --export <프로젝트>/datasets/images
 //   UVISION_DATA_ROOT=... ML_TOKEN=... dotnet run --project src/UVision.Benchmark -- classify --manifest <이름> --endpoint http://localhost:5417 [--model default] [--per-class N] [--max-per-minute 55]
+//   # 리포트 폴더 → 판정원 비교표(VLM · ML 리포트를 다시 읽는다 — 손으로 옮기지 않는다)
+//   dotnet run --project src/UVision.Benchmark -- summary --dir <리포트 폴더>[;<폴더>…]
 //   # 시험 데이터셋 주입 — 표본을 실행 중인 엔진의 /v2/inspect 로(origin=dataset), --label 이면 정답을 사람 라벨로 심음
 //   UVISION_DATA_ROOT=... dotnet run --project src/UVision.Benchmark -- inject --manifest <이름> --scenario <id> \
 //       --engine http://localhost:8080 [--split test] [--limit N] [--label]
@@ -61,6 +63,8 @@ switch (args.FirstOrDefault())
         return await UVision.Benchmark.ClassifyBench.RunAsync(opts);
     case "crops":
         return UVision.Benchmark.CocoCrops.Run(opts, Pairs);
+    case "summary":
+        return UVision.Benchmark.ReportSummary.Run(opts);
 }
 
 List<(string Name, string Path, Verdict? Truth)> images;
