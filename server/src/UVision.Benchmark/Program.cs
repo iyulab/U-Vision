@@ -100,6 +100,7 @@ var endpoint = opts.GetValueOrDefault("endpoint")
 // few-shot 기준 이미지: --refs-dir/{ok,ng} 에서 로드(라벨당 최대 --refs-cap, 기본 3). 누수 방지 위해
 // 평가셋(--images-dir)과 다른 디렉토리(예: 학습셋)를 지정할 것. 미지정 시 zero-shot.
 // --refs-manifest <이름>: 표본 목록의 train 분할에서 클래스마다 --refs-cap 장을 고르게 — 평가는 test 에서 하므로 겹치지 않는다.
+// --refs-offset <k>: 그 자리를 목록 안에서 k 만큼 밀어 다른 기준 이미지를 얻는다(기준 이미지 선택에 얼마나 민감한지 잴 때).
 var refsDir = opts.GetValueOrDefault("refs-dir");
 var refsManifest = opts.GetValueOrDefault("refs-manifest");
 var refsCap = int.TryParse(opts.GetValueOrDefault("refs-cap"), out var rc) ? rc : 3;
@@ -111,7 +112,8 @@ if (refsManifest is not null)
 {
     if (UVision.Benchmark.DataRoot.Resolve(opts) is not { } refsRoot) return 1;
     references = [.. UVision.Benchmark.SampleManifest.Pick(
-            UVision.Benchmark.SampleManifest.Read(UVision.Benchmark.SampleManifest.PathFor(refsRoot, refsManifest)), "train", refsCap)
+            UVision.Benchmark.SampleManifest.Read(UVision.Benchmark.SampleManifest.PathFor(refsRoot, refsManifest)), "train", refsCap,
+            int.TryParse(opts.GetValueOrDefault("refs-offset"), out var refsOffset) && refsOffset > 0 ? refsOffset : 0)
         .Where(x => x.Class is "OK" or "NG")
         .Select(x => new ReferenceImage
         {

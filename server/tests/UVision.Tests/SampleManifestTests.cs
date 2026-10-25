@@ -51,6 +51,18 @@ public class SampleManifestTests
     }
 
     [Fact]
+    public void Pick_Offset_ShiftsTheSameSpacingAndWrapsAround()
+    {
+        List<Sample> samples = [.. Enumerable.Range(0, 10).Select(i => S($"ng/{i}", "train", "NG", $"n{i}"))];
+
+        var shifted = SampleManifest.Pick(samples, "train", perClass: 3, offset: 4);
+
+        // 간격은 같고(0 · 3 · 6) 4 만큼 민다 — 7 번째는 끝을 넘어 처음으로(10 % 10).
+        Assert.Equal(["ng/4", "ng/7", "ng/0"], shifted.Select(s => s.Path));
+        Assert.Equal(SampleManifest.Pick(samples, "train", 3).Select(s => s.Path), SampleManifest.Pick(samples, "train", 3, offset: 0).Select(s => s.Path));
+    }
+
+    [Fact]
     public void SplitCsv_FindsColumnsByName_FiltersTheObject_AndSkipsUnmappedValues()
     {
         string[] lines =

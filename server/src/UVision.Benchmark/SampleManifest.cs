@@ -138,8 +138,10 @@ internal static class SampleManifest
     /// <summary>
     /// 측정할 표본을 고른다 — 분할로 거르고(<c>null</c> 이면 전체), 클래스마다 최대 <paramref name="perClass"/> 장을 목록 전체에
     /// 고르게 띄워 뽑는다. 앞에서부터 자르면 파일 번호 순(대개 촬영 순)의 한 구간만 재게 된다. 결정론적 — 다시 돌려도 같은 표본.
+    /// <paramref name="offset"/> 은 뽑는 자리를 목록 안에서 그만큼 밀어(끝을 넘으면 처음으로) 같은 간격의 다른 표본을 얻는다 —
+    /// few-shot 기준 이미지를 고르는 데 결과가 얼마나 민감한지 재는 데 쓴다.
     /// </summary>
-    public static List<Sample> Pick(IReadOnlyList<Sample> samples, string? split, int perClass)
+    public static List<Sample> Pick(IReadOnlyList<Sample> samples, string? split, int perClass, int offset = 0)
     {
         var picked = new List<Sample>();
         foreach (var group in samples.Where(s => split is null || s.Split == split).GroupBy(s => s.Class))
@@ -147,7 +149,7 @@ internal static class SampleManifest
             var all = group.ToList();
             var n = Math.Min(perClass, all.Count);
             for (var i = 0; i < n; i++)
-                picked.Add(all[(int)((long)i * all.Count / n)]);
+                picked.Add(all[(int)(((long)i * all.Count / n + offset) % all.Count)]);
         }
         return picked;
     }
