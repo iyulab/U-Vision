@@ -359,6 +359,8 @@ public sealed class CaseMemory(
             var flat = new float[ready.Count * length];
             for (var i = 0; i < ready.Count; i++)
                 patches[ready[i].ImageId].CopyTo(flat, i * length);
+            // 기억 밖으로 밀려난 사례의 파일을 치운다 — 정상이 새로 확정될 때마다 가장 오래된 것이 빠진다.
+            await patchBank.PruneAsync(scenario.ScenarioId, key, normal.Select(c => c.ImageId).ToHashSet(StringComparer.Ordinal), cancellationToken);
             return new PatchBank(
                 [.. ready.Select(c => c.ImageId)], [.. ready.Select(c => globals[c.ImageId])], flat, length / dimension, dimension);
         }

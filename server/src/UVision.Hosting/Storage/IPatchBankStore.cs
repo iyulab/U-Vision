@@ -10,6 +10,13 @@ public interface IPatchBankStore
     Task WriteAsync(
         string scenarioId, string encoderKey, string imageId, float[] patches, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// <paramref name="keep"/> 에 없는 사례의 패치 파일을 지운다 — 기억이 가장 최근 정상 N 장만 두므로 밀려난 사례의 파일이
+    /// 쌓이지 않게(사례 하나가 수백 KB). 파생물이라 지워도 다음 동기화가 다시 만들 수 있다.
+    /// </summary>
+    Task PruneAsync(
+        string scenarioId, string encoderKey, IReadOnlySet<string> keep, CancellationToken cancellationToken = default);
+
     /// <summary>패치 벡터를 읽는다. 없거나 <paramref name="expectedLength"/> 와 다르면(끊긴 파일) null.</summary>
     Task<float[]?> ReadAsync(
         string scenarioId, string encoderKey, string imageId, int? expectedLength = null,

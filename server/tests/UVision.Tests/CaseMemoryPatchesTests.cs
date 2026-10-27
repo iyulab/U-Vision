@@ -182,6 +182,25 @@ public class CaseMemoryPatchesTests
         Assert.Equal("1", (await LastAnnotationsAsync(factory))["memory:bank_size"]);
     }
 
+    [Fact]
+    public async Task PatchFiles_FollowTheBank_NewNormalCasesDoNotPileUpFilesPastTheCap()
+    {
+        using var factory = new PatchesFactory(patches: true, cap: 1);
+        var client = factory.CreateClient();
+        var memory = factory.Services.GetRequiredService<CaseMemory>();
+        var dir = Path.Combine(factory.DataPath, "demo", "memory", MockImageEmbedder.Identity.Key, "patches");
+
+        await LabelAsync(client, await InspectAsync(client, Jpeg(1)), "OK");
+        await memory.SyncOnceAsync(CancellationToken.None);
+        Assert.Single(Directory.GetFiles(dir, "*.f32"));
+
+        // 정상이 더 확정되면 기억의 한 자리를 새 사례가 차지한다 — 밀려난 사례의 파일은 남지 않는다.
+        await LabelAsync(client, await InspectAsync(client, Jpeg(2)), "OK");
+        await LabelAsync(client, await InspectAsync(client, Jpeg(3)), "OK");
+        await memory.SyncOnceAsync(CancellationToken.None);
+        Assert.Single(Directory.GetFiles(dir, "*.f32"));
+    }
+
     [Theory]
     [InlineData("none", 200)]   // 패치 모드가 없는 provider
     [InlineData("mock", 0)]     // 상한 범위 밖

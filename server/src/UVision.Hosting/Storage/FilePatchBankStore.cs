@@ -11,6 +11,22 @@ public sealed class FilePatchBankStore(StoragePaths paths) : IPatchBankStore
             paths.MemoryPatchFile(scenarioId, encoderKey, imageId), MemoryMarshal.AsBytes(patches.AsSpan()).ToArray(),
             cancellationToken);
 
+    public Task PruneAsync(
+        string scenarioId, string encoderKey, IReadOnlySet<string> keep, CancellationToken cancellationToken = default)
+    {
+        // 디렉터리는 한 사례 경로에서 얻는다 — 경로 규칙(판 키 검증 포함)을 StoragePaths 한 곳에 둔다.
+        var dir = Path.GetDirectoryName(paths.MemoryPatchFile(scenarioId, encoderKey, "x"))!;
+        if (!Directory.Exists(dir))
+            return Task.CompletedTask;
+        foreach (var file in Directory.EnumerateFiles(dir, "*.f32"))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!keep.Contains(Path.GetFileNameWithoutExtension(file)))
+                File.Delete(file);
+        }
+        return Task.CompletedTask;
+    }
+
     public async Task<float[]?> ReadAsync(
         string scenarioId, string encoderKey, string imageId, int? expectedLength = null,
         CancellationToken cancellationToken = default)

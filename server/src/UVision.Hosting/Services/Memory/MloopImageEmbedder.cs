@@ -10,7 +10,9 @@ namespace UVision.Api.Services.Memory;
 /// <para>
 /// 검증 범위: fake-handler 계약 테스트가 HoneAI 클라이언트를 거친 요청 · 응답을 가드한다. 실 <c>mloop serve</c> 0.45.0 +
 /// <c>dinov2-small</c> 인코더로 라벨 12장 기억을 짓고 2장을 질의해 둘 다 맞는 클래스를 가장 가까운 이웃으로 찾았다
-/// (2026-10-24, 합성 이미지 — 실 현장 사진 · 운영 규모의 문턱은 아직 측정 전).
+/// (2026-10-24, 합성 이미지 — 실 현장 사진 · 운영 규모의 문턱은 아직 측정 전). 패치 모드(<c>patches=true</c>)는 실 <c>mloop serve</c>
+/// 0.46.0 + <c>dinov2-small</c> 로 엔진 왕복을 한 번 확인했다(2026-10-27, 공개 표본 100장 주입 — 기억이 지어지고 장부에 두 점수가
+/// 쌓임; 지연 · CPU 는 미측정).
 /// </para>
 /// </summary>
 public sealed class MloopImageEmbedder(IMLoopClient client, MemoryOptions options) : IImageEmbedder
