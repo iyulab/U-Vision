@@ -13,12 +13,20 @@ public sealed record EncoderIdentity(
     string Id, string Version, string? Sha256, int Dimension, bool Normalized, string? Preprocessor = null)
 {
     /// <summary>
-    /// 기억의 판 키 — 인코더 id + 가중치 SHA-256 앞 12자. 같은 id 라도 가중치가 바뀌면 다른 판이다. SHA-256 이 없으면
-    /// 판 표기로 대신한다. 디렉터리 이름이 되므로 쓰는 곳(<see cref="Storage.StoragePaths"/>)이 형식을 검사한다.
+    /// 기억의 판 키 — 인코더 id + 가중치 SHA-256 앞 12자(+ 전처리 판이 있으면 그것). 같은 id 라도 가중치나 전처리가 바뀌면 다른
+    /// 판이다. SHA-256 이 없으면 판 표기로 대신한다. 디렉터리 이름이 되므로 쓰는 곳(<see cref="Storage.StoragePaths"/>)이 형식을 검사한다.
     /// </summary>
-    public string Key => Sha256 is { Length: >= 12 } sha
-        ? $"{Id}-{sha[..12].ToLowerInvariant()}"
-        : $"{Id}-{Version}";
+    public string Key
+    {
+        get
+        {
+            var weights = Sha256 is { Length: >= 12 } sha ? $"{Id}-{sha[..12].ToLowerInvariant()}" : $"{Id}-{Version}";
+            // 같은 가중치라도 전처리가 바뀌면(알파 처리 등) 벡터가 달라진다 — 그 판은 다른 공간이다. 경로가 되므로 안전한 글자만.
+            return Preprocessor is { Length: > 0 } pre
+                ? $"{weights}-{string.Concat(pre.Select(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-' ? c : '_'))}"
+                : weights;
+        }
+    }
 }
 
 /// <summary>이미지 여러 장의 임베딩 — 요청 순서대로 한 장에 벡터 하나.</summary>

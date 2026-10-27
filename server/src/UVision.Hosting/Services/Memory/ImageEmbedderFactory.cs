@@ -15,6 +15,16 @@ public static class ImageEmbedderFactory
             throw new ArgumentException("UVision:Memory:Neighbors 는 1 이상이어야 합니다");
         if (!(options.MaxDistance is > 0 and <= 2))
             throw new ArgumentException("UVision:Memory:MaxDistance 는 0 초과 2 이하(코사인 거리)여야 합니다");
+        if (options.Patches && options.PatchBankCap is < 1 or > 5000)
+            throw new ArgumentException("UVision:Memory:PatchBankCap 는 1~5000 이어야 합니다");
+        var embedder = Build(options);
+        if (options.Patches && !embedder.SupportsPatches)
+            throw new ArgumentException("UVision:Memory:Patches 는 패치 모드를 지원하는 provider(mock · mloop)에서만 켤 수 있습니다");
+        return embedder;
+    }
+
+    private static IImageEmbedder Build(MemoryOptions options)
+    {
         switch (options.Provider.ToLowerInvariant())
         {
             case "none":

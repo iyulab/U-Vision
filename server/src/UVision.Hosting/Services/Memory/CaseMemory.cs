@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using UVision.Api.Configuration;
 using UVision.Api.Models;
 using UVision.Api.Services.Scenarios;
@@ -12,7 +13,8 @@ namespace UVision.Api.Services.Memory;
 /// 아직 그 인코더 판으로 지어지지 않음) <see cref="Failure"/>.
 /// </summary>
 /// <param name="EncoderKey">질의 이미지를 임베딩한 인코더 판(임베딩이 실패했으면 null).</param>
-public sealed record MemoryOutcome(string? EncoderKey, MemoryAnswer? Answer, string? Failure)
+/// <param name="Scores">패치 모드를 켰을 때의 이상 점수(Shadow — 판정에 쓰이지 않는다). 점수를 못 냈으면 null.</param>
+public sealed record MemoryOutcome(string? EncoderKey, MemoryAnswer? Answer, string? Failure, AnomalyScores? Scores = null)
 {
     /// <summary>기권 사유 — 답했으면 null.</summary>
     public string? AbstainReason => Answer is { Class: not null } ? null : Failure ?? Answer?.Abstained;
@@ -25,8 +27,33 @@ public sealed record MemoryOutcome(string? EncoderKey, MemoryAnswer? Answer, str
             : new Dictionary<string, string>(Answer.ToAnnotations(), StringComparer.Ordinal);
         if (EncoderKey is not null)
             a["memory:encoder"] = EncoderKey;
+        if (Scores is not null)
+            foreach (var (k, v) in Scores.ToAnnotations())
+                a[k] = v;
         return a;
     }
+}
+
+/// <summary>
+/// 이상 점수 한 쌍 — 같은 정상 기억에 견준 전역 점수(최근접 사진까지 코사인 거리)와 패치 점수(질의 패치마다 기억 패치 전부까지
+/// 최근접 거리의 최댓값). 클수록 정상 기억과 멀다. 둘이 같은 기억 위에서 나와야 시나리오마다 재생으로 비교할 수 있다.
+/// </summary>
+/// <param name="BankSize">점수를 낸 정상 기억의 사진 수 — 기억 크기에 따라 두 점수의 우열이 갈려 재생이 이 값으로 나눠 본다.</param>
+public sealed record AnomalyScores(double Global, double Patch, int BankSize)
+{
+    public IReadOnlyDictionary<string, string> ToAnnotations() => new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["memory:global_score"] = Global.ToString("0.######", CultureInfo.InvariantCulture),
+        ["memory:patch_score"] = Patch.ToString("0.######", CultureInfo.InvariantCulture),
+        ["memory:bank_size"] = BankSize.ToString(CultureInfo.InvariantCulture),
+    };
+}
+
+/// <summary>정상 사례의 전역 · 패치 벡터를 모은 기억 — 패치는 사례 순서대로 한 배열에 이어 붙는다.</summary>
+internal sealed record PatchBank(
+    IReadOnlyList<string> ImageIds, IReadOnlyList<float[]> Globals, float[] Patches, int PatchesPerImage, int Dimension)
+{
+    public int Count => ImageIds.Count;
 }
 
 /// <summary>
@@ -45,6 +72,7 @@ public sealed record MemoryOutcome(string? EncoderKey, MemoryAnswer? Answer, str
 public sealed class CaseMemory(
     IImageEmbedder embedder,
     IMemoryVectorStore vectors,
+    IPatchBankStore patchBank,
     IScenarioStore scenarios,
     IInspectionStore inspections,
     ILabelStore labels,
@@ -52,7 +80,8 @@ public sealed class CaseMemory(
     MemoryOptions options,
     ILogger<CaseMemory> logger)
 {
-    private sealed record Snapshot(string EncoderKey, IReadOnlyList<MemoryCase> Cases, DateTimeOffset BuiltAt);
+    private sealed record Snapshot(
+        string EncoderKey, IReadOnlyList<MemoryCase> Cases, DateTimeOffset BuiltAt, PatchBank? Bank = null);
 
     private readonly ConcurrentDictionary<string, Snapshot> _snapshots = new(StringComparer.Ordinal);
 
@@ -61,6 +90,9 @@ public sealed class CaseMemory(
 
     /// <summary>기억 단이 켜져 있는가(임베더가 있음).</summary>
     public bool IsEnabled => embedder.IsEnabled;
+
+    // 패치 점수를 쌓는가 — 설정이 켜졌고 임베더가 패치 모드를 낸다(팩토리가 기동에서 이 조합을 보장한다).
+    private bool PatchesActive => options.Patches && embedder.SupportsPatches;
 
     /// <summary>시나리오 기억의 지금 상태 — 지어진 판 · 사례 수 · 지은 시각. 아직 안 지어졌으면 null.</summary>
     public (string EncoderKey, int Cases, DateTimeOffset BuiltAt)? StatusOf(string scenarioId) =>
@@ -71,9 +103,20 @@ public sealed class CaseMemory(
         EffectiveScenario scenario, ReadOnlyMemory<byte> image, CancellationToken cancellationToken)
     {
         ImageEmbeddings embedded;
+        ImageFeatures? features = null;
         try
         {
-            embedded = await embedder.EmbedAsync([image], cancellationToken);
+            if (PatchesActive)
+            {
+                // 한 호출이 전역과 패치를 함께 준다 — 전역은 일반 호출과 같은 값이라 판정기는 그대로 쓴다.
+                var withPatches = await embedder.EmbedPatchesAsync([image], cancellationToken);
+                features = withPatches.Images[0];
+                embedded = new ImageEmbeddings(withPatches.Encoder, [features.Global]);
+            }
+            else
+            {
+                embedded = await embedder.EmbedAsync([image], cancellationToken);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -91,13 +134,40 @@ public sealed class CaseMemory(
         try
         {
             var answer = MemoryJudge.Decide(embedded.Vectors[0], snapshot.Cases, options.Neighbors, options.MaxDistance);
-            return new(key, answer, null);
+            var scores = features is not null && snapshot.Bank is { } bank
+                ? await ScoreAsync(scenario.ScenarioId, bank, features, cancellationToken)
+                : null;
+            return new(key, answer, null, scores);
         }
         catch (ArgumentException ex)
         {
             // 같은 판인데 차원이 다른 벡터 — 캐시가 손상됐다. 기권하고 다음 동기화를 기다린다.
             logger.LogWarning(ex, "기억 단 비교 실패 — 기권 (scenario={ScenarioId})", scenario.ScenarioId);
             return new(key, null, "memory unreadable: " + ex.Message);
+        }
+    }
+
+    // 이상 점수 — 판정에 쓰이지 않으니 계산이 틀려도 점수만 빠진다(degrade). CPU 일이라 스레드 풀로 보낸다.
+    private async Task<AnomalyScores?> ScoreAsync(
+        string scenarioId, PatchBank bank, ImageFeatures features, CancellationToken cancellationToken)
+    {
+        if (features.Global.Length != bank.Dimension || features.Patches.Length != bank.PatchesPerImage * bank.Dimension)
+        {
+            logger.LogWarning(
+                "패치 점수 건너뜀 — 질의 특징의 모양이 기억과 다르다 (scenario={ScenarioId})", scenarioId);
+            return null;
+        }
+        try
+        {
+            return await Task.Run(() => new AnomalyScores(
+                PatchDistance.GlobalScore(features.Global, bank.Globals),
+                PatchDistance.PatchScore(features.Patches, bank.PatchesPerImage, bank.Patches, bank.Count * bank.PatchesPerImage, bank.Dimension),
+                bank.Count), cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "패치 점수 계산 실패 — 점수만 누락 (scenario={ScenarioId})", scenarioId);
+            return null;
         }
     }
 
@@ -211,8 +281,96 @@ public sealed class CaseMemory(
             .Where(c => cached.ContainsKey(c.ImageId))
             .Select(c => new MemoryCase(c.ImageId, c.Class, cached[c.ImageId]))
             .ToList();
-        _snapshots[scenario.ScenarioId] = new Snapshot(key, cases, DateTimeOffset.UtcNow);
+        PatchBank? bank = null;
+        if (PatchesActive)
+        {
+            _snapshots.TryGetValue(scenario.ScenarioId, out var previous);
+            bank = await BuildPatchBankAsync(
+                scenario, confirmed, cached, key, previous?.EncoderKey == key ? previous.Bank : null, cancellationToken);
+        }
+        _snapshots[scenario.ScenarioId] = new Snapshot(key, cases, DateTimeOffset.UtcNow, bank);
         return added;
+    }
+
+    /// <summary>
+    /// 정상 확정 사례(가장 최근 <see cref="MemoryOptions.PatchBankCap"/> 장)의 패치 기억을 짓는다 — 디스크 캐시에 없는 것만
+    /// 패치 모드로 임베딩해 쓴다. 같은 사례 집합이면 지난 기억을 그대로 쓴다(주기마다 수십 MB 를 다시 읽지 않는다). 실패는
+    /// 지난 기억을 유지한다 — 점수만 낡을 뿐 판정은 영향이 없다.
+    /// </summary>
+    private async Task<PatchBank?> BuildPatchBankAsync(
+        EffectiveScenario scenario, List<ConfirmedCase> confirmed, Dictionary<string, float[]> globals, string key,
+        PatchBank? previous, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var normal = confirmed
+                .Where(c => string.Equals(c.Class, ScenarioVocabulary.Ok, StringComparison.OrdinalIgnoreCase)
+                            && globals.ContainsKey(c.ImageId))
+                .OrderByDescending(c => c.Date, StringComparer.Ordinal)
+                .ThenByDescending(c => c.ImageId, StringComparer.Ordinal)
+                .Take(options.PatchBankCap)
+                .ToList();
+            if (normal.Count == 0)
+                return null;
+            if (previous is not null && previous.ImageIds.SequenceEqual(normal.Select(c => c.ImageId)))
+                return previous;
+
+            var dimension = globals[normal[0].ImageId].Length;
+            var patches = new Dictionary<string, float[]>(StringComparer.Ordinal);
+            foreach (var c in normal)
+            {
+                if (await patchBank.ReadAsync(scenario.ScenarioId, key, c.ImageId, cancellationToken: cancellationToken) is { } stored
+                    && stored.Length % dimension == 0)
+                    patches[c.ImageId] = stored;
+            }
+
+            foreach (var batch in normal.Where(c => !patches.ContainsKey(c.ImageId)).Chunk(IImageEmbedder.MaxPatchBatch))
+            {
+                var images = new List<(ConfirmedCase Case, ReadOnlyMemory<byte> Data)>(batch.Length);
+                foreach (var c in batch)
+                {
+                    if (await inspections.ReadImageAsync(scenario.ScenarioId, c.Date, c.ImageId, cancellationToken) is { } image)
+                        images.Add((c, image.Data));
+                }
+                if (images.Count == 0)
+                    continue;
+                var embedded = await embedder.EmbedPatchesAsync([.. images.Select(i => i.Data)], cancellationToken);
+                if (embedded.Encoder.Key != key)
+                {
+                    // 인코더가 바뀌었다 — 이 판의 패치는 못 쓴다. 다음 동기화가 새 판으로 짓는다.
+                    logger.LogInformation(
+                        "패치 기억 중 인코더 판 변경 {Old} → {New} (scenario={ScenarioId})", key, embedded.Encoder.Key, scenario.ScenarioId);
+                    return previous;
+                }
+                for (var i = 0; i < images.Count; i++)
+                {
+                    var vector = embedded.Images[i].Patches;
+                    await patchBank.WriteAsync(scenario.ScenarioId, key, images[i].Case.ImageId, vector, cancellationToken);
+                    patches[images[i].Case.ImageId] = vector;
+                }
+            }
+
+            // 모두 같은 패치 수여야 한 배열로 이어 붙는다 — 첫 사례와 다른 모양(손상 · 다른 격자)은 뺀다.
+            var ready = normal.Where(c => patches.ContainsKey(c.ImageId)).ToList();
+            if (ready.Count == 0)
+                return null;
+            var length = patches[ready[0].ImageId].Length;
+            ready = [.. ready.Where(c => patches[c.ImageId].Length == length)];
+            var flat = new float[ready.Count * length];
+            for (var i = 0; i < ready.Count; i++)
+                patches[ready[i].ImageId].CopyTo(flat, i * length);
+            return new PatchBank(
+                [.. ready.Select(c => c.ImageId)], [.. ready.Select(c => globals[c.ImageId])], flat, length / dimension, dimension);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "패치 기억 동기화 실패 — 지난 기억 유지 (scenario={ScenarioId})", scenario.ScenarioId);
+            return previous;
+        }
     }
 
     private sealed record ConfirmedCase(string ImageId, string Date, string Class);

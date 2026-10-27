@@ -56,6 +56,7 @@ public static class UVisionServiceExtensions
         services.AddSingleton<IReferenceStore, FileReferenceStore>();
         services.AddSingleton<ILabelStore, FileLabelStore>();
         services.AddSingleton<IMemoryVectorStore, FileMemoryVectorStore>();
+        services.AddSingleton<IPatchBankStore, FilePatchBankStore>();
 
         // 모델 버저닝(신뢰성 플라이휠 B1) — 시나리오별 모델 참조·이력 레지스트리.
         services.AddSingleton<IModelRegistry, FileModelRegistry>();

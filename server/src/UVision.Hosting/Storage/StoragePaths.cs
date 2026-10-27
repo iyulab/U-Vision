@@ -119,6 +119,13 @@ public sealed partial class StoragePaths
     public string MemoryVectorsJsonl(string scenarioId, string encoderKey) =>
         Path.Combine(ScenarioDir(scenarioId), MemorySegment, Id(encoderKey), "vectors.jsonl");
 
+    /// <summary>
+    /// 정상 사례 한 장의 패치 벡터 <c>{scenario}/memory/{encoderKey}/patches/{imageId}.f32</c> — little-endian float32,
+    /// 패치 수 × 차원이 이어 붙은 하나의 배열. 벡터 캐시와 같은 판 디렉터리에 있어 판이 바뀌면 함께 버려진다.
+    /// </summary>
+    public string MemoryPatchFile(string scenarioId, string encoderKey, string imageId) =>
+        Path.Combine(ScenarioDir(scenarioId), MemorySegment, Id(encoderKey), "patches", Id(imageId) + ".f32");
+
     // --- 판정 사건 outbox (P4 이벤트 내보내기) -------------------------------
     // 받는 곳마다 보낼 사건 파일 하나씩. 보내면 지우고, 끝내 못 보내면 dead/ 로 옮긴다. <c>events</c> 도 날짜로
     // 파싱되지 않아 목록에서 빠진다.
