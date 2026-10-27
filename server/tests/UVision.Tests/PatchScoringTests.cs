@@ -77,6 +77,33 @@ public class PatchScoringTests
     }
 
     [Fact]
+    public void SubsampleBank_KeepsTheRequestedShare_OfRealBankPatches_Reproducibly()
+    {
+        const int dim = 3, patches = 40;
+        var bank = new float[patches * dim];
+        for (var i = 0; i < patches; i++)
+            for (var j = 0; j < dim; j++) bank[i * dim + j] = i * 10 + j; // 패치 i 의 값에서 어느 패치인지 읽힌다
+
+        var a = PatchBench.SubsampleBank(bank, patches, dim, 0.25);
+        var b = PatchBench.SubsampleBank(bank, patches, dim, 0.25);
+
+        Assert.Equal(10 * dim, a.Length);
+        Assert.Equal(a, b); // 시드 고정 — 같은 입력 · 비율이면 같은 부분표본
+        var picked = Enumerable.Range(0, 10).Select(k => (int)(a[k * dim] / 10)).ToList();
+        Assert.Equal(picked.Order().ToList(), picked); // 원래 순서를 지킨다
+        Assert.Equal(10, picked.Distinct().Count()); // 중복 없음
+        for (var k = 0; k < 10; k++) // 패치 하나가 통째로 옮겨진다(차원이 섞이지 않는다)
+            Assert.Equal(new[] { picked[k] * 10f, picked[k] * 10f + 1, picked[k] * 10f + 2 }, a[(k * dim)..((k + 1) * dim)]);
+    }
+
+    [Fact]
+    public void ParseFractions_KeepsOnlySharesBetweenZeroAndOne()
+    {
+        Assert.Equal([0.5, 0.1], PatchBench.ParseFractions("0.5, 0.1,1,0,1.5"));
+        Assert.Empty(PatchBench.ParseFractions(null));
+    }
+
+    [Fact]
     public void Dot_handles_lengths_that_are_not_a_vector_multiple()
     {
         float[] a = [.. Enumerable.Repeat(1f, 19)];

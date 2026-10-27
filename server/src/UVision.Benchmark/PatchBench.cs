@@ -83,12 +83,33 @@ internal static class PatchBench
         }
         Console.Error.WriteLine();
 
+        // --subsample 0.5,0.25,0.1: 기억 패치를 시드 고정 무작위로 줄인 은행에서 같은 질의의 패치 점수를 다시 낸다 — 점수 계산을
+        // 줄이는 길(코어셋 · 근사)의 정확도 비용을 숫자로 보려는 것. 줄이지 않은 줄(100 %)과 같은 질의 · 같은 지표다.
+        var subsampled = new List<(string Label, List<double> Normal, List<double> Defect)>();
+        foreach (var fraction in ParseFractions(opts.GetValueOrDefault("subsample")))
+        {
+            var reduced = SubsampleBank(bankPatches, bank.Count * patchCount, dim, fraction);
+            var reducedCount = reduced.Length / dim;
+            var n = new List<double>();
+            var d = new List<double>();
+            var millis = new List<double>();
+            foreach (var s in test)
+            {
+                var clock = Stopwatch.StartNew();
+                var p = PatchDistance.PatchScore(features[s.Sha256].Patches, patchCount, reduced, reducedCount, dim);
+                millis.Add(clock.Elapsed.TotalMilliseconds);
+                (s.Class == "OK" ? n : d).Add(p);
+            }
+            subsampled.Add(($"패치 최댓값 — 기억 패치 {fraction:P0}({reducedCount}개, 점수 계산 중앙값 {millis.Order().ElementAt(millis.Count / 2):F0} ms/장)", n, d));
+            Console.Error.WriteLine($"부분표본 {fraction:P0} 완료");
+        }
+
         // --anomaly-endpoint: MLoop `image-anomaly` 모델(`mloop serve`)의 점수를 같은 질의로 받아 세 번째 줄로 비교한다.
         AnomalyScores? anomaly = null;
         if (opts.GetValueOrDefault("anomaly-endpoint") is { } anomalyEndpoint)
             anomaly = await ScoreWithAnomalyModelAsync(anomalyEndpoint, dataRoot, test);
 
-        var report = Render(name, encoder, grid, bank.Count, normalGlobal, defectGlobal, normalPatch, defectPatch, anomaly);
+        var report = Render(name, encoder, grid, bank.Count, normalGlobal, defectGlobal, normalPatch, defectPatch, anomaly, subsampled);
         Console.WriteLine(report);
         if (opts.GetValueOrDefault("out") is { } outPath)
         {
@@ -182,6 +203,32 @@ internal static class PatchBench
         return new Features(floats[..dim], floats[dim..]);
     }
 
+    internal static IReadOnlyList<double> ParseFractions(string? spec) =>
+        string.IsNullOrWhiteSpace(spec)
+            ? []
+            : [.. spec.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(x => double.Parse(x, CultureInfo.InvariantCulture))
+                .Where(x => x > 0 && x < 1)];
+
+    /// <summary>기억 패치 중 <paramref name="fraction"/> 만큼을 시드 고정 무작위로 고른다(같은 값 · 같은 비율이면 같은 부분표본).</summary>
+    internal static float[] SubsampleBank(float[] bank, int bankPatches, int dim, double fraction)
+    {
+        var keep = Math.Max(1, (int)(bankPatches * fraction));
+        var order = Enumerable.Range(0, bankPatches).ToArray();
+        var random = new Random(42);
+        for (var i = 0; i < keep; i++) // 앞 keep 개만 섞는다(부분 Fisher–Yates)
+        {
+            var j = random.Next(i, bankPatches);
+            (order[i], order[j]) = (order[j], order[i]);
+        }
+        var picked = order[..keep];
+        Array.Sort(picked);
+        var reduced = new float[keep * dim];
+        for (var k = 0; k < keep; k++)
+            Array.Copy(bank, (long)picked[k] * dim, reduced, (long)k * dim, dim);
+        return reduced;
+    }
+
     private sealed record AnomalyScores(List<double> Normal, List<double> Defect, double MedianMilliseconds);
 
     /// <summary>
@@ -219,7 +266,8 @@ internal static class PatchBench
     private static string Render(
         string name, MLoopEncoder encoder, MLoopPatchGrid grid, int bankImages,
         List<double> normalGlobal, List<double> defectGlobal, List<double> normalPatch, List<double> defectPatch,
-        AnomalyScores? anomaly = null)
+        AnomalyScores? anomaly = null,
+        IReadOnlyList<(string Label, List<double> Normal, List<double> Defect)>? subsampled = null)
     {
         var inv = CultureInfo.InvariantCulture;
         var sb = new StringBuilder();
@@ -235,6 +283,9 @@ internal static class PatchBench
             ("전역 벡터(지금 기억 단)", normalGlobal, defectGlobal),
             ("패치 최댓값", normalPatch, defectPatch),
         };
+        if (subsampled is not null)
+            foreach (var (label, normal, defect) in subsampled)
+                rows.Add((label, normal, defect));
         if (anomaly is not null)
             rows.Add(($"MLoop image-anomaly(질의 중앙값 {anomaly.MedianMilliseconds:F0} ms/장, HTTP 포함)", anomaly.Normal, anomaly.Defect));
         foreach (var (label, normal, defect) in rows)
