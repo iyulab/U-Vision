@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { splitReferences } from './references'
+import { missingReferenceNotice, splitReferences } from './references'
 import type { Reference } from './types'
 
 describe('splitReferences', () => {
@@ -13,5 +13,20 @@ describe('splitReferences', () => {
 
     expect(ok.map((r) => r.ref_id)).toEqual(['r1'])
     expect(ng.map((r) => r.ref_id)).toEqual(['r2'])
+  })
+})
+
+describe('missingReferenceNotice', () => {
+  const one = [{ ref_id: 'r1', label: 0, ng_label: null }] as unknown as Reference[]
+
+  it('검사 시나리오에 기준 이미지가 하나도 없으면 안내한다', () => {
+    expect(missingReferenceNotice([], true, 'inspection')).toContain('기준 이미지가 없습니다')
+    expect(missingReferenceNotice([], true, undefined)).not.toBeNull() // type 이 없으면 검사(v1)
+  })
+
+  it('기준이 있거나 · 아직 못 읽었거나 · 오투입 확인이면 안내하지 않는다', () => {
+    expect(missingReferenceNotice(one, true, 'inspection')).toBeNull()
+    expect(missingReferenceNotice([], false, 'inspection')).toBeNull()
+    expect(missingReferenceNotice([], true, 'verification')).toBeNull()
   })
 })

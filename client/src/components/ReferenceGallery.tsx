@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { deleteReference, listReferences, referenceUrl, uploadReference } from '../lib/api'
 import type { PinRunResult } from '../hooks/usePin'
 import type { Reference } from '../lib/types'
-import { splitReferences } from '../lib/references'
+import { missingReferenceNotice, splitReferences } from '../lib/references'
 
 interface ReferenceGalleryProps {
   scenarioId: string
@@ -14,6 +14,8 @@ interface ReferenceGalleryProps {
    * 판정 모델이 기준 이미지를 그 유형 id 와 잇는다(자유 설명도 그대로 받는다).
    */
   defectNames?: string[]
+  /** 시나리오 유형 — 검사(inspection)에 기준이 하나도 없으면 안내를 띄운다. */
+  scenarioType?: string
 }
 
 /**
@@ -21,14 +23,16 @@ interface ReferenceGalleryProps {
  * few-shot 판정 결합은 서버가 inspect 시 수행한다(판정 효과는 M0.1 게이트).
  * 변경은 시나리오 저장/삭제와 동일한 lazy-PIN 메커니즘({@link runWithPin})을 거친다.
  */
-export function ReferenceGallery({ scenarioId, runWithPin, defectNames = [] }: ReferenceGalleryProps) {
+export function ReferenceGallery({ scenarioId, runWithPin, defectNames = [], scenarioType }: ReferenceGalleryProps) {
   const [refs, setRefs] = useState<Reference[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   async function reload() {
     try {
       setRefs(await listReferences(scenarioId))
+      setLoaded(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : '목록 로드 실패')
     }
@@ -55,11 +59,13 @@ export function ReferenceGallery({ scenarioId, runWithPin, defectNames = [] }: R
   }
 
   const { ok, ng } = splitReferences(refs)
+  const notice = missingReferenceNotice(refs, loaded, scenarioType)
 
   return (
     <div className="space-y-4 rounded-lg border border-slate-700 p-4">
       <h3 className="text-sm font-semibold text-slate-200">기준 이미지</h3>
       {error && <p className="text-sm text-red-400">{error}</p>}
+      {notice && <p className="text-sm text-amber-400">{notice}</p>}
 
       <Group
         title="OK 기준"
