@@ -25,15 +25,17 @@ internal static class ClassifyBench
             return 1;
         }
         var samples = SampleManifest.Read(SampleManifest.PathFor(dataRoot, name));
-        if (opts.TryGetValue("export", out var exportDir)) return Export(dataRoot, samples, exportDir);
+        if (opts.TryGetValue("export", out var exportDir))
+            return Export(dataRoot, samples, exportDir, int.TryParse(opts.GetValueOrDefault("per-class"), out var cap) && cap > 0 ? cap : int.MaxValue);
         if (opts.TryGetValue("endpoint", out var endpoint)) return await EvaluateAsync(dataRoot, name, samples, endpoint, opts);
         Console.Error.WriteLine("classify: --export <학습 폴더> 또는 --endpoint <mloop serve 주소> 중 하나");
         return 1;
     }
 
-    private static int Export(string dataRoot, List<Sample> samples, string exportDir)
+    internal static int Export(string dataRoot, List<Sample> samples, string exportDir, int perClass)
     {
-        var train = samples.Where(s => s.Split == "train").ToList();
+        // 클래스마다 고르게 perClass 장까지 — 학습이 너무 오래 걸리는 큰 목록(수천 장)을 줄이려는 레버. 기본은 전부.
+        var train = SampleManifest.Pick(samples, "train", perClass);
         if (train.Count == 0)
         {
             Console.Error.WriteLine("train 분할 0장 — 분할이 없는 목록은 학습/시험으로 나눌 수 없다(manifest --split-csv 또는 분할 폴더로 다시 지을 것)");

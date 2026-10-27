@@ -51,6 +51,9 @@ const string DefaultCriteria =
 
 var imageExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png" };
 
+// 리포트는 한글이라 콘솔 코드페이지와 무관하게 UTF-8 로 낸다(파이프 · 리다이렉트로 파일에 저장해도 깨지지 않게).
+Console.OutputEncoding = new UTF8Encoding(false);
+
 // 개발 편의: .env 로딩(VLM_API_KEY 등).
 DotNetEnv.Env.TraversePath().Load();
 
