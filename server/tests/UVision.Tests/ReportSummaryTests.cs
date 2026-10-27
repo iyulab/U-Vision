@@ -66,6 +66,32 @@ public class ReportSummaryTests
         Assert.DoesNotContain("| c |", table);
         Assert.True(table.IndexOf("| a |", StringComparison.Ordinal) < table.IndexOf("| b |", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void Scenario_comes_from_the_report_header_then_the_file_name()
+    {
+        // ML 헤더 «목록 `x`» · VLM 헤더 «- 목록: `y`» 가 먼저.
+        Assert.Equal("x", ReportSummary.Parse("2026-10-25-other-mloop.md", Ml)!.Scenario);
+        Assert.Equal("y", ReportSummary.Parse("2026-10-25-other-qwen.md", Vlm.Replace("- 모드:", "- 목록: `y`\n- 모드:"))!.Scenario);
+        // 헤더에 목록이 없는 옛 리포트는 `날짜-시나리오-판정원…` 이름에서.
+        Assert.Equal("visa-pcb1-highshot", ReportSummary.Parse("2026-10-25-visa-pcb1-highshot-qwen-fewshot3-offset7.md", Vlm)!.Scenario);
+        Assert.Null(ReportSummary.Parse("notes.md", Vlm)!.Scenario);
+    }
+
+    [Fact]
+    public void Pivot_puts_judges_side_by_side_per_scenario_and_joins_repeats()
+    {
+        var table = ReportSummary.Render([
+            ("2026-10-25-s1-qwen-zeroshot.md", Vlm),
+            ("2026-10-25-s1-qwen-zeroshot-b.md", Vlm),
+            ("2026-10-25-s1-mloop.md", Ml.Replace("`x`", "`s1`")),
+            ("2026-10-25-s2-mloop.md", Ml.Replace("`x`", "`s2`")),
+        ]);
+
+        var pivot = table[table.IndexOf("판정원 × 시나리오", StringComparison.Ordinal)..];
+        Assert.Contains("| s1 | 1/3 · 1/2 ; 1/3 · 1/2 | 2/3 · 0/3 |", pivot);
+        Assert.Contains("| s2 |  | 2/3 · 0/3 |", pivot);
+    }
 }
 
 /// <summary>리포트 표 칸 — 실패 사유에 섞인 주소는 리포트에 남지 않는다.</summary>

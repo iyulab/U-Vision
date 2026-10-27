@@ -13,10 +13,13 @@ internal static class ReportSummary
 {
     /// <summary>리포트 한 장의 요약. <c>NgTotal</c> 은 판정 불가가 된 불량을 포함한다(VLM 은 건별 표로 알 수 있다).</summary>
     internal sealed record Row(
-        string Name, string Judge, int NgTotal, int NgCaught, int OkTotal, int FalseAlarms, int Unjudged);
+        string Name, string Judge, int NgTotal, int NgCaught, int OkTotal, int FalseAlarms, int Unjudged, string? Scenario = null);
 
     private static readonly Regex Mode = new(@"^- 모드: \*\*(?<m>[^*]+)\*\*(?: \((?<d>[^)]*)\))?", RegexOptions.Multiline);
     private static readonly Regex Model = new(@"^- provider: `[^`]*` / model: `(?<m>[^`]*)`", RegexOptions.Multiline);
+    private static readonly Regex ListHeader = new(@"^- 목록: `(?<n>[^`]+)`|^# ML 분류 정확도 — 목록 `(?<n>[^`]+)`", RegexOptions.Multiline);
+    // 헤더에 목록이 없는 옛 리포트: `YYYY-MM-DD-<시나리오>-<판정원 토큰>…` 이름에서 날짜와 판정원 이후를 뗀다.
+    private static readonly Regex NamedScenario = new(@"^\d{4}-\d{2}-\d{2}-(?<s>.+?)-(?:qwen|mloop|gpt|claude|gemini)(?:-|$)", RegexOptions.IgnoreCase);
     private static readonly Regex Failed = new(@"실패 (?<n>\d+)", RegexOptions.Multiline);
 
     /// <summary>리포트 본문 하나를 읽는다. 이 하네스의 리포트가 아니거나 NG/OK 이진 표가 아니면 null.</summary>
@@ -24,11 +27,21 @@ internal static class ReportSummary
     {
         var name = Path.GetFileNameWithoutExtension(fileName);
         text = text.TrimStart('﻿');
+        Row? row = null;
         if (text.StartsWith("# VLM 벤치마크 리포트", StringComparison.Ordinal))
-            return ParseVlm(name, text);
-        if (text.StartsWith("# ML 분류 정확도", StringComparison.Ordinal))
-            return ParseMl(name, text);
-        return null;
+            row = ParseVlm(name, text);
+        else if (text.StartsWith("# ML 분류 정확도", StringComparison.Ordinal))
+            row = ParseMl(name, text);
+        return row is null ? null : row with { Scenario = ScenarioOf(name, text) };
+    }
+
+    /// <summary>시나리오(= 표본 목록) 이름 — 리포트 헤더가 먼저, 없으면 파일 이름 규약, 그것도 없으면 null.</summary>
+    internal static string? ScenarioOf(string name, string text)
+    {
+        var header = ListHeader.Match(text);
+        if (header.Success) return header.Groups["n"].Value;
+        var named = NamedScenario.Match(name);
+        return named.Success ? named.Groups["s"].Value : null;
     }
 
     private static Row? ParseVlm(string name, string text)
@@ -105,6 +118,32 @@ internal static class ReportSummary
             var caught = r.NgTotal > 0 ? string.Create(inv, $"{r.NgCaught}/{r.NgTotal}") : "—";
             var alarms = r.OkTotal > 0 ? string.Create(inv, $"{r.FalseAlarms}/{r.OkTotal}") : "—";
             sb.AppendLine(string.Create(inv, $"| {r.Name} | {r.Judge} | {caught} | {alarms} | {r.Unjudged} |"));
+        }
+        return sb.ToString() + RenderPivot(rows);
+    }
+
+    /// <summary>
+    /// 판정원 × 시나리오 — 같은 시나리오(표본 목록)를 여러 판정원이 푼 결과를 한 줄에 놓는다. 칸 = 불량 잡음 / 정상 오경보.
+    /// 같은 칸에 리포트가 여럿(기준 이미지 선택을 바꾼 반복 등)이면 이름순으로 « ; » 로 잇는다 — 하나를 고르지 않는다.
+    /// 시나리오를 알 수 없는 리포트(목록 헤더도 파일 이름 규약도 없음)는 이 표에서 빠진다.
+    /// </summary>
+    internal static string RenderPivot(IReadOnlyList<Row> rows)
+    {
+        var known = rows.Where(r => r.Scenario is not null).ToList();
+        if (known.Count == 0) return "";
+        var judges = known.Select(r => r.Judge).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+        var inv = CultureInfo.InvariantCulture;
+        var sb = new StringBuilder();
+        sb.AppendLine().AppendLine("판정원 × 시나리오 — 칸: 불량 잡음 · 정상 오경보").AppendLine();
+        sb.AppendLine("| 시나리오 | " + string.Join(" | ", judges) + " |");
+        sb.AppendLine("|---|" + string.Concat(judges.Select(_ => "---|")));
+        foreach (var scenario in known.Select(r => r.Scenario!).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
+        {
+            var cells = judges.Select(j => string.Join(" ; ", known
+                .Where(r => r.Scenario == scenario && r.Judge == j)
+                .OrderBy(r => r.Name, StringComparer.Ordinal)
+                .Select(r => string.Create(inv, $"{(r.NgTotal > 0 ? $"{r.NgCaught}/{r.NgTotal}" : "—")} · {(r.OkTotal > 0 ? $"{r.FalseAlarms}/{r.OkTotal}" : "—")}"))));
+            sb.AppendLine($"| {scenario} | " + string.Join(" | ", cells.Select(c => c.Length > 0 ? c : "")) + " |");
         }
         return sb.ToString();
     }

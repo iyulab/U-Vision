@@ -199,7 +199,7 @@ var rows = (await Task.WhenAll(images.Select(async item =>
 }))).ToList();
 Console.Error.WriteLine();
 
-var report = RenderReport(rows, provider.Name, model, references.Count, downscale, concurrency);
+var report = RenderReport(rows, provider.Name, model, references.Count, downscale, concurrency, opts.GetValueOrDefault("manifest"));
 Console.WriteLine(report);
 if (outPath is not null)
 {
@@ -308,7 +308,7 @@ List<(string Path, Verdict? Truth)> DiscoverImages(string dir)
     return items;
 }
 
-string RenderReport(List<Row> all, string prov, string mdl, int refCount, int downscaleDim, int parallel)
+string RenderReport(List<Row> all, string prov, string mdl, int refCount, int downscaleDim, int parallel, string? manifest = null)
 {
     var failed = all.Where(r => r.Error is not null).ToList();
     var rs = all.Where(r => r.Error is null).ToList();
@@ -320,6 +320,8 @@ string RenderReport(List<Row> all, string prov, string mdl, int refCount, int do
     var sb = new StringBuilder();
     sb.AppendLine("# VLM 벤치마크 리포트").AppendLine();
     sb.AppendLine($"- provider: `{prov}` / model: `{mdl}`");
+    // 표본 목록 = 시나리오 열의 키 — `summary` 가 판정원 × 목록 표를 낼 때 다시 읽는다(파일 이름 규약에 기대지 않는다).
+    if (!string.IsNullOrEmpty(manifest)) sb.AppendLine($"- 목록: `{manifest}`");
     sb.AppendLine($"- 모드: {(refCount > 0 ? $"**few-shot** (기준 이미지 {refCount}장)" : "**zero-shot** (criteria 텍스트만)")}");
     sb.AppendLine($"- 다운스케일: {(downscaleDim > 0 ? $"longest-side **{downscaleDim}px** (JPEG q85)" : "없음(원본)")}");
     sb.AppendLine($"- 이미지 수: {all.Count} — 판정 {rs.Count} (라벨됨 {labeled.Count}) · **실패 {failed.Count}**");
