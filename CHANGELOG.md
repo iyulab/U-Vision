@@ -23,7 +23,7 @@ Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0
 ### Changed
 - When the vision model stops at the output token limit, the inspection's failure now says so (the limit and the setting to raise) instead of reporting an empty or malformed answer.
 - The benchmark tool's reports no longer keep web addresses that appear in a failed call's message (they are replaced by `<url>`).
-- Upgraded `HoneAI.Core` to 0.13.0 (the MLoop client gains patch embeddings and the encoder's preprocessing version). Nothing in the server's behaviour changes; the requests MLoop receives are the same.
+- Upgraded `HoneAI.Core` to 0.14.0 (0.13.0 added patch embeddings and the encoder's preprocessing version to the MLoop client; 0.14.0 only reorders a parameter of the model lifecycle interface, which the server does not use). Nothing in the server's behaviour changes; the requests MLoop receives are the same.
 
 ## [0.5.0] - 2026-10-24
 
