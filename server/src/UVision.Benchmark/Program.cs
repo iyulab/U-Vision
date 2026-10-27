@@ -34,6 +34,8 @@ using UVision.Api.Services.Vlm;
 //   # 전역 벡터 점수와 같은 정상 오경보율에서 놓친 불량 수 · AUROC 를 비교
 //   UVISION_DATA_ROOT=... MEMORY_ENDPOINT=http://localhost:5417 MEMORY_ENCODER=dinov2-small MEMORY_TOKEN=... \
 //       dotnet run --project src/UVision.Benchmark -- patches --manifest <이름> [--bank 200] [--per-class N] [--out report.md]
+//   #   --bank-out <폴더> 기억 사진을 복사 → `mloop train <폴더> --task image-anomaly` 로 같은 사진의 은행을 짓고(MLoop 0.47.0+),
+//   #   --anomaly-endpoint http://localhost:<port> (ANOMALY_TOKEN) 로 그 모델의 점수를 세 번째 줄로 비교
 //   # 전용 ML 분류기 정확도 — train 분할을 MLoop 학습 폴더로 내보내고(mloop train 은 그 폴더에서), test 분할을 /predict 로
 //   UVISION_DATA_ROOT=... dotnet run --project src/UVision.Benchmark -- classify --manifest <이름> --export <프로젝트>/datasets/images
 //   UVISION_DATA_ROOT=... ML_TOKEN=... dotnet run --project src/UVision.Benchmark -- classify --manifest <이름> --endpoint http://localhost:5417 [--model default] [--per-class N] [--max-per-minute 55]

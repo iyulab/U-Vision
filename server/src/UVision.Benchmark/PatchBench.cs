@@ -1,6 +1,9 @@
+using System.Diagnostics;
 using System.Globalization;
+using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using HoneAI;
 using UVision.Api.Services.Memory;
 using UVision.Api.Services.Mloop;
@@ -46,6 +49,15 @@ internal static class PatchBench
         var encoderName = opts.GetValueOrDefault("encoder") ?? Environment.GetEnvironmentVariable("MEMORY_ENCODER") ?? "";
         var client = MloopClient.Create(endpoint, 300, Environment.GetEnvironmentVariable("MEMORY_TOKEN"));
 
+        // --bank-out: 기억으로 쓴 사진을 폴더에 복사한다(`mloop train` 이 같은 사진으로 은행을 짓게 — 표본을 맞추는 길).
+        if (opts.GetValueOrDefault("bank-out") is { } bankOut)
+        {
+            Directory.CreateDirectory(bankOut);
+            foreach (var (b0, i) in bank.Select((b0, i) => (b0, i)))
+                File.Copy(Path.Combine(dataRoot, b0.Path), Path.Combine(bankOut, $"{i:D4}-{b0.Sha256[..8]}{Path.GetExtension(b0.Path)}"), overwrite: true);
+            Console.Error.WriteLine($"기억 사진 {bank.Count}장 → {Path.GetFullPath(bankOut)}");
+        }
+
         var needed = bank.Concat(test).DistinctBy(s => s.Sha256).ToList();
         var (encoder, grid, features) = await LoadAsync(client, encoderName, dataRoot, name, needed);
         var patchCount = grid.Rows * grid.Columns;
@@ -71,7 +83,12 @@ internal static class PatchBench
         }
         Console.Error.WriteLine();
 
-        var report = Render(name, encoder, grid, bank.Count, normalGlobal, defectGlobal, normalPatch, defectPatch);
+        // --anomaly-endpoint: MLoop `image-anomaly` 모델(`mloop serve`)의 점수를 같은 질의로 받아 세 번째 줄로 비교한다.
+        AnomalyScores? anomaly = null;
+        if (opts.GetValueOrDefault("anomaly-endpoint") is { } anomalyEndpoint)
+            anomaly = await ScoreWithAnomalyModelAsync(anomalyEndpoint, dataRoot, test);
+
+        var report = Render(name, encoder, grid, bank.Count, normalGlobal, defectGlobal, normalPatch, defectPatch, anomaly);
         Console.WriteLine(report);
         if (opts.GetValueOrDefault("out") is { } outPath)
         {
@@ -165,9 +182,44 @@ internal static class PatchBench
         return new Features(floats[..dim], floats[dim..]);
     }
 
+    private sealed record AnomalyScores(List<double> Normal, List<double> Defect, double MedianMilliseconds);
+
+    /// <summary>
+    /// <c>mloop serve</c> 의 <c>POST /predict</c>(image-anomaly) 로 질의 사진 점수를 받는다 — 한 장씩 보내 장당 지연을 잰다.
+    /// 응답의 인코더 판이 우리 쪽 재생과 같은지는 확인하지 않는다(판은 호출자가 맞추고 리포트에 적는다).
+    /// </summary>
+    private static async Task<AnomalyScores> ScoreWithAnomalyModelAsync(string endpoint, string dataRoot, IReadOnlyList<Sample> test)
+    {
+        using var http = new HttpClient { BaseAddress = new Uri(endpoint.TrimEnd('/') + "/"), Timeout = TimeSpan.FromMinutes(5) };
+        var token = Environment.GetEnvironmentVariable("ANOMALY_TOKEN") ?? Environment.GetEnvironmentVariable("MEMORY_TOKEN");
+        if (!string.IsNullOrEmpty(token)) http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var normal = new List<double>();
+        var defect = new List<double>();
+        var millis = new List<double>();
+        foreach (var (s, i) in test.Select((s, i) => (s, i)))
+        {
+            var body = JsonSerializer.Serialize(new { images = new[] { Convert.ToBase64String(await File.ReadAllBytesAsync(Path.Combine(dataRoot, s.Path))) } });
+            var clock = Stopwatch.StartNew();
+            using var response = await http.PostAsync("predict", new StringContent(body, Encoding.UTF8, "application/json"));
+            var json = await response.Content.ReadAsStringAsync();
+            clock.Stop();
+            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException($"mloop /predict {(int)response.StatusCode}: {json[..Math.Min(300, json.Length)]}");
+            using var doc = JsonDocument.Parse(json);
+            var score = doc.RootElement.GetProperty("images")[0].GetProperty("score").GetDouble();
+            (s.Class == "OK" ? normal : defect).Add(score);
+            millis.Add(clock.Elapsed.TotalMilliseconds);
+            Console.Error.Write($"\rimage-anomaly 점수 {i + 1}/{test.Count}");
+        }
+        Console.Error.WriteLine();
+        return new AnomalyScores(normal, defect, millis.Order().ElementAt(millis.Count / 2));
+    }
+
     private static string Render(
         string name, MLoopEncoder encoder, MLoopPatchGrid grid, int bankImages,
-        List<double> normalGlobal, List<double> defectGlobal, List<double> normalPatch, List<double> defectPatch)
+        List<double> normalGlobal, List<double> defectGlobal, List<double> normalPatch, List<double> defectPatch,
+        AnomalyScores? anomaly = null)
     {
         var inv = CultureInfo.InvariantCulture;
         var sb = new StringBuilder();
@@ -178,7 +230,14 @@ internal static class PatchBench
         sb.AppendLine();
         sb.AppendLine("| 점수 | AUROC | " + string.Join(" | ", FalseAlarmRates.Select(r => $"오경보 {r:P0} 에서 통과한 불량")) + " |");
         sb.AppendLine("|---|---|" + string.Join("|", FalseAlarmRates.Select(_ => "---")) + "|");
-        foreach (var (label, normal, defect) in new[] { ("전역 벡터(지금 기억 단)", normalGlobal, defectGlobal), ("패치 최댓값", normalPatch, defectPatch) })
+        var rows = new List<(string, List<double>, List<double>)>
+        {
+            ("전역 벡터(지금 기억 단)", normalGlobal, defectGlobal),
+            ("패치 최댓값", normalPatch, defectPatch),
+        };
+        if (anomaly is not null)
+            rows.Add(($"MLoop image-anomaly(질의 중앙값 {anomaly.MedianMilliseconds:F0} ms/장, HTTP 포함)", anomaly.Normal, anomaly.Defect));
+        foreach (var (label, normal, defect) in rows)
         {
             var missed = FalseAlarmRates.Select(r => $"{PatchScoring.MissedAtFalseAlarm(normal, defect, r)}/{defect.Count}");
             sb.AppendLine(string.Create(inv, $"| {label} | {PatchScoring.Auroc(normal, defect):F3} | {string.Join(" | ", missed)} |"));
