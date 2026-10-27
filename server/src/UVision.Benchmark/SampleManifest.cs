@@ -154,6 +154,17 @@ internal static class SampleManifest
         return picked;
     }
 
+    /// <summary>
+    /// <see cref="Pick"/> 한 표본을 클래스가 고르게 섞인 순서로 — 클래스마다의 순번을 그 클래스 장수로 나눈 위치로 줄 세운다(장수가
+    /// 다르면 비율대로 섞인다). 시간 순으로 엔진에 넣는 주입에서 목록의 클래스별 정렬 때문에 앞쪽이 한 클래스로 쏠리지 않게 한다.
+    /// </summary>
+    public static List<Sample> PickInterleaved(IReadOnlyList<Sample> samples, string? split, int perClass, int offset = 0) =>
+        [.. Pick(samples, split, perClass, offset)
+            .GroupBy(s => s.Class)
+            .SelectMany(g => g.Select((s, i) => (Sample: s, Position: (i + 0.5) / g.Count(), Class: g.Key)))
+            .OrderBy(x => x.Position).ThenBy(x => x.Class, StringComparer.Ordinal)
+            .Select(x => x.Sample)];
+
     private static string Hash(string file)
     {
         using var stream = File.OpenRead(file);

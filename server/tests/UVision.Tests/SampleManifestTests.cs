@@ -101,4 +101,27 @@ public class SampleManifestTests
             File.Delete(path);
         }
     }
+
+    [Fact]
+    public void PickInterleaved_SpreadsEachClassEvenly_AndMixesClassesInProportion()
+    {
+        // 목록은 클래스별로 정렬돼 있다(NG 4 다음 OK 12) — 앞에서 자르면 NG 만 나온다.
+        List<Sample> list =
+        [
+            .. Enumerable.Range(0, 4).Select(i => S($"ng/{i}", "train", "NG", $"n{i}")),
+            .. Enumerable.Range(0, 12).Select(i => S($"ok/{i}", "train", "OK", $"o{i}")),
+            S("ok/test", "test", "OK", "ot"),
+        ];
+
+        var picked = SampleManifest.PickInterleaved(list, "train", perClass: 8);
+
+        Assert.Equal(12, picked.Count);                                        // NG 는 4 장뿐 · OK 는 12 중 8 장
+        Assert.DoesNotContain(picked, s => s.Split != "train");
+        Assert.True(picked.Take(6).Count(s => s.Class == "NG") >= 2);          // 앞 6 장에 NG 가 비율대로 섞인다
+        Assert.Equal(picked.Count, picked.Select(s => s.Path).Distinct().Count());
+        // 다른 자리(offset)는 같은 간격의 다른 표본이다.
+        Assert.NotEqual(
+            picked.Select(s => s.Path),
+            SampleManifest.PickInterleaved(list, "train", perClass: 8, offset: 1).Select(s => s.Path));
+    }
 }

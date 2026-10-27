@@ -26,10 +26,14 @@ internal static class InjectBench
         var split = opts.GetValueOrDefault("split");
         var label = opts.ContainsKey("label");
         var limit = int.TryParse(opts.GetValueOrDefault("limit"), out var n) ? n : int.MaxValue;
-        var samples = SampleManifest.Read(SampleManifest.PathFor(dataRoot, name))
-            .Where(s => split is null || s.Split == split)
-            .Take(limit)
-            .ToList();
+        var all = SampleManifest.Read(SampleManifest.PathFor(dataRoot, name));
+        // --per-class N: 클래스마다 목록 전체에서 고르게 N 장(--offset 으로 다른 자리) 뽑아 클래스가 섞인 순서로 넣는다 — 목록 앞에서
+        // 자르면(--limit 만) 클래스별로 정렬된 목록의 앞쪽 한 클래스와 이웃 사진으로 쏠린다.
+        var samples = int.TryParse(opts.GetValueOrDefault("per-class"), out var perClass) && perClass > 0
+            ? SampleManifest.PickInterleaved(
+                all, split, perClass, int.TryParse(opts.GetValueOrDefault("offset"), out var offset) ? offset : 0)
+                .Take(limit).ToList()
+            : all.Where(s => split is null || s.Split == split).Take(limit).ToList();
         if (samples.Count == 0)
         {
             Console.Error.WriteLine($"주입할 표본 0장 (목록 {name}, 분할 {split ?? "전체"})");
