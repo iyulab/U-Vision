@@ -14,10 +14,12 @@ Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0
 - The benchmark tool turns COCO box annotations into per-part crops: `crops --name <name> --coco-dir <dirs> --image-dir <dirs> --split train|test --classes <box name>=<class>,…` cuts each mapped box (padded by `--pad`, default 0.1, dropped below `--min-side`, default 24 px) out of its image into `GEN/u-vision/crops/<name>/<class>/` under the data root and writes a sample list, so a dataset that photographs many parts per image can be judged part by part. `--append` merges a second split into the same list with the usual duplicate and leak removal.
 - The benchmark tool's few-shot reference images can be shifted (`--refs-offset N`): same spacing across the `train` split, a different set of images, to see how much a result depends on which references were picked.
 - The benchmark tool builds a comparison table from its own reports: `summary --dir <report folders>` reads the vision model and ML classifier reports and prints one row each — defects caught out of all defects (a call that could not decide counts as a miss), false alarms on good samples, and undecided calls — so the table is never copied by hand.
+- The benchmark tool scores images by patch features: `patches --manifest <name> [--bank N]` (MLoop 0.46.0 or later) puts patch embeddings of some `train` normal images in a memory bank, takes the worst patch's nearest cosine distance as an image's anomaly score, and compares it with the whole-image vector score at the same normal false-alarm rate (defects missed at 1 / 5 / 10 %, AUROC). Embeddings are cached per encoder version.
 
 ### Changed
 - When the vision model stops at the output token limit, the inspection's failure now says so (the limit and the setting to raise) instead of reporting an empty or malformed answer.
 - The benchmark tool's reports no longer keep web addresses that appear in a failed call's message (they are replaced by `<url>`).
+- Upgraded `HoneAI.Core` to 0.13.0 (the MLoop client gains patch embeddings and the encoder's preprocessing version). Nothing in the server's behaviour changes; the requests MLoop receives are the same.
 
 ## [0.5.0] - 2026-10-24
 

@@ -47,7 +47,7 @@
     <PackageReference Include="SkiaSharp" Version="4.153.1" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
     <!-- 판정 라우터 · 결정 장부(HoneAI — Abstractions 는 Core 가 끌어온다). Core 는 외부 의존성 없음. -->
-    <PackageReference Include="HoneAI.Core" Version="0.12.0" />
+    <PackageReference Include="HoneAI.Core" Version="0.13.0" />
     <PackageReference Include="IronHive.Abstractions" Version="0.69.0" />
     <PackageReference Include="IronHive.Core" Version="0.69.0" />
     <PackageReference Include="IronHive.Providers.GoogleAI" Version="0.69.0" />
