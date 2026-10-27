@@ -24,7 +24,11 @@ internal static class InjectBench
             return 1;
         }
         var split = opts.GetValueOrDefault("split");
-        var label = opts.ContainsKey("label");
+        // --label: 판정 직후 정답을 사람 라벨로 심는다(기억에 바로 들어간다). --label-after: 한 묶음을 다 넣은 뒤에 심는다 —
+        // 질의가 자기 묶음의 이전 질의를 기억으로 보지 않으면서 정답을 남긴다(재생용 시험 묶음).
+        var labelAfter = opts.ContainsKey("label-after");
+        var label = opts.ContainsKey("label") || labelAfter;
+        var deferred = new List<LabelInput>();
         var limit = int.TryParse(opts.GetValueOrDefault("limit"), out var n) ? n : int.MaxValue;
         var all = SampleManifest.Read(SampleManifest.PathFor(dataRoot, name));
         // --per-class N: 클래스마다 목록 전체에서 고르게 N 장(--offset 으로 다른 자리) 뽑아 클래스가 섞인 순서로 넣는다 — 목록 앞에서
@@ -60,11 +64,12 @@ internal static class InjectBench
                 tally[(s.Class, decided)] = tally.GetValueOrDefault((s.Class, decided)) + 1;
                 if (label && result.DecisionId is { } id && result.Timestamp is { Length: >= 10 } ts)
                 {
-                    await engine.Results.Label.PutAsync(new LabelInput
+                    var input = new LabelInput
                     {
                         ScenarioId = scenarioId, Date = ts[..10], ImageId = id, Label = s.Class, By = CaptureOrigin.LabelerPrefix + name,
-                    });
-                    labeled++;
+                    };
+                    if (labelAfter) deferred.Add(input);
+                    else { await engine.Results.Label.PutAsync(input); labeled++; }
                 }
             }
             catch (Exception ex)
@@ -75,6 +80,11 @@ internal static class InjectBench
             Console.Error.Write($"\r주입 {i + 1}/{samples.Count}");
         }
         Console.Error.WriteLine();
+        foreach (var input in deferred)
+        {
+            await engine.Results.Label.PutAsync(input);
+            labeled++;
+        }
 
         Console.WriteLine($"# 주입 요약 — 목록 `{name}` → 시나리오 `{scenarioId}`");
         Console.WriteLine();

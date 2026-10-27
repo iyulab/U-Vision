@@ -47,7 +47,8 @@ using UVision.Api.Services.Vlm;
 //   dotnet run --project src/UVision.Benchmark -- ledger-replay --data <엔진 데이터 경로> --scenario <id> [--out report.md]
 //   # 시험 데이터셋 주입 — 표본을 실행 중인 엔진의 /v2/inspect 로(origin=dataset), --label 이면 정답을 사람 라벨로 심음
 //   UVISION_DATA_ROOT=... dotnet run --project src/UVision.Benchmark -- inject --manifest <이름> --scenario <id> \
-//       --engine http://localhost:8080 [--split test] [--limit N | --per-class N [--offset K]] [--label]
+//       --engine http://localhost:8080 [--split test] [--limit N | --per-class N [--offset K]] [--label | --label-after]
+//   #   --label-after: 한 묶음을 다 넣은 뒤에 정답을 심는다(질의가 자기 묶음의 이전 질의를 기억으로 보지 않게)
 
 const string DefaultCriteria =
     "제품 표면에 긁힘, 이물질, 균열, 솔더 브릿지 등 외관 결함이 없어야 한다. " +
