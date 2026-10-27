@@ -339,13 +339,13 @@ function ResultDetail({
           {result.expected_part && (
             <>
               <dt className="text-slate-400">기대 품번</dt>
-              <dd className="text-right font-mono text-slate-200">{result.expected_part}</dd>
+              <dd className="min-w-0 break-all text-right font-mono text-slate-200">{result.expected_part}</dd>
               <dt className="text-slate-400">읽은 코드</dt>
-              <dd className="text-right font-mono text-slate-200">{result.observed_code ?? '—'}</dd>
+              <dd className="min-w-0 break-all text-right font-mono text-slate-200">{result.observed_code ?? '—'}</dd>
             </>
           )}
           <dt className="text-slate-400">이미지 ID</dt>
-          <dd className="text-right font-mono text-xs text-slate-400">{result.image_id}</dd>
+          <dd className="min-w-0 break-all text-right font-mono text-xs text-slate-400">{result.image_id}</dd>
         </dl>
       </div>
     </div>
