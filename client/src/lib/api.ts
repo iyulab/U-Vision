@@ -1,4 +1,4 @@
-import type { AdminStatus, AuthorityState, DetectionUnavailable, EventsStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
+import type { AdminStatus, AnomalyMap, AuthorityState, DetectionUnavailable, EventsStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
 import type { AuthorityStage } from './authority'
 import { resolveApiBase } from './runtimeConfig'
 
@@ -142,6 +142,19 @@ export async function listResults(scenarioId: string, date: string): Promise<Sto
 /** 저장된 캡처 이미지 서빙 URL(무인증, `<img src>` 직접 사용). */
 export function resultImageUrl(scenarioId: string, date: string, imageId: string): string {
   return `${API_BASE}/results/image?scenario_id=${encodeURIComponent(scenarioId)}&date=${encodeURIComponent(date)}&image_id=${encodeURIComponent(imageId)}`
+}
+
+/**
+ * 한 검사의 이상 지도(패치별 정상 기억까지의 거리 — 열지도 근거). 서버가 패치 이상 점수를 쌓지 않았거나 그 검사에 지도가 없으면
+ * `null`(404 는 오류가 아니다). 판정과 무관한 관찰 자료라 그 밖의 실패만 던진다.
+ */
+export async function getAnomalyMap(scenarioId: string, date: string, imageId: string): Promise<AnomalyMap | null> {
+  const res = await fetch(
+    `${API_BASE}/results/anomaly-map?scenario_id=${encodeURIComponent(scenarioId)}&date=${encodeURIComponent(date)}&image_id=${encodeURIComponent(imageId)}`,
+  )
+  if (res.status === 404) return null
+  await ensureOk(res, '이상 지도')
+  return (await res.json()) as AnomalyMap
 }
 
 // --- 사람 라벨 (무인증 운영 데이터 — 서버 /results/label[s] 계약) -----------

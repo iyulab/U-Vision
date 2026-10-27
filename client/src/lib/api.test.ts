@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { ApiError, DetectionUnavailableError, getAdminStatus, inspectImage, listAuditSample, putAudit, setupAdmin } from './api'
+import { ApiError, DetectionUnavailableError, getAdminStatus, getAnomalyMap, inspectImage, listAuditSample, putAudit, setupAdmin } from './api'
 
 function mockFetch(status: number, body: unknown) {
   return vi.fn().mockResolvedValue({
@@ -92,5 +92,21 @@ describe('admin setup api', () => {
     const err = await setupAdmin('wrong', '9999').catch((e) => e)
     expect(err).toBeInstanceOf(ApiError)
     expect(err.status).toBe(401)
+  })
+})
+
+describe('getAnomalyMap', () => {
+  it('404 는 오류가 아니라 «지도 없음»(null)', async () => {
+    vi.stubGlobal('fetch', mockFetch(404, { detail: '이상 지도 없음' }))
+    expect(await getAnomalyMap('s', '2026-10-27', 'img_1')).toBeNull()
+  })
+
+  it('200 → 지도, 그 밖의 실패는 던진다', async () => {
+    const map = { encoder: 'e', rows: 1, columns: 1, distances: [0.1], patch_score: 0.1, global_score: 0.01, bank_size: 3 }
+    vi.stubGlobal('fetch', mockFetch(200, map))
+    expect(await getAnomalyMap('s', 'd', 'i')).toEqual(map)
+
+    vi.stubGlobal('fetch', mockFetch(500, { detail: 'x' }))
+    await expect(getAnomalyMap('s', 'd', 'i')).rejects.toBeInstanceOf(ApiError)
   })
 })

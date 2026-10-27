@@ -2,11 +2,12 @@ import { useState } from 'react'
 
 import { useResource } from '../hooks/useResource'
 
-import { deleteLabel, listLabels, listResultDates, listResults, putLabel, resultImageUrl } from '../lib/api'
+import { deleteLabel, listLabels, listResultDates, listResults, putLabel } from '../lib/api'
 import { getDeviceId } from '../lib/deviceIdentity'
 import { classNameOf, labelMapOf, labelsOf } from '../lib/labels'
 import { pendingReviewCount, reviewStateOf } from '../lib/review'
 import { percent, summarizeResults } from '../lib/resultSummary'
+import { AnomalyImage } from './AnomalyImage'
 import { ResultsTable } from './ResultsTable'
 import type { Scenario, StoredLabel, StoredResult } from '../lib/types'
 import { termOf } from '../lib/verification'
@@ -316,11 +317,7 @@ function ResultDetail({
           </button>
         </div>
 
-        <img
-          src={resultImageUrl(result.scenario_id, date, result.image_id)}
-          alt="검사 캡처"
-          className="w-full rounded-lg bg-black object-contain"
-        />
+        <AnomalyImage scenarioId={result.scenario_id} date={date} imageId={result.image_id} />
 
         {ng && result.findings && (
           <div className="rounded-lg bg-red-600/20 p-3 text-sm leading-snug text-red-200">

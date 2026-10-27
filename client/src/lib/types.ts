@@ -21,6 +21,7 @@ export type LabelAudit = Wire.LabelAudit
 export type StoredLabel = Wire.StoredLabel
 export type TrainingReadiness = Wire.TrainingReadinessResponse
 export type MemoryReport = Wire.MemoryReport
+export type AnomalyMap = Wire.AnomalyMap
 export type MemoryReplayRow = Wire.MemoryReplayRow
 export type MetricsSummary = Wire.MetricsSummary
 export type AuthorityTransition = Wire.AuthorityTransition
