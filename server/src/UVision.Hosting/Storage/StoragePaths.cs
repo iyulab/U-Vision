@@ -43,6 +43,13 @@ public sealed partial class StoragePaths
     public string ImageFile(string scenarioId, string date, string imageId, string ext) =>
         Path.Combine(DateDir(scenarioId, date), Id(imageId) + ext);
 
+    /// <summary>
+    /// 검사 한 건의 이상 지도 <c>{date}/anomaly-maps/{image_id}.json</c> — 결과 json 옆이 아니라 하위 폴더에 둔다(결과 목록이
+    /// 날짜 폴더의 <c>*.json</c> 을 결과로 읽는다). 이미지에서 다시 만들 수 있는 파생물이 아니라 판정 당시 기억의 값이다.
+    /// </summary>
+    public string AnomalyMapFile(string scenarioId, string date, string imageId) =>
+        Path.Combine(DateDir(scenarioId, date), "anomaly-maps", Id(imageId) + ".json");
+
     public string ResultFile(string scenarioId, string date, string imageId) =>
         Path.Combine(DateDir(scenarioId, date), Id(imageId) + ".json");
 

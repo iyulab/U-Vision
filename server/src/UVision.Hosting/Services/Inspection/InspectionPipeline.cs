@@ -34,6 +34,7 @@ public sealed class InspectionPipeline(
     IConfidenceCalibrator calibrator,
     IScenarioStore scenarioStore,
     IInspectionStore inspectionStore,
+    IAnomalyMapStore anomalyMaps,
     IReferenceStore referenceStore,
     IMetricsStore metricsStore,
     IAuthorityStore authorityStore,
@@ -173,6 +174,21 @@ public sealed class InspectionPipeline(
             logger.LogError(ex, "검사 결과 영속화 실패 (scenario={ScenarioId}, image={ImageId})",
                 scenario.ScenarioId, imageId);
             return new InspectionOutcome.RecordFailed();
+        }
+
+        // 이상 지도(열지도 근거) — 패치 점수를 쌓는 중일 때만, 관찰 자료라 실패해도 판정을 막지 않는다.
+        if (evidence.Memory?.Scores?.Map is { } anomalyMap)
+        {
+            try
+            {
+                await anomalyMaps.WriteAsync(
+                    scenario.ScenarioId, StoragePaths.DateBucketOf(timestamp), imageId, anomalyMap, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "이상 지도 기록 실패 — 관측만 누락 (scenario={ScenarioId}, image={ImageId})",
+                    scenario.ScenarioId, imageId);
+            }
         }
 
         // 결정 장부(관찰 전용) — 레코드가 생긴 뒤에 적어 장부가 없는 레코드를 가리키지 않게 한다.

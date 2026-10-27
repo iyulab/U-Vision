@@ -201,6 +201,44 @@ public class CaseMemoryPatchesTests
         Assert.Single(Directory.GetFiles(dir, "*.f32"));
     }
 
+    [Fact]
+    public async Task On_KeepsAnAnomalyMapPerInspection_ThatAgreesWithTheLedgerScores()
+    {
+        using var factory = new PatchesFactory(patches: true);
+        var client = await SeedAsync(factory);
+
+        var imageId = await InspectAsync(client, Jpeg(9));
+        var annotations = await LastAnnotationsAsync(factory);
+
+        var response = await client.GetAsync($"/api/u-vision/results/anomaly-map?scenario_id=demo&date={Today}&image_id={imageId}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var map = (await response.Content.ReadFromJsonAsync<JsonElement>());
+        var distances = map.GetProperty("distances").EnumerateArray().Select(d => d.GetDouble()).ToList();
+        Assert.Equal(map.GetProperty("rows").GetInt32() * map.GetProperty("columns").GetInt32(), distances.Count);
+        Assert.Equal(Number(annotations, "memory:patch_score"), map.GetProperty("patch_score").GetDouble(), 5);
+        Assert.Equal(Number(annotations, "memory:global_score"), map.GetProperty("global_score").GetDouble(), 5);
+        Assert.Equal(distances.Max(), map.GetProperty("patch_score").GetDouble(), 3);   // 지도는 소수 넷째 자리
+        Assert.Equal(2, map.GetProperty("bank_size").GetInt32());
+        Assert.Equal(MockImageEmbedder.Identity.Key, map.GetProperty("encoder").GetString());
+
+        // 지도 사이드카가 결과 목록을 오염시키지 않는다 — 결과는 검사 건수만큼.
+        var results = await client.GetFromJsonAsync<JsonElement>($"/api/u-vision/results?scenario_id=demo&date={Today}");
+        Assert.Equal(4, results.GetArrayLength());   // 시드 3 + 방금 1
+    }
+
+    [Fact]
+    public async Task AnomalyMap_Missing_Is404_AndBadIdsAre400_AndOffMeansNoMaps()
+    {
+        using var factory = new PatchesFactory(patches: false);
+        var client = await SeedAsync(factory);
+        var imageId = await InspectAsync(client, Jpeg(1));
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/u-vision/results/anomaly-map?scenario_id=demo&date={Today}&image_id={imageId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await client.GetAsync($"/api/u-vision/results/anomaly-map?scenario_id=demo&date={Today}&image_id=..%2Fx")).StatusCode);
+    }
+
     [Theory]
     [InlineData("none", 200)]   // 패치 모드가 없는 provider
     [InlineData("mock", 0)]     // 상한 범위 밖

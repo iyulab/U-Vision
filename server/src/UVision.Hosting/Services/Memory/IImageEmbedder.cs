@@ -40,8 +40,14 @@ public sealed record PatchGrid(int Rows, int Columns, int PatchSize, int CropSiz
     public int Count => Rows * Columns;
 }
 
-/// <summary>이미지 한 장의 특징 — 전역 벡터 하나와 패치 벡터들(행 우선으로 한 배열에 이어 붙임, 패치마다 <c>Dimension</c> 개).</summary>
-public sealed record ImageFeatures(float[] Global, float[] Patches);
+/// <summary>이미지의 한 영역(자기 픽셀 기준): 왼쪽 · 위 · 오른쪽 · 아래.</summary>
+public sealed record ImageRegion(double X0, double Y0, double X1, double Y1);
+
+/// <summary>
+/// 이미지 한 장의 특징 — 전역 벡터 하나와 패치 벡터들(행 우선으로 한 배열에 이어 붙임, 패치마다 <c>Dimension</c> 개).
+/// <paramref name="Crop"/> 은 격자가 덮은 영역(원본 픽셀) — 패치 (r, c) 의 위치를 원본 위에 그리는 데 쓴다. 모르면 null.
+/// </summary>
+public sealed record ImageFeatures(float[] Global, float[] Patches, ImageRegion? Crop = null);
 
 /// <summary>이미지 여러 장의 전역 · 패치 특징 — 요청 순서대로.</summary>
 public sealed record PatchEmbeddings(EncoderIdentity Encoder, PatchGrid Grid, IReadOnlyList<ImageFeatures> Images);

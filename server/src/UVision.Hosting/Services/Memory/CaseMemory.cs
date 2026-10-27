@@ -39,7 +39,8 @@ public sealed record MemoryOutcome(string? EncoderKey, MemoryAnswer? Answer, str
 /// 최근접 거리의 최댓값). 클수록 정상 기억과 멀다. 둘이 같은 기억 위에서 나와야 시나리오마다 재생으로 비교할 수 있다.
 /// </summary>
 /// <param name="BankSize">점수를 낸 정상 기억의 사진 수 — 기억 크기에 따라 두 점수의 우열이 갈려 재생이 이 값으로 나눠 본다.</param>
-public sealed record AnomalyScores(double Global, double Patch, int BankSize)
+/// <param name="Map">패치별 거리 지도(열지도 근거) — 격자 모양을 알 수 없으면 null.</param>
+public sealed record AnomalyScores(double Global, double Patch, int BankSize, AnomalyMap? Map = null)
 {
     public IReadOnlyDictionary<string, string> ToAnnotations() => new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -104,6 +105,7 @@ public sealed class CaseMemory(
     {
         ImageEmbeddings embedded;
         ImageFeatures? features = null;
+        PatchGrid? grid = null;
         try
         {
             if (PatchesActive)
@@ -111,6 +113,7 @@ public sealed class CaseMemory(
                 // 한 호출이 전역과 패치를 함께 준다 — 전역은 일반 호출과 같은 값이라 판정기는 그대로 쓴다.
                 var withPatches = await embedder.EmbedPatchesAsync([image], cancellationToken);
                 features = withPatches.Images[0];
+                grid = withPatches.Grid;
                 embedded = new ImageEmbeddings(withPatches.Encoder, [features.Global]);
             }
             else
@@ -135,7 +138,7 @@ public sealed class CaseMemory(
         {
             var answer = MemoryJudge.Decide(embedded.Vectors[0], snapshot.Cases, options.Neighbors, options.MaxDistance);
             var scores = features is not null && snapshot.Bank is { } bank
-                ? await ScoreAsync(scenario.ScenarioId, bank, features, cancellationToken)
+                ? await ScoreAsync(scenario.ScenarioId, key, bank, features, grid, cancellationToken)
                 : null;
             return new(key, answer, null, scores);
         }
@@ -149,7 +152,8 @@ public sealed class CaseMemory(
 
     // 이상 점수 — 판정에 쓰이지 않으니 계산이 틀려도 점수만 빠진다(degrade). CPU 일이라 스레드 풀로 보낸다.
     private async Task<AnomalyScores?> ScoreAsync(
-        string scenarioId, PatchBank bank, ImageFeatures features, CancellationToken cancellationToken)
+        string scenarioId, string encoderKey, PatchBank bank, ImageFeatures features, PatchGrid? grid,
+        CancellationToken cancellationToken)
     {
         if (features.Global.Length != bank.Dimension || features.Patches.Length != bank.PatchesPerImage * bank.Dimension)
         {
@@ -159,10 +163,28 @@ public sealed class CaseMemory(
         }
         try
         {
-            return await Task.Run(() => new AnomalyScores(
-                PatchDistance.GlobalScore(features.Global, bank.Globals),
-                PatchDistance.PatchScore(features.Patches, bank.PatchesPerImage, bank.Patches, bank.Count * bank.PatchesPerImage, bank.Dimension),
-                bank.Count), cancellationToken);
+            return await Task.Run(() =>
+            {
+                var distances = PatchDistance.PatchMap(
+                    features.Patches, bank.PatchesPerImage, bank.Patches, bank.Count * bank.PatchesPerImage, bank.Dimension);
+                var global = PatchDistance.GlobalScore(features.Global, bank.Globals);
+                var patch = distances.Max();
+                // 격자 모양을 알 때만 지도로 남긴다 — 어긋나면 점수만(지도를 그릴 수 없는 값은 만들지 않는다).
+                var map = grid is { } g && g.Count == distances.Length
+                    ? new AnomalyMap
+                    {
+                        Encoder = encoderKey,
+                        Rows = g.Rows,
+                        Columns = g.Columns,
+                        Crop = features.Crop is { } c ? new AnomalyCrop { X0 = c.X0, Y0 = c.Y0, X1 = c.X1, Y1 = c.Y1 } : null,
+                        Distances = [.. distances.Select(d => Math.Round(d, 4))],
+                        PatchScore = patch,
+                        GlobalScore = global,
+                        BankSize = bank.Count,
+                    }
+                    : null;
+                return new AnomalyScores(global, patch, bank.Count, map);
+            }, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {

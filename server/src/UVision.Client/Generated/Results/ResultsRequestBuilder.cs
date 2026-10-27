@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using System;
 using UVision.Client.Models;
+using UVision.Client.Results.AnomalyMap;
 using UVision.Client.Results.Audit;
 using UVision.Client.Results.AuditSample;
 using UVision.Client.Results.Dates;
@@ -23,6 +24,11 @@ namespace UVision.Client.Results
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class ResultsRequestBuilder : BaseRequestBuilder
     {
+        /// <summary>The anomalyMap property</summary>
+        public global::UVision.Client.Results.AnomalyMap.AnomalyMapRequestBuilder AnomalyMap
+        {
+            get => new global::UVision.Client.Results.AnomalyMap.AnomalyMapRequestBuilder(PathParameters, RequestAdapter);
+        }
         /// <summary>The audit property</summary>
         public global::UVision.Client.Results.Audit.AuditRequestBuilder Audit
         {

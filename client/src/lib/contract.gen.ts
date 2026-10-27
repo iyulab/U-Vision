@@ -32,6 +32,8 @@ export interface Contract {
   AdminSetupInput?: AdminSetupInput
   AdminSetupRequiredResponse?: AdminSetupRequiredResponse
   AdminStatusResponse?: AdminStatusResponse
+  AnomalyCrop?: AnomalyCrop
+  AnomalyMap?: AnomalyMap
   AuditInput?: AuditInput
   AuditResponse?: AuditResponse
   AuthorityStage?: AuthorityStage
@@ -107,6 +109,30 @@ export interface AdminSetupRequiredResponse {
 export interface AdminStatusResponse {
   pin_configured: boolean
   setup_required: boolean
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "AnomalyCrop".
+ */
+export interface AnomalyCrop {
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "AnomalyMap".
+ */
+export interface AnomalyMap {
+  encoder: string
+  rows: number
+  columns: number
+  crop?: AnomalyCrop
+  distances: number[]
+  patch_score: number
+  global_score: number
+  bank_size: number
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

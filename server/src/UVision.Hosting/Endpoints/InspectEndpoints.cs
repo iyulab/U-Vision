@@ -52,6 +52,11 @@ public static class InspectEndpoints
             .WithName("ListResultDates")
             .Produces<IReadOnlyList<string>>()
             .ProducesProblem(400);
+        group.MapGet("/results/anomaly-map", GetAnomalyMapAsync)
+            .WithName("GetResultAnomalyMap")
+            .Produces<AnomalyMap>()
+            .ProducesProblem(400)
+            .ProducesProblem(404);
         group.MapGet("/results/image", ServeResultImageAsync)
             .WithName("GetResultImage")
             .Produces(200, typeof(Stream), "image/jpeg", "image/png")
@@ -209,6 +214,26 @@ public static class InspectEndpoints
         catch (ArgumentException) // 형식 위반 scenario_id → 400
         {
             return Results.Problem(statusCode: 400, detail: "유효하지 않은 scenario_id");
+        }
+    }
+
+    private static async Task<IResult> GetAnomalyMapAsync(
+        [FromQuery(Name = "scenario_id")] string scenarioId,
+        [FromQuery(Name = "date")] string date,
+        [FromQuery(Name = "image_id")] string imageId,
+        IAnomalyMapStore anomalyMaps,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var map = await anomalyMaps.ReadAsync(scenarioId, date, imageId, cancellationToken);
+            return map is null
+                ? Results.Problem(statusCode: 404, detail: "이상 지도 없음")
+                : Results.Ok(map);
+        }
+        catch (ArgumentException) // 형식 위반 scenario_id/date/image_id → 400
+        {
+            return Results.Problem(statusCode: 400, detail: "scenario_id · date · image_id 형식 위반");
         }
     }
 

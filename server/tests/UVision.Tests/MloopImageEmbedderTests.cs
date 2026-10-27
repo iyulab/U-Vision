@@ -146,6 +146,7 @@ public class MloopImageEmbedderTests
         Assert.Equal([1f, 0f], result.Images[0].Global);
         Assert.Equal([1f, 0f, 0f, 1f], result.Images[0].Patches);   // 패치 둘이 행 우선으로 이어 붙는다
         Assert.Equal([0.6f, 0.8f, 1f, 0f], result.Images[1].Patches);
+        Assert.Equal(new ImageRegion(0, 0, 28, 28), result.Images[0].Crop);   // 격자가 덮은 영역(원본 픽셀) — 열지도를 원본 위에 그리는 데 쓴다
     }
 
     [Fact]

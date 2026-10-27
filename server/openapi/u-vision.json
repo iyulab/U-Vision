@@ -559,6 +559,72 @@
         }
       }
     },
+    "/api/u-vision/results/anomaly-map": {
+      "get": {
+        "tags": [
+          "U-Vision"
+        ],
+        "operationId": "GetResultAnomalyMap",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "image_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnomalyMap"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/u-vision/results/image": {
       "get": {
         "tags": [
@@ -2313,6 +2379,80 @@
           },
           "setup_required": {
             "type": "boolean"
+          }
+        }
+      },
+      "AnomalyCrop": {
+        "required": [
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "type": "object",
+        "properties": {
+          "x0": {
+            "type": "number",
+            "format": "double"
+          },
+          "y0": {
+            "type": "number",
+            "format": "double"
+          },
+          "x1": {
+            "type": "number",
+            "format": "double"
+          },
+          "y1": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "AnomalyMap": {
+        "required": [
+          "encoder",
+          "rows",
+          "columns",
+          "distances",
+          "patch_score",
+          "global_score",
+          "bank_size"
+        ],
+        "type": "object",
+        "properties": {
+          "encoder": {
+            "type": "string"
+          },
+          "rows": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "columns": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "crop": {
+            "$ref": "#/components/schemas/AnomalyCrop"
+          },
+          "distances": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "patch_score": {
+            "type": "number",
+            "format": "double"
+          },
+          "global_score": {
+            "type": "number",
+            "format": "double"
+          },
+          "bank_size": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

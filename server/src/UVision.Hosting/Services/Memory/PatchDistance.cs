@@ -22,7 +22,14 @@ public static class PatchDistance
     /// 패치 점수: 질의 패치마다 기억 패치 전부까지 최근접 코사인 거리, 이미지 점수 = 그 최댓값(PatchCore 관행).
     /// 패치는 한 배열에 행 우선으로 이어 붙는다(<paramref name="dim"/> 개씩).
     /// </summary>
-    public static double PatchScore(float[] query, int queryPatches, float[] bank, int bankPatches, int dim)
+    public static double PatchScore(float[] query, int queryPatches, float[] bank, int bankPatches, int dim) =>
+        PatchMap(query, queryPatches, bank, bankPatches, dim).Max();
+
+    /// <summary>
+    /// 질의 패치마다 기억 패치 전부까지의 최근접 코사인 거리(행 우선) — 패치 점수의 재료이자 어디가 정상 기억에서 먼지를 보여 주는
+    /// 열지도의 값이다.
+    /// </summary>
+    public static double[] PatchMap(float[] query, int queryPatches, float[] bank, int bankPatches, int dim)
     {
         if (queryPatches < 1 || bankPatches < 1)
             throw new ArgumentException("질의 · 기억 패치가 각각 1개 이상이어야 한다");
@@ -34,7 +41,7 @@ public static class PatchDistance
                 best = Math.Max(best, Dot(query, q * dim, bank, m * dim, dim));
             perPatch[q] = 1 - best;
         });
-        return perPatch.Max();
+        return perPatch;
     }
 
     public static float Dot(float[] a, int aOffset, float[] b, int bOffset, int length)

@@ -50,4 +50,18 @@ public class PatchScoringTests
         float[] a = [.. Enumerable.Repeat(1f, 19)];
         Assert.Equal(19f, PatchDistance.Dot(a, 0, a, 0, 19));
     }
+
+    [Fact]
+    public void PatchMap_IsTheNearestDistancePerQueryPatch_AndTheScoreIsItsMaximum()
+    {
+        float[] bank = [1f, 0f, 0f, 1f];
+        float[] query = [1f, 0f, 0.6f, 0.8f];
+
+        var map = PatchDistance.PatchMap(query, 2, bank, 2, 2);
+
+        Assert.Equal(2, map.Length);
+        Assert.Equal(0.0, map[0], 5);
+        Assert.Equal(0.2, map[1], 5);
+        Assert.Equal(map.Max(), PatchDistance.PatchScore(query, 2, bank, 2, 2), 10);
+    }
 }

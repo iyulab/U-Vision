@@ -61,7 +61,8 @@ public sealed class MloopImageEmbedder(IMLoopClient client, MemoryOptions option
             var flat = new float[vectors.Count * identity.Dimension];
             for (var p = 0; p < vectors.Count; p++)
                 (embedding.Encoder.Normalized ? vectors[p] : VectorMath.Normalize(vectors[p])).CopyTo(flat, p * identity.Dimension);
-            features.Add(new ImageFeatures(globals[i], flat));
+            features.Add(new ImageFeatures(
+                globals[i], flat, patches[i].Crop is { } c ? new ImageRegion(c.X0, c.Y0, c.X1, c.Y1) : null));
         }
         return new PatchEmbeddings(identity, patchGrid, features);
     }
