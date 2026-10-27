@@ -19,31 +19,74 @@ public sealed class MloopImageEmbedder(IMLoopClient client, MemoryOptions option
 
     public bool IsEnabled => true;
 
+    public bool SupportsPatches => true;
+
     public async Task<ImageEmbeddings> EmbedAsync(
         IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default)
     {
         if (images.Count is 0 or > IImageEmbedder.MaxBatch)
             throw new ArgumentOutOfRangeException(nameof(images), images.Count, $"1~{IImageEmbedder.MaxBatch} 장");
 
-        MLoopEmbedding embedding;
+        var embedding = await CallAsync(new MLoopEmbeddingRequest(images, options.Encoder), cancellationToken);
+        var identity = IdentityOf(embedding.Encoder);
+        CheckVectors(embedding.Vectors, identity);
+        return new ImageEmbeddings(identity, Normalized(embedding.Vectors, embedding.Encoder));
+    }
+
+    public async Task<PatchEmbeddings> EmbedPatchesAsync(
+        IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default)
+    {
+        if (images.Count is 0 or > IImageEmbedder.MaxPatchBatch)
+            throw new ArgumentOutOfRangeException(nameof(images), images.Count, $"1~{IImageEmbedder.MaxPatchBatch} 장");
+
+        var embedding = await CallAsync(new MLoopEmbeddingRequest(images, options.Encoder, Patches: true), cancellationToken);
+        var identity = IdentityOf(embedding.Encoder);
+        var grid = embedding.Grid
+            ?? throw new InvalidOperationException("mloop /embed?patches=true 가 격자를 주지 않았다(MLoop 0.46.0 미만?)");
+        var patchGrid = new PatchGrid(grid.Rows, grid.Columns, grid.PatchSize, grid.CropSize);
+        if (embedding.Patches is not { } patches || patches.Count != images.Count || embedding.Vectors.Count != images.Count)
+            throw new InvalidOperationException("mloop /embed?patches=true 의 패치 수가 이미지 수와 다르다");
+
+        CheckVectors(embedding.Vectors, identity);
+        var globals = Normalized(embedding.Vectors, embedding.Encoder);
+        var features = new List<ImageFeatures>(images.Count);
+        for (var i = 0; i < images.Count; i++)
+        {
+            var vectors = patches[i].Vectors;
+            if (vectors.Count != patchGrid.Count)
+                throw new InvalidOperationException($"mloop 패치 {vectors.Count}개 ≠ 격자 {patchGrid.Rows}×{patchGrid.Columns}");
+            CheckVectors(vectors, identity);
+            var flat = new float[vectors.Count * identity.Dimension];
+            for (var p = 0; p < vectors.Count; p++)
+                (embedding.Encoder.Normalized ? vectors[p] : VectorMath.Normalize(vectors[p])).CopyTo(flat, p * identity.Dimension);
+            features.Add(new ImageFeatures(globals[i], flat));
+        }
+        return new PatchEmbeddings(identity, patchGrid, features);
+    }
+
+    private async Task<MLoopEmbedding> CallAsync(MLoopEmbeddingRequest request, CancellationToken cancellationToken)
+    {
         try
         {
-            embedding = await client.EmbedAsync(new MLoopEmbeddingRequest(images, options.Encoder), cancellationToken);
+            return await client.EmbedAsync(request, cancellationToken);
         }
         catch (MLoopClientException ex)
         {
             // 400(몇 번째 장을 못 읽음) · 409(인코더 · 런타임 미설치 — 본문에 설치 방법) · 413 — 서버 본문이 메시지에 있다.
             throw new InvalidOperationException(ex.Message, ex);
         }
-
-        var encoder = embedding.Encoder;
-        var vectors = embedding.Vectors;
-        if (vectors.Any(v => v.Length != encoder.Dimension || v.Any(x => !float.IsFinite(x))))
-            throw new InvalidOperationException("mloop /embed 벡터의 차원이 encoder.dimension 과 다르거나 유한하지 않다");
-
-        // 경계에서 정규화를 보장한다 — 거리 계산(코사인 = 내적)이 그것을 전제한다.
-        return new ImageEmbeddings(
-            new EncoderIdentity(encoder.Id, encoder.Version, encoder.Sha256, encoder.Dimension, Normalized: true),
-            encoder.Normalized ? vectors : [.. vectors.Select(VectorMath.Normalize)]);
     }
+
+    private static EncoderIdentity IdentityOf(MLoopEncoder e) =>
+        new(e.Id, e.Version, e.Sha256, e.Dimension, Normalized: true, e.Preprocessor);
+
+    private static void CheckVectors(IReadOnlyList<float[]> vectors, EncoderIdentity identity)
+    {
+        if (vectors.Any(v => v.Length != identity.Dimension || v.Any(x => !float.IsFinite(x))))
+            throw new InvalidOperationException("mloop /embed 벡터의 차원이 encoder.dimension 과 다르거나 유한하지 않다");
+    }
+
+    // 경계에서 정규화를 보장한다 — 거리 계산(코사인 = 내적)이 그것을 전제한다.
+    private static IReadOnlyList<float[]> Normalized(IReadOnlyList<float[]> vectors, MLoopEncoder encoder) =>
+        encoder.Normalized ? vectors : [.. vectors.Select(VectorMath.Normalize)];
 }

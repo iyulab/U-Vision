@@ -119,4 +119,83 @@ public class MloopImageEmbedderTests
             () => Build(handler).EmbedAsync([.. Enumerable.Range(0, count).Select(_ => (ReadOnlyMemory<byte>)new byte[] { 1 })]));
         Assert.Null(handler.LastRequest);
     }
+
+    // --- 패치 모드(MLoop 0.46.0 POST /embed?patches=true) ---
+
+    private const string PatchResponse = """
+        {
+          "encoder": { "id": "dinov2-small", "version": "1", "sha256": "ABCDEF0123456789ff", "dimension": 2, "normalized": true, "preprocessor": "pillow/2" },
+          "grid": { "rows": 1, "columns": 2, "patchSize": 14, "cropSize": 28 },
+          "vectors": [[1, 0], [0, 1]],
+          "patches": [
+            { "crop": { "x0": 0, "y0": 0, "x1": 28, "y1": 28 }, "vectors": [[1, 0], [0, 1]] },
+            { "crop": { "x0": 0, "y0": 0, "x1": 28, "y1": 28 }, "vectors": [[0.6, 0.8], [1, 0]] }
+          ]
+        }
+        """;
+
+    [Fact]
+    public async Task EmbedPatches_AsksForPatches_AndParsesGridGlobalAndPatchesInOrder()
+    {
+        var handler = new FakeHandler(HttpStatusCode.OK, PatchResponse);
+        var result = await Build(handler).EmbedPatchesAsync([new byte[] { 1 }, new byte[] { 2 }]);
+
+        Assert.Contains("patches=true", handler.LastRequest!.RequestUri!.Query);
+        Assert.Equal(new PatchGrid(1, 2, 14, 28), result.Grid);
+        Assert.Equal("pillow/2", result.Encoder.Preprocessor);
+        Assert.Equal([1f, 0f], result.Images[0].Global);
+        Assert.Equal([1f, 0f, 0f, 1f], result.Images[0].Patches);   // 패치 둘이 행 우선으로 이어 붙는다
+        Assert.Equal([0.6f, 0.8f, 1f, 0f], result.Images[1].Patches);
+    }
+
+    [Fact]
+    public async Task EmbedPatches_GlobalVectorsMatchThePlainEmbedCall()
+    {
+        // 전역은 같은 run 의 값이라 EmbedAsync 와 같은 모양 · 같은 정규화를 쓴다.
+        var patched = await Build(new FakeHandler(HttpStatusCode.OK, PatchResponse)).EmbedPatchesAsync([new byte[] { 1 }, new byte[] { 2 }]);
+        var plain = await Build(new FakeHandler(HttpStatusCode.OK, PatchResponse)).EmbedAsync([new byte[] { 1 }, new byte[] { 2 }]);
+        Assert.Equal(plain.Vectors, patched.Images.Select(i => i.Global));
+        Assert.Equal(plain.Encoder, patched.Encoder);
+    }
+
+    [Theory]
+    [InlineData("""{ "encoder": { "id": "e", "version": "1", "dimension": 2, "normalized": true }, "vectors": [[1, 0]] }""")]   // 격자 없음(0.46.0 미만)
+    [InlineData("""{ "encoder": { "id": "e", "version": "1", "dimension": 2, "normalized": true }, "grid": { "rows": 1, "columns": 2, "patchSize": 14, "cropSize": 28 }, "vectors": [[1, 0]] }""")] // 패치 없음
+    [InlineData("""{ "encoder": { "id": "e", "version": "1", "dimension": 2, "normalized": true }, "grid": { "rows": 1, "columns": 2, "patchSize": 14, "cropSize": 28 }, "vectors": [[1, 0]], "patches": [ { "vectors": [[1, 0]] } ] }""")] // 패치 수 ≠ 격자
+    public async Task EmbedPatches_MalformedResponse_Throws(string body) =>
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => Build(new FakeHandler(HttpStatusCode.OK, body)).EmbedPatchesAsync([new byte[] { 1 }]));
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(9)]
+    public async Task EmbedPatches_RejectsBatchOutsideOneTo8_WithoutCalling(int count)
+    {
+        var handler = new FakeHandler(HttpStatusCode.OK, PatchResponse);
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => Build(handler).EmbedPatchesAsync([.. Enumerable.Range(0, count).Select(_ => (ReadOnlyMemory<byte>)new byte[] { 1 })]));
+        Assert.Null(handler.LastRequest);
+    }
+
+    [Fact]
+    public async Task DefaultInterfaceMembers_DisabledEmbedderDoesNotSupportPatches()
+    {
+        IImageEmbedder disabled = new DisabledImageEmbedder();
+        Assert.False(disabled.SupportsPatches);
+        await Assert.ThrowsAsync<NotSupportedException>(() => disabled.EmbedPatchesAsync([new byte[] { 1 }]));
+    }
+
+    [Fact]
+    public async Task MockEmbedder_PatchesAreDeterministic_AndGlobalMatchesEmbed()
+    {
+        var mock = new MockImageEmbedder();
+        var a = await mock.EmbedPatchesAsync([new byte[] { 1, 2, 3 }]);
+        var b = await mock.EmbedPatchesAsync([new byte[] { 1, 2, 3 }]);
+        var plain = await mock.EmbedAsync([new byte[] { 1, 2, 3 }]);
+
+        Assert.True(mock.SupportsPatches);
+        Assert.Equal(a.Images[0].Patches, b.Images[0].Patches);
+        Assert.Equal(plain.Vectors[0], a.Images[0].Global);
+        Assert.Equal(MockImageEmbedder.Grid.Count * a.Encoder.Dimension, a.Images[0].Patches.Length);
+    }
 }

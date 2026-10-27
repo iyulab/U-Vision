@@ -1,8 +1,8 @@
 using System.Globalization;
-using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
 using HoneAI;
+using UVision.Api.Services.Memory;
 using UVision.Api.Services.Mloop;
 
 namespace UVision.Benchmark;
@@ -63,8 +63,8 @@ internal static class PatchBench
         foreach (var (s, i) in test.Select((s, i) => (s, i)))
         {
             var f = features[s.Sha256];
-            var g = PatchScoring.GlobalScore(f.Global, bankGlobal);
-            var p = PatchScoring.PatchScore(f.Patches, patchCount, bankPatches, bank.Count * patchCount, dim);
+            var g = PatchDistance.GlobalScore(f.Global, bankGlobal);
+            var p = PatchDistance.PatchScore(f.Patches, patchCount, bankPatches, bank.Count * patchCount, dim);
             (s.Class == "OK" ? normalGlobal : defectGlobal).Add(g);
             (s.Class == "OK" ? normalPatch : defectPatch).Add(p);
             Console.Error.Write($"\r점수 {i + 1}/{test.Count}");
@@ -187,42 +187,9 @@ internal static class PatchBench
     }
 }
 
-/// <summary>패치 재생의 순수 계산 — 점수와 문턱에 기대지 않는 비교 지표. 벡터는 단위벡터(코사인 = 내적).</summary>
+/// <summary>패치 재생의 비교 지표 — 문턱에 기대지 않는다(점수 계산은 <see cref="PatchDistance"/>, 장부와 같은 것).</summary>
 internal static class PatchScoring
 {
-    /// <summary>전역 점수: 기억 사진 전역 벡터까지 최근접 코사인 거리.</summary>
-    public static double GlobalScore(float[] query, IReadOnlyList<float[]> bank)
-    {
-        var best = double.NegativeInfinity;
-        foreach (var v in bank) best = Math.Max(best, Dot(query, 0, v, 0, query.Length));
-        return 1 - best;
-    }
-
-    /// <summary>패치 점수: 질의 패치마다 기억 패치 전부까지 최근접 코사인 거리, 이미지 점수 = 그 최댓값.</summary>
-    public static double PatchScore(float[] query, int queryPatches, float[] bank, int bankPatches, int dim)
-    {
-        var perPatch = new double[queryPatches];
-        Parallel.For(0, queryPatches, q =>
-        {
-            var best = double.NegativeInfinity;
-            for (var m = 0; m < bankPatches; m++) best = Math.Max(best, Dot(query, q * dim, bank, m * dim, dim));
-            perPatch[q] = 1 - best;
-        });
-        return perPatch.Max();
-    }
-
-    public static float Dot(float[] a, int aOffset, float[] b, int bOffset, int length)
-    {
-        var width = Vector<float>.Count;
-        var sum = Vector<float>.Zero;
-        var i = 0;
-        for (; i <= length - width; i += width)
-            sum += new Vector<float>(a, aOffset + i) * new Vector<float>(b, bOffset + i);
-        var total = Vector.Sum(sum);
-        for (; i < length; i++) total += a[aOffset + i] * b[bOffset + i];
-        return total;
-    }
-
     /// <summary>불량 점수가 정상 점수보다 높을 확률(동점은 절반) — 순위만 보므로 점수의 단위와 무관하다.</summary>
     public static double Auroc(IReadOnlyList<double> normal, IReadOnlyList<double> defect)
     {

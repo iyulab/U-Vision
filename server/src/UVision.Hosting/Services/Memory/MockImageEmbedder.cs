@@ -20,17 +20,38 @@ public sealed class MockImageEmbedder : IImageEmbedder
 
     public bool IsEnabled => true;
 
+    public bool SupportsPatches => true;
+
+    /// <summary>mock 패치 격자 — 2 × 2(바이트 해시에 패치 번호를 섞어 만든 벡터; 위치 · 내용 의미는 없다).</summary>
+    public static readonly PatchGrid Grid = new(2, 2, 14, 28);
+
+    public Task<PatchEmbeddings> EmbedPatchesAsync(
+        IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default)
+    {
+        var features = images.Select(image =>
+        {
+            var global = VectorOf(image.Span, -1);
+            var patches = new float[Grid.Count * Dimension];
+            for (var p = 0; p < Grid.Count; p++)
+                VectorOf(image.Span, p).CopyTo(patches, p * Dimension);
+            return new ImageFeatures(global, patches);
+        }).ToList();
+        return Task.FromResult(new PatchEmbeddings(Identity, Grid, features));
+    }
+
+    private static float[] VectorOf(ReadOnlySpan<byte> image, int salt)
+    {
+        var digest = SHA256.HashData(salt < 0 ? image.ToArray() : [.. image, (byte)salt]);
+        var v = new float[Dimension];
+        for (var i = 0; i < Dimension; i++)
+            v[i] = digest[i] - 127.5f;
+        return VectorMath.Normalize(v);
+    }
+
     public Task<ImageEmbeddings> EmbedAsync(
         IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default)
     {
-        var vectors = images.Select(image =>
-        {
-            var digest = SHA256.HashData(image.Span);
-            var v = new float[Dimension];
-            for (var i = 0; i < Dimension; i++)
-                v[i] = digest[i] - 127.5f;
-            return VectorMath.Normalize(v);
-        }).ToList();
+        var vectors = images.Select(image => VectorOf(image.Span, -1)).ToList();
         return Task.FromResult(new ImageEmbeddings(Identity, vectors));
     }
 }
