@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Globalization;
 using UVision.Api.Configuration;
 using UVision.Api.Models;
@@ -106,6 +107,7 @@ public sealed class CaseMemory(
         ImageEmbeddings embedded;
         ImageFeatures? features = null;
         PatchGrid? grid = null;
+        var clock = Stopwatch.StartNew();
         try
         {
             if (PatchesActive)
@@ -127,6 +129,7 @@ public sealed class CaseMemory(
             return new(null, null, "embed unavailable: " + ex.Message);
         }
 
+        var embedMs = clock.ElapsedMilliseconds;
         var key = embedded.Encoder.Key;
         _encoderKey = key;
         if (!_snapshots.TryGetValue(scenario.ScenarioId, out var snapshot))
@@ -137,9 +140,14 @@ public sealed class CaseMemory(
         try
         {
             var answer = MemoryJudge.Decide(embedded.Vectors[0], snapshot.Cases, options.Neighbors, options.MaxDistance);
+            var decideMs = clock.ElapsedMilliseconds - embedMs;
             var scores = features is not null && snapshot.Bank is { } bank
                 ? await ScoreAsync(scenario.ScenarioId, key, bank, features, grid, cancellationToken)
                 : null;
+            // 켠 비용이 어디서 드는지 — 운영에서 «켜기 전에 그 장비에서 잰다»(configuration.md) 의 눈금.
+            logger.LogDebug(
+                "기억 질의 {ScenarioId}: 임베딩 {EmbedMs} ms · 판정 {DecideMs} ms · 점수 {ScoreMs} ms (패치 기억 {Bank}장)",
+                scenario.ScenarioId, embedMs, decideMs, clock.ElapsedMilliseconds - embedMs - decideMs, snapshot.Bank?.Count ?? 0);
             return new(key, answer, null, scores);
         }
         catch (ArgumentException ex)
