@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using Microsoft.Kiota.Abstractions;
 using UVision.Client;
@@ -48,6 +49,7 @@ internal static class InjectBench
         var engine = UVisionClient.Create(http, new Uri(engineUrl));
         var tally = new Dictionary<(string Truth, string Decided), int>();
         int failed = 0, labeled = 0;
+        var elapsed = new List<double>(); // 판정 요청 한 건의 응답 시간(ms) — 엔진 지연을 같은 묶음에서 재는 용도
         foreach (var (s, i) in samples.Select((s, i) => (s, i)))
         {
             var form = new MultipartBody();
@@ -58,8 +60,10 @@ internal static class InjectBench
             form.AddOrReplacePart("origin_ref", "text/plain", $"{name}:{s.Sha256[..16]}");
             try
             {
+                var clock = Stopwatch.StartNew();
                 var result = await engine.V2.Inspect.PostAsync(form)
                     ?? throw new InvalidOperationException("빈 응답");
+                elapsed.Add(clock.Elapsed.TotalMilliseconds);
                 var decided = result.Class ?? "-";
                 tally[(s.Class, decided)] = tally.GetValueOrDefault((s.Class, decided)) + 1;
                 if (label && result.DecisionId is { } id && result.Timestamp is { Length: >= 10 } ts)
@@ -89,6 +93,13 @@ internal static class InjectBench
         Console.WriteLine($"# 주입 요약 — 목록 `{name}` → 시나리오 `{scenarioId}`");
         Console.WriteLine();
         Console.WriteLine($"- 주입 {samples.Count - failed}장 · 실패 {failed}장 · 정답 라벨 {labeled}장 (출처 origin=dataset)");
+        if (elapsed.Count > 0)
+        {
+            var sorted = elapsed.Order().ToList();
+            double At(double q) => sorted[Math.Min(sorted.Count - 1, (int)(q * sorted.Count))];
+            Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"- 판정 요청 지연(직렬, 클라이언트 측) p50 {At(0.5):F0} ms · p95 {At(0.95):F0} ms · max {sorted[^1]:F0} ms (n={sorted.Count})"));
+        }
         Console.WriteLine();
         Console.WriteLine("| 정답 | 판정 | 장수 |");
         Console.WriteLine("|---|---|---|");
