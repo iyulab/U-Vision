@@ -59,4 +59,23 @@ public class ClassifyBenchTests
             Directory.Delete(root, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task ReportFile_CreatesTheFolder_AndWritesKoreanTextWithoutBom()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "uvision-report-" + Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(dir, "sub", "report.md");
+        try
+        {
+            await ReportFile.WriteAsync(path, "# 리포트\n불량 재현율 1.000");
+
+            var bytes = await File.ReadAllBytesAsync(path);
+            Assert.False(bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF);
+            Assert.Equal("# 리포트\n불량 재현율 1.000", System.Text.Encoding.UTF8.GetString(bytes));
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
 }

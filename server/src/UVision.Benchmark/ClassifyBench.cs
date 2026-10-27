@@ -100,7 +100,12 @@ internal static class ClassifyBench
         }
         Console.Error.WriteLine();
 
-        Console.WriteLine(Render(name, test, tally, latencies, failed));
+        var report = Render(name, test, tally, latencies, failed);
+        Console.WriteLine(report);
+        // --out: 다른 측정 명령(patches · memory · ledger-replay)과 같이 리포트를 파일로도 남긴다. 표준 출력은 그대로라
+        // 예전처럼 리다이렉트해도 같다.
+        if (opts.GetValueOrDefault("out") is { } outPath)
+            await ReportFile.WriteAsync(outPath, report);
         return failed == 0 ? 0 : 3;
     }
 

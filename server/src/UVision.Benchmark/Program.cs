@@ -38,7 +38,7 @@ using UVision.Api.Services.Vlm;
 //   #   --anomaly-endpoint http://localhost:<port> (ANOMALY_TOKEN) 로 그 모델의 점수를 세 번째 줄로 비교
 //   # 전용 ML 분류기 정확도 — train 분할을 MLoop 학습 폴더로 내보내고(mloop train 은 그 폴더에서), test 분할을 /predict 로
 //   UVISION_DATA_ROOT=... dotnet run --project src/UVision.Benchmark -- classify --manifest <이름> --export <프로젝트>/datasets/images
-//   UVISION_DATA_ROOT=... ML_TOKEN=... dotnet run --project src/UVision.Benchmark -- classify --manifest <이름> --endpoint http://localhost:5417 [--model default] [--per-class N] [--max-per-minute 55]
+//   UVISION_DATA_ROOT=... ML_TOKEN=... dotnet run --project src/UVision.Benchmark -- classify --manifest <이름> --endpoint http://localhost:5417 [--model default] [--per-class N] [--max-per-minute 55] [--out report.md]
 //   # 리포트 폴더 → 판정원 비교표(VLM · ML 리포트를 다시 읽는다 — 손으로 옮기지 않는다)
 //   dotnet run --project src/UVision.Benchmark -- summary --dir <리포트 폴더>[;<폴더>…]
 //   # 반복 일관성 — 같은 설정으로 두 번 돌린 VLM 리포트를 짝지어 잡음(답이 움직임) · 체계적 오류(같은 오답)를 가른다
