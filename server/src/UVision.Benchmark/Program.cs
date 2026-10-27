@@ -39,6 +39,8 @@ using UVision.Api.Services.Vlm;
 //   UVISION_DATA_ROOT=... ML_TOKEN=... dotnet run --project src/UVision.Benchmark -- classify --manifest <이름> --endpoint http://localhost:5417 [--model default] [--per-class N] [--max-per-minute 55]
 //   # 리포트 폴더 → 판정원 비교표(VLM · ML 리포트를 다시 읽는다 — 손으로 옮기지 않는다)
 //   dotnet run --project src/UVision.Benchmark -- summary --dir <리포트 폴더>[;<폴더>…]
+//   # 반복 일관성 — 같은 설정으로 두 번 돌린 VLM 리포트를 짝지어 잡음(답이 움직임) · 체계적 오류(같은 오답)를 가른다
+//   dotnet run --project src/UVision.Benchmark -- repeat --a <리포트1.md> --b <리포트2.md> [--out report.md]
 //   # 시험 데이터셋 주입 — 표본을 실행 중인 엔진의 /v2/inspect 로(origin=dataset), --label 이면 정답을 사람 라벨로 심음
 //   UVISION_DATA_ROOT=... dotnet run --project src/UVision.Benchmark -- inject --manifest <이름> --scenario <id> \
 //       --engine http://localhost:8080 [--split test] [--limit N] [--label]
@@ -71,6 +73,8 @@ switch (args.FirstOrDefault())
         return UVision.Benchmark.CocoCrops.Run(opts, Pairs);
     case "summary":
         return UVision.Benchmark.ReportSummary.Run(opts);
+    case "repeat":
+        return UVision.Benchmark.RepeatBench.Run(opts);
 }
 
 List<(string Name, string Path, Verdict? Truth)> images;
