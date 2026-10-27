@@ -45,6 +45,38 @@ public class PatchScoringTests
     }
 
     [Fact]
+    public void PatchMap_TiledSearch_IsIdenticalToTheDirectLoop_ForSizesThatDoNotFillATile()
+    {
+        // 질의 · 기억 개수와 차원이 묶음 크기의 배수가 아니다 — 가장자리 묶음까지 같은 값이어야 한다.
+        const int dim = 37, queryPatches = 21, bankPatches = 4001; // 기억 조각(약 1770 패치)이 셋: 꽉 찬 둘 + 모자란 하나
+        var random = new Random(7);
+        float[] Unit(int count)
+        {
+            var values = new float[count * dim];
+            for (var i = 0; i < count; i++)
+            {
+                double norm = 0;
+                for (var j = 0; j < dim; j++) { values[i * dim + j] = (float)(random.NextDouble() - 0.5); norm += values[i * dim + j] * values[i * dim + j]; }
+                for (var j = 0; j < dim; j++) values[i * dim + j] /= (float)Math.Sqrt(norm);
+            }
+            return values;
+        }
+        var query = Unit(queryPatches);
+        var bank = Unit(bankPatches);
+
+        var expected = new double[queryPatches];
+        for (var q = 0; q < queryPatches; q++)
+        {
+            var best = double.NegativeInfinity;
+            for (var m = 0; m < bankPatches; m++)
+                best = Math.Max(best, PatchDistance.Dot(query, q * dim, bank, m * dim, dim));
+            expected[q] = 1 - best;
+        }
+
+        Assert.Equal(expected, PatchDistance.PatchMap(query, queryPatches, bank, bankPatches, dim));
+    }
+
+    [Fact]
     public void Dot_handles_lengths_that_are_not_a_vector_multiple()
     {
         float[] a = [.. Enumerable.Repeat(1f, 19)];

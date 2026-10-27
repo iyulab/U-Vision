@@ -33,16 +33,38 @@ public static class PatchDistance
     {
         if (queryPatches < 1 || bankPatches < 1)
             throw new ArgumentException("질의 · 기억 패치가 각각 1개 이상이어야 한다");
-        var perPatch = new double[queryPatches];
-        Parallel.For(0, queryPatches, q =>
+        // 기억이 크면 한 질의 패치가 기억 전체를 훑을 때마다 기억이 메모리에서 다시 읽힌다(질의 256 × 기억 수십~수백 MB). 질의 패치를
+        // 몇 개씩 묶어 그 묶음이 같은 기억 조각을 캐시에서 함께 쓰게 한다. 각 쌍의 내적과 최댓값은 그대로라 결과는 바이트까지 같다.
+        var best = new float[queryPatches];
+        Array.Fill(best, float.NegativeInfinity);
+        var bankTile = Math.Max(1, BankTileBytes / (dim * sizeof(float)));
+        var tiles = (queryPatches + QueryTile - 1) / QueryTile;
+        Parallel.For(0, tiles, t =>
         {
-            var best = double.NegativeInfinity;
-            for (var m = 0; m < bankPatches; m++)
-                best = Math.Max(best, Dot(query, q * dim, bank, m * dim, dim));
-            perPatch[q] = 1 - best;
+            var q0 = t * QueryTile;
+            var q1 = Math.Min(queryPatches, q0 + QueryTile);
+            for (var m0 = 0; m0 < bankPatches; m0 += bankTile)
+            {
+                var m1 = Math.Min(bankPatches, m0 + bankTile);
+                for (var q = q0; q < q1; q++)
+                {
+                    var top = best[q];
+                    for (var m = m0; m < m1; m++)
+                        top = Math.Max(top, Dot(query, q * dim, bank, m * dim, dim));
+                    best[q] = top;
+                }
+            }
         });
+        var perPatch = new double[queryPatches];
+        for (var q = 0; q < queryPatches; q++)
+            perPatch[q] = 1 - (double)best[q];
         return perPatch;
     }
+
+    // 묶음 크기 — 질의 8개 · 기억 조각 256 KB(코어 캐시에 들어가는 크기). dinov2-small(384차원)에서 기억 600장일 때 이전 구현의 약 절반
+    // 시간(개발 PC, 코어 30). 값을 키워도 빨라지지 않았다.
+    private const int QueryTile = 8;
+    private const int BankTileBytes = 256 * 1024;
 
     public static float Dot(float[] a, int aOffset, float[] b, int bOffset, int length)
     {
