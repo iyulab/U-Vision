@@ -92,6 +92,34 @@ public class ReportSummaryTests
         Assert.Contains("| s1 | 1/3 · 1/2 ; 1/3 · 1/2 | 2/3 · 0/3 |", pivot);
         Assert.Contains("| s2 |  | 2/3 · 0/3 |", pivot);
     }
+
+    [Fact]
+    public void Latency_p50_is_read_from_both_report_kinds()
+    {
+        var vlm = Vlm.Replace("- 이미지 수:", "- latency(동시 3): p50 **16228 ms**, p95 **92593 ms**\n- 이미지 수:");
+        Assert.Equal(16228, ReportSummary.Parse("a.md", vlm)!.LatencyP50Ms);
+        var ml = Ml.Replace("- 시험 6장", "- 지연: p50 121 ms · max 225 ms (직렬)\n- 시험 6장");
+        Assert.Equal(121, ReportSummary.Parse("b.md", ml)!.LatencyP50Ms);
+        Assert.Null(ReportSummary.Parse("c.md", Ml)!.LatencyP50Ms);
+    }
+
+    [Fact]
+    public void Coverage_names_the_terms_per_scenario_and_flags_the_unknown()
+    {
+        var sources = ReportSummary.ParseSources("# 주석\nvisa-\tVisA 공개\tCC BY 4.0\nvisa-pcb4\tVisA pcb4 만\tCC BY 4.0 (pcb4)\n");
+        var rows = new[]
+        {
+            ReportSummary.Parse("2026-10-25-visa-pcb1-qwen-fewshot3.md", Vlm)!,
+            ReportSummary.Parse("2026-10-25-visa-pcb4-mloop.md", Ml.Replace("`x`", "`visa-pcb4`"))!,
+            ReportSummary.Parse("2026-10-25-other-mloop.md", Ml)!,
+        };
+
+        var table = ReportSummary.RenderCoverage(rows, sources);
+
+        Assert.Contains("`visa-pcb1` · VisA 공개 · CC BY 4.0", table);
+        Assert.Contains("`visa-pcb4` · VisA pcb4 만 · CC BY 4.0 (pcb4)", table); // 가장 긴 접두어가 이긴다
+        Assert.Contains("`x` · 데이터 미기재 · **이용 조건 미확인**", table);
+    }
 }
 
 /// <summary>리포트 표 칸 — 실패 사유에 섞인 주소는 리포트에 남지 않는다.</summary>

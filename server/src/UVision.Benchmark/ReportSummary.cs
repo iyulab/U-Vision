@@ -13,13 +13,15 @@ internal static class ReportSummary
 {
     /// <summary>리포트 한 장의 요약. <c>NgTotal</c> 은 판정 불가가 된 불량을 포함한다(VLM 은 건별 표로 알 수 있다).</summary>
     internal sealed record Row(
-        string Name, string Judge, int NgTotal, int NgCaught, int OkTotal, int FalseAlarms, int Unjudged, string? Scenario = null);
+        string Name, string Judge, int NgTotal, int NgCaught, int OkTotal, int FalseAlarms, int Unjudged, string? Scenario = null, double? LatencyP50Ms = null);
 
     private static readonly Regex Mode = new(@"^- 모드: \*\*(?<m>[^*]+)\*\*(?: \((?<d>[^)]*)\))?", RegexOptions.Multiline);
     private static readonly Regex Model = new(@"^- provider: `[^`]*` / model: `(?<m>[^`]*)`", RegexOptions.Multiline);
     private static readonly Regex ListHeader = new(@"^- 목록: `(?<n>[^`]+)`|^# ML 분류 정확도 — 목록 `(?<n>[^`]+)`", RegexOptions.Multiline);
     // 헤더에 목록이 없는 옛 리포트: `YYYY-MM-DD-<시나리오>-<판정원 토큰>…` 이름에서 날짜와 판정원 이후를 뗀다.
     private static readonly Regex NamedScenario = new(@"^\d{4}-\d{2}-\d{2}-(?<s>.+?)-(?:qwen|mloop|gpt|claude|gemini)(?:-|$)", RegexOptions.IgnoreCase);
+    // 지연 중앙값 — VLM 리포트 «latency(동시 N): p50 **16228 ms**», ML 리포트 «지연: p50 121 ms».
+    private static readonly Regex LatencyP50 = new(@"^- (?:latency\(동시 \d+\)|지연): p50 \**(?<v>[\d.]+) ms", RegexOptions.Multiline);
     private static readonly Regex Failed = new(@"실패 (?<n>\d+)", RegexOptions.Multiline);
 
     /// <summary>리포트 본문 하나를 읽는다. 이 하네스의 리포트가 아니거나 NG/OK 이진 표가 아니면 null.</summary>
@@ -32,7 +34,14 @@ internal static class ReportSummary
             row = ParseVlm(name, text);
         else if (text.StartsWith("# ML 분류 정확도", StringComparison.Ordinal))
             row = ParseMl(name, text);
-        return row is null ? null : row with { Scenario = ScenarioOf(name, text) };
+        if (row is null) return null;
+        var latency = LatencyP50.Match(text);
+        return row with
+        {
+            Scenario = ScenarioOf(name, text),
+            LatencyP50Ms = latency.Success
+                ? double.Parse(latency.Groups["v"].Value, CultureInfo.InvariantCulture) : null,
+        };
     }
 
     /// <summary>시나리오(= 표본 목록) 이름 — 리포트 헤더가 먼저, 없으면 파일 이름 규약, 그것도 없으면 null.</summary>
@@ -148,6 +157,55 @@ internal static class ReportSummary
         return sb.ToString();
     }
 
+    /// <summary>출처 장부 한 줄 — 목록 이름의 앞부분이 <c>Prefix</c> 이면 그 데이터와 이용 조건을 적는다.</summary>
+    internal sealed record Source(string Prefix, string Data, string Terms);
+
+    /// <summary>
+    /// 출처 장부(<c>접두어 TAB 데이터 TAB 이용 조건</c>, <c>#</c> 줄은 주석)를 읽는다. 장부는 사람이 쓰는 사실이다 —
+    /// 도구가 이용 조건을 추측하지 않는다.
+    /// </summary>
+    internal static List<Source> ParseSources(string text) =>
+    [
+        .. text.Split('\n')
+            .Select(l => l.TrimEnd('\r'))
+            .Where(l => l.Length > 0 && !l.StartsWith('#'))
+            .Select(l => l.Split('\t'))
+            .Where(c => c.Length >= 3)
+            .Select(c => new Source(c[0].Trim(), c[1].Trim(), c[2].Trim())),
+    ];
+
+    /// <summary>
+    /// 커버리지 표(B12) — 시나리오 · 데이터 · <b>이용 조건</b> 단위로 판정원마다 한 줄: 불량 잡음 · 정상 오경보 · 지연 중앙값.
+    /// 사이트 등 밖으로 나가는 지표는 이용 조건 열이 필수라 장부에 없는 시나리오는 «이용 조건 미확인» 으로 드러낸다
+    /// (빈칸으로 두지 않는다). 가장 긴 접두어가 이긴다. «판정» 같은 사람의 평가는 담지 않는다 — 수치만.
+    /// </summary>
+    internal static string RenderCoverage(IReadOnlyList<Row> rows, IReadOnlyList<Source> sources)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        var sb = new StringBuilder();
+        sb.AppendLine("| 시나리오 · 데이터 · 이용 조건 | 판정원 | 불량 잡음 | 정상 오경보 | 판정 불가 | 지연 p50 |");
+        sb.AppendLine("|---|---|---|---|---|---|");
+        foreach (var group in rows.Where(r => r.Scenario is not null).GroupBy(r => r.Scenario!, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal))
+        {
+            var source = sources.Where(s => group.Key.StartsWith(s.Prefix, StringComparison.Ordinal))
+                .OrderByDescending(s => s.Prefix.Length).FirstOrDefault();
+            var label = source is null
+                ? $"`{group.Key}` · 데이터 미기재 · **이용 조건 미확인**"
+                : $"`{group.Key}` · {source.Data} · {source.Terms}";
+            var first = true;
+            foreach (var r in group.OrderBy(r => r.Judge, StringComparer.Ordinal).ThenBy(r => r.Name, StringComparer.Ordinal))
+            {
+                var caught = r.NgTotal > 0 ? string.Create(inv, $"{r.NgCaught}/{r.NgTotal}") : "—";
+                var alarms = r.OkTotal > 0 ? string.Create(inv, $"{r.FalseAlarms}/{r.OkTotal}") : "—";
+                var latency = r.LatencyP50Ms is { } ms
+                    ? ms >= 1000 ? string.Create(inv, $"{ms / 1000:F0} s") : string.Create(inv, $"{ms:F0} ms") : "—";
+                sb.AppendLine($"| {(first ? label : "")} | {r.Judge} | {caught} | {alarms} | {r.Unjudged} | {latency} |");
+                first = false;
+            }
+        }
+        return sb.ToString();
+    }
+
     /// <summary><c>summary --dir &lt;리포트 폴더&gt;;…</c> — 폴더(들)의 .md 리포트를 하위까지 읽어 표를 낸다.</summary>
     internal static int Run(IReadOnlyDictionary<string, string> opts)
     {
@@ -168,6 +226,20 @@ internal static class ReportSummary
                 .Select(p => (p, File.ReadAllText(p))));
         }
         Console.WriteLine(Render(files));
+        // --sources <장부.tsv> 이면 커버리지 표(B12)를 더한다 — 이용 조건 열이 있는 표만 밖으로 나갈 수 있다.
+        if (opts.TryGetValue("sources", out var sourcesPath))
+        {
+            if (!File.Exists(sourcesPath))
+            {
+                Console.Error.WriteLine($"출처 장부가 없다: {sourcesPath}");
+                return 1;
+            }
+            var rows = files.Select(f => Parse(f.Item1, f.Item2)).OfType<Row>().ToList();
+            Console.WriteLine();
+            Console.WriteLine("커버리지 — 시나리오 · 데이터 · 이용 조건별 판정원 수치");
+            Console.WriteLine();
+            Console.WriteLine(RenderCoverage(rows, ParseSources(File.ReadAllText(sourcesPath))));
+        }
         return 0;
     }
 }
