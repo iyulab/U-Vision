@@ -150,7 +150,7 @@ public sealed class DecisionLedger(
                     break;
                 case ScenarioVocabulary.VlmTier:
                     yield return new AnsweredJudge(
-                        new Tier { Id = tier, Kind = JudgeKind.Vlm, Version = $"{provider.Name}:{vlmOptions.Model}", CostRank = 2 },
+                        new Tier { Id = tier, Kind = JudgeKind.Vlm, Version = subject.TeacherEdition ?? $"{provider.Name}:{vlmOptions.Model}", CostRank = 2 },
                         subject.Vlm is { } v
                             ? JudgeVerdict<string>.Answer(subject.Scenario.ClassOf(v) ?? subject.Scenario.ClassOf(v.Verdict), v.Confidence, v.Findings)
                             : JudgeVerdict<string>.Abstain("vlm unavailable"));
@@ -178,9 +178,11 @@ public sealed class DecisionLedger(
 /// <param name="Ml">ML 결과(null = 비활성).</param>
 /// <param name="Context">요청 맥락(기대 품번 · 읽은 코드) — 대조 단의 입력.</param>
 /// <param name="Memory">확정 사례 기억의 답 · 기권(null = 비활성).</param>
+/// <param name="TeacherEdition">VLM 단의 교사 판(<see cref="TeacherEdition"/>) — null 이면 모델 이름만 적는다.</param>
 public sealed record LedgerSubject(
     string DecisionId, EffectiveScenario Scenario, string Timestamp, InspectionResult? Vlm, MlOutcome? Ml,
-    InspectionContext? Context = null, MemoryOutcome? Memory = null, CaptureOrigin? Origin = null);
+    InspectionContext? Context = null, MemoryOutcome? Memory = null, CaptureOrigin? Origin = null,
+    string? TeacherEdition = null);
 
 /// <summary>실제로 쓴 결정 — 장부에서 라우터의 결정과 나란히 비교하기 위해 남긴다.</summary>
 /// <param name="Verdict">응답한 판정(null = fail-closed).</param>

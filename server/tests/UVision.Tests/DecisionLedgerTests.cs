@@ -21,13 +21,13 @@ public class DecisionLedgerTests
     private static readonly byte[] Jpeg =
         [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01];
 
-    private static MultipartFormDataContent Form()
+    private static MultipartFormDataContent Form(string scenarioId = "demo")
     {
         var form = new MultipartFormDataContent();
         var file = new ByteArrayContent(Jpeg);
         file.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
         form.Add(file, "image", "capture.jpg");
-        form.Add(new StringContent("demo"), "scenario_id");
+        form.Add(new StringContent(scenarioId), "scenario_id");
         return form;
     }
 
@@ -60,6 +60,37 @@ public class DecisionLedgerTests
         Assert.Equal(body.GetProperty("verdict").GetString(), p.Annotations!["operative:verdict"]);
         Assert.Equal("vlm", p.Annotations["operative:source"]);
         Assert.Equal("advisory", p.Annotations["operative:stage"]);
+        // 교사 판 — 모델 이름 뒤에 프롬프트 · 기준 이미지 해시가 붙는다(기준 이미지 없는 시나리오는 r:none).
+        Assert.Matches(@"^mock:[^|]+\|p:[0-9a-f]{8}\|r:none$", p.TierVersion);
+    }
+
+    [Fact]
+    public async Task TeacherEdition_FollowsReferenceImages_NotJustTheModel()
+    {
+        // 같은 모델 · 같은 프롬프트라도 기준 이미지가 바뀌면 교사 판(r)이 바뀌고, 안 바뀌면 같다.
+        async Task<string> EditionAfterAsync(string scenarioId, params byte[][] references)
+        {
+            using var factory = new UVisionApiFactory();
+            factory.SeedScenario(new Scenario { ScenarioId = scenarioId, Name = "x" });
+            foreach (var r in references)
+                factory.SeedReference(scenarioId, ReferenceLabel.Ok, r);
+            (await factory.CreateClient().PostAsync("/api/u-vision/inspect", Form(scenarioId))).EnsureSuccessStatusCode();
+
+            var file = Path.Combine(factory.DataPath, scenarioId, "ledger",
+                DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + ".jsonl");
+            var records = new List<ProvenanceRecord>();
+            await foreach (var r in new JsonlProvenanceSink(file).ReadAsync())
+                records.Add(r);
+            return Assert.Single(records).Provenance.TierVersion!;
+        }
+
+        var refA = Jpeg.Concat(new byte[] { 1 }).ToArray();
+        var refB = Jpeg.Concat(new byte[] { 2 }).ToArray();
+        var withA = await EditionAfterAsync("ed-a", refA);
+        Assert.Matches(@"\|r:[0-9a-f]{8}$", withA);
+        Assert.Equal(withA, await EditionAfterAsync("ed-a", refA));
+        Assert.NotEqual(withA, await EditionAfterAsync("ed-a", refB));
+        Assert.EndsWith("|r:none", await EditionAfterAsync("ed-a"));
     }
 
     [Fact]

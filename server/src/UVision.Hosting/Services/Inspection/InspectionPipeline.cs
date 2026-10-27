@@ -80,7 +80,8 @@ public sealed class InspectionPipeline(
                 scenario.ScenarioId, ml, failedAt, vlmOnly: !mlActive, MatchOf(effective, capture.Context), capture.Origin?.Kind,
                 cancellationToken);
             var failedSubject = new LedgerSubject(
-                $"dec_{Guid.NewGuid():N}", effective, failedAt, result, evidence.Ml, capture.Context, evidence.Memory, capture.Origin);
+                $"dec_{Guid.NewGuid():N}", effective, failedAt, result, evidence.Ml, capture.Context, evidence.Memory, capture.Origin,
+                evidence.TeacherEdition);
             var failedRoute = await ledger.DecideAsync(failedSubject, cancellationToken);
             await ledger.RecordAsync(
                 failedSubject, failedRoute,
@@ -176,7 +177,8 @@ public sealed class InspectionPipeline(
 
         // 결정 장부(관찰 전용) — 레코드가 생긴 뒤에 적어 장부가 없는 레코드를 가리키지 않게 한다.
         var subject = new LedgerSubject(
-            imageId, effective, timestamp, result, evidence.Ml, capture.Context, evidence.Memory, capture.Origin);
+            imageId, effective, timestamp, result, evidence.Ml, capture.Context, evidence.Memory, capture.Origin,
+            evidence.TeacherEdition);
         var route = await ledger.DecideAsync(subject, cancellationToken);
         await ledger.RecordAsync(
             subject, route,
@@ -268,6 +270,9 @@ public sealed class InspectionPipeline(
                 scenario.ScenarioId);
         }
 
+        // 교사 판은 디스크의 기준 이미지 내용으로 센다 — 다운스케일 사본이 아니라(그 레버는 판 문자열의 설정 쪽에 든다).
+        var loadedReferences = references;
+
         // 다운스케일 레버(scenario.MaxImageDimension) — VLM 전송 사본에만 적용한다.
         // 원본은 그대로 영속화(audit 충실도·재평가 여지). query+refs 대칭(refs 는 JPEG 로 정규화).
         // maxDim=0(기본)이면 원본을 그대로 보내 불필요한 복사·재인코딩을 피한다(핫패스).
@@ -310,7 +315,9 @@ public sealed class InspectionPipeline(
         return new JudgeEvidence(
             AcceptVlm(await vlmTask, effective),
             classifyTask is not null ? AcceptMl(await classifyTask, effective) : null,
-            recallTask is not null ? await recallTask : null);
+            recallTask is not null ? await recallTask : null,
+            TeacherEdition.Of(
+                $"{provider.Name}:{vlmOptions.Model}", vlmOptions, context, scenario.MaxImageDimension, loadedReferences));
     }
 
     /// <summary>
@@ -547,8 +554,8 @@ public sealed class InspectionPipeline(
 
     private static string? NullIfEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
 
-    /// <summary>판정원 실행 결과 — VLM(null=실패) · ML(null=비활성) · 기억(null=비활성).</summary>
-    private sealed record JudgeEvidence(InspectionResult? Vlm, MlOutcome? Ml, MemoryOutcome? Memory);
+    /// <summary>판정원 실행 결과 — VLM(null=실패) · ML(null=비활성) · 기억(null=비활성) · 이 판정을 낸 교사 판.</summary>
+    private sealed record JudgeEvidence(InspectionResult? Vlm, MlOutcome? Ml, MemoryOutcome? Memory, string TeacherEdition);
 }
 
 /// <summary>판정할 캡처 한 장 — 업로드 검증을 통과한 바이트와 그 출처.</summary>
