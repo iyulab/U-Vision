@@ -1,4 +1,5 @@
-import type { AdminStatus, AnomalyMap, AuthorityState, DetectionUnavailable, EventsStatus, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
+import type { AdminStatus, AnomalyMap, AuthorityState, DetectionUnavailable, EventsStatus, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Question, QuestionAnswer, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
+import type { QuestionAnswerInput } from './contract.gen'
 import type { AuthorityStage } from './authority'
 import { resolveApiBase } from './runtimeConfig'
 
@@ -195,6 +196,29 @@ export async function deleteLabel(
     { method: 'DELETE' },
   )
   await ensureOk(res, '라벨 삭제')
+}
+
+// --- 문제 큐 (무인증 운영 데이터 — 서버 /questions/next · /questions/answer 계약) -----------
+
+/** 다음 문제를 받는다(무인증). 풀이자(`by` = 장치 id)에게 답하지 않은 문제가 있으면 서버가 그것을 다시 준다. 물을 사진이 없으면 null(204). */
+export async function getNextQuestion(scenarioId: string, by: string): Promise<Question | null> {
+  const res = await fetch(
+    `${API_BASE}/questions/next?scenario_id=${encodeURIComponent(scenarioId)}&by=${encodeURIComponent(by)}`,
+  )
+  if (res.status === 204) return null
+  await ensureOk(res, '다음 문제')
+  return (await res.json()) as Question
+}
+
+/** 답을 낸다(무인증) — 클래스를 고르거나 «모르겠음». 이미 닫힌 문제는 409(`ApiError`). */
+export async function answerQuestion(input: QuestionAnswerInput): Promise<QuestionAnswer> {
+  const res = await fetch(`${API_BASE}/questions/answer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  await ensureOk(res, '답 제출')
+  return (await res.json()) as QuestionAnswer
 }
 
 // --- 라벨 감사 (C1 — 블라인드 재라벨, 무인증 운영 데이터) --------------------

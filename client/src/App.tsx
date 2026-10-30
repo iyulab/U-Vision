@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { CameraView } from './components/CameraView'
 import { Console } from './components/Console'
+import { QuestionCard } from './components/QuestionCard'
 import { ResultsBrowser } from './components/ResultsBrowser'
 import { useResource } from './hooks/useResource'
 import { useUtcToday } from './hooks/useUtcToday'
@@ -39,6 +40,7 @@ export default function App() {
   const [captureMode, setCaptureModeState] = useState<CaptureMode>(() => getCaptureMode())
   const [deviceLabel, setDeviceLabelState] = useState<string>(() => getDeviceLabel())
   const [showTodayList, setShowTodayList] = useState(false)
+  const [showQuestions, setShowQuestions] = useState(false)
   // 오투입 확인의 기대 품번 — 작업지시가 바뀔 때 작업자가 고친다(MES 연동 전). 저장하지 않는다: 지난 작업의 품번이
   // 다음 실행에 남아 잘못 대조되지 않게.
   const [expectedPart, setExpectedPart] = useState('')
@@ -134,6 +136,14 @@ export default function App() {
             ))}
           </select>
         )}
+        {active && !isVerification(active) && (
+          <button
+            onClick={() => setShowQuestions(true)}
+            className="rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur hover:bg-black/80"
+          >
+            사진 확인
+          </button>
+        )}
         {active && (
           <button
             onClick={() => setShowTodayList(true)}
@@ -149,6 +159,23 @@ export default function App() {
           관리
         </button>
       </div>
+
+      {showQuestions && active && (
+        <div className="fixed inset-0 z-30 flex flex-col bg-slate-900 text-slate-100">
+          <header className="flex items-center justify-between border-b border-slate-700 px-6 py-4">
+            <h1 className="text-lg font-semibold">사진 확인 — {active.name}</h1>
+            <button
+              onClick={() => setShowQuestions(false)}
+              className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium hover:bg-slate-600"
+            >
+              운영 화면
+            </button>
+          </header>
+          <main className="flex-1 overflow-y-auto p-6">
+            <QuestionCard key={active.scenario_id} scenario={active} />
+          </main>
+        </div>
+      )}
 
       {showTodayList && active && (
         <div className="fixed inset-0 z-30 flex flex-col bg-slate-900 text-slate-100">
