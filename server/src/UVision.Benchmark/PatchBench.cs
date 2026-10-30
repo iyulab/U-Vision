@@ -106,12 +106,15 @@ internal static class PatchBench
 
         // --coreset 0.5,0.25,0.1: 같은 패치 수를 무작위가 아니라 탐욕 k-center(엔진 쪽 CoresetSelector)로 고른 은행에서 같은 질의를 다시 낸다 —
         // MLoop 코어셋(--bank-size)과 같은 패치 수에서 점수가 맞는지 보려는 것(맞으면 선택을 엔진에 직접 둘 수 있다).
-        foreach (var fraction in ParseFractions(opts.GetValueOrDefault("coreset")))
+        // --coreset-seeds 1,2,3: 선택기의 시드(시작 패치 · 무작위 투영)를 바꿔 같은 비율을 여러 번 고른다 — 점수가 선택에 얼마나 흔들리는지(기본 42 하나).
+        var coresetSeeds = (opts.GetValueOrDefault("coreset-seeds") ?? "42")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(int.Parse).ToArray();
+        foreach (var (fraction, seed) in ParseFractions(opts.GetValueOrDefault("coreset")).SelectMany(f => coresetSeeds.Select(sd => (f, sd))))
         {
             var total = bank.Count * patchCount;
             var keep = Math.Max(1, (int)(total * fraction));
             var selecting = Stopwatch.StartNew();
-            var picked = CoresetSelector.Select(bankPatches, total, dim, keep);
+            var picked = CoresetSelector.Select(bankPatches, total, dim, keep, seed);
             var selectSeconds = selecting.Elapsed.TotalSeconds;
             var reduced = CoresetSelector.Gather(bankPatches, dim, picked);
             var n = new List<double>();
@@ -124,8 +127,8 @@ internal static class PatchBench
                 millis.Add(clock.Elapsed.TotalMilliseconds);
                 (s.Class == "OK" ? n : d).Add(p);
             }
-            subsampled.Add(($"패치 최댓값 — 엔진 k-center {fraction:P0}({keep}개, 선택 {selectSeconds:F1} 초, 점수 계산 중앙값 {millis.Order().ElementAt(millis.Count / 2):F0} ms/장)", n, d));
-            Console.Error.WriteLine($"k-center {fraction:P0} 완료 (선택 {selectSeconds:F1} 초)");
+            subsampled.Add(($"패치 최댓값 — 엔진 k-center {fraction:P0}{(coresetSeeds.Length > 1 ? $" 시드 {seed}" : "")}({keep}개, 선택 {selectSeconds:F1} 초, 점수 계산 중앙값 {millis.Order().ElementAt(millis.Count / 2):F0} ms/장)", n, d));
+            Console.Error.WriteLine($"k-center {fraction:P0} 시드 {seed} 완료 (선택 {selectSeconds:F1} 초)");
         }
 
         // --anomaly-endpoint: MLoop `image-anomaly` 모델(`mloop serve`)의 점수를 같은 질의로 받아 세 번째 줄로 비교한다.
