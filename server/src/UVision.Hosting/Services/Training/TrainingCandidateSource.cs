@@ -33,7 +33,8 @@ public sealed class TrainingCandidateSource(IInspectionStore inspections, ILabel
                     operative,
                     label.History?.LastOrDefault(e => e.Mode == LabelMode.Label)?.At ?? label.Timestamp,
                     label.Audit?.Status == LabelAuditStatus.Conflicted,
-                    result.RequiresReview == true || result.Agreement == false));
+                    result.RequiresReview == true || result.Agreement == false,
+                    label.OperativeStream));
             }
         }
         return new TrainingCandidates(candidates, orphans);

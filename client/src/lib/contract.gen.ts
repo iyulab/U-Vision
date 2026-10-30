@@ -230,6 +230,7 @@ export interface DatasetItem {
   label: string
   class_dir: string
   image_file: string
+  stream?: string
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

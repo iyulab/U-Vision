@@ -13,8 +13,9 @@ namespace UVision.Api.Services.Training;
 /// <param name="LabeledAt">라벨을 마지막으로 쓴 시각(ISO 8601) — 재빌드 제안이 «모델 이후 새 라벨»을 센다.</param>
 /// <param name="Conflicted">블라인드 감사에서 직전 라벨과 어긋나 아직 풀리지 않았다 — 정답으로 쓰지 않는다.</param>
 /// <param name="HardNegative">판정원이 엇갈렸거나 검토가 필요했던 건(<c>requires_review</c> · 불일치) — 가장 값진 표본이라 늘 넣는다.</param>
+/// <param name="Stream">라벨의 출제 흐름 표식(<see cref="Services.Label.LabelStream"/>) — 없으면 표식 없는 라벨. 선정에는 쓰지 않고 export 가 그대로 싣는다.</param>
 public sealed record TrainingCandidate(
-    string ImageId, string Date, string Label, string LabeledAt, bool Conflicted, bool HardNegative);
+    string ImageId, string Date, string Label, string LabeledAt, bool Conflicted, bool HardNegative, string? Stream = null);
 
 /// <summary>선정 결과 — 학습에 넣는 건과 뺀 이유별 수.</summary>
 public sealed record TrainingSelection(

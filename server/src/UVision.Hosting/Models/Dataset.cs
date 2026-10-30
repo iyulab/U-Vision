@@ -21,6 +21,14 @@ public sealed record DatasetItem
 
     /// <summary>export 루트 기준 상대 이미지 경로(예: <c>images/ng/img_abc.jpg</c>).</summary>
     [JsonPropertyName("image_file")] public required string ImageFile { get; init; }
+
+    /// <summary>
+    /// 이 라벨의 출제 흐름(<c>learn</c> = 능동 선택으로 모은 라벨, 어려운 사례가 농축돼 있다). 학습기가 평가 몫을 따로 뗄 때 이
+    /// 항목들을 평가에서 빼는 근거다. 표식이 없는 라벨은 필드가 빠진다.
+    /// </summary>
+    [JsonPropertyName("stream")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Stream { get; init; }
 }
 
 /// <summary>클래스별 표본 수 집계.</summary>

@@ -62,6 +62,26 @@ public class DatasetExportTests
     }
 
     [Fact]
+    public async Task Export_RecordsTheLabelStream_SoTheTrainerCanKeepLearnLabelsOutOfEvaluation()
+    {
+        var (paths, ins, lab) = NewStores();
+        await SeedLabeled(ins, lab, "2026-06-10", "img_plain", "NG");
+        await SeedLabeled(ins, lab, "2026-06-10", "img_learn", "NG");
+        await lab.AppendLabelAsync(Scenario, "2026-06-10", "img_learn", "NG", "dev", stream: Api.Services.Label.LabelStream.Learn);
+        var exporter = new FileDatasetExporter(paths, ins, lab);
+
+        var manifest = await exporter.ExportAsync(Scenario, ExportId);
+
+        Assert.Null(manifest.Items.Single(i => i.ImageId == "img_plain").Stream);
+        Assert.Equal("learn", manifest.Items.Single(i => i.ImageId == "img_learn").Stream);
+        // 표식이 없는 항목은 manifest 에서 이전 export 와 같게 필드가 빠진다.
+        var json = await File.ReadAllTextAsync(paths.DatasetManifest(Scenario, ExportId));
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var items = doc.RootElement.GetProperty("items").EnumerateArray().ToList();
+        Assert.False(items.Single(i => i.GetProperty("image_id").GetString() == "img_plain").TryGetProperty("stream", out _));
+    }
+
+    [Fact]
     public async Task Export_AppliesSelection_DropsAuditConflicts_AndRecordsRules()
     {
         var (paths, ins, lab) = NewStores();

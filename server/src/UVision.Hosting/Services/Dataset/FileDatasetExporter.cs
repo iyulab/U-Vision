@@ -61,6 +61,7 @@ public sealed class FileDatasetExporter : IDatasetExporter
                 Label = candidate.Label,
                 ClassDir = classDir,
                 ImageFile = $"images/{classDir}/{candidate.ImageId}{ext}",
+                Stream = candidate.Stream,
             });
             counts[classDir] = counts.GetValueOrDefault(classDir) + 1;
         }

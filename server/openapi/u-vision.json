@@ -2844,6 +2844,9 @@
           },
           "image_file": {
             "type": "string"
+          },
+          "stream": {
+            "type": "string"
           }
         }
       },
