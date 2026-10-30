@@ -198,8 +198,9 @@ public sealed record MetricsSummary
     [JsonPropertyName("oracle_coverage_rate")] public double? OracleCoverageRate { get; init; }
 
     /// <summary>
-    /// 격상 자격 신호(A1) — inspections≥MinWindow AND ml_ng_recall≥vlm_ng_recall AND ≥RecallFloor
-    /// AND agreement_rate≥AgreementFloor. 데이터 불충분(필수값 null·표본 미달)이면 null. 확정은 사람 PIN.
+    /// 격상 자격 신호(A1, <b>이행기 신호</b>) — inspections≥MinWindow AND labeled_ng·ml_ng_scored≥MinNgSamples
+    /// AND ml_ng_recall≥vlm_ng_recall AND ≥RecallFloor AND agreement_rate≥AgreementFloor. 데이터 불충분(필수값 null·표본 미달)
+    /// 이면 null. 점추정이라 신뢰 하한이 아니다 — 사전 등록 관문의 클래스별 통계량이 지어지면 폐기한다. 확정은 사람 PIN.
     /// </summary>
     [JsonPropertyName("promotion_eligible")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

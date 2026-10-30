@@ -400,6 +400,44 @@ public class MetricsAggregatorTests
     }
 
     [Fact]
+    public void PromotionEligible_NullWhenNgSamplesTooFew_EvenIfWindowMet()
+    {
+        // 검사 60건이지만 사람 라벨 NG 는 1건 — ML 이 맞히고 VLM 이 놓쳐 점추정은 1.0 대 0.0 이어도 true 가 아니라 null.
+        var rows = new List<MetricsRow>();
+        var labels = new List<StoredLabel>();
+        for (int i = 0; i < 60; i++)
+        {
+            var id = $"img{i}";
+            bool ng = i == 0;
+            rows.Add(new MetricsRow { ImageId = id, Timestamp = "t", Verdict = Verdict.OK, // VLM 은 놓침
+                MlLabel = ng ? "NG" : "OK", MlConfidence = 0.9, Agreement = !ng, RequiresReview = ng, MlDegraded = false });
+            labels.Add(new StoredLabel { ImageId = id, Label = ng ? "NG" : "OK", Timestamp = "t" });
+        }
+        var s = MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions());
+        Assert.Equal(1, s.LabeledNg);
+        Assert.Equal(1.0, s.MlNgRecall);
+        Assert.Null(s.PromotionEligible); // labeled_ng(1) < MinNgSamples(59) — 1/1 을 «준비됨» 으로 읽지 않는다
+    }
+
+    [Fact]
+    public void PromotionEligible_NgFloorFollowsOption()
+    {
+        // 같은 데이터(NG 3건)라도 설치가 하한을 낮추면 판정이 난다 — 하한은 옵션이다.
+        var rows = new List<MetricsRow>();
+        var labels = new List<StoredLabel>();
+        for (int i = 0; i < 60; i++)
+        {
+            var id = $"img{i}";
+            bool ng = i < 3;
+            rows.Add(new MetricsRow { ImageId = id, Timestamp = "t", Verdict = ng ? Verdict.NG : Verdict.OK,
+                MlLabel = ng ? "NG" : "OK", MlConfidence = 0.9, Agreement = true, RequiresReview = false, MlDegraded = false });
+            labels.Add(new StoredLabel { ImageId = id, Label = ng ? "NG" : "OK", Timestamp = "t" });
+        }
+        Assert.Null(MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions()).PromotionEligible);
+        Assert.True(MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions { MinNgSamples = 3 }).PromotionEligible);
+    }
+
+    [Fact]
     public void PromotionEligible_NullWhenWindowTooSmall()
     {
         var rows = new List<MetricsRow>

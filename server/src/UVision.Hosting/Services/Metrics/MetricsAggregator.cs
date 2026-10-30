@@ -129,12 +129,16 @@ public static class MetricsAggregator
         var mlRecall = Rate(mlNgHits, mlNgScored);
         var agreementRate = Rate(agreements, nonDegraded);
 
-        // 격상 자격 신호(A1): 표본 충분 + 조건 전부 충족 → true; 표본 충분·계산 가능·조건 미달 → false; 데이터 불충분 → null.
-        bool? eligible = (mlChecked >= options.MinWindow
+        // 격상 자격 신호(A1, 이행기): 표본 충분 + 조건 전부 충족 → true; 표본 충분·계산 가능·조건 미달 → false; 데이터 불충분 → null.
+        // «표본 충분» 에는 검사 건수(MinWindow)뿐 아니라 재현율 분모의 NG 건수(MinNgSamples)도 든다 — 라벨된 NG 1건으로
+        // 재현율 1.0 이 되어 true 가 나오는 점추정을 막는다.
+        bool enough = mlChecked >= options.MinWindow
+            && labeledNg >= options.MinNgSamples && mlNgScored >= options.MinNgSamples;
+        bool? eligible = (enough
             && vlmRecall is { } vr && mlRecall is { } mr && agreementRate is { } ar
             && mr >= vr && mr >= options.RecallFloor && ar >= options.AgreementFloor)
             ? true
-            : (mlChecked >= options.MinWindow && vlmRecall is not null && mlRecall is not null && agreementRate is not null
+            : (enough && vlmRecall is not null && mlRecall is not null && agreementRate is not null
                 ? false      // 표본 충분·계산 가능하나 조건 미달 → 명시 false
                 : null);     // 데이터 불충분 → null(위장 금지)
 

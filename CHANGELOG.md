@@ -40,6 +40,7 @@ Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0
 - A memory query logs, at Debug level, where its time went: embedding, decision and patch score (`UVision.Api.Services.Memory.CaseMemory`).
 
 ### Changed
+- `promotion_eligible` (the promotion-readiness signal in the metrics summary) is no longer decided from a handful of labeled defects: it now also needs `labeled_ng` and `ml_ng_scored` to reach the new `UVision:Authority:MinNgSamples` (default 59, about the number of defects that lets zero misses support a recall of 0.95 at 95 % confidence). Below that the field is omitted, as it already was below `MinWindow`; before, one human-labeled defect that the ML classifier caught and the vision model missed was enough for `true`. The signal is still a point estimate and is documented as a transitional signal. Promotion itself remains a manual, PIN-protected decision.
 - When the vision model stops at the output token limit, the inspection's failure now says so (the limit and the setting to raise) instead of reporting an empty or malformed answer.
 - The benchmark tool's reports no longer keep web addresses that appear in a failed call's message (they are replaced by `<url>`).
 - Upgraded `HoneAI.Core` to 0.14.0 (0.13.0 added patch embeddings and the encoder's preprocessing version to the MLoop client; 0.14.0 only reorders a parameter of the model lifecycle interface, which the server does not use). Nothing in the server's behaviour changes; the requests MLoop receives are the same.
