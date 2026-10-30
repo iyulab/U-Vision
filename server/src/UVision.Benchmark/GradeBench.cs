@@ -47,6 +47,13 @@ internal static class GradeBench
         var systemPrompt =
             $"당신은 {context}를 보고 등급을 매기는 검사원이다. 등급은 좋은 순서로 {string.Join(" > ", order)} 이다. " +
             $"답은 반드시 등급 이름 하나({string.Join(" · ", order)} 중)만 쓴다. 설명을 붙이지 않는다.";
+        // 등급 정의를 글로 준다 — 기준 이미지만으로는 등급 사이의 «무엇이 다른가» 가 암묵적이다.
+        var criteriaPath = opts.GetValueOrDefault("criteria");
+        if (criteriaPath is not null)
+        {
+            if (!File.Exists(criteriaPath)) { Console.Error.WriteLine($"grade: --criteria 파일이 없다: {criteriaPath}"); return 1; }
+            systemPrompt += "\n\n등급 기준:\n" + File.ReadAllText(criteriaPath, Encoding.UTF8).Trim();
+        }
 
         var refParts = new List<object>();
         foreach (var grade in order)
@@ -112,7 +119,7 @@ internal static class GradeBench
         }));
         Console.Error.WriteLine();
 
-        var report = Render(name, model, order, refsPerClass, context, results)
+        var report = Render(name, model, order, refsPerClass, context, results, criteriaPath)
             + (failures.IsEmpty
                 ? ""
                 : "\n실패 이유:\n\n" + string.Join("\n", failures.OrderByDescending(f => f.Value).Select(f => $"- {f.Value} × {f.Key}")) + "\n");
@@ -154,6 +161,25 @@ internal static class GradeBench
         return (exact, adjacent, judged);
     }
 
+    /// <summary>
+    /// 아무것도 보지 않는 추측의 기대 정확도 — 등급이 셋이면 한 단계 이내(±1)는 무작위로도 크게 나오므로(예: 78 %) ±1 은 모델이 이미지를
+    /// 봤다는 증거가 못 된다. 균등 무작위의 기대값과, 한 등급만 찍을 때 가장 나은 등급의 ±1 을 함께 낸다.
+    /// </summary>
+    internal static (double RandomExact, double RandomAdjacent, double BestFixedAdjacent, string BestFixedGrade) Baselines(
+        IReadOnlyList<string> truths, IReadOnlyList<string> order)
+    {
+        var k = order.Count;
+        var index = order.Select((grade, i) => (grade, i)).ToDictionary(x => x.grade, x => x.i);
+        var known = truths.Where(index.ContainsKey).Select(t => index[t]).ToList();
+        if (known.Count == 0 || k == 0) return (0, 0, 0, "");
+        // 정답 등급마다 «±1 안에 드는 등급 수» / k 가 무작위 추측의 ±1 적중 확률이다.
+        var randomAdjacent = known.Average(t => Enumerable.Range(0, k).Count(g => Math.Abs(g - t) <= 1) / (double)k);
+        var fixedAdjacent = Enumerable.Range(0, k)
+            .Select(g => (Grade: order[g], Rate: known.Count(t => Math.Abs(g - t) <= 1) / (double)known.Count))
+            .MaxBy(x => x.Rate);
+        return (1.0 / k, randomAdjacent, fixedAdjacent.Rate, fixedAdjacent.Grade);
+    }
+
     private static string Clip(string text) => text.Length <= 200 ? text.ReplaceLineEndings(" ") : text[..200].ReplaceLineEndings(" ");
 
     private static List<Sample> EvenlySpaced(List<Sample> items, int count) =>
@@ -166,7 +192,7 @@ internal static class GradeBench
     };
 
     private static string Render(string name, string model, IReadOnlyList<string> order, int refsPerClass, string context,
-        (Sample Sample, string? Predicted, double Seconds)[] results)
+        (Sample Sample, string? Predicted, double Seconds)[] results, string? criteriaPath)
     {
         var inv = CultureInfo.InvariantCulture;
         var (exact, adjacent, judged) = Score([.. results.Select(x => (x.Sample.Class, x.Predicted))], order);
@@ -177,8 +203,10 @@ internal static class GradeBench
         var sb = new StringBuilder();
         sb.AppendLine($"# 등급 판정 가능성 — 목록 `{name}` test 분할, 모델 `{model}`");
         sb.AppendLine();
-        sb.AppendLine($"- {context} · 등급 순서 {string.Join(" > ", order)} · {(refsPerClass == 0 ? "zero-shot" : $"few-shot(등급마다 기준 {refsPerClass}장)")} · 질의 {results.Length}장(판정 {judged} · 실패 {failed})");
+        sb.AppendLine($"- {context} · 등급 순서 {string.Join(" > ", order)} · {(refsPerClass == 0 ? "zero-shot" : $"few-shot(등급마다 기준 {refsPerClass}장)")} · 질의 {results.Length}장(판정 {judged} · 실패 {failed}){(criteriaPath is null ? "" : $" · 등급 기준 글 `{Path.GetFileName(criteriaPath)}`")}");
         sb.AppendLine($"- 정확히 맞춤 {exact}/{judged} = {(judged == 0 ? 0 : exact / (double)judged).ToString("P1", inv)} · 한 단계 이내(±1) {adjacent}/{judged} = {(judged == 0 ? 0 : adjacent / (double)judged).ToString("P1", inv)} · 기준선(가장 많은 등급 찍기) {majority}/{results.Length} = {(majority / (double)results.Length).ToString("P1", inv)}");
+        var (randomExact, randomAdjacent, fixedAdjacent, fixedGrade) = Baselines([.. results.Select(x => x.Sample.Class)], order);
+        sb.AppendLine($"- 아무것도 안 보는 추측 — 균등 무작위 정확 {randomExact.ToString("P1", inv)} · ±1 {randomAdjacent.ToString("P1", inv)}, 한 등급만 찍기(최선 `{fixedGrade}`) ±1 {fixedAdjacent.ToString("P1", inv)} — ±1 은 이 수보다 높아야 의미가 있다");
         if (seconds.Count > 0)
             sb.AppendLine($"- 지연 p50 {seconds[seconds.Count / 2]:F1} s · p95 {seconds[(int)(seconds.Count * 0.95)]:F1} s");
         sb.AppendLine();
