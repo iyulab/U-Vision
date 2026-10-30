@@ -64,7 +64,7 @@ namespace UVision.Client.Results
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public ResultsRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/results?scenario_id={scenario_id}{&date*}", pathParameters)
+        public ResultsRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/results?scenario_id={scenario_id}{&cursor*,date*,limit*}", pathParameters)
         {
         }
         /// <summary>
@@ -72,7 +72,7 @@ namespace UVision.Client.Results
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public ResultsRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/results?scenario_id={scenario_id}{&date*}", rawUrl)
+        public ResultsRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/results?scenario_id={scenario_id}{&cursor*,date*,limit*}", rawUrl)
         {
         }
         /// <returns>A List&lt;global::UVision.Client.Models.StoredResult&gt;</returns>
@@ -129,6 +129,19 @@ namespace UVision.Client.Results
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
             #pragma warning disable CS1591
+            [QueryParameter("cursor")]
+            public string? Cursor { get; set; }
+            #pragma warning restore CS1591
+#nullable restore
+#else
+            #pragma warning disable CS1591
+            [QueryParameter("cursor")]
+            public string Cursor { get; set; }
+            #pragma warning restore CS1591
+#endif
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+            #pragma warning disable CS1591
             [QueryParameter("date")]
             public string? Date { get; set; }
             #pragma warning restore CS1591
@@ -139,6 +152,10 @@ namespace UVision.Client.Results
             public string Date { get; set; }
             #pragma warning restore CS1591
 #endif
+            #pragma warning disable CS1591
+            [QueryParameter("limit")]
+            public int? Limit { get; set; }
+            #pragma warning restore CS1591
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
             #pragma warning disable CS1591

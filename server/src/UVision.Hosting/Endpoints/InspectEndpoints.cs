@@ -47,7 +47,7 @@ public static class InspectEndpoints
         group.MapGet("/results", ListResultsAsync)
             .WithName("ListResults")
             .Produces<IReadOnlyList<StoredResult>>()
-            .ProducesProblem(400);
+            .ProducesProblem(400);  // limit 를 주면 최신 먼저 한 쪽만, 더 있으면 응답 헤더 X-Next-Cursor(다음 호출의 cursor)
         group.MapGet("/results/dates", ListResultDatesAsync)
             .WithName("ListResultDates")
             .Produces<IReadOnlyList<string>>()
@@ -179,23 +179,43 @@ public static class InspectEndpoints
             cancellationToken);
     }
 
+    /// <summary>한 쪽에 받을 수 있는 최대 건수 — 쪽을 두는 이유가 «읽는 레코드 수에 상한» 이라 상한 없는 limit 는 의미가 없다.</summary>
+    private const int MaxResultPageSize = 1000;
+
     private static async Task<IResult> ListResultsAsync(
         [FromQuery(Name = "scenario_id")] string scenarioId,
         IInspectionStore inspectionStore,
+        HttpContext http,
         CancellationToken cancellationToken,
-        [FromQuery(Name = "date")] string? date = null)
+        [FromQuery(Name = "date")] string? date = null,
+        [FromQuery(Name = "limit")] int? limit = null,
+        [FromQuery(Name = "cursor")] string? cursor = null)
     {
         // date 생략 시 오늘(UTC) — 운영의 가장 흔한 질의("오늘 검사 이력").
         date ??= DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
+        // limit 를 안 주면 지금과 같다(전부, 본문 · 순서 불변). 주면 최신 먼저 한 쪽 — cursor 는 limit 와 함께만.
+        if (limit is null && cursor is not null)
+            return Results.Problem(statusCode: 400, detail: "cursor 는 limit 와 함께 준다");
+        if (limit is < 1 or > MaxResultPageSize)
+            return Results.Problem(statusCode: 400, detail: $"limit 는 1~{MaxResultPageSize}");
+
         try
         {
+            if (limit is { } pageSize)
+            {
+                var page = await inspectionStore.ListPageAsync(scenarioId, date, pageSize, cursor, cancellationToken);
+                if (page.NextCursor is { } next)
+                    http.Response.Headers["X-Next-Cursor"] = next;
+                return Results.Ok(page.Items);
+            }
+
             var results = await inspectionStore.ListAsync(scenarioId, date, cancellationToken);
             return Results.Ok(results);
         }
         catch (ArgumentException) // 형식 위반 scenario_id/date → 400
         {
-            return Results.Problem(statusCode: 400, detail: "유효하지 않은 scenario_id 또는 date");
+            return Results.Problem(statusCode: 400, detail: "유효하지 않은 scenario_id · date 또는 cursor");
         }
     }
 
