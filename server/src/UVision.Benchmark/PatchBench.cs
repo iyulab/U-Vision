@@ -121,15 +121,15 @@ internal static class PatchBench
         return 0;
     }
 
-    private static List<Sample> EvenlySpaced(List<Sample> items, int count)
+    internal static List<Sample> EvenlySpaced(List<Sample> items, int count)
     {
         if (items.Count <= count) return items;
         return [.. Enumerable.Range(0, count).Select(i => items[(int)((long)i * items.Count / count)])];
     }
 
-    private sealed record Features(float[] Global, float[] Patches);
+    internal sealed record Features(float[] Global, float[] Patches);
 
-    private static async Task<(MLoopEncoder Encoder, MLoopPatchGrid Grid, Dictionary<string, Features> Features)> LoadAsync(
+    internal static async Task<(MLoopEncoder Encoder, MLoopPatchGrid Grid, Dictionary<string, Features> Features)> LoadAsync(
         IMLoopClient client, string encoderName, string dataRoot, string name, IReadOnlyList<Sample> samples)
     {
         // 인코더 판과 격자를 먼저 안다 — 캐시 폴더 이름이 그 판이다. 첫 장은 캐시에 올려 둔다.
