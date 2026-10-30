@@ -45,6 +45,7 @@ export interface Contract {
   DatasetExportManifest?: DatasetExportManifest
   DatasetItem?: DatasetItem
   DatasetSelection?: DatasetSelection
+  DataVolumeStatus?: DataVolumeStatus
   DemoteAuthorityInput?: DemoteAuthorityInput
   DetectionUnavailableResponse?: DetectionUnavailableResponse
   EventsStatusResponse?: EventsStatusResponse
@@ -239,6 +240,15 @@ export interface DatasetSelection {
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "DataVolumeStatus".
+ */
+export interface DataVolumeStatus {
+  free_bytes: number
+  total_bytes: number
+  low: boolean
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
  * via the `definition` "DemoteAuthorityInput".
  */
 export interface DemoteAuthorityInput {
@@ -289,6 +299,7 @@ export interface WebhookStatus {
 export interface HealthResponse {
   status: string
   provider: string
+  data_volume?: DataVolumeStatus
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

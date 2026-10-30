@@ -10,6 +10,23 @@ public sealed record HealthResponse
 {
     [JsonPropertyName("status")] public required string Status { get; init; }
     [JsonPropertyName("provider")] public required string Provider { get; init; }
+
+    /// <summary>데이터 볼륨 여유 — 읽을 수 없는 환경이면 생략한다(additive).</summary>
+    [JsonPropertyName("data_volume")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DataVolumeStatus? DataVolume { get; init; }
+}
+
+/// <summary>데이터 루트가 놓인 볼륨의 여유(<c>GET /health</c>).</summary>
+public sealed record DataVolumeStatus
+{
+    /// <summary>이 프로세스가 쓸 수 있는 여유 바이트(쿼터 반영).</summary>
+    [JsonPropertyName("free_bytes")] public required long FreeBytes { get; init; }
+
+    [JsonPropertyName("total_bytes")] public required long TotalBytes { get; init; }
+
+    /// <summary>여유가 <c>Storage:LowSpaceWarningBytes</c> 미만 — 디스크가 가득 차면 저장이 실패한다(판정 기록은 must-succeed).</summary>
+    [JsonPropertyName("low")] public required bool Low { get; init; }
 }
 
 /// <summary>권한 단계 격상 · 격하 결과.</summary>

@@ -21,4 +21,11 @@ public sealed class StorageOptions
     /// 판정된다. 장치는 응답을 잃으면 연결이 돌아오는 대로 다시 보내므로 며칠이면 넉넉하다. 0 이하는 지우지 않는다.
     /// </summary>
     public int IdempotencyRetentionHours { get; set; } = 168;
+
+    /// <summary>
+    /// 데이터 볼륨의 여유 공간이 이 값(바이트) 미만이면 <c>GET /health</c> 의 <c>data_volume.low</c> 가 true 가 된다 — 설치자가
+    /// 디스크가 가득 차기 전에 알아채게 하는 신호다. 엔진은 이 값으로 아무것도 지우거나 거부하지 않는다(보존은 설치자가 정한다).
+    /// 기본 2 GiB. 0 이하는 경고 없음(여유 수치만 보인다).
+    /// </summary>
+    public long LowSpaceWarningBytes { get; set; } = 2L * 1024 * 1024 * 1024;
 }

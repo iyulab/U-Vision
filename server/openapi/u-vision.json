@@ -2754,6 +2754,27 @@
           }
         }
       },
+      "DataVolumeStatus": {
+        "required": [
+          "free_bytes",
+          "total_bytes",
+          "low"
+        ],
+        "type": "object",
+        "properties": {
+          "free_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "low": {
+            "type": "boolean"
+          }
+        }
+      },
       "DemoteAuthorityInput": {
         "type": "object",
         "properties": {
@@ -2819,6 +2840,9 @@
           },
           "provider": {
             "type": "string"
+          },
+          "data_volume": {
+            "$ref": "#/components/schemas/DataVolumeStatus"
           }
         }
       },

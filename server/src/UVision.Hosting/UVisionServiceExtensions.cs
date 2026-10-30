@@ -50,7 +50,9 @@ public static class UVisionServiceExtensions
             Services.Confidence.StaticConfidenceCalibrator>();
 
         // 파일시스템 저장소.
-        services.AddSingleton(new StoragePaths(options.Storage, contentRoot));
+        var storagePaths = new StoragePaths(options.Storage, contentRoot);
+        services.AddSingleton(storagePaths);
+        services.AddSingleton(new DataVolumeReader(storagePaths, options.Storage));
         services.AddSingleton<IScenarioStore, FileScenarioStore>();
         services.AddSingleton<IInspectionStore, FileInspectionStore>();
         services.AddSingleton<IReferenceStore, FileReferenceStore>();

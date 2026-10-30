@@ -18,8 +18,8 @@ public static class InspectEndpoints
 {
     public static void MapInspectEndpoints(this RouteGroupBuilder group)
     {
-        group.MapGet("/health", (IVlmProvider provider) =>
-            Results.Ok(new HealthResponse { Status = "ok", Provider = provider.Name }))
+        group.MapGet("/health", (IVlmProvider provider, DataVolumeReader volume) =>
+            Results.Ok(new HealthResponse { Status = "ok", Provider = provider.Name, DataVolume = volume.Read() }))
             .WithName("GetHealth")
             .Produces<HealthResponse>();
 

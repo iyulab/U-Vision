@@ -14,6 +14,14 @@ namespace UVision.Client.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
+        /// <summary>The data_volume property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::UVision.Client.Models.DataVolumeStatus? DataVolume { get; set; }
+#nullable restore
+#else
+        public global::UVision.Client.Models.DataVolumeStatus DataVolume { get; set; }
+#endif
         /// <summary>The provider property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -55,6 +63,7 @@ namespace UVision.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "data_volume", n => { DataVolume = n.GetObjectValue<global::UVision.Client.Models.DataVolumeStatus>(global::UVision.Client.Models.DataVolumeStatus.CreateFromDiscriminatorValue); } },
                 { "provider", n => { Provider = n.GetStringValue(); } },
                 { "status", n => { Status = n.GetStringValue(); } },
             };
@@ -66,6 +75,7 @@ namespace UVision.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteObjectValue<global::UVision.Client.Models.DataVolumeStatus>("data_volume", DataVolume);
             writer.WriteStringValue("provider", Provider);
             writer.WriteStringValue("status", Status);
             writer.WriteAdditionalData(AdditionalData);
