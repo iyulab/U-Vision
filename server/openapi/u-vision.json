@@ -2995,6 +2995,9 @@
           },
           "mode": {
             "type": "string"
+          },
+          "stream": {
+            "type": "string"
           }
         }
       },

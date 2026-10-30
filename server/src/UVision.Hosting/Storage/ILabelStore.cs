@@ -11,10 +11,11 @@ public interface ILabelStore
     /// <summary>
     /// operative 라벨(또는 해소)을 append 한다 — read-modify-append(이력 누적, 덮어쓰지 않음).
     /// 직전 audit 상태가 conflicted 면 이 쓰기가 resolved 로 전이시킨다(C1). <paramref name="by"/>=device id.
+    /// <paramref name="stream"/>=출제 흐름 표식(<see cref="Services.Label.LabelStream"/>) — null 이면 표식 없음(측정용으로 읽힘).
     /// </summary>
     Task AppendLabelAsync(
         string scenarioId, string date, string imageId, string label, string by,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default, string? stream = null);
 
     /// <summary>
     /// 블라인드 재라벨을 append 하고 감사 상태를 계산한다(C1) — operative 라벨은 불변(측정).

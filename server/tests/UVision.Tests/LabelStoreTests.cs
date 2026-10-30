@@ -69,6 +69,35 @@ public class LabelStoreTests
     }
 
     [Fact]
+    public async Task AppendLabel_CarriesStreamMarker_AndOmitsItWhenAbsent()
+    {
+        var paths = NewPaths(out _);
+        var store = new FileLabelStore(paths);
+        await store.AppendLabelAsync("demo", "2026-06-09", "img_learn", "NG", "dev", stream: LabelStream.Learn);
+        await store.AppendLabelAsync("demo", "2026-06-09", "img_plain", "NG", "dev");
+
+        var learn = await store.ReadAsync("demo", "2026-06-09", "img_learn");
+        var plain = await store.ReadAsync("demo", "2026-06-09", "img_plain");
+
+        Assert.True(learn!.IsLearnStream);
+        Assert.Equal(LabelStream.Learn, learn.OperativeStream);
+        Assert.False(plain!.IsLearnStream);
+        Assert.Null(plain.OperativeStream);
+        // 표식이 없는 라벨은 디스크에서 이전 사이드카와 byte 같다(wire · 저장 형태 보존).
+        Assert.DoesNotContain("\"stream\"", await File.ReadAllTextAsync(paths.LabelJson("demo", "2026-06-09", "img_plain")));
+        using var doc = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(paths.LabelJson("demo", "2026-06-09", "img_learn")));
+        Assert.Equal("learn", doc.RootElement.GetProperty("history")[0].GetProperty("stream").GetString());
+    }
+
+    [Fact]
+    public async Task AppendLabel_RejectsUnknownStream()
+    {
+        var store = new FileLabelStore(NewPaths(out _));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            store.AppendLabelAsync("demo", "2026-06-09", "img_abc", "NG", "dev", stream: "weird"));
+    }
+
+    [Fact]
     public async Task Read_ReturnsNull_WhenAbsent()
     {
         var paths = NewPaths(out _);

@@ -373,6 +373,7 @@ export interface LabelEvent {
   by: string
   at: string
   mode: string
+  stream?: string
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

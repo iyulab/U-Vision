@@ -117,10 +117,12 @@ public static class LabelEndpoints
         {
             var labels = await labelStore.ListAsync(scenarioId, date, cancellationToken);
             // 미감사(unaudited)만 표본 후보 — 결정론 해시 샘플링. 블라인드: image_id 만 반환.
-            // 데이터셋 정답(주입 도구가 심은 라벨)은 사람 라벨이 아니라 감사하지 않는다.
+            // 데이터셋 정답(주입 도구가 심은 라벨)은 사람 라벨이 아니라 감사하지 않는다. 학습용 출제의 라벨도 감사 표본에서 뺀다
+            // — 일관성 지표가 측정용 라벨만 읽으므로(어려운 사례가 농축된 표본이라 일관성이 치우친다) 표본 예산을 거기에 쓴다.
             var sample = labels
                 .Where(l => (l.Audit?.Status ?? LabelAuditStatus.Unaudited) == LabelAuditStatus.Unaudited)
                 .Where(l => !l.IsDatasetLabel)
+                .Where(l => !l.IsLearnStream)
                 .Where(l => LabelAuditEvaluator.IsSampled(l.ImageId, options.Value.SampleRatePercent))
                 .Select(l => l.ImageId)
                 .ToArray();

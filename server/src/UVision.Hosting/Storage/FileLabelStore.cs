@@ -36,21 +36,23 @@ public sealed class FileLabelStore : ILabelStore
 
     public async Task AppendLabelAsync(
         string scenarioId, string date, string imageId, string label, string by,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, string? stream = null)
     {
+        if (!LabelStream.IsValid(stream))
+            throw new ArgumentException($"알 수 없는 출제 흐름 표식: '{stream}'", nameof(stream));
         var path = _paths.LabelJson(scenarioId, date, imageId); // 형식 위반 → ArgumentException(→400)
-        await WithPathLockAsync(path, () => AppendLabelLockedAsync(path, imageId, label, by, cancellationToken), cancellationToken);
+        await WithPathLockAsync(path, () => AppendLabelLockedAsync(path, imageId, label, by, stream, cancellationToken), cancellationToken);
     }
 
     private static async Task AppendLabelLockedAsync(
-        string path, string imageId, string label, string by, CancellationToken cancellationToken)
+        string path, string imageId, string label, string by, string? stream, CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
         var existing = await ReadNormalizedAsync(path, cancellationToken);
 
         var history = new List<LabelEvent>(existing?.History ?? [])
         {
-            new() { Label = label, By = by, At = now, Mode = LabelMode.Label },
+            new() { Label = label, By = by, At = now, Mode = LabelMode.Label, Stream = stream },
         };
         // 충돌 상태에서의 라벨 쓰기 = 사람 해소 → resolved. 그 외엔 직전 audit 보존.
         var prevStatus = existing?.Audit?.Status ?? LabelAuditStatus.Unaudited;

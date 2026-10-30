@@ -141,6 +141,52 @@ public class MetricsAggregatorTests
         Assert.Equal(1.0, s.MlNgRecall);
     }
 
+    private static StoredLabel LearnLabel(string imageId, string label, string auditStatus = LabelAuditStatus.Unaudited) => new()
+    {
+        ImageId = imageId,
+        Label = label,
+        Timestamp = "2026-06-22T13:00:00.0000000+00:00",
+        History = [new LabelEvent { Label = label, By = "dev", At = "2026-06-22T13:00:00.0000000+00:00", Mode = LabelMode.Label, Stream = LabelStream.Learn }],
+        Audit = new LabelAudit { Status = auditStatus },
+    };
+
+    [Fact]
+    public void LearnStreamLabels_AreNotReadByRecallOrAuditCounts()
+    {
+        // 측정용 NG 2건(a, b)과 학습용 NG 2건(c, d) — 학습용은 어려운 사례가 농축된 표본이라 재현율의 분모에 들면 안 된다.
+        var rows = new[]
+        {
+            Row("a", Verdict.NG, "ng", true, false),
+            Row("b", Verdict.NG, "ng", true, false),
+            Row("c", Verdict.OK, "ok", true, false),
+            Row("d", Verdict.OK, "ok", true, false),
+        };
+        var labels = new[]
+        {
+            Label("a", "NG"), Label("b", "NG"),
+            LearnLabel("c", "NG", LabelAuditStatus.Conflicted), LearnLabel("d", "NG", LabelAuditStatus.Consistent),
+        };
+
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, labels, new AuthorityOptions());
+
+        Assert.Equal(2, s.Labeled);
+        Assert.Equal(2, s.LabeledNg);
+        Assert.Equal(1.0, s.VlmNgRecall);       // 학습용 c, d 의 놓침이 섞였다면 0.5
+        Assert.Equal(0, s.LabelConflictsOpen);  // 학습용 라벨의 감사 상태는 일관성 집계에 안 든다
+        Assert.Equal(0, s.LabelConsistent);
+    }
+
+    [Fact]
+    public void LabelWithoutStream_IsReadAsMeasure()
+    {
+        // 표식이 없는 라벨(이전 사이드카 · 운영 화면의 라벨)은 측정용으로 읽힌다 — 기존 동작 보존.
+        var rows = new[] { Row("a", Verdict.NG, "ng", true, false) };
+
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, [Label("a", "NG")], new AuthorityOptions());
+
+        Assert.Equal(1, s.LabeledNg);
+    }
+
     [Fact]
     public void NgRecall_NoLabeledNg_NullRecall()
     {

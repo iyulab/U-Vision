@@ -8,6 +8,19 @@ public static class LabelMode
     public const string Oracle = "oracle"; // ④-B 오라클 2차 의견 — 비operative 이벤트(operative 라벨 안 덮음)
 }
 
+/// <summary>
+/// 라벨이 어느 출제 흐름에서 왔는가 — 단일 출처. <see cref="Learn"/> 은 능동 선택으로 고른 사진의 라벨이라 어려운 사례가
+/// 농축돼 있다: 기억 단 · 학습 정답으로는 쓰이지만, 재현율 · 격상 신호 · 감사 일관성 같은 <b>측정</b>은 읽지 않는다.
+/// 표식이 없는 라벨(이전 사이드카 · 운영 화면의 라벨)은 <see cref="Measure"/> 로 읽는다.
+/// </summary>
+public static class LabelStream
+{
+    public const string Measure = "measure";
+    public const string Learn = "learn";
+
+    public static bool IsValid(string? stream) => stream is null or Measure or Learn;
+}
+
 /// <summary>감사 상태 — 단일 출처(C1).</summary>
 public static class LabelAuditStatus
 {

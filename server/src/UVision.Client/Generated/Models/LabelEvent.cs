@@ -46,6 +46,14 @@ namespace UVision.Client.Models
 #else
         public string Mode { get; set; }
 #endif
+        /// <summary>The stream property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Stream { get; set; }
+#nullable restore
+#else
+        public string Stream { get; set; }
+#endif
         /// <summary>
         /// Instantiates a new <see cref="global::UVision.Client.Models.LabelEvent"/> and sets the default values.
         /// </summary>
@@ -75,6 +83,7 @@ namespace UVision.Client.Models
                 { "by", n => { By = n.GetStringValue(); } },
                 { "label", n => { Label = n.GetStringValue(); } },
                 { "mode", n => { Mode = n.GetStringValue(); } },
+                { "stream", n => { Stream = n.GetStringValue(); } },
             };
         }
         /// <summary>
@@ -88,6 +97,7 @@ namespace UVision.Client.Models
             writer.WriteStringValue("by", By);
             writer.WriteStringValue("label", Label);
             writer.WriteStringValue("mode", Mode);
+            writer.WriteStringValue("stream", Stream);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

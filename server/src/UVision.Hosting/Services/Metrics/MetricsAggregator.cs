@@ -33,7 +33,10 @@ public static class MetricsAggregator
         // 오라클↔사람 비교(④-B) — operative·oracle 둘 다 있는 건만(순수 파생, 항상 최신). 같은 패스에서 집계.
         int audited = 0, labelConsistent = 0, labelConflictsOpen = 0;
         int oracleEvaluated = 0, oracleConflicts = 0;
-        foreach (var l in labels)
+        // 학습용 출제(능동 선택)로 모은 라벨은 어려운 사례가 농축된 표본이라 측정(재현율 · 격상 신호 · 일관성)이 읽지 않는다 —
+        // 읽으면 재현율이 어려운 쪽으로 치우친다.
+        var measured = labels.Where(l => !l.IsLearnStream).ToList();
+        foreach (var l in measured)
         {
             switch (l.Audit?.Status ?? LabelAuditStatus.Unaudited)
             {
@@ -55,7 +58,7 @@ public static class MetricsAggregator
         // 마지막 값 우선(라벨은 last-write-wins 사이드카).
         var labelOf = new Dictionary<string, string>(StringComparer.Ordinal);
         var oracledImages = new HashSet<string>(StringComparer.Ordinal); // 오라클 소견이 기록된 image_id(커버리지 조인).
-        foreach (var l in labels)
+        foreach (var l in measured)
         {
             if (l.OperativeLabel is { } op)
                 labelOf[l.ImageId] = op;

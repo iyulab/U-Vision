@@ -49,6 +49,18 @@ public sealed record StoredLabel
     /// 없으면 null. operative 가 아니다(D2 위계) — <see cref="OperativeLabel"/> 과 대조해
     /// 사람 라벨러의 계통편향(systematic bias)을 flag-only 로 관측한다(메트릭 집계 입력).
     /// </summary>
+    /// <summary>operative 라벨의 출제 흐름 표식(<see cref="LabelStream"/>) — 없으면 null(표식 없는 라벨).</summary>
+    [JsonIgnore]
+    public string? OperativeStream =>
+        History?.LastOrDefault(e => e.Mode == LabelMode.Label)?.Stream;
+
+    /// <summary>
+    /// operative 라벨이 학습용 출제(<see cref="LabelStream.Learn"/>)에서 왔는가 — 맞으면 측정(재현율 · 격상 신호 · 감사 일관성)이
+    /// 읽지 않는다. 표식이 없는 라벨은 측정용으로 읽는다.
+    /// </summary>
+    [JsonIgnore]
+    public bool IsLearnStream => OperativeStream == LabelStream.Learn;
+
     /// <summary>
     /// operative 라벨이 시험 데이터셋의 정답인가 — 라벨러가 <see cref="CaptureOrigin.LabelerPrefix"/> 로 시작한다(주입 도구가
     /// 정답을 심을 때 쓰는 표기). 블라인드 감사는 사람 라벨의 일관성을 재는 것이라 이 라벨은 감사 표본에서 빠진다.
@@ -96,6 +108,14 @@ public sealed record LabelEvent
 
     /// <summary><see cref="LabelMode"/> — label(operative)/audit(블라인드)/oracle(④-B 2차의견·비operative).</summary>
     [JsonPropertyName("mode")] public required string Mode { get; init; }
+
+    /// <summary>
+    /// 이 라벨을 낳은 출제 흐름(<see cref="LabelStream"/>) — 측정 지표가 학습용 라벨을 읽지 않게 하는 표식. 없으면 null
+    /// (이전 이벤트 · 운영 화면의 라벨 — 측정용으로 읽는다). 쓰지 않을 땐 직렬화에서 빠져 이전 사이드카와 byte 같다.
+    /// </summary>
+    [JsonPropertyName("stream")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Stream { get; init; }
 }
 
 /// <summary>감사 상태 요약(C1) — <see cref="LabelAuditStatus"/>.</summary>
