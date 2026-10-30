@@ -3683,7 +3683,7 @@
           "trust": {
             "$ref": "#/components/schemas/ScenarioTrust"
           },
-          "memory_encoder": {
+          "patch_encoder": {
             "type": "string"
           }
         }
@@ -3795,7 +3795,7 @@
               }
             ]
           },
-          "memory_encoder": {
+          "patch_encoder": {
             "type": [
               "null",
               "string"

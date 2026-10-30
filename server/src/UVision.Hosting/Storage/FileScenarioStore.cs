@@ -86,7 +86,7 @@ public sealed partial class FileScenarioStore : IScenarioStore
             Judges = input.Judges ?? (typeChanged ? null : existing?.Judges),
             Trust = input.Trust ?? existing?.Trust,
             // 생략 = 보존, 빈 문자열 = 지움(전역 설정으로).
-            MemoryEncoder = input.MemoryEncoder is { } encoder ? (encoder.Length == 0 ? null : encoder) : existing?.MemoryEncoder,
+            PatchEncoder = input.PatchEncoder is { } encoder ? (encoder.Length == 0 ? null : encoder) : existing?.PatchEncoder,
         };
         await StoragePaths.AtomicWriteJsonAsync(path, scenario, cancellationToken);
         return scenario;

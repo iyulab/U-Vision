@@ -94,12 +94,13 @@ public sealed record Scenario
     public ScenarioTrust? Trust { get; init; }
 
     /// <summary>
-    /// 이 시나리오의 확정 사례 기억(전역 · 패치 벡터)이 쓰는 인코더 id — MLoop 에 등록한 인코더(중간 층 출력 · 층 연결 포함).
-    /// 없으면 전역 설정(<c>UVision:Memory:Encoder</c>). 특징 층의 우열이 대상마다 갈려(기판은 중간 층, 입체 물체는 마지막 층) 시나리오가 고른다.
+    /// 이 시나리오의 패치 기억이 쓰는 인코더 id — MLoop 에 등록한 인코더(중간 층 출력 · 층 연결 포함). 없으면 설정의 인코더
+    /// (<c>UVision:Memory:Encoder</c>). 특징 층의 우열이 대상마다 갈려(기판은 중간 층, 입체 물체는 마지막 층) 시나리오가 고른다.
+    /// 패치 점수에만 쓰인다 — 확정 사례 기억(전역 벡터)의 인코더와 거리 문턱은 설치의 것 그대로다.
     /// </summary>
-    [JsonPropertyName("memory_encoder")]
+    [JsonPropertyName("patch_encoder")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? MemoryEncoder { get; init; }
+    public string? PatchEncoder { get; init; }
 }
 
 /// <summary>
@@ -154,8 +155,8 @@ public sealed record ScenarioInput
 
     [JsonPropertyName("trust")] public ScenarioTrust? Trust { get; init; }
 
-    /// <summary>기억 인코더 id — 생략하면 수정 시 기존 값을 보존하고, 빈 문자열은 지운다(전역 설정으로 돌아간다).</summary>
-    [JsonPropertyName("memory_encoder")] public string? MemoryEncoder { get; init; }
+    /// <summary>패치 인코더 id — 생략하면 수정 시 기존 값을 보존하고, 빈 문자열은 지운다(설정의 인코더로 돌아간다).</summary>
+    [JsonPropertyName("patch_encoder")] public string? PatchEncoder { get; init; }
 
     /// <summary>입력 + 확정 id → 영속 시나리오.</summary>
     public Scenario ToScenario(string scenarioId) => new()
@@ -176,6 +177,6 @@ public sealed record ScenarioInput
         Classes = Classes,
         Judges = Judges,
         Trust = Trust,
-        MemoryEncoder = string.IsNullOrEmpty(MemoryEncoder) ? null : MemoryEncoder,
+        PatchEncoder = string.IsNullOrEmpty(PatchEncoder) ? null : PatchEncoder,
     };
 }

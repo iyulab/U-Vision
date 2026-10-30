@@ -32,13 +32,19 @@ public class CaseMemoryPatchesTests
         public bool IsEnabled => inner.IsEnabled;
         public bool SupportsPatches => inner.SupportsPatches;
 
-        /// <summary>호출에 실려 온 인코더 id 들(시나리오가 고른 것) — 고르지 않았으면 null.</summary>
+        /// <summary>패치 호출에 실려 온 인코더 id 들(시나리오가 고른 것) — 고르지 않았으면 null.</summary>
         public List<string?> Encoders { get; } = [];
 
-        public Task<ImageEmbeddings> EmbedAsync(IReadOnlyList<ReadOnlyMemory<byte>> images, string? encoder = null, CancellationToken cancellationToken = default)
+        /// <summary>이 인코더 id 로 패치를 부르면 연결 실패를 흉내 낸다(MLoop 에 없는 인코더 · 서버 오류).</summary>
+        public string? FailingEncoder { get; set; }
+
+        /// <summary>전역 임베딩 호출 수 — 전역 기억은 언제나 설치 인코더라 인코더 id 를 싣지 않는다.</summary>
+        public int GlobalCalls { get; private set; }
+
+        public Task<ImageEmbeddings> EmbedAsync(IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default)
         {
-            Encoders.Add(encoder);
-            return inner.EmbedAsync(images, encoder, cancellationToken);
+            GlobalCalls++;
+            return inner.EmbedAsync(images, cancellationToken);
         }
 
         public Task<PatchEmbeddings> EmbedPatchesAsync(IReadOnlyList<ReadOnlyMemory<byte>> images, string? encoder = null, CancellationToken cancellationToken = default)
@@ -46,6 +52,8 @@ public class CaseMemoryPatchesTests
             PatchCalls++;
             PatchedImages += images.Count;
             Encoders.Add(encoder);
+            if (encoder is not null && encoder == FailingEncoder)
+                throw new HttpRequestException("encoder not installed (test)");
             return inner.EmbedPatchesAsync(images, encoder, cancellationToken);
         }
     }
@@ -211,30 +219,71 @@ public class CaseMemoryPatchesTests
         Assert.True(Number(annotations, "memory:patch_score") >= Number(baseline, "memory:patch_score") - 1e-9);   // 기억이 줄면 거리는 줄지 않는다
     }
 
-    [Fact]
-    public async Task ScenarioMemoryEncoder_ChoosesTheEncoderOfThatScenariosMemory_AndSeparatesItsSpace()
+    /// <summary>시나리오 «demo» 의 패치 인코더를 정하고(없으면 지움) 정상 둘 · 불량 하나를 확정한 기억을 짓는다.</summary>
+    private static async Task<(HttpClient Client, CaseMemory Memory)> SeedWithPatchEncoderAsync(PatchesFactory factory, string? patchEncoder)
     {
-        using var factory = new PatchesFactory(patches: true);
         var client = factory.CreateClient();
-        // 시나리오 «demo» 가 중간 층 인코더를 고른다 — 전역 설정(비어 있음)이 아니라 이 이름으로 임베딩해야 한다.
         var store = factory.Services.GetRequiredService<UVision.Api.Storage.IScenarioStore>();
-        var demo = await store.GetAsync("demo");
-        if (demo is null)
+        if (await store.GetAsync("demo") is null)
             await client.PostAsync("/api/u-vision/inspect", Form(Jpeg(1)));   // 기본 시나리오가 파일로 생기게
-        demo = (await store.GetAsync("demo"))!;
-        await store.UpdateAsync("demo", new ScenarioInput { Name = demo.Name, MemoryEncoder = "dinov2-small-mid6" });
-
+        var demo = (await store.GetAsync("demo"))!;
+        if (patchEncoder is not null)
+            await store.UpdateAsync("demo", new ScenarioInput { Name = demo.Name, PatchEncoder = patchEncoder });
         await LabelAsync(client, await InspectAsync(client, Jpeg(1)), "OK");
         await LabelAsync(client, await InspectAsync(client, Jpeg(2)), "OK");
-        factory.Embedder.Encoders.Clear();
-        await factory.Services.GetRequiredService<CaseMemory>().SyncOnceAsync(CancellationToken.None);
-        await factory.Services.GetRequiredService<CaseMemory>().SyncOnceAsync(CancellationToken.None);   // 판을 배운 뒤 한 번 더
-        await InspectAsync(client, Jpeg(1));
+        await LabelAsync(client, await InspectAsync(client, Jpeg(3)), "NG");
+        var memory = factory.Services.GetRequiredService<CaseMemory>();
+        await memory.SyncOnceAsync(CancellationToken.None);
+        await memory.SyncOnceAsync(CancellationToken.None);   // 패치 인코더의 판을 배운 뒤 한 번 더
+        return (client, memory);
+    }
 
-        Assert.NotEmpty(factory.Embedder.Encoders);
-        Assert.All(factory.Embedder.Encoders, e => Assert.Equal("dinov2-small-mid6", e));
-        var status = factory.Services.GetRequiredService<CaseMemory>().StatusOf("demo");
-        Assert.StartsWith("dinov2-small-mid6", status!.Value.EncoderKey);   // 이 시나리오의 기억은 고른 인코더의 판 위에 선다
+    [Fact]
+    public async Task ScenarioPatchEncoder_MovesOnlyThePatchesToThatEncoder_TheGlobalMemoryStaysOnTheInstalledOne()
+    {
+        using var chosen = new PatchesFactory(patches: true);
+        using var installed = new PatchesFactory(patches: true);
+        var (chosenClient, chosenMemory) = await SeedWithPatchEncoderAsync(chosen, "dinov2-small-mid6");
+        var (installedClient, _) = await SeedWithPatchEncoderAsync(installed, null);
+        chosen.Embedder.Encoders.Clear();
+        var globalBefore = chosen.Embedder.GlobalCalls;
+
+        await InspectAsync(chosenClient, Jpeg(9));
+        await InspectAsync(installedClient, Jpeg(9));
+        var a = await LastAnnotationsAsync(chosen);
+        var b = await LastAnnotationsAsync(installed);
+
+        // 패치 호출은 그 시나리오가 고른 인코더로, 전역 호출은 인코더 id 없이(설치 인코더) 따로 간다.
+        Assert.Equal(["dinov2-small-mid6"], chosen.Embedder.Encoders.Distinct());
+        Assert.True(chosen.Embedder.GlobalCalls > globalBefore);
+        // 전역 기억은 설치 인코더의 공간에 그대로 선다 — 판 키 · 전역 점수가 안 고른 설치와 같다.
+        Assert.Equal(MockImageEmbedder.Identity.Key, chosenMemory.StatusOf("demo")!.Value.EncoderKey);
+        Assert.Equal(b["memory:encoder"], a["memory:encoder"]);
+        Assert.Equal(Number(b, "memory:global_score"), Number(a, "memory:global_score"), 6);
+        // 패치 점수는 고른 인코더의 공간에서 나오고, 그렇다는 표시가 장부에 남는다(안 골랐으면 키가 없다).
+        Assert.Equal("dinov2-small-mid6-1", a["memory:patch_encoder"]);
+        Assert.False(b.ContainsKey("memory:patch_encoder"));
+        Assert.NotEqual(Number(b, "memory:patch_score"), Number(a, "memory:patch_score"));
+        // 디스크: 전역 벡터 캐시는 설치 인코더 판 아래, 패치 캐시는 패치 인코더 판 아래.
+        var memoryDir = Path.Combine(chosen.DataPath, "demo", "memory");
+        Assert.True(File.Exists(Path.Combine(memoryDir, MockImageEmbedder.Identity.Key, "vectors.jsonl")));
+        Assert.NotEmpty(Directory.GetFiles(Path.Combine(memoryDir, "dinov2-small-mid6-1", "patches"), "*.f32"));
+    }
+
+    [Fact]
+    public async Task ScenarioPatchEncoder_ThatFails_OnlyDropsThePatchScores_NotTheMemoryAnswer()
+    {
+        using var factory = new PatchesFactory(patches: true);
+        factory.Embedder.FailingEncoder = "not-installed";
+        var (client, memory) = await SeedWithPatchEncoderAsync(factory, "not-installed");
+
+        await InspectAsync(client, Jpeg(1));   // 확정 사례와 같은 이미지 — 전역 기억은 답한다
+        var annotations = await LastAnnotationsAsync(factory);
+
+        Assert.Equal(MockImageEmbedder.Identity.Key, annotations["memory:encoder"]);   // 전역 기억은 살아 있다
+        Assert.True(annotations.ContainsKey("memory:nearest_distance"));
+        Assert.False(annotations.ContainsKey("memory:patch_score"));                    // 패치 점수만 빠진다
+        Assert.NotNull(memory.StatusOf("demo"));
     }
 
     [Fact]

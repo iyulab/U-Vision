@@ -42,14 +42,6 @@ namespace UVision.Client.Models
 #endif
         /// <summary>The max_image_dimension property</summary>
         public int? MaxImageDimension { get; set; }
-        /// <summary>The memory_encoder property</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public string? MemoryEncoder { get; set; }
-#nullable restore
-#else
-        public string MemoryEncoder { get; set; }
-#endif
         /// <summary>The min_sharpness property</summary>
         public int? MinSharpness { get; set; }
         /// <summary>The motion_threshold property</summary>
@@ -69,6 +61,14 @@ namespace UVision.Client.Models
 #nullable restore
 #else
         public global::UVision.Client.Models.ScenarioInput_ng_labels NgLabels { get; set; }
+#endif
+        /// <summary>The patch_encoder property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? PatchEncoder { get; set; }
+#nullable restore
+#else
+        public string PatchEncoder { get; set; }
 #endif
         /// <summary>The reference_cap property</summary>
         public int? ReferenceCap { get; set; }
@@ -144,11 +144,11 @@ namespace UVision.Client.Models
                 { "criteria", n => { Criteria = n.GetStringValue(); } },
                 { "judges", n => { Judges = n.GetCollectionOfObjectValues<global::UVision.Client.Models.ScenarioJudge>(global::UVision.Client.Models.ScenarioJudge.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "max_image_dimension", n => { MaxImageDimension = n.GetIntValue(); } },
-                { "memory_encoder", n => { MemoryEncoder = n.GetStringValue(); } },
                 { "min_sharpness", n => { MinSharpness = n.GetIntValue(); } },
                 { "motion_threshold", n => { MotionThreshold = n.GetIntValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
                 { "ng_labels", n => { NgLabels = n.GetObjectValue<global::UVision.Client.Models.ScenarioInput_ng_labels>(global::UVision.Client.Models.ScenarioInput_ng_labels.CreateFromDiscriminatorValue); } },
+                { "patch_encoder", n => { PatchEncoder = n.GetStringValue(); } },
                 { "reference_cap", n => { ReferenceCap = n.GetIntValue(); } },
                 { "roi", n => { Roi = n.GetObjectValue<global::UVision.Client.Models.Roi>(global::UVision.Client.Models.Roi.CreateFromDiscriminatorValue); } },
                 { "scenario_id", n => { ScenarioId = n.GetStringValue(); } },
@@ -170,11 +170,11 @@ namespace UVision.Client.Models
             writer.WriteStringValue("criteria", Criteria);
             writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.ScenarioJudge>("judges", Judges);
             writer.WriteIntValue("max_image_dimension", MaxImageDimension);
-            writer.WriteStringValue("memory_encoder", MemoryEncoder);
             writer.WriteIntValue("min_sharpness", MinSharpness);
             writer.WriteIntValue("motion_threshold", MotionThreshold);
             writer.WriteStringValue("name", Name);
             writer.WriteObjectValue<global::UVision.Client.Models.ScenarioInput_ng_labels>("ng_labels", NgLabels);
+            writer.WriteStringValue("patch_encoder", PatchEncoder);
             writer.WriteIntValue("reference_cap", ReferenceCap);
             writer.WriteObjectValue<global::UVision.Client.Models.Roi>("roi", Roi);
             writer.WriteStringValue("scenario_id", ScenarioId);

@@ -55,9 +55,9 @@ public sealed class MockImageEmbedder : IImageEmbedder
     }
 
     public Task<ImageEmbeddings> EmbedAsync(
-        IReadOnlyList<ReadOnlyMemory<byte>> images, string? encoder = null, CancellationToken cancellationToken = default)
+        IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default)
     {
-        var vectors = images.Select(image => VectorOf(image.Span, -1, encoder)).ToList();
-        return Task.FromResult(new ImageEmbeddings(IdentityOf(encoder), vectors));
+        var vectors = images.Select(image => VectorOf(image.Span, -1)).ToList();
+        return Task.FromResult(new ImageEmbeddings(Identity, vectors));
     }
 }

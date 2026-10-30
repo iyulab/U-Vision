@@ -255,7 +255,7 @@ public class CaseMemoryTests
     {
         public string Name => "throwing";
         public bool IsEnabled => true;
-        public Task<ImageEmbeddings> EmbedAsync(IReadOnlyList<ReadOnlyMemory<byte>> images, string? encoder = null, CancellationToken cancellationToken = default) =>
+        public Task<ImageEmbeddings> EmbedAsync(IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default) =>
             throw failure ?? new HttpRequestException("connection refused");
     }
 }

@@ -17,7 +17,7 @@ public sealed record EffectiveScenario(
     string SliceKey,
     ScenarioTargets Targets,
     ScenarioTraining Training,
-    string? MemoryEncoder = null)
+    string? PatchEncoder = null)
 {
     /// <summary>v1 검사의 클래스 — OK 는 아래 단이 확정할 수 있고, NG 는 언제나 꼭대기로 간다.</summary>
     public static readonly IReadOnlyList<ScenarioClass> InspectionClasses =
@@ -108,7 +108,7 @@ public sealed record EffectiveScenario(
             scenario.Trust?.SliceKey ?? ScenarioVocabulary.ScenarioSlice,
             scenario.Trust?.Targets ?? ScenarioTargets.Default,
             scenario.Trust?.Training ?? ScenarioTraining.Default,
-            scenario.MemoryEncoder);
+            scenario.PatchEncoder);
     }
 
     /// <summary>
@@ -186,8 +186,8 @@ public sealed record EffectiveScenario(
 
         // 인코더 id 는 MLoop 에 등록한 이름이라 어휘를 미리 못 박지 않는다 — 글자만 화이트리스트로 거른다(변형 없이 거부).
         // 이 이름이 MLoop 에 없으면 거부가 아니라 기억 단 기권이다(임베딩 실패와 같다).
-        if (input.MemoryEncoder is { Length: > 0 } memoryEncoder && !EncoderId.IsMatch(memoryEncoder))
-            return "memory_encoder 는 영숫자로 시작하는 영숫자 · '.' · '_' · '-' 1~64자(빈 문자열은 지움)";
+        if (input.PatchEncoder is { Length: > 0 } patchEncoder && !EncoderId.IsMatch(patchEncoder))
+            return "patch_encoder 는 영숫자로 시작하는 영숫자 · '.' · '_' · '-' 1~64자(빈 문자열은 지움)";
 
         return null;
     }

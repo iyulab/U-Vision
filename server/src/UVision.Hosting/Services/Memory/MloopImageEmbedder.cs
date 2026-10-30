@@ -24,12 +24,12 @@ public sealed class MloopImageEmbedder(IMLoopClient client, MemoryOptions option
     public bool SupportsPatches => true;
 
     public async Task<ImageEmbeddings> EmbedAsync(
-        IReadOnlyList<ReadOnlyMemory<byte>> images, string? encoder = null, CancellationToken cancellationToken = default)
+        IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default)
     {
         if (images.Count is 0 or > IImageEmbedder.MaxBatch)
             throw new ArgumentOutOfRangeException(nameof(images), images.Count, $"1~{IImageEmbedder.MaxBatch} 장");
 
-        var embedding = await CallAsync(new MLoopEmbeddingRequest(images, encoder ?? options.Encoder), cancellationToken);
+        var embedding = await CallAsync(new MLoopEmbeddingRequest(images, options.Encoder), cancellationToken);
         var identity = IdentityOf(embedding.Encoder);
         CheckVectors(embedding.Vectors, identity);
         return new ImageEmbeddings(identity, Normalized(embedding.Vectors, embedding.Encoder));
