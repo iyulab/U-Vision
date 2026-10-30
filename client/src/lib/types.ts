@@ -28,6 +28,7 @@ export type AuthorityTransition = Wire.AuthorityTransition
 export type AuthorityState = Wire.AuthorityState
 export type AdminStatus = Wire.AdminStatusResponse
 export type EventsStatus = Wire.EventsStatusResponse
+export type HealthStatus = Wire.HealthResponse
 
 /**
  * 시나리오 ROI — 서버 wire 형식(**픽셀** 좌표 `w`/`h`). 계약의 `Roi` 는 요청 본문(`ScenarioInput.roi`)과 같은 스키마라 네 값이

@@ -1,4 +1,4 @@
-import type { AdminStatus, AnomalyMap, AuthorityState, DetectionUnavailable, EventsStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
+import type { AdminStatus, AnomalyMap, AuthorityState, DetectionUnavailable, EventsStatus, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
 import type { AuthorityStage } from './authority'
 import { resolveApiBase } from './runtimeConfig'
 
@@ -250,6 +250,13 @@ export async function getTrainingReadiness(scenarioId: string): Promise<Training
   const res = await fetch(`${API_BASE}/datasets/readiness?scenario_id=${encodeURIComponent(scenarioId)}`)
   await ensureOk(res, '학습 준비 조회')
   return (await res.json()) as TrainingReadiness
+}
+
+/** 서버 상태(무인증 읽기) — 판정원 이름과 데이터 볼륨 여유(읽을 수 있을 때). */
+export async function getHealth(): Promise<HealthStatus> {
+  const res = await fetch(`${API_BASE}/health`)
+  await ensureOk(res, '서버 상태 조회')
+  return (await res.json()) as HealthStatus
 }
 
 /** 판정 사건 내보내기(웹훅) 받는 곳별 대기 · 포기 수(무인증 읽기). */
