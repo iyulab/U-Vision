@@ -38,6 +38,8 @@ using UVision.Api.Services.Vlm;
 //   #   --anomaly-endpoint http://localhost:<port> (ANOMALY_TOKEN) 로 그 모델의 점수를 세 번째 줄로 비교
 //   # 임베딩 응답 뒤 서버 CPU · 직후 거리 계산 지연 — `mloop serve` 프로세스 번호가 필요하다(응답 뒤에도 CPU 를 쓰는지, 같은 기계의 계산이 느려지는지)
 //   UVISION_DATA_ROOT=... MEMORY_ENDPOINT=http://localhost:5417 MEMORY_ENCODER=dinov2-small MEMORY_TOKEN=... //       dotnet run --project src/UVision.Benchmark -- embed-cpu --manifest <이름> --server-pid <PID> [--bank 600] [--reps 15] [--patches false] [--out report.md]
+//   # 결과 목록 조회의 규모별 시간 — 합성 결과 N 건을 저장소로 쓰고 ListAsync 시간(파생 색인이 필요한 규모인지의 증거). Release 로.
+//   dotnet run -c Release --project src/UVision.Benchmark -- results-scale [--counts 500,1000,2000,5000] [--image-kb 150] [--label-every 10] [--out report.md]
 //   # 전용 ML 분류기 정확도 — train 분할을 MLoop 학습 폴더로 내보내고(mloop train 은 그 폴더에서), test 분할을 /predict 로
 //   UVISION_DATA_ROOT=... dotnet run --project src/UVision.Benchmark -- classify --manifest <이름> --export <프로젝트>/datasets/images
 //   UVISION_DATA_ROOT=... ML_TOKEN=... dotnet run --project src/UVision.Benchmark -- classify --manifest <이름> --endpoint http://localhost:5417 [--model default] [--per-class N] [--max-per-minute 55] [--out report.md]
@@ -84,6 +86,8 @@ switch (args.FirstOrDefault())
         return await UVision.Benchmark.ClassifyBench.RunAsync(opts);
     case "patches":
         return await UVision.Benchmark.PatchBench.RunAsync(opts);
+    case "results-scale":
+        return await UVision.Benchmark.ResultsScaleBench.RunAsync(opts);
     case "embed-cpu":
         return await UVision.Benchmark.EmbedCpuBench.RunAsync(opts);
     case "crops":
