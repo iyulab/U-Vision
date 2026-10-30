@@ -75,13 +75,16 @@ public interface IImageEmbedder
 
     /// <summary>
     /// 이미지 1~<see cref="MaxPatchBatch"/> 장의 전역 · 패치 특징을 한 번에 낸다(같은 호출의 같은 run — 전역은
-    /// <see cref="EmbedAsync"/> 와 같은 값이다). 실패는 예외로 알린다. <see cref="SupportsPatches"/> 가 false 면 호출 금지.
+    /// <see cref="EmbedAsync"/> 와 같은 값이다). <paramref name="encoder"/> 의 뜻은 <see cref="EmbedAsync"/> 와 같다. 실패는 예외로 알린다. <see cref="SupportsPatches"/> 가 false 면 호출 금지.
     /// </summary>
     Task<PatchEmbeddings> EmbedPatchesAsync(
-        IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default) =>
+        IReadOnlyList<ReadOnlyMemory<byte>> images, string? encoder = null, CancellationToken cancellationToken = default) =>
         throw new NotSupportedException($"임베더 {Name} 는 패치 모드를 지원하지 않는다");
 
-    /// <summary>이미지 1~<see cref="MaxBatch"/> 장을 임베딩한다. 실패는 예외로 알린다(호출 측이 기권으로 흡수).</summary>
+    /// <summary>
+    /// 이미지 1~<see cref="MaxBatch"/> 장을 임베딩한다. <paramref name="encoder"/> 가 있으면 설정의 인코더 대신 그것을 쓴다(시나리오가
+    /// 고른 인코더). 실패는 예외로 알린다(호출 측이 기권으로 흡수).
+    /// </summary>
     Task<ImageEmbeddings> EmbedAsync(
-        IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default);
+        IReadOnlyList<ReadOnlyMemory<byte>> images, string? encoder = null, CancellationToken cancellationToken = default);
 }

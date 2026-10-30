@@ -8,6 +8,6 @@ public sealed class DisabledImageEmbedder : IImageEmbedder
     public bool IsEnabled => false;
 
     public Task<ImageEmbeddings> EmbedAsync(
-        IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default) =>
+        IReadOnlyList<ReadOnlyMemory<byte>> images, string? encoder = null, CancellationToken cancellationToken = default) =>
         throw new InvalidOperationException("기억 단이 꺼져 있다(UVision:Memory:Provider=none).");
 }

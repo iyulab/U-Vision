@@ -32,14 +32,21 @@ public class CaseMemoryPatchesTests
         public bool IsEnabled => inner.IsEnabled;
         public bool SupportsPatches => inner.SupportsPatches;
 
-        public Task<ImageEmbeddings> EmbedAsync(IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default) =>
-            inner.EmbedAsync(images, cancellationToken);
+        /// <summary>호출에 실려 온 인코더 id 들(시나리오가 고른 것) — 고르지 않았으면 null.</summary>
+        public List<string?> Encoders { get; } = [];
 
-        public Task<PatchEmbeddings> EmbedPatchesAsync(IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default)
+        public Task<ImageEmbeddings> EmbedAsync(IReadOnlyList<ReadOnlyMemory<byte>> images, string? encoder = null, CancellationToken cancellationToken = default)
+        {
+            Encoders.Add(encoder);
+            return inner.EmbedAsync(images, encoder, cancellationToken);
+        }
+
+        public Task<PatchEmbeddings> EmbedPatchesAsync(IReadOnlyList<ReadOnlyMemory<byte>> images, string? encoder = null, CancellationToken cancellationToken = default)
         {
             PatchCalls++;
             PatchedImages += images.Count;
-            return inner.EmbedPatchesAsync(images, cancellationToken);
+            Encoders.Add(encoder);
+            return inner.EmbedPatchesAsync(images, encoder, cancellationToken);
         }
     }
 
@@ -202,6 +209,32 @@ public class CaseMemoryPatchesTests
         Assert.False(baseline.ContainsKey("memory:bank_patches"));   // 안 줄였으면 키가 없다(꺼짐 = 지금 동작)
         Assert.Equal(Number(baseline, "memory:global_score"), Number(annotations, "memory:global_score"), 6);   // 전역 점수는 사진 전부 위에서
         Assert.True(Number(annotations, "memory:patch_score") >= Number(baseline, "memory:patch_score") - 1e-9);   // 기억이 줄면 거리는 줄지 않는다
+    }
+
+    [Fact]
+    public async Task ScenarioMemoryEncoder_ChoosesTheEncoderOfThatScenariosMemory_AndSeparatesItsSpace()
+    {
+        using var factory = new PatchesFactory(patches: true);
+        var client = factory.CreateClient();
+        // 시나리오 «demo» 가 중간 층 인코더를 고른다 — 전역 설정(비어 있음)이 아니라 이 이름으로 임베딩해야 한다.
+        var store = factory.Services.GetRequiredService<UVision.Api.Storage.IScenarioStore>();
+        var demo = await store.GetAsync("demo");
+        if (demo is null)
+            await client.PostAsync("/api/u-vision/inspect", Form(Jpeg(1)));   // 기본 시나리오가 파일로 생기게
+        demo = (await store.GetAsync("demo"))!;
+        await store.UpdateAsync("demo", new ScenarioInput { Name = demo.Name, MemoryEncoder = "dinov2-small-mid6" });
+
+        await LabelAsync(client, await InspectAsync(client, Jpeg(1)), "OK");
+        await LabelAsync(client, await InspectAsync(client, Jpeg(2)), "OK");
+        factory.Embedder.Encoders.Clear();
+        await factory.Services.GetRequiredService<CaseMemory>().SyncOnceAsync(CancellationToken.None);
+        await factory.Services.GetRequiredService<CaseMemory>().SyncOnceAsync(CancellationToken.None);   // 판을 배운 뒤 한 번 더
+        await InspectAsync(client, Jpeg(1));
+
+        Assert.NotEmpty(factory.Embedder.Encoders);
+        Assert.All(factory.Embedder.Encoders, e => Assert.Equal("dinov2-small-mid6", e));
+        var status = factory.Services.GetRequiredService<CaseMemory>().StatusOf("demo");
+        Assert.StartsWith("dinov2-small-mid6", status!.Value.EncoderKey);   // 이 시나리오의 기억은 고른 인코더의 판 위에 선다
     }
 
     [Fact]

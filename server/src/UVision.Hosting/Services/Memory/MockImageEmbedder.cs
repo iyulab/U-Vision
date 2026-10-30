@@ -26,22 +26,28 @@ public sealed class MockImageEmbedder : IImageEmbedder
     public static readonly PatchGrid Grid = new(2, 2, 14, 28);
 
     public Task<PatchEmbeddings> EmbedPatchesAsync(
-        IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default)
+        IReadOnlyList<ReadOnlyMemory<byte>> images, string? encoder = null, CancellationToken cancellationToken = default)
     {
         var features = images.Select(image =>
         {
-            var global = VectorOf(image.Span, -1);
+            var global = VectorOf(image.Span, -1, encoder);
             var patches = new float[Grid.Count * Dimension];
             for (var p = 0; p < Grid.Count; p++)
-                VectorOf(image.Span, p).CopyTo(patches, p * Dimension);
+                VectorOf(image.Span, p, encoder).CopyTo(patches, p * Dimension);
             return new ImageFeatures(global, patches);
         }).ToList();
-        return Task.FromResult(new PatchEmbeddings(Identity, Grid, features));
+        return Task.FromResult(new PatchEmbeddings(IdentityOf(encoder), Grid, features));
     }
 
-    private static float[] VectorOf(ReadOnlySpan<byte> image, int salt)
+    // 인코더를 고르면 다른 인코더 = 다른 공간이어야 한다 — 인코더 id 를 판에 담고 벡터에도 섞는다(안 고르면 지금과 같다).
+    private static EncoderIdentity IdentityOf(string? encoder) => encoder is null ? Identity : Identity with { Id = encoder };
+
+    private static float[] VectorOf(ReadOnlySpan<byte> image, int salt, string? encoder = null)
     {
-        var digest = SHA256.HashData(salt < 0 ? image.ToArray() : [.. image, (byte)salt]);
+        byte[] input = salt < 0 ? image.ToArray() : [.. image, (byte)salt];
+        if (encoder is not null)
+            input = [.. input, .. System.Text.Encoding.UTF8.GetBytes(encoder)];
+        var digest = SHA256.HashData(input);
         var v = new float[Dimension];
         for (var i = 0; i < Dimension; i++)
             v[i] = digest[i] - 127.5f;
@@ -49,9 +55,9 @@ public sealed class MockImageEmbedder : IImageEmbedder
     }
 
     public Task<ImageEmbeddings> EmbedAsync(
-        IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default)
+        IReadOnlyList<ReadOnlyMemory<byte>> images, string? encoder = null, CancellationToken cancellationToken = default)
     {
-        var vectors = images.Select(image => VectorOf(image.Span, -1)).ToList();
-        return Task.FromResult(new ImageEmbeddings(Identity, vectors));
+        var vectors = images.Select(image => VectorOf(image.Span, -1, encoder)).ToList();
+        return Task.FromResult(new ImageEmbeddings(IdentityOf(encoder), vectors));
     }
 }

@@ -24,24 +24,24 @@ public sealed class MloopImageEmbedder(IMLoopClient client, MemoryOptions option
     public bool SupportsPatches => true;
 
     public async Task<ImageEmbeddings> EmbedAsync(
-        IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default)
+        IReadOnlyList<ReadOnlyMemory<byte>> images, string? encoder = null, CancellationToken cancellationToken = default)
     {
         if (images.Count is 0 or > IImageEmbedder.MaxBatch)
             throw new ArgumentOutOfRangeException(nameof(images), images.Count, $"1~{IImageEmbedder.MaxBatch} 장");
 
-        var embedding = await CallAsync(new MLoopEmbeddingRequest(images, options.Encoder), cancellationToken);
+        var embedding = await CallAsync(new MLoopEmbeddingRequest(images, encoder ?? options.Encoder), cancellationToken);
         var identity = IdentityOf(embedding.Encoder);
         CheckVectors(embedding.Vectors, identity);
         return new ImageEmbeddings(identity, Normalized(embedding.Vectors, embedding.Encoder));
     }
 
     public async Task<PatchEmbeddings> EmbedPatchesAsync(
-        IReadOnlyList<ReadOnlyMemory<byte>> images, CancellationToken cancellationToken = default)
+        IReadOnlyList<ReadOnlyMemory<byte>> images, string? encoder = null, CancellationToken cancellationToken = default)
     {
         if (images.Count is 0 or > IImageEmbedder.MaxPatchBatch)
             throw new ArgumentOutOfRangeException(nameof(images), images.Count, $"1~{IImageEmbedder.MaxPatchBatch} 장");
 
-        var embedding = await CallAsync(new MLoopEmbeddingRequest(images, options.Encoder, Patches: true), cancellationToken);
+        var embedding = await CallAsync(new MLoopEmbeddingRequest(images, encoder ?? options.Encoder, Patches: true), cancellationToken);
         var identity = IdentityOf(embedding.Encoder);
         var grid = embedding.Grid
             ?? throw new InvalidOperationException("mloop /embed?patches=true 가 격자를 주지 않았다(MLoop 0.46.0 미만?)");

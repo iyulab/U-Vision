@@ -76,7 +76,7 @@ public class ScenarioV2Tests : IClassFixture<PinFactory>
     public void V1Scenario_OnDisk_HasNoV2Keys()
     {
         var json = JsonSerializer.Serialize(V1(), StoragePaths.Json);
-        foreach (var key in new[] { "\"type\"", "\"trigger\"", "\"classes\"", "\"judges\"", "\"trust\"" })
+        foreach (var key in new[] { "\"type\"", "\"trigger\"", "\"classes\"", "\"judges\"", "\"trust\"", "\"memory_encoder\"" })
             Assert.DoesNotContain(key, json);
     }
 
@@ -103,6 +103,52 @@ public class ScenarioV2Tests : IClassFixture<PinFactory>
 
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
         Assert.Contains(reasonFragment, await resp.Content.ReadAsStringAsync());
+    }
+
+    [Theory]
+    [InlineData("dinov2-small-mid6", true)]
+    [InlineData("dinov2-small_cat9.v2", true)]
+    [InlineData("", true)]                                  // 빈 문자열 = 지움
+    [InlineData("../evil", false)]
+    [InlineData("-leading-dash", false)]
+    [InlineData("has space", false)]
+    [InlineData("한글", false)]
+    public void Validate_MemoryEncoder_IsALetterWhitelistNotAVocabulary(string encoder, bool valid)
+    {
+        var reason = EffectiveScenario.Validate(new ScenarioInput { Name = "x", MemoryEncoder = encoder });
+        Assert.Equal(valid, reason is null);
+        if (!valid) Assert.Contains("memory_encoder", reason);
+    }
+
+    [Fact]
+    public void Validate_MemoryEncoder_RejectsMoreThan64Characters() =>
+        Assert.NotNull(EffectiveScenario.Validate(new ScenarioInput { Name = "x", MemoryEncoder = new string('a', 65) }));
+
+    [Fact]
+    public void Resolve_CarriesTheChosenMemoryEncoder_AndLeavesItEmptyOtherwise()
+    {
+        Assert.Null(EffectiveScenario.Resolve(V1(), mlEnabled: false).MemoryEncoder);
+        Assert.Equal("enc-a", EffectiveScenario.Resolve(V1() with { MemoryEncoder = "enc-a" }, mlEnabled: false).MemoryEncoder);
+    }
+
+    [Fact]
+    public async Task MemoryEncoder_IsKeptWhenOmitted_ReplacedWhenGiven_ClearedByEmptyString_AndAbsentFromV1Json()
+    {
+        var create = await Admin().PostAsync("/api/u-vision/scenarios", JsonContent.Create(new { name = "enc keep", memory_encoder = "enc-a" }));
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var id = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("scenario_id").GetString();
+        async Task<JsonElement> GetAsync() => await _factory.CreateClient().GetFromJsonAsync<JsonElement>($"/api/u-vision/scenarios/{id}");
+
+        Assert.Equal("enc-a", (await GetAsync()).GetProperty("memory_encoder").GetString());
+
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "enc keep", criteria = "생략" }));
+        Assert.Equal("enc-a", (await GetAsync()).GetProperty("memory_encoder").GetString());           // 생략 = 보존
+
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "enc keep", memory_encoder = "enc-b" }));
+        Assert.Equal("enc-b", (await GetAsync()).GetProperty("memory_encoder").GetString());           // 값 = 교체
+
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "enc keep", memory_encoder = "" }));
+        Assert.False((await GetAsync()).TryGetProperty("memory_encoder", out _));                      // 빈 문자열 = 지움(v1 JSON 으로 돌아간다)
     }
 
     [Fact]

@@ -104,8 +104,9 @@ public sealed class CaseMemory(
 
     private readonly ConcurrentDictionary<string, Snapshot> _snapshots = new(StringComparer.Ordinal);
 
-    // 가장 최근에 본 인코더 판 — 질의 · 동기화 응답에서 배운다. 동기화가 이 판으로 기억을 짓는다.
-    private volatile string? _encoderKey;
+    // 시나리오마다 가장 최근에 본 인코더 판 — 질의 · 동기화 응답에서 배운다. 동기화가 이 판으로 그 시나리오의 기억을 짓는다.
+    // 시나리오가 인코더를 따로 고를 수 있어(memory_encoder) 설치 전체에 하나가 아니다.
+    private readonly ConcurrentDictionary<string, string> _encoderKeys = new(StringComparer.Ordinal);
 
     /// <summary>기억 단이 켜져 있는가(임베더가 있음).</summary>
     public bool IsEnabled => embedder.IsEnabled;
@@ -130,14 +131,14 @@ public sealed class CaseMemory(
             if (PatchesActive)
             {
                 // 한 호출이 전역과 패치를 함께 준다 — 전역은 일반 호출과 같은 값이라 판정기는 그대로 쓴다.
-                var withPatches = await embedder.EmbedPatchesAsync([image], cancellationToken);
+                var withPatches = await embedder.EmbedPatchesAsync([image], scenario.MemoryEncoder, cancellationToken);
                 features = withPatches.Images[0];
                 grid = withPatches.Grid;
                 embedded = new ImageEmbeddings(withPatches.Encoder, [features.Global]);
             }
             else
             {
-                embedded = await embedder.EmbedAsync([image], cancellationToken);
+                embedded = await embedder.EmbedAsync([image], scenario.MemoryEncoder, cancellationToken);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
@@ -148,7 +149,7 @@ public sealed class CaseMemory(
 
         var embedMs = clock.ElapsedMilliseconds;
         var key = embedded.Encoder.Key;
-        _encoderKey = key;
+        _encoderKeys[scenario.ScenarioId] = key;
         if (!_snapshots.TryGetValue(scenario.ScenarioId, out var snapshot))
             return new(key, null, "memory not built yet");
         if (snapshot.EncoderKey != key)
@@ -270,7 +271,7 @@ public sealed class CaseMemory(
             }
         }
 
-        var key = _encoderKey;
+        var key = _encoderKeys.GetValueOrDefault(scenario.ScenarioId);
         var cached = key is null
             ? new Dictionary<string, float[]>(StringComparer.Ordinal)
             : new Dictionary<string, float[]>(await vectors.ReadAsync(scenario.ScenarioId, key, cancellationToken), StringComparer.Ordinal);
@@ -287,20 +288,20 @@ public sealed class CaseMemory(
             if (images.Count == 0)
                 continue;
 
-            var embedded = await embedder.EmbedAsync([.. images.Select(i => i.Data)], cancellationToken);
+            var embedded = await embedder.EmbedAsync([.. images.Select(i => i.Data)], scenario.MemoryEncoder, cancellationToken);
             var batchKey = embedded.Encoder.Key;
             if (key is null)
             {
                 // 처음 배운 판 — 그 판의 캐시를 읽어 이미 있는 것은 다시 적지 않는다.
                 key = batchKey;
-                _encoderKey = key;
+                _encoderKeys[scenario.ScenarioId] = key;
                 foreach (var (id, v) in await vectors.ReadAsync(scenario.ScenarioId, key, cancellationToken))
                     cached.TryAdd(id, v);
             }
             else if (batchKey != key)
             {
                 // 인코더가 바뀌었다 — 이번 판의 벡터는 버리고 다음 주기에 새 판으로 처음부터 짓는다.
-                _encoderKey = batchKey;
+                _encoderKeys[scenario.ScenarioId] = batchKey;
                 logger.LogInformation(
                     "기억 인코더 판 변경 {Old} → {New} — 다음 동기화에서 다시 짓는다 (scenario={ScenarioId})",
                     key, batchKey, scenario.ScenarioId);
@@ -381,7 +382,7 @@ public sealed class CaseMemory(
                 }
                 if (images.Count == 0)
                     continue;
-                var embedded = await embedder.EmbedPatchesAsync([.. images.Select(i => i.Data)], cancellationToken);
+                var embedded = await embedder.EmbedPatchesAsync([.. images.Select(i => i.Data)], scenario.MemoryEncoder, cancellationToken);
                 if (embedded.Encoder.Key != key)
                 {
                     // 인코더가 바뀌었다 — 이 판의 패치는 못 쓴다. 다음 동기화가 새 판으로 짓는다.

@@ -561,6 +561,7 @@ export interface Scenario {
   classes?: ScenarioClass[]
   judges?: ScenarioJudge[]
   trust?: ScenarioTrust
+  memory_encoder?: string
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
@@ -629,6 +630,7 @@ export interface ScenarioInput {
   classes?: null | ScenarioClass[]
   judges?: null | ScenarioJudge[]
   trust?: null | ScenarioTrust
+  memory_encoder?: null | string
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
