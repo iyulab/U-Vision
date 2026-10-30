@@ -67,6 +67,9 @@ export interface Contract {
   PathStepV2?: PathStepV2
   ProblemDetails?: ProblemDetails
   PromoteAuthorityInput?: PromoteAuthorityInput
+  QuestionAnswerInput?: QuestionAnswerInput
+  QuestionAnswerResponse?: QuestionAnswerResponse
+  QuestionResponse?: QuestionResponse
   ReferenceInfo?: ReferenceInfo
   ReferenceLabel?: ReferenceLabel
   RegisterModelInput?: RegisterModelInput
@@ -516,6 +519,39 @@ export interface PromoteAuthorityInput {
   stage: AuthorityStage
   by?: null | string
   reason?: null | string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "QuestionAnswerInput".
+ */
+export interface QuestionAnswerInput {
+  scenario_id: string
+  question_id: string
+  choice?: string
+  abstain?: boolean
+  by?: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "QuestionAnswerResponse".
+ */
+export interface QuestionAnswerResponse {
+  question_id: string
+  recorded: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "QuestionResponse".
+ */
+export interface QuestionResponse {
+  question_id: string
+  scenario_id: string
+  date: string
+  image_id: string
+  form: string
+  choices: string[]
+  reason: string
+  created_at: string
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

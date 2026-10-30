@@ -57,6 +57,13 @@ public static class UVisionServiceExtensions
         services.AddSingleton<IInspectionStore, FileInspectionStore>();
         services.AddSingleton<IReferenceStore, FileReferenceStore>();
         services.AddSingleton<ILabelStore, FileLabelStore>();
+
+        // 문제 큐 — 잘못된 설정은 기동에서 멈춘다. 기본은 무작위 출제(기억 단의 신호로 고르는 규칙은 켜야 한다).
+        options.Questions.Validate();
+        services.AddSingleton(options.Questions);
+        services.AddSingleton<IQuestionStore, FileQuestionStore>();
+        services.AddSingleton<Services.Questions.IQuestionCandidateSource, Services.Questions.LedgerQuestionCandidateSource>();
+        services.AddSingleton<Services.Questions.QuestionService>();
         services.AddSingleton<IMemoryVectorStore, FileMemoryVectorStore>();
         services.AddSingleton<IPatchBankStore, FilePatchBankStore>();
         services.AddSingleton<IAnomalyMapStore, FileAnomalyMapStore>();

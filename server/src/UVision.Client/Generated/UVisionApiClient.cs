@@ -17,6 +17,7 @@ using UVision.Client.Health;
 using UVision.Client.Inspect;
 using UVision.Client.Memory;
 using UVision.Client.Metrics;
+using UVision.Client.Questions;
 using UVision.Client.Results;
 using UVision.Client.Scenarios;
 using UVision.Client.V2;
@@ -62,6 +63,11 @@ namespace UVision.Client
         public global::UVision.Client.Metrics.MetricsRequestBuilder Metrics
         {
             get => new global::UVision.Client.Metrics.MetricsRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The questions property</summary>
+        public global::UVision.Client.Questions.QuestionsRequestBuilder Questions
+        {
+            get => new global::UVision.Client.Questions.QuestionsRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The results property</summary>
         public global::UVision.Client.Results.ResultsRequestBuilder Results

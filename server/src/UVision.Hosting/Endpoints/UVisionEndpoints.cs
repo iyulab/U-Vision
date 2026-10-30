@@ -11,6 +11,7 @@ public static class UVisionEndpoints
         group.MapScenarioEndpoints();
         group.MapReferenceEndpoints();
         group.MapLabelEndpoints();
+        group.MapQuestionEndpoints();
         group.MapDatasetEndpoints();
         group.MapMetricsEndpoints();
         group.MapMemoryEndpoints();

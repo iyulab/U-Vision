@@ -25,6 +25,9 @@ public static class QuestionReason
 
     /// <summary>기억 단의 신호가 아직 없어(라벨이 모자람 · 기억 꺼짐) 무작위로 시작한다.</summary>
     public const string ColdStart = "cold_start";
+
+    /// <summary>무작위 규칙(기본) — 모든 후보에서 균등하게 고른다.</summary>
+    public const string Random = "random";
 }
 
 /// <summary>

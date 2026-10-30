@@ -115,6 +115,20 @@ public sealed partial class StoragePaths
     public string LedgerJsonl(string scenarioId, string date) =>
         Path.Combine(ScenarioDir(scenarioId), LedgerSegment, Date(date) + ".jsonl");
 
+    // --- 문제 큐 (사람이 푸는 라벨링 문제) ---------------------------------------
+    // 문제 한 건마다 파일 하나 — 출제 이유 · 점수 · 답. 라벨 사이드카와 분리된 추가 기록이라 지워도 라벨은 그대로다.
+    // <c>questions</c> 도 날짜로 파싱되지 않아 목록에서 빠진다.
+
+    private const string QuestionsSegment = "questions";
+
+    /// <summary>시나리오의 문제 디렉토리 <c>{scenario}/questions</c>.</summary>
+    public string QuestionsDir(string scenarioId) =>
+        Path.Combine(ScenarioDir(scenarioId), QuestionsSegment);
+
+    /// <summary>문제 한 건 <c>{scenario}/questions/{question_id}.json</c>.</summary>
+    public string QuestionJson(string scenarioId, string questionId) =>
+        Path.Combine(QuestionsDir(scenarioId), Id(questionId) + ".json");
+
     // --- 확정 사례 기억 (system 1 임베딩 단) ----------------------------------
     // 사람이 확정한 라벨 이미지의 임베딩 벡터 캐시 — 인코더 판(encoderKey)마다 따로 둔다. 판이 다른 벡터는 서로
     // 비교할 수 없기 때문이다. 이미지 · 라벨 정본에서 다시 만들 수 있는 파생물이라 지워도 된다. 클래스는 여기 적지

@@ -933,6 +933,126 @@
         }
       }
     },
+    "/api/u-vision/questions/next": {
+      "get": {
+        "tags": [
+          "U-Vision"
+        ],
+        "operationId": "GetNextQuestion",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "by",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/u-vision/questions/answer": {
+      "post": {
+        "tags": [
+          "U-Vision"
+        ],
+        "operationId": "PostQuestionAnswer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionAnswerInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionAnswerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/u-vision/metrics": {
       "get": {
         "tags": [
@@ -3533,6 +3653,87 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "QuestionAnswerInput": {
+        "required": [
+          "scenario_id",
+          "question_id"
+        ],
+        "type": "object",
+        "properties": {
+          "scenario_id": {
+            "type": "string"
+          },
+          "question_id": {
+            "type": "string"
+          },
+          "choice": {
+            "type": "string"
+          },
+          "abstain": {
+            "type": "boolean"
+          },
+          "by": {
+            "type": "string"
+          }
+        }
+      },
+      "QuestionAnswerResponse": {
+        "required": [
+          "question_id",
+          "recorded"
+        ],
+        "type": "object",
+        "properties": {
+          "question_id": {
+            "type": "string"
+          },
+          "recorded": {
+            "type": "string"
+          }
+        }
+      },
+      "QuestionResponse": {
+        "required": [
+          "question_id",
+          "scenario_id",
+          "date",
+          "image_id",
+          "form",
+          "choices",
+          "reason",
+          "created_at"
+        ],
+        "type": "object",
+        "properties": {
+          "question_id": {
+            "type": "string"
+          },
+          "scenario_id": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "image_id": {
+            "type": "string"
+          },
+          "form": {
+            "type": "string"
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reason": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
           }
         }
       },
