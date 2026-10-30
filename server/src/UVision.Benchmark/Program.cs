@@ -10,7 +10,7 @@ using UVision.Api.Services.Vlm;
 // Api 의 실 VlmProviderFactory/Models 를 재사용한다 → 실측이 production provider 경로를 검증한다.
 // (원본: server/benchmark/run_benchmark.py 동등 이식)
 //
-// 사용법:
+// 사용법: (시간을 잴 때는 `dotnet run -c Release` — Debug 는 시간 열이 5~7 배 크게 나온다)
 //   # mock 시연
 //   dotnet run --project src/UVision.Benchmark -- --images-dir ./benchmark/sample-images
 //   # 실측 (키 확보 후) — ground truth 는 images-dir/{ok,ng}/ 하위폴더로 라벨링
@@ -60,6 +60,11 @@ var imageExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", 
 
 // 리포트는 한글이라 콘솔 코드페이지와 무관하게 UTF-8 로 낸다(파이프 · 리다이렉트로 파일에 저장해도 깨지지 않게).
 Console.OutputEncoding = new UTF8Encoding(false);
+
+#if DEBUG
+// 시간 열(ms/장)은 Debug 로 돌리면 Release 의 5~7 배로 나온다(같은 계산 · 같은 점수) — 시간을 읽을 거라면 Release 로 돌린다.
+Console.Error.WriteLine("경고: Debug 빌드로 실행 중 — 시간 열(ms)을 믿지 말 것. `dotnet run -c Release --project src/UVision.Benchmark -- …`");
+#endif
 
 // 개발 편의: .env 로딩(VLM_API_KEY 등).
 DotNetEnv.Env.TraversePath().Load();
