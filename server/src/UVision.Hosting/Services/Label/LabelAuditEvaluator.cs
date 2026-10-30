@@ -6,6 +6,7 @@ public static class LabelMode
     public const string Label = "label";   // 운영 라벨/해소(operative)
     public const string Audit = "audit";   // 블라인드 재라벨(측정 — operative 안 덮음)
     public const string Oracle = "oracle"; // ④-B 오라클 2차 의견 — 비operative 이벤트(operative 라벨 안 덮음)
+    public const string Abstain = "abstain"; // 사람이 «모르겠음» — 라벨이 아니라 기권 이벤트(operative 라벨 안 덮음 · 학습 · export 에 안 들어감)
 }
 
 /// <summary>

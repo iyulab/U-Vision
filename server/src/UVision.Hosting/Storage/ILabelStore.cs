@@ -38,6 +38,14 @@ public interface ILabelStore
         string scenarioId, string date, string imageId, string label, string by,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// 사람의 «모르겠음» 을 history 에 mode:"abstain" 이벤트로 append 한다 — 라벨이 아니라 기권이라 operative 라벨 · audit 불변.
+    /// 사이드카 없으면(미라벨) Label=null 로 신규 생성한다(미라벨 그대로). <paramref name="stream"/> 은 라벨과 같은 출제 흐름 표식.
+    /// </summary>
+    Task AppendAbstainAsync(
+        string scenarioId, string date, string imageId, string by,
+        CancellationToken cancellationToken = default, string? stream = null);
+
     /// <summary>라벨 사이드카를 삭제한다(미라벨로 환원). 없으면 no-op.</summary>
     Task DeleteAsync(
         string scenarioId, string date, string imageId,

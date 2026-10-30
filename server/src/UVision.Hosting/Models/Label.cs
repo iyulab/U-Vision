@@ -70,6 +70,13 @@ public sealed record StoredLabel
         History?.LastOrDefault(e => e.Mode == LabelMode.Label)?.By.StartsWith(CaptureOrigin.LabelerPrefix, StringComparison.Ordinal) == true;
 
     /// <summary>
+    /// 사람이 «모르겠음» 한 횟수 = history 의 <see cref="LabelMode.Abstain"/> 이벤트 수. 기권은 라벨이 아니라서
+    /// <see cref="OperativeLabel"/> 을 바꾸지 않는다. 한 사진에 기권이 여럿이면 사진이 아니라 클래스 정의가 모호하다는 신호다.
+    /// </summary>
+    [JsonIgnore]
+    public int AbstainCount => History?.Count(e => e.Mode == LabelMode.Abstain) ?? 0;
+
+    /// <summary>
     /// 오라클(④-B)의 최신 2차 소견 = history 의 최신 <see cref="LabelMode.Oracle"/> 이벤트.
     /// 없으면 null. operative 가 아니다(D2 위계) — <see cref="OperativeLabel"/> 과 대조해
     /// 사람 라벨러의 계통편향(systematic bias)을 flag-only 로 관측한다(메트릭 집계 입력).
@@ -98,6 +105,7 @@ public sealed record StoredLabel
 /// <summary>라벨 이력의 단위 이벤트(C1 provenance) — append-only.</summary>
 public sealed record LabelEvent
 {
+    /// <summary>클래스 id. <see cref="LabelMode.Abstain"/> 이벤트에는 라벨이 없어 빈 문자열이다.</summary>
     [JsonPropertyName("label")] public required string Label { get; init; }
 
     /// <summary>라벨러 식별 = 장치 UUID(촬영 기록과 같은 값). 구 이벤트/불가 시 "".</summary>
@@ -106,7 +114,7 @@ public sealed record LabelEvent
     /// <summary>이벤트 시각. ISO-8601 UTC.</summary>
     [JsonPropertyName("at")] public required string At { get; init; }
 
-    /// <summary><see cref="LabelMode"/> — label(operative)/audit(블라인드)/oracle(④-B 2차의견·비operative).</summary>
+    /// <summary><see cref="LabelMode"/> — label(operative)/audit(블라인드)/oracle(④-B 2차의견·비operative)/abstain(모르겠음·비operative).</summary>
     [JsonPropertyName("mode")] public required string Mode { get; init; }
 
     /// <summary>

@@ -68,6 +68,38 @@ public sealed class FileLabelStore : ILabelStore
         await StoragePaths.AtomicWriteJsonAsync(path, updated, cancellationToken);
     }
 
+    public async Task AppendAbstainAsync(
+        string scenarioId, string date, string imageId, string by,
+        CancellationToken cancellationToken = default, string? stream = null)
+    {
+        if (!LabelStream.IsValid(stream))
+            throw new ArgumentException($"알 수 없는 출제 흐름 표식: '{stream}'", nameof(stream));
+        var path = _paths.LabelJson(scenarioId, date, imageId);
+        await WithPathLockAsync(path, () => AppendAbstainLockedAsync(path, imageId, by, stream, cancellationToken), cancellationToken);
+    }
+
+    private static async Task AppendAbstainLockedAsync(
+        string path, string imageId, string by, string? stream, CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
+        var existing = await ReadNormalizedAsync(path, cancellationToken);
+
+        var history = new List<LabelEvent>(existing?.History ?? [])
+        {
+            new() { Label = "", By = by, At = now, Mode = LabelMode.Abstain, Stream = stream },
+        };
+        // operative(Label)·Audit 불변 — 기권은 라벨이 아니다. 미라벨이면 미라벨 그대로 남는다.
+        var updated = new StoredLabel
+        {
+            ImageId = imageId,
+            Label = existing?.OperativeLabel,
+            Timestamp = existing?.Timestamp ?? now,
+            History = history,
+            Audit = existing?.Audit,
+        };
+        await StoragePaths.AtomicWriteJsonAsync(path, updated, cancellationToken);
+    }
+
     public async Task AppendOracleAsync(
         string scenarioId, string date, string imageId, string label, string by,
         CancellationToken cancellationToken = default)
