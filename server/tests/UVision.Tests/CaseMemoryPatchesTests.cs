@@ -43,7 +43,7 @@ public class CaseMemoryPatchesTests
         }
     }
 
-    private sealed class PatchesFactory(bool patches, int cap = 200) : UVisionApiFactory
+    private sealed class PatchesFactory(bool patches, int cap = 200, int patchBudget = 0) : UVisionApiFactory
     {
         public CountingEmbedder Embedder { get; } = new(new MockImageEmbedder());
 
@@ -55,6 +55,7 @@ public class CaseMemoryPatchesTests
             builder.UseSetting($"{UVisionOptions.SectionName}:Memory:SyncIntervalSeconds", "3600");
             builder.UseSetting($"{UVisionOptions.SectionName}:Memory:Patches", patches ? "true" : "false");
             builder.UseSetting($"{UVisionOptions.SectionName}:Memory:PatchBankCap", cap.ToString(CultureInfo.InvariantCulture));
+            builder.UseSetting($"{UVisionOptions.SectionName}:Memory:PatchBankPatches", patchBudget.ToString(CultureInfo.InvariantCulture));
             builder.ConfigureTestServices(services => services.AddSingleton<IImageEmbedder>(Embedder));
         }
     }
@@ -183,6 +184,53 @@ public class CaseMemoryPatchesTests
     }
 
     [Fact]
+    public async Task PatchBudget_ReducesThePatchPoolButNotThePhotosOrTheGlobalScore_AndTheLedgerSaysSo()
+    {
+        // mock 은 사진 한 장이 4 패치 — 정상 둘이면 풀이 8 패치. 상한 4 로 줄인다.
+        using var reduced = new PatchesFactory(patches: true, patchBudget: 4);
+        using var full = new PatchesFactory(patches: true);
+        var reducedClient = await SeedAsync(reduced);
+        var fullClient = await SeedAsync(full);
+
+        await InspectAsync(reducedClient, Jpeg(9));
+        await InspectAsync(fullClient, Jpeg(9));
+        var annotations = await LastAnnotationsAsync(reduced);
+        var baseline = await LastAnnotationsAsync(full);
+
+        Assert.Equal("4", annotations["memory:bank_patches"]);
+        Assert.Equal("2", annotations["memory:bank_size"]);          // 사진 수는 그대로
+        Assert.False(baseline.ContainsKey("memory:bank_patches"));   // 안 줄였으면 키가 없다(꺼짐 = 지금 동작)
+        Assert.Equal(Number(baseline, "memory:global_score"), Number(annotations, "memory:global_score"), 6);   // 전역 점수는 사진 전부 위에서
+        Assert.True(Number(annotations, "memory:patch_score") >= Number(baseline, "memory:patch_score") - 1e-9);   // 기억이 줄면 거리는 줄지 않는다
+    }
+
+    [Fact]
+    public async Task PatchBudget_AtOrAboveThePool_ChangesNothing()
+    {
+        using var factory = new PatchesFactory(patches: true, patchBudget: 8);   // 풀이 정확히 8 패치
+        var client = await SeedAsync(factory);
+        await InspectAsync(client, Jpeg(9));
+        Assert.False((await LastAnnotationsAsync(factory)).ContainsKey("memory:bank_patches"));
+    }
+
+    [Fact]
+    public void ReducePatches_KeepsRowsFromTheInput_AndIsDeterministic()
+    {
+        const int count = 40, dim = 4, keep = 10;
+        var rng = new Random(7);
+        var vectors = Enumerable.Range(0, count * dim).Select(_ => (float)rng.NextDouble()).ToArray();
+
+        var once = CaseMemory.ReducePatches(vectors, count, dim, keep);
+        var twice = CaseMemory.ReducePatches(vectors, count, dim, keep);
+
+        Assert.Equal(keep * dim, once.Length);
+        Assert.Equal(once, twice);
+        var inputRows = Enumerable.Range(0, count).Select(i => vectors[(i * dim)..((i + 1) * dim)]).ToList();
+        for (var i = 0; i < keep; i++)
+            Assert.Contains(inputRows, row => row.SequenceEqual(once[(i * dim)..((i + 1) * dim)]));
+    }
+
+    [Fact]
     public async Task PatchFiles_FollowTheBank_NewNormalCasesDoNotPileUpFilesPastTheCap()
     {
         using var factory = new PatchesFactory(patches: true, cap: 1);
@@ -246,6 +294,13 @@ public class CaseMemoryPatchesTests
     public void Factory_RejectsPatchesThatCannotRun(string provider, int cap) =>
         Assert.Throws<ArgumentException>(() => ImageEmbedderFactory.Create(
             new MemoryOptions { Provider = provider, Patches = true, PatchBankCap = cap }));
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(5_000_001)]
+    public void Factory_RejectsAPatchBudgetOutOfRange(int budget) =>
+        Assert.Throws<ArgumentException>(() => ImageEmbedderFactory.Create(
+            new MemoryOptions { Provider = "mock", Patches = true, PatchBankPatches = budget }));
 
     [Fact]
     public void EncoderKey_IncludesThePreprocessor_SoAChangedPreprocessingIsANewSpace()

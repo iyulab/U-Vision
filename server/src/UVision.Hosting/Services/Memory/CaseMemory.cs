@@ -41,21 +41,38 @@ public sealed record MemoryOutcome(string? EncoderKey, MemoryAnswer? Answer, str
 /// </summary>
 /// <param name="BankSize">점수를 낸 정상 기억의 사진 수 — 기억 크기에 따라 두 점수의 우열이 갈려 재생이 이 값으로 나눠 본다.</param>
 /// <param name="Map">패치별 거리 지도(열지도 근거) — 격자 모양을 알 수 없으면 null.</param>
-public sealed record AnomalyScores(double Global, double Patch, int BankSize, AnomalyMap? Map = null)
+public sealed record AnomalyScores(double Global, double Patch, int BankSize, AnomalyMap? Map = null, int? BankPatches = null)
 {
-    public IReadOnlyDictionary<string, string> ToAnnotations() => new Dictionary<string, string>(StringComparer.Ordinal)
+    public IReadOnlyDictionary<string, string> ToAnnotations()
     {
-        ["memory:global_score"] = Global.ToString("0.######", CultureInfo.InvariantCulture),
-        ["memory:patch_score"] = Patch.ToString("0.######", CultureInfo.InvariantCulture),
-        ["memory:bank_size"] = BankSize.ToString(CultureInfo.InvariantCulture),
-    };
+        var a = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["memory:global_score"] = Global.ToString("0.######", CultureInfo.InvariantCulture),
+            ["memory:patch_score"] = Patch.ToString("0.######", CultureInfo.InvariantCulture),
+            ["memory:bank_size"] = BankSize.ToString(CultureInfo.InvariantCulture),
+        };
+        // 패치 수 상한으로 줄였을 때만 남긴다 — 점수가 줄인 기억 위에서 나왔다는 것을 재생이 알아야 한다(안 줄였으면 키가 없다).
+        if (BankPatches is { } patches)
+            a["memory:bank_patches"] = patches.ToString(CultureInfo.InvariantCulture);
+        return a;
+    }
 }
 
-/// <summary>정상 사례의 전역 · 패치 벡터를 모은 기억 — 패치는 사례 순서대로 한 배열에 이어 붙는다.</summary>
+/// <summary>
+/// 정상 사례의 전역 · 패치 벡터를 모은 기억 — 패치는 사례 순서대로 한 배열에 이어 붙는다. 패치 수 상한(<c>PatchBankPatches</c>)으로
+/// 줄였으면 <see cref="Patches"/> 는 사례 순서가 아니라 고른 패치의 모음이고, <see cref="PatchesPerImage"/> 는 질의 한 장의 패치 수(모양
+/// 검사용)로 남는다 — 그래서 점수 계산은 <see cref="PoolCount"/> 를 쓴다.
+/// </summary>
 internal sealed record PatchBank(
     IReadOnlyList<string> ImageIds, IReadOnlyList<float[]> Globals, float[] Patches, int PatchesPerImage, int Dimension)
 {
     public int Count => ImageIds.Count;
+
+    /// <summary>점수에 쓰는 기억 패치의 수.</summary>
+    public int PoolCount => Patches.Length / Dimension;
+
+    /// <summary>패치 수 상한으로 줄었는가 — 사례 전부의 패치보다 적다.</summary>
+    public bool Reduced => PoolCount < Count * PatchesPerImage;
 }
 
 /// <summary>
@@ -174,7 +191,7 @@ public sealed class CaseMemory(
             return await Task.Run(() =>
             {
                 var distances = PatchDistance.PatchMap(
-                    features.Patches, bank.PatchesPerImage, bank.Patches, bank.Count * bank.PatchesPerImage, bank.Dimension);
+                    features.Patches, bank.PatchesPerImage, bank.Patches, bank.PoolCount, bank.Dimension);
                 var global = PatchDistance.GlobalScore(features.Global, bank.Globals);
                 var patch = distances.Max();
                 // 격자 모양을 알 때만 지도로 남긴다 — 어긋나면 점수만(지도를 그릴 수 없는 값은 만들지 않는다).
@@ -191,7 +208,7 @@ public sealed class CaseMemory(
                         BankSize = bank.Count,
                     }
                     : null;
-                return new AnomalyScores(global, patch, bank.Count, map);
+                return new AnomalyScores(global, patch, bank.Count, map, bank.Reduced ? bank.PoolCount : null);
             }, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
@@ -389,6 +406,16 @@ public sealed class CaseMemory(
             var flat = new float[ready.Count * length];
             for (var i = 0; i < ready.Count; i++)
                 patches[ready[i].ImageId].CopyTo(flat, i * length);
+            // 패치 수 상한 — 모은 패치가 상한보다 많으면 k-center 로 줄인다(CPU 일이라 스레드 풀로, 요청 경로 밖인 동기화에서).
+            if (options.PatchBankPatches > 0 && flat.Length / dimension > options.PatchBankPatches)
+            {
+                var pool = flat.Length / dimension;
+                var started = Stopwatch.StartNew();
+                flat = await Task.Run(() => ReducePatches(flat, pool, dimension, options.PatchBankPatches), cancellationToken);
+                logger.LogInformation(
+                    "패치 기억을 {From} → {To} 패치로 줄임 — k-center {Ms} ms (scenario={ScenarioId})",
+                    pool, options.PatchBankPatches, started.ElapsedMilliseconds, scenario.ScenarioId);
+            }
             // 기억 밖으로 밀려난 사례의 파일을 치운다 — 정상이 새로 확정될 때마다 가장 오래된 것이 빠진다.
             await patchBank.PruneAsync(scenario.ScenarioId, key, normal.Select(c => c.ImageId).ToHashSet(StringComparer.Ordinal), cancellationToken);
             return new PatchBank(
@@ -403,6 +430,16 @@ public sealed class CaseMemory(
             logger.LogWarning(ex, "패치 기억 동기화 실패 — 지난 기억 유지 (scenario={ScenarioId})", scenario.ScenarioId);
             return previous;
         }
+    }
+
+    /// <summary>모은 패치 <paramref name="count"/> 개 가운데 <paramref name="keep"/> 개를 k-center 로 골라 새 배열로 모은다.</summary>
+    internal static float[] ReducePatches(float[] vectors, int count, int dimension, int keep)
+    {
+        var chosen = CoresetSelector.Select(vectors, count, dimension, keep);
+        var reduced = new float[chosen.Length * dimension];
+        for (var i = 0; i < chosen.Length; i++)
+            Array.Copy(vectors, (long)chosen[i] * dimension, reduced, (long)i * dimension, dimension);
+        return reduced;
     }
 
     private sealed record ConfirmedCase(string ImageId, string Date, string Class);

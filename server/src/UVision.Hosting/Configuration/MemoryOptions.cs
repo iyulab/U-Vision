@@ -54,6 +54,15 @@ public sealed class MemoryOptions
     public int PatchBankCap { get; set; } = 200;
 
     /// <summary>
+    /// 패치 기억의 «패치 수» 상한 — 0(기본)이면 꺼짐, 사례 <see cref="PatchBankCap"/> 장의 패치를 전부 쓴다. 양수이고 모은 패치가
+    /// 이보다 많으면 탐욕 k-center(<see cref="UVision.Api.Services.Memory.CoresetSelector"/>)로 줄인다. 점수는 «기억에서 가장 가까운
+    /// 패치까지의 거리»라 정상의 가장자리를 덮는 패치를 남기는 선택이라, 기억의 10 % 로도 전체 기억의 점수를 거의 지킨다(질의당 계산이
+    /// 같은 비율로 줄어든다). 선택은 패치 기억 스냅숏을 짓는 단계(동기화, 요청 경로 밖)에서 한 번 하고 사례 집합이 바뀔 때만 다시 한다 —
+    /// 수만~수십만 패치에서 수십 초가 든다. 판정에는 쓰이지 않는다(Shadow). 전역 점수는 사례 전부를 그대로 쓴다.
+    /// </summary>
+    public int PatchBankPatches { get; set; }
+
+    /// <summary>
     /// 기억 동기화 주기(초, 최소 5). 동기화가 새 확정 사례를 임베딩하고 라벨 변경을 반영하므로, 라벨이 바뀐 뒤 기억에
     /// 보이기까지 이만큼 걸린다.
     /// </summary>
