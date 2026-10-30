@@ -104,6 +104,30 @@ internal static class PatchBench
             Console.Error.WriteLine($"부분표본 {fraction:P0} 완료");
         }
 
+        // --coreset 0.5,0.25,0.1: 같은 패치 수를 무작위가 아니라 탐욕 k-center(엔진 쪽 CoresetSelector)로 고른 은행에서 같은 질의를 다시 낸다 —
+        // MLoop 코어셋(--bank-size)과 같은 패치 수에서 점수가 맞는지 보려는 것(맞으면 선택을 엔진에 직접 둘 수 있다).
+        foreach (var fraction in ParseFractions(opts.GetValueOrDefault("coreset")))
+        {
+            var total = bank.Count * patchCount;
+            var keep = Math.Max(1, (int)(total * fraction));
+            var selecting = Stopwatch.StartNew();
+            var picked = CoresetSelector.Select(bankPatches, total, dim, keep);
+            var selectSeconds = selecting.Elapsed.TotalSeconds;
+            var reduced = CoresetSelector.Gather(bankPatches, dim, picked);
+            var n = new List<double>();
+            var d = new List<double>();
+            var millis = new List<double>();
+            foreach (var s in test)
+            {
+                var clock = Stopwatch.StartNew();
+                var p = PatchDistance.PatchScore(features[s.Sha256].Patches, patchCount, reduced, keep, dim);
+                millis.Add(clock.Elapsed.TotalMilliseconds);
+                (s.Class == "OK" ? n : d).Add(p);
+            }
+            subsampled.Add(($"패치 최댓값 — 엔진 k-center {fraction:P0}({keep}개, 선택 {selectSeconds:F1} 초, 점수 계산 중앙값 {millis.Order().ElementAt(millis.Count / 2):F0} ms/장)", n, d));
+            Console.Error.WriteLine($"k-center {fraction:P0} 완료 (선택 {selectSeconds:F1} 초)");
+        }
+
         // --anomaly-endpoint: MLoop `image-anomaly` 모델(`mloop serve`)의 점수를 같은 질의로 받아 세 번째 줄로 비교한다.
         AnomalyScores? anomaly = null;
         if (opts.GetValueOrDefault("anomaly-endpoint") is { } anomalyEndpoint)
