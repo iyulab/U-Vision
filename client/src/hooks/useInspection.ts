@@ -193,8 +193,9 @@ export function useInspection(
         } else if (outcome.kind === 'failed') {
           currentId.current = null
           showFailure(outcome.error)
-        } else if (outcome.kind === 'offline') {
+        } else if (outcome.kind === 'offline' || outcome.kind === 'retry') {
           // 화면은 다음 캡처로 넘어간다 — 이 캡처의 판정은 나중에 이력으로만(차단 게이트를 걸지 않는다).
+          // retry(서버가 저장 못 함)도 같다: 큐에 남아 다시 보낸다.
           currentId.current = null
           setPhase('queued')
         }

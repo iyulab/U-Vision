@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { describe, expect, it, vi } from 'vitest'
 
-import { ApiError, NetworkError } from './api'
+import { ApiError, DetectionUnavailableError, NetworkError } from './api'
 import { openCaptureQueue, type QueuedCapture } from './captureQueue'
 import { createQueueSender, type SendOutcome } from './queueSender'
 
@@ -57,6 +57,57 @@ describe('queueSender', () => {
       throw new ApiError(400, 'bad')
     })
     expect(await sender.sendOne('a')).toMatchObject({ kind: 'failed' })
+    expect(await q.count()).toBe(0)
+  })
+
+  it.each([500, 502, 503, 504])('서버가 %i 로 아무것도 결정하지 못하면 큐에 남아 다시 보낸다', async (status) => {
+    const q = await freshQueue()
+    await q.add(item('a', '2026-10-22T01:00:00.000Z'))
+    const sender = createQueueSender(q, async () => {
+      throw new ApiError(status, '저장 실패')
+    })
+    expect(await sender.sendOne('a')).toMatchObject({ kind: 'retry' })
+    expect(await q.count()).toBe(1)
+  })
+
+  it.each([400, 404, 413, 415])('서버의 거부(%i)는 다시 보내지 않는다', async (status) => {
+    const q = await freshQueue()
+    await q.add(item('a', '2026-10-22T01:00:00.000Z'))
+    const sender = createQueueSender(q, async () => {
+      throw new ApiError(status, 'rejected')
+    })
+    expect(await sender.sendOne('a')).toMatchObject({ kind: 'failed' })
+    expect(await q.count()).toBe(0)
+  })
+
+  it('판정 불가(fail-closed)는 서버의 결정이라 다시 보내지 않는다', async () => {
+    const q = await freshQueue()
+    await q.add(item('a', '2026-10-22T01:00:00.000Z'))
+    const sender = createQueueSender(q, async () => {
+      throw new DetectionUnavailableError('vlm_down')
+    })
+    expect(await sender.sendOne('a')).toMatchObject({ kind: 'failed' })
+    expect(await q.count()).toBe(0)
+  })
+
+  it('저장 실패로 남은 항목이 줄을 막지 않고, 서버가 회복하면 다음 drain 에서 나간다', async () => {
+    const q = await freshQueue()
+    await q.add(item('a', '2026-10-22T01:00:00.000Z'))
+    await q.add(item('b', '2026-10-22T01:00:01.000Z'))
+    let storageOk = false
+    const sender = createQueueSender(q, async (it) => {
+      if (it.id === 'a' && !storageOk) throw new ApiError(500, '검사 결과 저장 실패')
+      return it.id
+    })
+    const first: SendOutcome<string>[] = []
+    await sender.drain((o) => first.push(o))
+    expect(first.map((o) => o.kind)).toEqual(['retry', 'sent'])
+    expect(await q.ids()).toEqual(['a'])
+
+    storageOk = true
+    const second: SendOutcome<string>[] = []
+    await sender.drain((o) => second.push(o))
+    expect(second.map((o) => o.kind)).toEqual(['sent'])
     expect(await q.count()).toBe(0)
   })
 

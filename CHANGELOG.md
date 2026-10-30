@@ -46,6 +46,7 @@ Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0
 - The patch search runs in cache-sized tiles: several query patches share each slice of the memory bank instead of each re-reading all of it. Every pairwise dot product and the maximum are unchanged, so the distances are byte-identical; about twice as fast with 600 images in the bank.
 
 ### Fixed
+- The console's offline capture queue no longer drops a capture when the server answers but cannot record it. A capture whose request ended in a 500 (the inspection result could not be saved, for example a full disk or a briefly unavailable share) or a 502 / 503 / 504 (a proxy in front of an engine that is restarting) stays in the queue and is sent again when the connection or the server recovers; the same capture id is the idempotency key, so a resend never judges it twice. A capture the server rejected (400, 404, 413, 415) or declared undecidable (503 `detection_unavailable`, fail-closed) is still removed. A capture left in the queue does not hold back the ones behind it.
 - The console's result detail wraps long values (image id, expected part, read code) instead of making the dialog scroll sideways on a narrow screen.
 
 ## [0.5.0] - 2026-10-24

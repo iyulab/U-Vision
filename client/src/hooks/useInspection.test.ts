@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { DetectionUnavailableError, NetworkError } from '../lib/api'
+import { ApiError, DetectionUnavailableError, NetworkError } from '../lib/api'
 import { openCaptureQueue, type QueuedCapture } from '../lib/captureQueue'
 import type { CaptureSender } from '../lib/captureSend'
 import { createQueueSender } from '../lib/queueSender'
@@ -169,6 +169,27 @@ describe('useInspection', () => {
 
     act(() => hook.current.dismissLateAlerts())
     expect(hook.current.lateAlerts).toEqual([])
+  })
+
+  it('서버가 저장에 실패(500)해도 캡처를 버리지 않고 queued 로 두었다가 회복되면 보낸다', async () => {
+    const queue = await useRealQueue()
+    h.send.mockRejectedValue(new ApiError(500, '판정 요청 실패 (500) 검사 결과 저장 실패'))
+    const { result: hook } = await mounted()
+
+    act(() => hook.current.trigger())
+    await waitFor(() => expect(hook.current.phase).toBe('queued'))
+    expect(hook.current.error).toBeNull()
+    expect(await queue.count()).toBe(1)
+
+    const late = result('OK')
+    h.send.mockResolvedValue(late)
+    await act(async () => {
+      window.dispatchEvent(new Event('online'))
+    })
+
+    await waitFor(() => expect(hook.current.pending).toBe(0))
+    expect(await queue.count()).toBe(0)
+    expect(hook.current.history[0]).toMatchObject({ image_id: late.image_id, late: true })
   })
 
   it('늦게 보낸 캡처를 서버가 거부하면 알림만 남기고 큐에서 뺀다', async () => {
