@@ -11,7 +11,8 @@ namespace UVision.Benchmark;
 /// <summary>
 /// 결과 목록 조회(<c>GET /results</c> 의 저장소 쪽)가 하루 건수에 따라 얼마나 걸리는지 잰다 — 파생 색인이 필요한 규모에 닿는지의 증거.
 /// 합성 결과 N 건을 실제 <see cref="FileInspectionStore"/> 로 한 날짜 폴더에 쓰고(이미지 + json, 일부는 사람 라벨 사이드카),
-/// <c>ListAsync</c> 시간(쓴 직후 첫 조회 · 반복 중앙값)과 응답이 될 JSON 직렬화 시간 · 바이트를 낸다.
+/// <c>ListAsync</c> 시간(쓴 직후 첫 조회 · 반복 중앙값)과 응답이 될 JSON 직렬화 시간 · 바이트를 낸다. 한 쪽씩 읽는
+/// <c>ListPageAsync</c>(<c>--page</c> 건, 기본 100)의 첫 쪽 · 반복 중앙값 · 전부 쪽으로 순회한 합계도 함께 잰다.
 /// 파일 캐시를 비울 수 없어 «콜드 디스크» 는 재지 못한다(쓴 직후라 캐시가 따뜻하다) — 값은 하한이다.
 /// </summary>
 internal static class ResultsScaleBench
@@ -23,6 +24,7 @@ internal static class ResultsScaleBench
             .Select(int.Parse).ToArray();
         var imageKb = int.TryParse(opts.GetValueOrDefault("image-kb"), out var kb) && kb > 0 ? kb : 150;
         var labelEvery = int.TryParse(opts.GetValueOrDefault("label-every"), out var le) && le > 0 ? le : 10;
+        var page = int.TryParse(opts.GetValueOrDefault("page"), out var pg) && pg > 0 ? pg : 100;
         var root = opts.GetValueOrDefault("dir") ?? Path.Combine(Path.GetTempPath(), "uvision-results-scale-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(root);
 
@@ -38,17 +40,17 @@ internal static class ResultsScaleBench
         sb.AppendLine($"- 합성 결과(이미지 {imageKb} KB + json, {labelEvery}건마다 사람 라벨 사이드카) · 한 날짜 폴더 · 논리 코어 {Environment.ProcessorCount} · {(IsDebug ? "**Debug 빌드 — 시간을 믿지 말 것**" : "Release")}");
         sb.AppendLine("- 한계: 파일 캐시를 비울 수 없어 쓴 직후(캐시 따뜻함)에 쟀다 — 콜드 디스크 시간은 이보다 길다(UNVERIFIED).");
         sb.AppendLine();
-        sb.AppendLine("| 건수 | 폴더 파일 수 | 쓰기 | 첫 조회(ms) | 반복 중앙값(ms) | 직렬화(ms) | 응답(MB) |");
-        sb.AppendLine("|---|---|---|---|---|---|---|");
+        sb.AppendLine($"| 건수 | 폴더 파일 수 | 쓰기 | 전체 첫 조회(ms) | 전체 반복 중앙값(ms) | 직렬화(ms) | 응답(MB) | 쪽 {page}건 첫 조회(ms) | 쪽 반복 중앙값(ms) | 쪽으로 전부 순회(ms) |");
+        sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|");
 
         try
         {
             // 데워 둔다(JIT) — 첫 건수가 JIT 비용을 떠안지 않게.
-            await MeasureAsync(Path.Combine(root, "warm"), 30, image, timestamp, date, scenario, labelEvery);
+            await MeasureAsync(Path.Combine(root, "warm"), 30, image, timestamp, date, scenario, labelEvery, page);
             foreach (var n in counts)
             {
-                var m = await MeasureAsync(Path.Combine(root, $"n{n}"), n, image, timestamp, date, scenario, labelEvery);
-                var line = $"| {n} | {m.Files} | {m.WriteSeconds:F1} 초 | {m.First:F0} | {m.Repeat:F0} | {m.Serialize:F0} | {m.Megabytes:F2} |";
+                var m = await MeasureAsync(Path.Combine(root, $"n{n}"), n, image, timestamp, date, scenario, labelEvery, page);
+                var line = $"| {n} | {m.Files} | {m.WriteSeconds:F1} 초 | {m.First:F0} | {m.Repeat:F0} | {m.Serialize:F0} | {m.Megabytes:F2} | {m.PageFirst:F0} | {m.PageRepeat:F0} | {m.WalkAll:F0} |";
                 sb.AppendLine(line);
                 Console.Error.WriteLine(line);
             }
@@ -71,10 +73,12 @@ internal static class ResultsScaleBench
         return 0;
     }
 
-    private sealed record Measurement(int Files, double WriteSeconds, double First, double Repeat, double Serialize, double Megabytes);
+    private sealed record Measurement(
+        int Files, double WriteSeconds, double First, double Repeat, double Serialize, double Megabytes,
+        double PageFirst, double PageRepeat, double WalkAll);
 
     private static async Task<Measurement> MeasureAsync(
-        string dataPath, int count, byte[] image, string timestamp, string date, string scenario, int labelEvery)
+        string dataPath, int count, byte[] image, string timestamp, string date, string scenario, int labelEvery, int page)
     {
         var paths = new StoragePaths(new StorageOptions { DataPath = dataPath }, dataPath);
         var store = new FileInspectionStore(paths);
@@ -117,8 +121,34 @@ internal static class ResultsScaleBench
         var json = JsonSerializer.Serialize(first, StoragePaths.Json);
         var serializeMs = clock.Elapsed.TotalMilliseconds;
 
+        // 한 쪽씩 — 첫 쪽(쓴 직후 첫 호출) · 반복 중앙값 · 커서를 따라 전부 순회한 합계(쪽마다 디렉터리 목록을 다시 읽는다).
+        clock.Restart();
+        var firstPage = await store.ListPageAsync(scenario, date, page, cursor: null);
+        var pageFirstMs = clock.Elapsed.TotalMilliseconds;
+        var pageRepeats = new List<double>();
+        for (var r = 0; r < 3; r++)
+        {
+            clock.Restart();
+            await store.ListPageAsync(scenario, date, page, cursor: null);
+            pageRepeats.Add(clock.Elapsed.TotalMilliseconds);
+        }
+        clock.Restart();
+        var walked = 0;
+        string? cursor = null;
+        do
+        {
+            var next = await store.ListPageAsync(scenario, date, page, cursor);
+            walked += next.Items.Count;
+            cursor = next.NextCursor;
+        } while (cursor is not null);
+        var walkMs = clock.Elapsed.TotalMilliseconds;
+        if (walked != count || firstPage.Items.Count != Math.Min(page, count))
+            throw new InvalidOperationException($"쪽 순회 {walked} 건 ≠ 쓴 {count} 건");
+
         var files = Directory.EnumerateFiles(paths.DateDir(scenario, date)).Count();
-        return new Measurement(files, write.Elapsed.TotalSeconds, firstMs, repeats.Order().ElementAt(1), serializeMs, Encoding.UTF8.GetByteCount(json) / 1048576.0);
+        return new Measurement(
+            files, write.Elapsed.TotalSeconds, firstMs, repeats.Order().ElementAt(1), serializeMs, Encoding.UTF8.GetByteCount(json) / 1048576.0,
+            pageFirstMs, pageRepeats.Order().ElementAt(1), walkMs);
     }
 
     private static bool IsDebug =>
