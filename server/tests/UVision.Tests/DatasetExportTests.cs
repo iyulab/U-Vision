@@ -121,7 +121,25 @@ public class DatasetExportTests
 
         var manifest = await exporter.ExportAsync(Scenario, ExportId);
 
-        Assert.Contains(manifest.Warnings, w => w.Contains("권장 최소"));
+        Assert.Contains(manifest.Warnings, w => w.Contains("학습 기준") && w.Contains($"{ScenarioTraining.Default.MinPerClass}장 미만"));
+    }
+
+    [Fact]
+    public async Task Export_WarningThreshold_FollowsScenarioTrainingRules()
+    {
+        // 경고 기준은 readiness 와 같은 시나리오 trust.training.min_per_class — 두 신호가 다른 숫자를 말하지 않는다.
+        var (paths, ins, lab) = NewStores();
+        await SeedLabeled(ins, lab, "2026-06-10", "img_a", "OK");
+        await SeedLabeled(ins, lab, "2026-06-10", "img_b", "OK");
+        await SeedLabeled(ins, lab, "2026-06-10", "img_c", "NG");
+        await SeedLabeled(ins, lab, "2026-06-10", "img_d", "NG");
+        var exporter = new FileDatasetExporter(paths, ins, lab);
+
+        var strict = await exporter.ExportAsync(Scenario, "export-strict", ScenarioTraining.Default with { MinPerClass = 3 });
+        Assert.Equal(2, strict.Warnings.Count(w => w.Contains("3장 미만")));
+
+        var lenient = await exporter.ExportAsync(Scenario, "export-lenient", ScenarioTraining.Default with { MinPerClass = 2 });
+        Assert.DoesNotContain(lenient.Warnings, w => w.Contains("학습 기준"));
     }
 
     [Fact]

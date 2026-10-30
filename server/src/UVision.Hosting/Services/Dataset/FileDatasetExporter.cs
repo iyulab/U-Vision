@@ -12,9 +12,6 @@ namespace UVision.Api.Services.Dataset;
 /// </summary>
 public sealed class FileDatasetExporter : IDatasetExporter
 {
-    /// <summary>MLoop 이미지분류 권장 클래스당 최소 표본 수(미만이면 학습 품질 경고).</summary>
-    public const int MinPerClassRecommended = 5;
-
     private readonly StoragePaths _paths;
     private readonly IInspectionStore _inspections;
     private readonly ILabelStore _labels;
@@ -80,7 +77,7 @@ public sealed class FileDatasetExporter : IDatasetExporter
             .Select(kv => new DatasetClassCount { ClassDir = kv.Key, Count = kv.Value })
             .ToList();
 
-        var warnings = BuildWarnings(classes, missing);
+        var warnings = BuildWarnings(classes, missing, rules.MinPerClass);
 
         var manifest = new DatasetExportManifest
         {
@@ -133,7 +130,11 @@ public sealed class FileDatasetExporter : IDatasetExporter
             stream, StoragePaths.Json, cancellationToken);
     }
 
-    private static List<string> BuildWarnings(IReadOnlyList<DatasetClassCount> classes, int missing)
+    /// <param name="minPerClass">
+    /// 클래스당 최소 표본 — 시나리오 <c>trust.training.min_per_class</c>. readiness(<c>build_ready</c>)와 같은 기준이라 관리자가
+    /// export 경고와 «빌드 가능» 에서 서로 다른 숫자를 받지 않는다.
+    /// </param>
+    private static List<string> BuildWarnings(IReadOnlyList<DatasetClassCount> classes, int missing, int minPerClass)
     {
         var warnings = new List<string>();
         if (classes.Count == 0)
@@ -141,8 +142,8 @@ public sealed class FileDatasetExporter : IDatasetExporter
         else if (classes.Count < 2)
             warnings.Add($"클래스가 1개뿐입니다('{classes[0].ClassDir}') — 이진 분류 학습에는 최소 2개 클래스가 필요합니다.");
 
-        foreach (var c in classes.Where(c => c.Count < MinPerClassRecommended))
-            warnings.Add($"클래스 '{c.ClassDir}' 표본 {c.Count}장 — 권장 최소 {MinPerClassRecommended}장 미만(학습 품질 저하 가능).");
+        foreach (var c in classes.Where(c => c.Count < minPerClass))
+            warnings.Add($"클래스 '{c.ClassDir}' 표본 {c.Count}장 — 학습 기준(시나리오 trust.training.min_per_class) {minPerClass}장 미만(학습 품질 저하 가능).");
 
         if (missing > 0)
             warnings.Add($"라벨 {missing}건에 대응하는 이미지가 없어 제외했습니다.");
