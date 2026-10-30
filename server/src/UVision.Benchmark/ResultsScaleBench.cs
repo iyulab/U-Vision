@@ -38,7 +38,7 @@ internal static class ResultsScaleBench
         sb.AppendLine("# 결과 목록 조회의 규모별 시간 — `FileInspectionStore.ListAsync`");
         sb.AppendLine();
         sb.AppendLine($"- 합성 결과(이미지 {imageKb} KB + json, {labelEvery}건마다 사람 라벨 사이드카) · 한 날짜 폴더 · 논리 코어 {Environment.ProcessorCount} · {(IsDebug ? "**Debug 빌드 — 시간을 믿지 말 것**" : "Release")}");
-        sb.AppendLine("- 한계: 파일 캐시를 비울 수 없어 쓴 직후(캐시 따뜻함)에 쟀다 — 콜드 디스크 시간은 이보다 길다(UNVERIFIED).");
+        sb.AppendLine("- 한계: 파일 캐시를 비울 수 없어 쓴 직후에 쟀다 — «첫 조회» 두 열은 같은 조건(쪽이 먼저, 전체가 그다음)이고 «반복 중앙값» 열은 캐시가 따뜻하다. 콜드 디스크 시간은 이보다 길 수 있다(UNVERIFIED).");
         sb.AppendLine();
         sb.AppendLine($"| 건수 | 폴더 파일 수 | 쓰기 | 전체 첫 조회(ms) | 전체 반복 중앙값(ms) | 직렬화(ms) | 응답(MB) | 쪽 {page}건 첫 조회(ms) | 쪽 반복 중앙값(ms) | 쪽으로 전부 순회(ms) |");
         sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|");
@@ -104,7 +104,12 @@ internal static class ResultsScaleBench
         }
         write.Stop();
 
+        // 첫 쪽을 전체 조회보다 먼저 잰다 — 전체 조회가 파일 캐시를 데우기 전의 값이어야 두 «첫 조회» 가 같은 조건이다.
         var clock = Stopwatch.StartNew();
+        var firstPage = await store.ListPageAsync(scenario, date, page, cursor: null);
+        var pageFirstMs = clock.Elapsed.TotalMilliseconds;
+
+        clock.Restart();
         var first = await store.ListAsync(scenario, date);
         var firstMs = clock.Elapsed.TotalMilliseconds;
         if (first.Count != count) throw new InvalidOperationException($"조회 {first.Count} 건 ≠ 쓴 {count} 건");
@@ -121,10 +126,7 @@ internal static class ResultsScaleBench
         var json = JsonSerializer.Serialize(first, StoragePaths.Json);
         var serializeMs = clock.Elapsed.TotalMilliseconds;
 
-        // 한 쪽씩 — 첫 쪽(쓴 직후 첫 호출) · 반복 중앙값 · 커서를 따라 전부 순회한 합계(쪽마다 디렉터리 목록을 다시 읽는다).
-        clock.Restart();
-        var firstPage = await store.ListPageAsync(scenario, date, page, cursor: null);
-        var pageFirstMs = clock.Elapsed.TotalMilliseconds;
+        // 한 쪽씩 — 반복 중앙값(캐시가 따뜻함) · 커서를 따라 전부 순회한 합계(쪽마다 디렉터리 목록을 다시 읽는다).
         var pageRepeats = new List<double>();
         for (var r = 0; r < 3; r++)
         {
