@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import { countDraftOf, countLine, EMPTY_COUNT_DRAFT, MAX_COUNT, parseCountDraft } from './counting'
+import { countDraftOf, countLine, EMPTY_COUNT_DRAFT, isCounting, MAX_COUNT, parseCountDraft } from './counting'
+
+describe('isCounting', () => {
+  it('유형이 counting 일 때만 — 사진 확인(문제 큐)을 숨기는 근거', () => {
+    expect(isCounting({ type: 'counting' })).toBe(true)
+    expect(isCounting({ type: 'inspection' })).toBe(false)
+    expect(isCounting({ type: 'verification' })).toBe(false)
+    expect(isCounting({})).toBe(false)
+  })
+})
 
 describe('parseCountDraft', () => {
   it('기대 개수만 있어도 된다 — 허용 오차는 0, 종류는 비어 있고, 최소 신뢰도는 보내지 않는다', () => {

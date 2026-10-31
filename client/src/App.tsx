@@ -18,6 +18,7 @@ import { getDeviceLabel, setDeviceLabel } from './lib/deviceIdentity'
 import { DEFAULT_MOTION_CONFIG, type MotionConfig } from './lib/motion'
 import { fromScenarioRoi } from './lib/roi'
 import type { Scenario } from './lib/types'
+import { isCounting } from './lib/counting'
 import { isVerification } from './lib/verification'
 
 /** 시나리오 캡처 설정 → 모션 감지 config. downscaleWidth 는 시나리오에 없으므로 클라 기본 보존. */
@@ -136,7 +137,7 @@ export default function App() {
             ))}
           </select>
         )}
-        {active && !isVerification(active) && (
+        {active && !isVerification(active) && !isCounting(active) && (
           <button
             onClick={() => setShowQuestions(true)}
             className="rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur hover:bg-black/80"

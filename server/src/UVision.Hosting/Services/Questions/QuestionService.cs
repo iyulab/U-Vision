@@ -126,6 +126,9 @@ public sealed class QuestionService
         var effective = EffectiveScenario.Resolve(scenario, mlEnabled: false);
         if (effective.IsVerification)
             return new QuestionOutcome.Unsupported("오투입 확인 시나리오는 기대 품번 상대로 판정하므로 사진 하나로 묻는 문제를 내지 않는다");
+        // 계수의 OK/NG 는 센 개수가 허용 범위 안인가에서 나온 파생값이라 «이 사진은 무엇인가» 의 답이 아니고(카드에는 기대 개수도 없다), 개수 정답도 아니다.
+        if (effective.IsCounting)
+            return new QuestionOutcome.Unsupported("계수 시나리오의 OK/NG 는 센 개수에서 나온 값이라 사진 하나로 묻는 문제를 내지 않는다 — 개수는 결과 화면의 근거 상자로 확인한다");
 
         await _gate.WaitAsync(cancellationToken);
         try

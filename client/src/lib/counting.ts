@@ -82,6 +82,11 @@ export function parseCountDraft(draft: CountDraft): { fields: CountFields } | { 
   }
 }
 
+/** 계수 시나리오인가 — OK/NG 가 센 개수에서 나온 파생값이라 사진 하나로 묻는 문제(사진 확인)를 내지 않는다. */
+export function isCounting(scenario: Pick<Scenario, 'type'>): boolean {
+  return scenario.type === 'counting'
+}
+
 /** 시나리오 목록 한 줄 — «기대 6 ± 1 · 신뢰도 0.7 이상 · helmet». 계수가 아니면 null. */
 export function countLine(scenario: Pick<Scenario, 'type'> & CountScenario): string | null {
   if (scenario.type !== 'counting') return null

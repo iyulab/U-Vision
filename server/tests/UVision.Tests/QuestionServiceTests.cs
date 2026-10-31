@@ -216,6 +216,18 @@ public class QuestionServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task CountingScenarios_AreNotSupported_BecauseTheirOkNgIsDerivedFromTheCount()
+    {
+        _source.Candidates = [C("a")];
+
+        var outcome = await Service(type: "counting").NextAsync(Scenario, "dev", default);
+
+        var unsupported = Assert.IsType<QuestionOutcome.Unsupported>(outcome);
+        Assert.Contains("개수", unsupported.Reason);
+        Assert.Empty(await _questions.ListAsync(Scenario, default));
+    }
+
+    [Fact]
     public void Options_RejectUnknownRulesAndOutOfRangeValues()
     {
         Assert.Throws<ArgumentException>(() => new QuestionsOptions { Rule = "magic" }.Validate());
