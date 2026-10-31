@@ -34,6 +34,8 @@ export type Question = Wire.QuestionResponse
 export type QuestionAnswer = Wire.QuestionAnswerResponse
 export type SolverTrust = Wire.SolverTrustResponse
 export type SolverTrustDevice = Wire.SolverTrustDevice
+export type Ambiguity = Wire.AmbiguityResponse
+export type AmbiguityGroup = Wire.AmbiguityGroup
 export type RetentionPurgeInput = Wire.RetentionPurgeInput
 export type RetentionPurgeResponse = Wire.RetentionPurgeResponse
 

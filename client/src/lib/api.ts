@@ -1,4 +1,4 @@
-import type { AdminStatus, AnomalyMap, AuthorityState, DetectionUnavailable, EventsStatus, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Question, QuestionAnswer, Reference, RetentionPurgeInput, RetentionPurgeResponse, Scenario, SolverTrust, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
+import type { AdminStatus, Ambiguity, AnomalyMap, AuthorityState, DetectionUnavailable, EventsStatus, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Question, QuestionAnswer, Reference, RetentionPurgeInput, RetentionPurgeResponse, Scenario, SolverTrust, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
 import type { QuestionAnswerInput } from './contract.gen'
 import type { AuthorityStage } from './authority'
 import { resolveApiBase } from './runtimeConfig'
@@ -359,6 +359,15 @@ export async function demoteAuthority(
     body: JSON.stringify({ by, reason }),
   })
   await ensureOk(res, '단계 격하')
+}
+
+/**
+ * «모르겠음» 비율(무인증 읽기) — 대표 집단(무작위로 고른 문제)과 치우친 집단(불확실해서 고른 문제)을 따로. 닫힌 문제가 모자라면 비율이 없다.
+ */
+export async function getAmbiguity(scenarioId: string): Promise<Ambiguity> {
+  const res = await fetch(`${API_BASE}/questions/ambiguity?scenario_id=${encodeURIComponent(scenarioId)}`)
+  await ensureOk(res, '모르겠음 비율 조회')
+  return (await res.json()) as Ambiguity
 }
 
 /**
