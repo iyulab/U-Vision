@@ -1056,6 +1056,56 @@
         }
       }
     },
+    "/api/u-vision/questions/solver-trust": {
+      "get": {
+        "tags": [
+          "U-Vision"
+        ],
+        "operationId": "GetSolverTrust",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SolverTrustResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/u-vision/questions/answer": {
       "post": {
         "tags": [
@@ -4472,6 +4522,98 @@
           },
           "kind": {
             "type": "string"
+          }
+        }
+      },
+      "SolverTrustDevice": {
+        "required": [
+          "device",
+          "planted",
+          "correct",
+          "wrong",
+          "unsure",
+          "open"
+        ],
+        "type": "object",
+        "properties": {
+          "device": {
+            "type": "string"
+          },
+          "planted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "correct": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "wrong": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unsure": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "open": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "accuracy": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "SolverTrustResponse": {
+        "required": [
+          "scenario_id",
+          "planted",
+          "correct",
+          "wrong",
+          "unsure",
+          "open",
+          "min_answers_for_rate",
+          "devices"
+        ],
+        "type": "object",
+        "properties": {
+          "scenario_id": {
+            "type": "string"
+          },
+          "planted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "correct": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "wrong": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unsure": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "open": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "min_answers_for_rate": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "accuracy": {
+            "type": "number",
+            "format": "double"
+          },
+          "devices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SolverTrustDevice"
+            }
           }
         }
       },

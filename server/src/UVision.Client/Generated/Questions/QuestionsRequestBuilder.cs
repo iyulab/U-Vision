@@ -9,6 +9,7 @@ using System;
 using UVision.Client.Questions.Answer;
 using UVision.Client.Questions.Image;
 using UVision.Client.Questions.Next;
+using UVision.Client.Questions.SolverTrust;
 namespace UVision.Client.Questions
 {
     /// <summary>
@@ -31,6 +32,11 @@ namespace UVision.Client.Questions
         public global::UVision.Client.Questions.Next.NextRequestBuilder Next
         {
             get => new global::UVision.Client.Questions.Next.NextRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The solverTrust property</summary>
+        public global::UVision.Client.Questions.SolverTrust.SolverTrustRequestBuilder SolverTrust
+        {
+            get => new global::UVision.Client.Questions.SolverTrust.SolverTrustRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::UVision.Client.Questions.QuestionsRequestBuilder"/> and sets the default values.

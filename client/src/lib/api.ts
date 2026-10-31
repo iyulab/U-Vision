@@ -1,4 +1,4 @@
-import type { AdminStatus, AnomalyMap, AuthorityState, DetectionUnavailable, EventsStatus, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Question, QuestionAnswer, Reference, RetentionPurgeInput, RetentionPurgeResponse, Scenario, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
+import type { AdminStatus, AnomalyMap, AuthorityState, DetectionUnavailable, EventsStatus, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Question, QuestionAnswer, Reference, RetentionPurgeInput, RetentionPurgeResponse, Scenario, SolverTrust, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
 import type { QuestionAnswerInput } from './contract.gen'
 import type { AuthorityStage } from './authority'
 import { resolveApiBase } from './runtimeConfig'
@@ -359,6 +359,15 @@ export async function demoteAuthority(
     body: JSON.stringify({ by, reason }),
   })
   await ensureOk(res, '단계 격하')
+}
+
+/**
+ * 정답 심기로 잰 풀이자(장치)별 정답률(무인증 읽기). 심은 문제가 없으면(기본) 모두 0 이고 정답률은 답한 건수가 모자랄 때 없다.
+ */
+export async function getSolverTrust(scenarioId: string): Promise<SolverTrust> {
+  const res = await fetch(`${API_BASE}/questions/solver-trust?scenario_id=${encodeURIComponent(scenarioId)}`)
+  await ensureOk(res, '풀이자 신뢰 조회')
+  return (await res.json()) as SolverTrust
 }
 
 // --- 보존 삭제 (PIN) -------------------------------------------------------

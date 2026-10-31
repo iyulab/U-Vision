@@ -2,12 +2,14 @@ import { useState } from 'react'
 
 import { useResource } from '../hooks/useResource'
 
-import { getMemory, getMetrics, getTrainingReadiness, listResultDates } from '../lib/api'
+import { getMemory, getMetrics, getSolverTrust, getTrainingReadiness, listResultDates } from '../lib/api'
 import { classNameOf } from '../lib/labels'
 import { formatDistance, hasMiss, memoryStatusLine } from '../lib/memory'
 import { auditAgreementLine, datasetNotice, falseAlarmLead, formatPercent, fraction, hasNoMetricData, recallLead } from '../lib/metrics'
+import { hasPlants } from '../lib/solverTrust'
 import { readinessLine } from '../lib/training'
 import type { MemoryReport, MetricsSummary, Scenario } from '../lib/types'
+import { SolverTrustPanel } from './SolverTrustPanel'
 
 /**
  * 메트릭 대시보드(신뢰성 플라이휠 B3 소비) — 시나리오·날짜의 2중체크 관측 신호를 본다(무인증 읽기).
@@ -43,6 +45,8 @@ export function MetricsDashboard({
     () => getMemory(scenarioId, date),
     '기억 조회 실패',
   )
+  // 풀이자 신뢰 — 날짜와 무관(시나리오 전체). 심은 문제가 없으면(기본) 칸이 없고, 실패해도 대시보드는 그대로 보인다.
+  const solverTrust = useResource(scenarioId || null, () => getSolverTrust(scenarioId), '풀이자 신뢰 조회 실패')
   const error = datesRes.error ?? metrics.error
   const loading = metrics.loading
 
@@ -91,6 +95,8 @@ export function MetricsDashboard({
         />}
 
       {memory.data?.enabled && <MemoryPanel report={memory.data} />}
+
+      {hasPlants(solverTrust.data) && <SolverTrustPanel trust={solverTrust.data} />}
 
       {summary === null ? (
         <p className="text-sm text-slate-400">시나리오·날짜를 선택하세요.</p>

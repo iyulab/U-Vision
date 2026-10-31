@@ -31,6 +31,8 @@ export type EventsStatus = Wire.EventsStatusResponse
 export type HealthStatus = Wire.HealthResponse
 export type Question = Wire.QuestionResponse
 export type QuestionAnswer = Wire.QuestionAnswerResponse
+export type SolverTrust = Wire.SolverTrustResponse
+export type SolverTrustDevice = Wire.SolverTrustDevice
 export type RetentionPurgeInput = Wire.RetentionPurgeInput
 export type RetentionPurgeResponse = Wire.RetentionPurgeResponse
 

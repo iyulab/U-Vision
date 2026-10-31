@@ -86,6 +86,8 @@ export interface Contract {
   ScenarioTraining?: ScenarioTraining
   ScenarioTrust?: ScenarioTrust
   SettledBy?: SettledBy
+  SolverTrustDevice?: SolverTrustDevice
+  SolverTrustResponse?: SolverTrustResponse
   StoredLabel?: StoredLabel
   StoredResult?: StoredResult
   Stream?: Stream
@@ -744,6 +746,34 @@ export interface ScenarioInput {
   judges?: null | ScenarioJudge[]
   trust?: null | ScenarioTrust
   patch_encoder?: null | string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "SolverTrustDevice".
+ */
+export interface SolverTrustDevice {
+  device: string
+  planted: number
+  correct: number
+  wrong: number
+  unsure: number
+  open: number
+  accuracy?: number
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "SolverTrustResponse".
+ */
+export interface SolverTrustResponse {
+  scenario_id: string
+  planted: number
+  correct: number
+  wrong: number
+  unsure: number
+  open: number
+  min_answers_for_rate: number
+  accuracy?: number
+  devices: SolverTrustDevice[]
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
