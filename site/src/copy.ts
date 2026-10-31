@@ -124,7 +124,7 @@ export const COPY: Record<Locale, Copy> = {
         {
           claim: 'value-record',
           heading: '모든 판정이 사진과 함께 남습니다',
-          body: '무엇을 왜 NG 로 봤는지 사진, 소견, 신뢰도가 날짜별로 쌓입니다. 문제가 생긴 날의 사진을 다시 찾을 수 있습니다.',
+          body: '무엇을 왜 NG 로 봤는지 사진, 소견, 신뢰도가 날짜별로 쌓이고, 전용 모델이 있으면 비전 모델과 전용 모델이 각각 어떤 답을 냈는지도 함께 남습니다. 문제가 생긴 날의 사진과 그 근거를 다시 찾을 수 있습니다.',
         },
         {
           claim: 'value-learn',
@@ -173,7 +173,7 @@ export const COPY: Record<Locale, Copy> = {
         heading: '관리자는 콘솔에서 확인합니다',
         body: {
           claim: 'review',
-          text: '날짜와 시나리오로 결과를 찾고, 비전 모델과 전용 모델의 답이 다르거나 확신이 낮은 건은 검토 목록에서 사람이 OK·NG 를 확정합니다.',
+          text: '날짜와 시나리오로 결과를 찾습니다. 모호한 건만 사람이 봅니다 — 비전 모델과 전용 모델의 답이 다르거나 확신이 낮은 건만 검토 목록에 올라오고, 사람이 OK·NG 를 확정합니다.',
         },
         points: [{ claim: 'export', text: '하루 요약과 불량 유형별 건수를 보고, 결과를 CSV 로 내려받습니다.' }],
       },
@@ -187,7 +187,7 @@ export const COPY: Record<Locale, Copy> = {
         },
         points: [
           { claim: 'crosscheck', text: '전용 모델은 비전 모델과 나란히 판정하고, 둘의 답이 다르면 검토 목록에 올립니다.' },
-          { claim: 'authority', text: '전용 모델은 기록만 하는 단계에서 시작해, 실력을 보인 만큼 관리자가 한 단계씩 판정을 넘깁니다. 틀리기 시작하면 시스템이 자동으로 한 단계 내립니다.' },
+          { claim: 'authority', text: '처음에는 병행 가동입니다 — 전용 모델은 기록만 하는 단계에서 시작해, 실력을 보인 만큼 관리자가 한 단계씩 판정을 넘깁니다. 틀리기 시작하면 시스템이 자동으로 한 단계 내립니다.' },
           { claim: 'memory', text: '사람이 확정한 사례를 기억해, 비슷한 건은 모델 학습을 기다리지 않고 바로 판정하도록 만들고 있습니다.', roadmap: true },
         ],
       },
@@ -276,9 +276,9 @@ export const COPY: Record<Locale, Copy> = {
       claim: 'adoption',
       steps: [
         { heading: '검사 하나를 고릅니다', body: '효과가 큰 검사 한 가지를 정하고, 기준을 글과 OK·NG 기준 사진 몇 장으로 적습니다.' },
-        { heading: '태블릿 한 대로 돌려 봅니다', body: '검사대 위에 태블릿을 두고 실제 라인에서 판정합니다. 처음에는 사람이 결과를 확인합니다.' },
-        { heading: '기록으로 잽니다', body: '사람이 확인한 결과와 판정이 얼마나 맞았는지 콘솔에서 봅니다.' },
-        { heading: '넘기고 넓힙니다', body: '데이터가 쌓이면 전용 모델을 만들어 판정을 넘기고, 다른 라인과 검사로 넓힙니다.' },
+        { heading: '태블릿 한 대로 병행 가동합니다', body: '검사대 위에 태블릿을 두고 기존 검사와 나란히 실제 라인에서 판정합니다. 처음에는 사람이 결과를 확인합니다.' },
+        { heading: '기록으로 잽니다', body: '사람이 확인한 결과와 견줘 불량을 잡아낸 비율과 정상을 불량으로 잘못 부른 비율을 콘솔에서 봅니다. 확인한 건수가 모자라면 판정을 넘기라는 신호를 내지 않습니다.' },
+        { heading: '검증한 만큼 넘기고 넓힙니다', body: '데이터가 쌓이면 전용 모델을 만들어 잰 만큼 판정을 넘기고, 다른 라인과 검사로 넓힙니다.' },
       ],
     },
     demand: {
@@ -340,7 +340,7 @@ export const COPY: Record<Locale, Copy> = {
         {
           claim: 'value-record',
           heading: 'Every decision is kept with its image',
-          body: 'What was called NG and why — image, finding and confidence — is filed by date. You can find the images from the day a problem started.',
+          body: 'What was called NG and why — image, finding and confidence — is filed by date, and when a dedicated model is in use, what the vision model and the dedicated model each answered is kept with it. You can look up the images from the day a problem started, and the reasons behind each call.',
         },
         {
           claim: 'value-learn',
@@ -389,7 +389,7 @@ export const COPY: Record<Locale, Copy> = {
         heading: 'Supervisors check it in the console',
         body: {
           claim: 'review',
-          text: 'Find results by date and scenario. When the vision model and the dedicated model disagree, or confidence is low, a person settles OK or NG from the review list.',
+          text: 'Find results by date and scenario. Only the unclear cases reach a person: the review list holds only the items where the vision model and the dedicated model disagree, or confidence is low, and a person settles OK or NG there.',
         },
         points: [{ claim: 'export', text: 'See the day\'s summary and counts by defect type, and download results as CSV.' }],
       },
@@ -403,7 +403,7 @@ export const COPY: Record<Locale, Copy> = {
         },
         points: [
           { claim: 'crosscheck', text: 'The dedicated model judges alongside the vision model, and disagreements go to the review list.' },
-          { claim: 'authority', text: 'It starts by being recorded only; as its record earns it, a supervisor hands it judgment one stage at a time. When it starts to miss, the system steps it down on its own.' },
+          { claim: 'authority', text: 'It starts out running in parallel, recorded only; as its record earns it, a supervisor moves judgment over to it one stage at a time. When it starts to miss, the system steps it down on its own.' },
           { claim: 'memory', text: 'We are building a memory of confirmed cases, so similar parts are judged at once without waiting for training.', roadmap: true },
         ],
       },
@@ -492,9 +492,9 @@ export const COPY: Record<Locale, Copy> = {
       claim: 'adoption',
       steps: [
         { heading: 'Pick one inspection', body: 'Choose one inspection where it would matter most, and write its criteria down as text and a few OK and NG reference images.' },
-        { heading: 'Run it with one tablet', body: 'Put a tablet over the tray and judge on the real line. At first, people check the results.' },
-        { heading: 'Measure it from the record', body: 'See in the console how often the decisions matched what people confirmed.' },
-        { heading: 'Hand over and widen', body: 'As data builds up, train a dedicated model, hand judgment over, and extend to other lines and inspections.' },
+        { heading: 'Run it alongside, with one tablet', body: 'Put a tablet over the tray and judge on the real line next to your current inspection. At first, people check the results.' },
+        { heading: 'Measure it from the record', body: 'See in the console, against what people confirmed, how many defects it caught and how often it called a good part defective. With too few confirmed cases it does not signal that it is ready to take over.' },
+        { heading: 'Hand over as far as it is proven, and widen', body: 'As data builds up, train a dedicated model, move judgment over as far as the measurements support, and extend to other lines and inspections.' },
       ],
     },
     demand: {
