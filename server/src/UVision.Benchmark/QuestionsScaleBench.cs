@@ -34,8 +34,10 @@ internal static class QuestionsScaleBench
         sb.AppendLine($"- 합성: 날짜 창 {days}일 × 하루 장부 {perDay}줄(기억 신호 12 키), 하루 라벨 사이드카 {labeledPerDay}건 · 논리 코어 {Environment.ProcessorCount} · {(IsDebug ? "**Debug 빌드 — 시간을 믿지 말 것**" : "Release")} · 데이터 루트 `{(opts.ContainsKey("dir") ? "지정 경로" : "임시 폴더")}`");
         sb.AppendLine("- 한계: 쓴 직후에 쟀다 — 파일 캐시를 비울 수 없어 «첫 조회» 도 따뜻할 수 있다(하한). 반복은 3회 중앙값.");
         sb.AppendLine();
-        sb.AppendLine("| 낸 문제 수 | 장부 창(ms) | 라벨 목록 {창 전체}(ms) | 문제 목록(ms) | 합계 첫 조회(ms) | 합계 반복(ms) | 장부 줄 | 라벨 | 문제 |");
-        sb.AppendLine("|---|---|---|---|---|---|---|---|---|");
+        sb.AppendLine("- 읽는 방식: 라벨은 고른 사진 하나만 확인(1건), 라벨 목록 전체는 비교용으로만 잰다. 낸 문제는 저장소가 프로세스 안 색인에 두므로 «첫 요청» 은 저장소를 새로 열어(새 프로세스처럼) 병렬로 적재하는 시간, «이후 요청» 은 색인에서 주는 시간이다.");
+        sb.AppendLine();
+        sb.AppendLine("| 낸 문제 수 | 장부 창(ms) | 라벨 1건(ms) | 문제 첫 적재(ms) | **첫 요청 합계(ms)** | 문제 이후(ms) | **이후 요청 합계(ms)** | (비교) 라벨 목록 전체(ms) | 장부 줄 | 라벨 | 문제 |");
+        sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|");
 
         try
         {
@@ -59,12 +61,12 @@ internal static class QuestionsScaleBench
                 for (; written < target; written++)
                     await questionStore.CreateAsync(NewQuestion(scenario, dates[written % dates.Count], $"q_{written:D6}"), default);
 
-                var first = await MeasureAsync(source, labelStore, questionStore, scenario, dates);
-                var repeats = new List<Sample>();
-                for (var r = 0; r < 3; r++)
-                    repeats.Add(await MeasureAsync(source, labelStore, questionStore, scenario, dates));
-                var mid = repeats.OrderBy(s => s.Total).ElementAt(1);
-                var line = $"| {target} | {first.Ledger:F0} | {first.Labels:F0} | {first.Questions:F0} | {first.Total:F0} | {mid.Total:F0} | {first.LedgerLines} | {first.LabelCount} | {first.QuestionCount} |";
+                var old = await MeasureOldAsync(source, labelStore, questionStore, scenario, dates);
+                // 새 방식 — 문제 저장소는 새 프로세스처럼 비어 있는 상태에서 첫 요청을 잰다.
+                var fresh = new FileQuestionStore(paths);
+                var firstNew = await MeasureNewAsync(source, labelStore, fresh, scenario, dates);
+                var laterNew = await MeasureNewAsync(source, labelStore, fresh, scenario, dates);
+                var line = $"| {target} | {firstNew.Ledger:F0} | {firstNew.Labels:F0} | {firstNew.Questions:F0} | {firstNew.Total:F0} | {laterNew.Questions:F0} | {laterNew.Total:F0} | {old.Labels:F0} | {firstNew.LedgerLines} | {old.LabelCount} | {firstNew.QuestionCount} |";
                 sb.AppendLine(line);
                 Console.Error.WriteLine(line);
             }
@@ -92,7 +94,7 @@ internal static class QuestionsScaleBench
         public double Total => Ledger + Labels + Questions;
     }
 
-    private static async Task<Sample> MeasureAsync(
+    private static async Task<Sample> MeasureOldAsync(
         LedgerQuestionCandidateSource source, FileLabelStore labels, FileQuestionStore questions, string scenario, IReadOnlyList<string> dates)
     {
         var clock = Stopwatch.StartNew();
@@ -109,6 +111,25 @@ internal static class QuestionsScaleBench
         var asked = await questions.ListAsync(scenario, default);
         var questionsMs = clock.Elapsed.TotalMilliseconds;
         return new Sample(ledgerMs, labelsMs, questionsMs, candidates.Count, labelCount, asked.Count);
+    }
+
+    private static async Task<Sample> MeasureNewAsync(
+        LedgerQuestionCandidateSource source, FileLabelStore labels, FileQuestionStore questions, string scenario, IReadOnlyList<string> dates)
+    {
+        var clock = Stopwatch.StartNew();
+        var candidates = await source.ListAsync(scenario, dates, default);
+        var ledgerMs = clock.Elapsed.TotalMilliseconds;
+
+        clock.Restart();
+        var asked = await questions.ListAsync(scenario, default);
+        var questionsMs = clock.Elapsed.TotalMilliseconds;
+
+        // 고른 사진 하나의 사이드카 확인 — 라벨이 있는 사진(가장 느린 경우: 열려서 읽힘)을 대표로 쓴다.
+        clock.Restart();
+        var probe = candidates.First();
+        await labels.ReadAsync(scenario, probe.Date, probe.ImageId, default);
+        var labelsMs = clock.Elapsed.TotalMilliseconds;
+        return new Sample(ledgerMs, labelsMs, questionsMs, candidates.Count, 1, asked.Count);
     }
 
     private static async Task WriteLedgerAsync(StoragePaths paths, string scenario, IReadOnlyList<string> dates, int perDay)

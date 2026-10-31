@@ -225,6 +225,42 @@ public class QuestionServiceTests : IDisposable
         new QuestionsOptions().Validate(); // 기본값은 유효하다
     }
 
+    [Fact]
+    public async Task Next_PicksAnotherPhoto_WhenTheTopRankedOneWasLabeledElsewhere()
+    {
+        await _labels.AppendLabelAsync(Scenario, "2026-10-31", "top", "OK", "dev");
+        _source.Candidates = [C("top", 9.0), C("next", 5.0), C("low", 1.0)];
+
+        var q = await AskedAsync(Service(new QuestionsOptions { RandomFloor = 0 }));
+
+        Assert.Equal("next", q.ImageId);
+    }
+
+    [Fact]
+    public async Task Next_FallsBackToTheLabelListWhenManyTopRankedPhotosAreLabeled()
+    {
+        // 순위 위쪽 40장에 이미 라벨이 있다 — 사진마다 확인하는 횟수 상한을 넘으면 목록으로 한 번에 거른다.
+        var labeled = Enumerable.Range(0, 40).Select(i => C($"l{i:D2}", 100.0 - i)).ToList();
+        foreach (var c in labeled)
+            await _labels.AppendLabelAsync(Scenario, c.Date, c.ImageId, "OK", "dev");
+        _source.Candidates = [.. labeled, C("only", 0.5)];
+
+        var q = await AskedAsync(Service(new QuestionsOptions { RandomFloor = 0 }));
+
+        Assert.Equal("only", q.ImageId);
+    }
+
+    [Fact]
+    public async Task Next_HasNothingToAsk_WhenEveryCandidateIsLabeled()
+    {
+        var all = Enumerable.Range(0, 30).Select(i => C($"x{i:D2}", i)).ToList();
+        foreach (var c in all)
+            await _labels.AppendLabelAsync(Scenario, c.Date, c.ImageId, "OK", "dev");
+        _source.Candidates = all;
+
+        Assert.IsType<QuestionOutcome.NothingToAsk>(await Service(new QuestionsOptions { RandomFloor = 0 }).NextAsync(Scenario, "dev", default));
+    }
+
     private static QuestionCandidate P(string id, double patch, string date = "2026-10-31") => new(id, date, null, patch);
 
     // 대표 표본(출제 이유가 reason)으로 정상(OK)이라 답한 사진 n 장 — 패치 점수가 0.10 + 0.01 i 로 퍼져 있다.

@@ -88,6 +88,9 @@ public abstract record AnswerOutcome
 /// </summary>
 public sealed class QuestionService
 {
+    // 순위 위쪽 사진마다 라벨을 확인하는 횟수의 상한 — 넘으면 목록으로 한 번에 거른다.
+    private const int MaxPickAttempts = 25;
+
     private readonly IScenarioStore _scenarios;
     private readonly ILabelStore _labels;
     private readonly IQuestionStore _questions;
@@ -135,18 +138,38 @@ public sealed class QuestionService
             var dates = WindowDates();
             var candidates = await _candidates.ListAsync(scenarioId, dates, cancellationToken);
             var skip = new HashSet<(string Date, string Image)>(asked.Select(q => (q.Date, q.ImageId)));
-            foreach (var date in dates)
-            {
-                foreach (var l in await _labels.ListAsync(scenarioId, date, cancellationToken))
-                    if (l.OperativeLabel is not null || l.AbstainCount > 0)
-                        skip.Add((date, l.ImageId));
-            }
             var pool = candidates.Where(c => !skip.Contains((c.Date, c.ImageId))).ToList();
             if (pool.Count == 0)
                 return new QuestionOutcome.NothingToAsk();
             pool = WithOperatingJudgeUncertainty(pool, candidates, asked);
 
-            var pick = Pick(pool);
+            // 라벨이 이미 붙은 사진을 거르려고 라벨 목록을 읽지 않는다(사진마다 파일 하나라 공유에서 수 초~수십 초) —
+            // 고른 사진 하나만 확인하고, 이미 라벨이 있으면 빼고 다시 고른다. 낡은 정보로 낸 문제도 답할 때 한 번 더 막힌다.
+            QuestionPick? pick = null;
+            for (var attempt = 0; attempt < MaxPickAttempts && pool.Count > 0; attempt++)
+            {
+                var tried = Pick(pool);
+                if (!await IsLabeledAsync(scenarioId, tried.Candidate, cancellationToken))
+                {
+                    pick = tried;
+                    break;
+                }
+                pool.Remove(tried.Candidate);
+            }
+            if (pick is null && pool.Count > 0)
+            {
+                // 라벨이 붙은 사진이 순위 위쪽에 몰렸다 — 한 번 목록으로 거른다(드문 경로).
+                var labeled = new HashSet<(string Date, string Image)>();
+                foreach (var date in dates)
+                    foreach (var l in await _labels.ListAsync(scenarioId, date, cancellationToken))
+                        if (l.OperativeLabel is not null || l.AbstainCount > 0)
+                            labeled.Add((date, l.ImageId));
+                pool = pool.Where(c => !labeled.Contains((c.Date, c.ImageId))).ToList();
+                if (pool.Count > 0)
+                    pick = Pick(pool);
+            }
+            if (pick is null)
+                return new QuestionOutcome.NothingToAsk();
             var question = new StoredQuestion
             {
                 QuestionId = Guid.NewGuid().ToString("N"),
@@ -243,6 +266,13 @@ public sealed class QuestionService
         {
             Uncertainty = c.PatchScore is { } s && threshold is { } t ? QuestionSignals.UncertaintyFromPatchScore(s, t) : null,
         }).ToList();
+    }
+
+    /// <summary>사진 하나에 사람 라벨이나 기권 기록이 이미 있는가 — 사이드카 한 건을 읽는다.</summary>
+    private async Task<bool> IsLabeledAsync(string scenarioId, QuestionCandidate candidate, CancellationToken cancellationToken)
+    {
+        var existing = await _labels.ReadAsync(scenarioId, candidate.Date, candidate.ImageId, cancellationToken);
+        return existing is not null && (existing.OperativeLabel is not null || existing.AbstainCount > 0);
     }
 
     private QuestionPick Pick(IReadOnlyList<QuestionCandidate> pool) =>
