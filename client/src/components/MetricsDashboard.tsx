@@ -38,7 +38,13 @@ export function MetricsDashboard({
   )
   const summary = metrics.data ?? null
   // 학습 준비는 날짜와 무관하다(시나리오의 라벨 전체) — 실패해도 대시보드는 그대로 보인다.
-  const readiness = useResource(scenarioId || null, () => getTrainingReadiness(scenarioId), '학습 준비 조회 실패')
+  // 개수 세기의 OK/NG 는 개수가 맞는지라 분류 학습 입력이 아니다 — 서버가 409 로 거절하므로 묻지 않는다.
+  const counting = scenarios.find((s) => s.scenario_id === scenarioId)?.type === 'counting'
+  const readiness = useResource(
+    scenarioId && !counting ? scenarioId : null,
+    () => getTrainingReadiness(scenarioId),
+    '학습 준비 조회 실패',
+  )
   // 확정 사례 기억 — 꺼져 있으면 칸이 없다. 실패해도 대시보드는 그대로 보인다.
   const memory = useResource(
     scenarioId && date ? `${scenarioId}|${date}` : null,

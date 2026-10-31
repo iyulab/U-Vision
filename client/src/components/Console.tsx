@@ -6,6 +6,7 @@ import { derivedScenarioId, isValidScenarioId, needsExplicitScenarioId } from '.
 import { usePin, type PinRunResult } from '../hooks/usePin'
 import { useResource } from '../hooks/useResource'
 import { AdminSetup } from './AdminSetup'
+import { countDraftOf, countLine, EMPTY_COUNT_DRAFT, parseCountDraft, type CountDraft } from '../lib/counting'
 import { classesFor, defectsOf, formatDefects, parseDefects, type Defect } from '../lib/defectClasses'
 import { DEFAULT_MOTION_CONFIG } from '../lib/motion'
 import { DEFAULT_ROI, fromScenarioRoi, toScenarioRoi, type Roi } from '../lib/roi'
@@ -57,7 +58,7 @@ interface DraftScenario {
   minSharpness: number
   maxImageDimension: number
   referenceCap: number
-  /** 시나리오 유형 — 검사(OK/NG) 또는 오투입 확인(기대 품번과 일치/불일치). */
+  /** 시나리오 유형 — 검사(OK/NG) · 오투입 확인(기대 품번과 일치/불일치) · 개수 세기(기대 개수와 견줌). */
   type: ScenarioType
   /** 수정 시작 때의 유형 — 바뀌었을 때만 type 을 보낸다(생략하면 서버가 저장된 값을 유지). */
   originalType?: ScenarioType
@@ -65,9 +66,11 @@ interface DraftScenario {
   defects: string
   /** 수정 시작 때의 불량 유형 — 바뀌었을 때만 classes 를 보낸다. */
   originalDefects: Defect[]
+  /** 개수 세기(type=counting) 입력란. */
+  count: CountDraft
 }
 
-/** 시나리오 유형 — 이 화면이 고를 수 있는 것은 'inspection' · 'verification' 이고, 모르는 유형(서버가 더 지은 것)은 그대로 둔다. */
+/** 시나리오 유형 — 이 화면이 고를 수 있는 것은 'inspection' · 'verification' · 'counting' 이고, 모르는 유형(서버가 더 지은 것)은 그대로 둔다. */
 type ScenarioType = string
 
 /**
@@ -300,6 +303,9 @@ function ScenarioManager({
     // 불량 유형은 검사에서 바뀌었을 때만 보낸다 — 생략하면 서버가 저장된 classes 를 그대로 둔다.
     const defectsChanged =
       draft.type === 'inspection' && formatDefects(parsed.defects) !== formatDefects(draft.originalDefects)
+    // 개수 세기는 기대 개수가 필수라 입력란을 서버 필드로 옮긴다(막힌 입력은 저장 버튼이 이미 꺼져 있다).
+    const counting = draft.type === 'counting' ? parseCountDraft(draft.count) : null
+    if (counting && 'error' in counting) return
     const input = {
       ...(newId ? { scenario_id: newId } : {}),
       name: draft.name.trim(),
@@ -311,10 +317,11 @@ function ScenarioManager({
       max_image_dimension: draft.maxImageDimension,
       reference_cap: draft.referenceCap,
       // 검사(기본)는 type 을 쓰지 않아 기존 시나리오 파일이 그대로다. 오투입 확인이거나 유형을 바꿨을 때만 보낸다.
-      ...(draft.type === 'verification' || draft.type !== (draft.originalType ?? 'inspection')
+      ...(draft.type === 'verification' || draft.type === 'counting' || draft.type !== (draft.originalType ?? 'inspection')
         ? { type: draft.type }
         : {}),
       ...(defectsChanged ? { classes: classesFor(parsed.defects) } : {}),
+      ...(counting && 'fields' in counting ? counting.fields : {}),
     }
     void mutate(
       async (pin) => {
@@ -347,6 +354,7 @@ function ScenarioManager({
               type: 'inspection',
               defects: '',
               originalDefects: [],
+              count: EMPTY_COUNT_DRAFT,
             })
           }
           className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold hover:bg-emerald-400"
@@ -369,6 +377,9 @@ function ScenarioManager({
               {s.scenario_id}
               {s.type === 'verification' && (
                 <span className="ml-2 rounded bg-amber-500/20 px-1.5 py-0.5 text-amber-300">오투입 확인</span>
+              )}
+              {s.type === 'counting' && (
+                <span className="ml-2 rounded bg-sky-500/20 px-1.5 py-0.5 text-sky-300">개수 세기 · {countLine(s)}</span>
               )}
               {defectsOf(s).length > 0 && (
                 <span className="ml-2 rounded bg-red-500/20 px-1.5 py-0.5 text-red-300">
@@ -395,6 +406,7 @@ function ScenarioManager({
                   originalType: s.type ?? 'inspection',
                   defects: formatDefects(defectsOf(s)),
                   originalDefects: defectsOf(s),
+                  count: countDraftOf(s),
                 })
               }
               className="rounded-lg bg-slate-700 px-3 py-1.5 text-sm hover:bg-slate-600"
@@ -550,6 +562,69 @@ function ScenarioIdField({ draft, onChange }: { draft: DraftScenario; onChange: 
   )
 }
 
+/** 개수 세기 입력란 — 기대 개수(필수) · 허용 오차 · 최소 신뢰도 · 세는 종류. 서버가 거부할 입력은 사유와 함께 보인다. */
+function CountingFields({ draft, onChange }: { draft: DraftScenario; onChange: (d: DraftScenario) => void }) {
+  const parsed = parseCountDraft(draft.count)
+  const set = (patch: Partial<CountDraft>) => onChange({ ...draft, count: { ...draft.count, ...patch } })
+  const field =
+    'w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none'
+  return (
+    <div className="space-y-3 rounded-lg border border-slate-700 p-4">
+      <h3 className="text-sm font-semibold text-slate-200">개수 세기</h3>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block space-y-1">
+          <span className="text-sm text-slate-300">기대 개수 (필수)</span>
+          <input
+            inputMode="numeric"
+            value={draft.count.expected}
+            onChange={(e) => set({ expected: e.target.value })}
+            placeholder="예: 6"
+            className={field}
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-sm text-slate-300">허용 오차</span>
+          <input
+            inputMode="numeric"
+            value={draft.count.tolerance}
+            onChange={(e) => set({ tolerance: e.target.value })}
+            placeholder="0 = 정확히"
+            className={field}
+          />
+        </label>
+      </div>
+      <label className="block space-y-1">
+        <span className="text-sm text-slate-300">최소 신뢰도 (선택)</span>
+        <input
+          inputMode="decimal"
+          value={draft.count.minConfidence}
+          onChange={(e) => set({ minConfidence: e.target.value })}
+          placeholder="0 초과 1 이하 — 비우면 설치 기본"
+          className={field}
+        />
+        <span className="block text-xs text-slate-500">이 값 이상인 상자만 센다. 저장된 값을 비워도 기존 값이 유지된다.</span>
+      </label>
+      <label className="block space-y-1">
+        <span className="text-sm text-slate-300">세는 물건의 종류 (선택)</span>
+        <input
+          value={draft.count.kinds}
+          onChange={(e) => set({ kinds: e.target.value })}
+          placeholder="검출기 라벨, 쉼표로 구분 — 비우면 검출된 전부"
+          className={field}
+        />
+      </label>
+      {'error' in parsed ? (
+        <p className="text-xs text-amber-300">{parsed.error}</p>
+      ) : (
+        <p className="text-xs text-slate-500">
+          센 수가 {parsed.fields.expected_count} ± {parsed.fields.count_tolerance} 안이면 OK, 밖이면 NG. 문턱 근처 상자가 결과를 바꾸면
+          NG 로 두고 사람 확인을 요구한다. 검출기가 닿지 않으면 판정하지 않는다.
+        </p>
+      )}
+    </div>
+  )
+}
+
 function ScenarioForm({
   draft,
   busy,
@@ -588,6 +663,7 @@ function ScenarioForm({
               [
                 ['inspection', '검사 (OK / NG)'],
                 ['verification', '오투입 확인 (기대 품번과 일치 / 불일치)'],
+                ['counting', '개수 세기 (기대 개수와 견줌)'],
               ] as const
             ).map(([value, label]) => (
               <button
@@ -609,16 +685,20 @@ function ScenarioForm({
           )}
         </div>
         {draft.type === 'inspection' && <DefectsField draft={draft} onChange={onChange} />}
-        <label className="block space-y-1">
-          <span className="text-sm text-slate-300">판정 기준(자연어)</span>
-          <textarea
-            value={draft.criteria}
-            onChange={(e) => onChange({ ...draft, criteria: e.target.value })}
-            rows={4}
-            placeholder="예: 표면에 긁힘·이물·균열이 없어야 한다. 결함이 보이면 NG."
-            className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
-          />
-        </label>
+        {draft.type === 'counting' && <CountingFields draft={draft} onChange={onChange} />}
+        {/* 판정 기준(자연어)은 VLM 이 읽는다 — 개수는 검출기가 세므로 계수에는 쓰이지 않는다. */}
+        {draft.type !== 'counting' && (
+          <label className="block space-y-1">
+            <span className="text-sm text-slate-300">판정 기준(자연어)</span>
+            <textarea
+              value={draft.criteria}
+              onChange={(e) => onChange({ ...draft, criteria: e.target.value })}
+              rows={4}
+              placeholder="예: 표면에 긁힘·이물·균열이 없어야 한다. 결함이 보이면 NG."
+              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
+            />
+          </label>
+        )}
 
         <RoiEditor roi={draft.roi} onChange={(roi) => onChange({ ...draft, roi })} />
 
@@ -650,6 +730,7 @@ function ScenarioForm({
           />
         </div>
 
+        {draft.type !== 'counting' && (
         <div className="space-y-3 rounded-lg border border-slate-700 p-4">
           <h3 className="text-sm font-semibold text-slate-200">성능 레버 (속도 ↔ 정확도)</h3>
           <p className="text-xs text-slate-500">
@@ -671,8 +752,13 @@ function ScenarioForm({
             onChange={(v) => onChange({ ...draft, referenceCap: v })}
           />
         </div>
+        )}
 
-        {draft.id ? (
+        {draft.type === 'counting' ? (
+          <p className="text-xs text-slate-500">
+            개수 세기는 기준 이미지를 쓰지 않습니다 — 검출기(UVision:Detection)가 상자를 내고 서버가 셉니다.
+          </p>
+        ) : draft.id ? (
           <ReferenceGallery
             scenarioId={draft.id}
             runWithPin={runWithPin}
@@ -696,6 +782,7 @@ function ScenarioForm({
               busy ||
               !draft.name.trim() ||
               'error' in parseDefects(draft.defects) ||
+              (draft.type === 'counting' && 'error' in parseCountDraft(draft.count)) ||
               (!draft.id && !!draft.newId?.trim() && !isValidScenarioId(draft.newId.trim()))
             }
             className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-40"
