@@ -40,8 +40,10 @@ public sealed class LedgerQuestionCandidateSource : IQuestionCandidateSource
             {
                 if (!seen.Add(record.SubjectId))
                     continue;
+                var annotations = record.Provenance.Annotations;
                 candidates.Add(new QuestionCandidate(
-                    record.SubjectId, date, QuestionSignals.UncertaintyFromAnnotations(record.Provenance.Annotations)));
+                    record.SubjectId, date, QuestionSignals.UncertaintyFromAnnotations(annotations),
+                    QuestionSignals.PatchScoreFromAnnotations(annotations)));
             }
         }
         return candidates;
@@ -142,6 +144,7 @@ public sealed class QuestionService
             var pool = candidates.Where(c => !skip.Contains((c.Date, c.ImageId))).ToList();
             if (pool.Count == 0)
                 return new QuestionOutcome.NothingToAsk();
+            pool = WithOperatingJudgeUncertainty(pool, candidates, asked);
 
             var pick = Pick(pool);
             var question = new StoredQuestion
@@ -212,6 +215,34 @@ public sealed class QuestionService
             return new AnswerOutcome.Recorded(questionId, "label");
         }
         finally { _gate.Release(); }
+    }
+
+    /// <summary>
+    /// 불확실도는 켜진 판정자 중 가장 강한 것의 것이다. 후보에 패치 점수가 있으면 패치 판정자 기준 — 점수가 대표 표본의 정상 라벨로
+    /// 잡은 문턱과 가까울수록 불확실하다. 문턱이 아직 없으면(대표 정상 라벨이 모자람) 신호 없음 = 무작위 시작이고, 전역 기억 단의
+    /// 불확실도로 대신하지 않는다(패치 판정자에는 무작위보다 나쁘다). 패치 점수가 하나도 없으면 전역 기억 단 신호 그대로.
+    /// </summary>
+    private static List<QuestionCandidate> WithOperatingJudgeUncertainty(
+        List<QuestionCandidate> pool, IReadOnlyList<QuestionCandidate> allInWindow, IReadOnlyList<StoredQuestion> asked)
+    {
+        if (!pool.Any(c => c.PatchScore is not null))
+            return pool;
+
+        var scoreOf = allInWindow.Where(c => c.PatchScore is not null)
+            .ToDictionary(c => (c.Date, c.ImageId), c => c.PatchScore!.Value);
+        var representativeOk = new List<double>();
+        foreach (var q in asked)
+        {
+            if (q.State == QuestionState.Answered && q.Answer == ScenarioVocabulary.Ok
+                && QuestionThreshold.IsRepresentative(q.Reason) && scoreOf.TryGetValue((q.Date, q.ImageId), out var score))
+                representativeOk.Add(score);
+        }
+        var threshold = QuestionThreshold.Calibrate(representativeOk);
+
+        return pool.Select(c => c with
+        {
+            Uncertainty = c.PatchScore is { } s && threshold is { } t ? QuestionSignals.UncertaintyFromPatchScore(s, t) : null,
+        }).ToList();
     }
 
     private QuestionPick Pick(IReadOnlyList<QuestionCandidate> pool) =>

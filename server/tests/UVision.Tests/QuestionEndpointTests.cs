@@ -48,7 +48,7 @@ public class QuestionEndpointTests : IClassFixture<UVisionApiFactory>
         var date = next.GetProperty("date").GetString()!;
         Assert.Contains(imageId, inspected);
         Assert.Equal("single", next.GetProperty("form").GetString());
-        Assert.Equal("random", next.GetProperty("reason").GetString());
+        Assert.Equal("cold_start", next.GetProperty("reason").GetString()); // 기억 단이 꺼진 설치 — 신호가 없어 무작위로 시작
         Assert.Equal(["OK", "NG"], next.GetProperty("choices").EnumerateArray().Select(e => e.GetString()!).ToArray());
 
         // 문제의 사진은 결과 이미지 엔드포인트로 받는다.

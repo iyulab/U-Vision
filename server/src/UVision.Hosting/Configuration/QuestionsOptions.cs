@@ -2,18 +2,21 @@ namespace UVision.Api.Configuration;
 
 /// <summary>
 /// 문제 큐 설정 — config 섹션 <c>UVision:Questions</c>. 사람이 한 번에 한 사진씩 «이 사진은 무엇인가» 를 푸는 학습용 출제의 규칙이다.
-/// 기본은 무작위 출제 — 기억 단의 신호로 고르는 규칙(<see cref="UncertainRule"/>)은 켜야 한다.
+/// 기본은 운영 판정자가 가장 헷갈리는 사진을 고르는 규칙(<see cref="UncertainRule"/>)이고, 신호가 아직 없으면 무작위로 시작한다.
 /// </summary>
 public sealed class QuestionsOptions
 {
     /// <summary>모든 사진에서 균등하게 고른다. 기억 단이 꺼져 있어도 같다.</summary>
     public const string RandomRule = "random";
 
-    /// <summary>기억 단이 가장 헷갈린 사진을 고른다(걸음마다 <see cref="RandomFloor"/> 의 확률로 무작위). 기억 단의 신호가 없으면 무작위로 시작한다.</summary>
+    /// <summary>
+    /// 켜진 판정자 중 가장 강한 것이 가장 헷갈린 사진을 고른다(걸음마다 <see cref="RandomFloor"/> 의 확률로 무작위): 패치 점수가 있으면
+    /// 패치 판정자(문턱은 대표 표본의 정상 라벨로만), 없으면 전역 기억 단. 신호가 없으면 무작위로 시작한다.
+    /// </summary>
     public const string UncertainRule = "uncertain";
 
-    /// <summary><c>random</c>(기본) | <c>uncertain</c>.</summary>
-    public string Rule { get; set; } = RandomRule;
+    /// <summary><c>uncertain</c>(기본) | <c>random</c>.</summary>
+    public string Rule { get; set; } = UncertainRule;
 
     /// <summary>
     /// <c>uncertain</c> 규칙에서 걸음 중 무작위로 낼 몫(0 ~ 1, 기본 0.25). 어려운 사진만 내면 풀이가 거기 몰리고, 판정의 합격선을

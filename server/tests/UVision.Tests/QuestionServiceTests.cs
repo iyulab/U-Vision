@@ -42,7 +42,7 @@ public class QuestionServiceTests : IDisposable
     {
         _source.Candidates = [C("a"), C("b"), C("c")];
 
-        var q = await AskedAsync(Service());
+        var q = await AskedAsync(Service(new QuestionsOptions { Rule = QuestionsOptions.RandomRule }));
 
         Assert.Contains(q.ImageId, new[] { "a", "b", "c" });
         Assert.Equal(QuestionReason.Random, q.Reason);
@@ -223,6 +223,86 @@ public class QuestionServiceTests : IDisposable
         Assert.Throws<ArgumentException>(() => new QuestionsOptions { RandomFloor = double.NaN }.Validate());
         Assert.Throws<ArgumentException>(() => new QuestionsOptions { WindowDays = 0 }.Validate());
         new QuestionsOptions().Validate(); // 기본값은 유효하다
+    }
+
+    private static QuestionCandidate P(string id, double patch, string date = "2026-10-31") => new(id, date, null, patch);
+
+    // 대표 표본(출제 이유가 reason)으로 정상(OK)이라 답한 사진 n 장 — 패치 점수가 0.10 + 0.01 i 로 퍼져 있다.
+    private async Task<List<QuestionCandidate>> AnsweredOkAsync(int n, string reason, string prefix = "ok")
+    {
+        var done = new List<QuestionCandidate>();
+        for (var i = 0; i < n; i++)
+        {
+            var id = $"{prefix}{i}";
+            var question = new StoredQuestion
+            {
+                QuestionId = Guid.NewGuid().ToString("N"), ScenarioId = Scenario, Date = "2026-10-31", ImageId = id,
+                Form = QuestionForm.Single, Stream = LabelStream.Learn, Reason = reason, CreatedAt = "2026-10-31T00:00:00Z",
+                AskedTo = "dev", State = QuestionState.Open,
+            };
+            await _questions.CreateAsync(question, default);
+            await _questions.TryCloseAsync(Scenario, question.QuestionId, QuestionState.Answered, "OK", "dev", default);
+            done.Add(P(id, 0.10 + 0.01 * i));
+        }
+        return done;
+    }
+
+    [Fact]
+    public async Task PatchScores_AskTheNearestThePassMarkOnceRepresentativeOkLabelsSetIt()
+    {
+        // 10 장의 점수 0.10 ~ 0.19 → 문턱 = 95 백분위 = 0.1855.
+        var answered = await AnsweredOkAsync(10, QuestionReason.RandomFloor);
+        _source.Candidates = [.. answered, P("far", 0.90), P("near", 0.20), P("low", 0.05)];
+
+        var q = await AskedAsync(Service(new QuestionsOptions { RandomFloor = 0 }));
+
+        Assert.Equal("near", q.ImageId);
+        Assert.Equal(QuestionReason.Uncertain, q.Reason);
+        Assert.Equal(1.0 / (1.0 + Math.Abs(0.20 - 0.1855)), q.Score!.Value, 6);
+    }
+
+    [Fact]
+    public async Task PatchScores_StartAtRandomUntilEnoughRepresentativeOkLabels()
+    {
+        var answered = await AnsweredOkAsync(QuestionThreshold.MinSamples - 1, QuestionReason.ColdStart);
+        _source.Candidates = [.. answered, P("a", 0.50), P("b", 0.20)];
+
+        var q = await AskedAsync(Service(new QuestionsOptions { RandomFloor = 0 }));
+
+        Assert.Equal(QuestionReason.ColdStart, q.Reason);
+        Assert.Null(q.Score);
+    }
+
+    [Fact]
+    public async Task PatchScores_IgnoreOkLabelsCollectedByUncertainty_WhenSettingThePassMark()
+    {
+        // 어려운 정상이 몰린 `uncertain` 라벨은 문턱을 끌어올리므로 열 장이 있어도 대표 표본이 아니다.
+        var answered = await AnsweredOkAsync(12, QuestionReason.Uncertain);
+        _source.Candidates = [.. answered, P("a", 0.50), P("b", 0.20)];
+
+        var q = await AskedAsync(Service(new QuestionsOptions { RandomFloor = 0 }));
+
+        Assert.Equal(QuestionReason.ColdStart, q.Reason);
+    }
+
+    [Fact]
+    public async Task PatchScores_TakePrecedenceOverTheGlobalMemorySignal()
+    {
+        var answered = await AnsweredOkAsync(10, QuestionReason.Random);
+        // 전역 기억 단은 "g" 가 가장 헷갈린다고 하지만(5.0) 패치 판정자 기준으로는 "near" 가 문턱에 붙어 있다.
+        _source.Candidates = [.. answered, new("g", "2026-10-31", 5.0, 0.90), new("near", "2026-10-31", 0.1, 0.19)];
+
+        var q = await AskedAsync(Service(new QuestionsOptions { RandomFloor = 0 }));
+
+        Assert.Equal("near", q.ImageId);
+    }
+
+    [Fact]
+    public void Threshold_NeedsTheMinimumSampleAndInterpolatesThePercentile()
+    {
+        Assert.Null(QuestionThreshold.Calibrate([.. Enumerable.Repeat(0.1, QuestionThreshold.MinSamples - 1)]));
+        var scores = Enumerable.Range(0, 11).Select(i => i / 10.0).ToArray(); // 0.0 .. 1.0
+        Assert.Equal(0.95, QuestionThreshold.Calibrate(scores)!.Value, 9);
     }
 
     private sealed class FakeSource : IQuestionCandidateSource
