@@ -12,6 +12,12 @@ namespace UVision.Api.Storage;
 /// 쓰기는 모두 읽고-고치고-쓰기다. 사람 라벨(HTTP)과 오라클 스윕(백그라운드)이 같은 사이드카를 동시에 고치면
 /// 한쪽 이벤트가 사라지거나 rename 이 충돌하므로, 경로별로 직렬화한다(프로세스 안 — 저장소는 한 프로세스가 연다).
 /// </para>
+/// <para>
+/// 날짜별 목록은 사이드카를 다시 열지 않고 메모리 색인에서 준다. 색인은 파일에서 다시 만들 수 있는 파생물이고(날짜 폴더마다
+/// 처음 부를 때 한 번 병렬로 읽는다), 이 저장소의 쓰기가 갱신한다. 목록은 기억 동기화 · 지표 · 자동격하 · export 가 부르는데
+/// 사이드카 한 건이 파일 하나라 네트워크 공유에서는 건당 10~20 ms 가 쌓인다. 날짜 폴더가 사라지면 색인을 버린다.
+/// 엔진 밖에서 사이드카를 손으로 고치면 프로세스를 다시 띄우기 전까지 색인이 모른다(저장소는 한 프로세스가 연다는 전제와 같음).
+/// </para>
 /// </summary>
 public sealed class FileLabelStore : ILabelStore
 {
@@ -19,9 +25,27 @@ public sealed class FileLabelStore : ILabelStore
     private readonly SemaphoreSlim[] _stripes =
         Enumerable.Range(0, 64).Select(_ => new SemaphoreSlim(1, 1)).ToArray();
 
+    // 처음 적재는 왕복 지연이 시간을 정하므로 병렬로 읽는다.
+    private const int LoadParallelism = 16;
+
     private readonly StoragePaths _paths;
 
+    // 날짜 폴더 → (이미지 id → 라벨). 적재와 색인 갱신은 한 잠금으로 직렬화한다 — 적재 중에 끝난 쓰기는 그 뒤에 색인을 고친다.
+    private readonly SemaphoreSlim _indexGate = new(1, 1);
+    private readonly Dictionary<string, Dictionary<string, StoredLabel>> _index = new(StringComparer.Ordinal);
+
     public FileLabelStore(StoragePaths paths) => _paths = paths;
+
+    private async Task IndexPutAsync(string scenarioId, string date, StoredLabel written, CancellationToken ct)
+    {
+        await _indexGate.WaitAsync(ct);
+        try
+        {
+            if (_index.TryGetValue(_paths.DateDir(scenarioId, date), out var loaded))
+                loaded[written.ImageId] = written.Normalized();
+        }
+        finally { _indexGate.Release(); }
+    }
 
     private async Task<T> WithPathLockAsync<T>(string path, Func<Task<T>> update, CancellationToken ct)
     {
@@ -41,10 +65,11 @@ public sealed class FileLabelStore : ILabelStore
         if (!LabelStream.IsValid(stream))
             throw new ArgumentException($"알 수 없는 출제 흐름 표식: '{stream}'", nameof(stream));
         var path = _paths.LabelJson(scenarioId, date, imageId); // 형식 위반 → ArgumentException(→400)
-        await WithPathLockAsync(path, () => AppendLabelLockedAsync(path, imageId, label, by, stream, cancellationToken), cancellationToken);
+        var written = await WithPathLockAsync(path, () => AppendLabelLockedAsync(path, imageId, label, by, stream, cancellationToken), cancellationToken);
+        await IndexPutAsync(scenarioId, date, written, cancellationToken);
     }
 
-    private static async Task AppendLabelLockedAsync(
+    private static async Task<StoredLabel> AppendLabelLockedAsync(
         string path, string imageId, string label, string by, string? stream, CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
@@ -66,6 +91,7 @@ public sealed class FileLabelStore : ILabelStore
             ImageId = imageId, Label = label, Timestamp = now, History = history, Audit = audit,
         };
         await StoragePaths.AtomicWriteJsonAsync(path, updated, cancellationToken);
+        return updated;
     }
 
     public async Task AppendAbstainAsync(
@@ -75,10 +101,11 @@ public sealed class FileLabelStore : ILabelStore
         if (!LabelStream.IsValid(stream))
             throw new ArgumentException($"알 수 없는 출제 흐름 표식: '{stream}'", nameof(stream));
         var path = _paths.LabelJson(scenarioId, date, imageId);
-        await WithPathLockAsync(path, () => AppendAbstainLockedAsync(path, imageId, by, stream, cancellationToken), cancellationToken);
+        var written = await WithPathLockAsync(path, () => AppendAbstainLockedAsync(path, imageId, by, stream, cancellationToken), cancellationToken);
+        await IndexPutAsync(scenarioId, date, written, cancellationToken);
     }
 
-    private static async Task AppendAbstainLockedAsync(
+    private static async Task<StoredLabel> AppendAbstainLockedAsync(
         string path, string imageId, string by, string? stream, CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
@@ -98,6 +125,7 @@ public sealed class FileLabelStore : ILabelStore
             Audit = existing?.Audit,
         };
         await StoragePaths.AtomicWriteJsonAsync(path, updated, cancellationToken);
+        return updated;
     }
 
     public async Task AppendOracleAsync(
@@ -105,10 +133,11 @@ public sealed class FileLabelStore : ILabelStore
         CancellationToken cancellationToken = default)
     {
         var path = _paths.LabelJson(scenarioId, date, imageId);
-        await WithPathLockAsync(path, () => AppendOracleLockedAsync(path, imageId, label, by, cancellationToken), cancellationToken);
+        var written = await WithPathLockAsync(path, () => AppendOracleLockedAsync(path, imageId, label, by, cancellationToken), cancellationToken);
+        await IndexPutAsync(scenarioId, date, written, cancellationToken);
     }
 
-    private static async Task AppendOracleLockedAsync(
+    private static async Task<StoredLabel> AppendOracleLockedAsync(
         string path, string imageId, string label, string by, CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
@@ -128,6 +157,7 @@ public sealed class FileLabelStore : ILabelStore
             Audit = existing?.Audit,
         };
         await StoragePaths.AtomicWriteJsonAsync(path, updated, cancellationToken);
+        return updated;
     }
 
     public async Task<AuditOutcome> AppendAuditAsync(
@@ -135,10 +165,12 @@ public sealed class FileLabelStore : ILabelStore
         CancellationToken cancellationToken = default)
     {
         var path = _paths.LabelJson(scenarioId, date, imageId); // 형식 위반 → ArgumentException(→400)
-        return await WithPathLockAsync(path, () => AppendAuditLockedAsync(path, auditLabel, by, cancellationToken), cancellationToken);
+        var (outcome, written) = await WithPathLockAsync(path, () => AppendAuditLockedAsync(path, auditLabel, by, cancellationToken), cancellationToken);
+        await IndexPutAsync(scenarioId, date, written, cancellationToken);
+        return outcome;
     }
 
-    private static async Task<AuditOutcome> AppendAuditLockedAsync(
+    private static async Task<(AuditOutcome Outcome, StoredLabel Written)> AppendAuditLockedAsync(
         string path, string auditLabel, string by, CancellationToken cancellationToken)
     {
         var existing = await ReadNormalizedAsync(path, cancellationToken)
@@ -159,7 +191,7 @@ public sealed class FileLabelStore : ILabelStore
             Audit = new LabelAudit { Status = status, At = now },
         };
         await StoragePaths.AtomicWriteJsonAsync(path, updated, cancellationToken);
-        return new AuditOutcome { Status = status, PriorLabel = operative };
+        return (new AuditOutcome { Status = status, PriorLabel = operative }, updated);
     }
 
     public async Task<StoredLabel?> ReadAsync(
@@ -175,33 +207,59 @@ public sealed class FileLabelStore : ILabelStore
         return raw?.Normalized();
     }
 
-    public Task DeleteAsync(
+    public async Task DeleteAsync(
         string scenarioId, string date, string imageId,
         CancellationToken cancellationToken = default)
     {
         var path = _paths.LabelJson(scenarioId, date, imageId); // 형식 위반 → ArgumentException(→400)
         if (File.Exists(path))
             File.Delete(path);
-        return Task.CompletedTask;
+        await _indexGate.WaitAsync(cancellationToken);
+        try
+        {
+            if (_index.TryGetValue(_paths.DateDir(scenarioId, date), out var loaded))
+                loaded.Remove(imageId);
+        }
+        finally { _indexGate.Release(); }
     }
 
     public async Task<IReadOnlyList<StoredLabel>> ListAsync(
         string scenarioId, string date, CancellationToken cancellationToken = default)
     {
         var dir = _paths.DateDir(scenarioId, date); // 형식 위반 → ArgumentException(→400)
-        var labels = new List<StoredLabel>();
-        if (!Directory.Exists(dir))
-            return labels;
-
-        foreach (var path in Directory.EnumerateFiles(dir, "*.label.json"))
+        await _indexGate.WaitAsync(cancellationToken);
+        try
         {
-            await using var stream = File.OpenRead(path);
-            var label = await JsonSerializer.DeserializeAsync<StoredLabel>(
-                stream, StoragePaths.Json, cancellationToken);
-            if (label is not null)
-                labels.Add(label.Normalized());
+            if (!Directory.Exists(dir))
+            {
+                _index.Remove(dir); // 폴더가 지워졌다 — 낡은 색인을 남기지 않는다
+                return [];
+            }
+            if (!_index.TryGetValue(dir, out var loaded))
+            {
+                loaded = await LoadAsync(dir, cancellationToken);
+                _index[dir] = loaded;
+            }
+            return [.. loaded.Values];
         }
-        return labels;
+        finally { _indexGate.Release(); }
+    }
+
+    private static async Task<Dictionary<string, StoredLabel>> LoadAsync(string dir, CancellationToken cancellationToken)
+    {
+        var loaded = new Dictionary<string, StoredLabel>(StringComparer.Ordinal);
+        var gate = new object();
+        await Parallel.ForEachAsync(
+            Directory.EnumerateFiles(dir, "*.label.json"),
+            new ParallelOptions { MaxDegreeOfParallelism = LoadParallelism, CancellationToken = cancellationToken },
+            async (path, ct) =>
+            {
+                await using var stream = File.OpenRead(path);
+                var label = await JsonSerializer.DeserializeAsync<StoredLabel>(stream, StoragePaths.Json, ct);
+                if (label is not null)
+                    lock (gate) loaded[label.ImageId] = label.Normalized();
+            });
+        return loaded;
     }
 
     private static async Task<StoredLabel?> ReadNormalizedAsync(string path, CancellationToken ct)
