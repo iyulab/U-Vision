@@ -10,19 +10,31 @@ namespace UVision.Api.Services.Training;
 /// </summary>
 public sealed class TrainingCandidateSource(IInspectionStore inspections, ILabelStore labels)
 {
+    // 라벨마다 짝 레코드 한 건을 읽는다 — 왕복 지연이 시간을 정하므로 병렬로.
+    private const int ReadParallelism = 16;
+
     public async Task<TrainingCandidates> LoadAsync(string scenarioId, CancellationToken cancellationToken)
     {
         var candidates = new List<TrainingCandidate>();
         var orphans = 0;
         foreach (var date in await inspections.ListDatesAsync(scenarioId, cancellationToken))
         {
-            var results = (await inspections.ListAsync(scenarioId, date, cancellationToken))
-                .ToDictionary(r => r.ImageId, StringComparer.Ordinal);
-            foreach (var label in await labels.ListAsync(scenarioId, date, cancellationToken))
+            // 라벨 쪽에서 출발한다: 날짜의 판정 레코드 전부를 여는 대신(건마다 한 파일 — 라벨보다 훨씬 많다) 확정 라벨의 짝 레코드만 읽는다.
+            // 순서는 이미지 id 로 고정한다(라벨 색인의 순서에 기대지 않는다).
+            var confirmed = (await labels.ListAsync(scenarioId, date, cancellationToken))
+                .Where(l => l.OperativeLabel is not null)
+                .OrderBy(l => l.ImageId, StringComparer.Ordinal)
+                .ToList();
+            var results = new StoredResult?[confirmed.Count];
+            await Parallel.ForEachAsync(
+                Enumerable.Range(0, confirmed.Count),
+                new ParallelOptions { MaxDegreeOfParallelism = ReadParallelism, CancellationToken = cancellationToken },
+                async (i, ct) => results[i] = await inspections.ReadResultAsync(scenarioId, date, confirmed[i].ImageId, ct));
+
+            for (var i = 0; i < confirmed.Count; i++)
             {
-                if (label.OperativeLabel is not { } operative)
-                    continue;
-                if (!results.TryGetValue(label.ImageId, out var result))
+                var label = confirmed[i];
+                if (results[i] is not { } result)
                 {
                     orphans++;
                     continue;
@@ -30,7 +42,7 @@ public sealed class TrainingCandidateSource(IInspectionStore inspections, ILabel
                 candidates.Add(new TrainingCandidate(
                     label.ImageId,
                     date,
-                    operative,
+                    label.OperativeLabel!,
                     label.History?.LastOrDefault(e => e.Mode == LabelMode.Label)?.At ?? label.Timestamp,
                     label.Audit?.Status == LabelAuditStatus.Conflicted,
                     result.RequiresReview == true || result.Agreement == false,

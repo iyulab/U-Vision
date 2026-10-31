@@ -101,6 +101,17 @@ public sealed class FileInspectionStore : IInspectionStore
         return (ticks, StoragePaths.Id(cursor[(dot + 1)..]));
     }
 
+    public async Task<StoredResult?> ReadResultAsync(
+        string scenarioId, string date, string imageId,
+        CancellationToken cancellationToken = default)
+    {
+        var path = _paths.ResultFile(scenarioId, date, imageId); // 형식 위반이면 ArgumentException(→400)
+        if (!File.Exists(path))
+            return null;
+        await using var stream = File.OpenRead(path);
+        return await JsonSerializer.DeserializeAsync<StoredResult>(stream, StoragePaths.Json, cancellationToken);
+    }
+
     public async Task<InspectionImage?> ReadImageAsync(
         string scenarioId, string date, string imageId,
         CancellationToken cancellationToken = default)

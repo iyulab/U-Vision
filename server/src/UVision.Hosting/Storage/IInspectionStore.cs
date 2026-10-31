@@ -38,6 +38,13 @@ public interface IInspectionStore
         string scenarioId, string date, int limit, string? cursor, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 판정 레코드 한 건을 읽는다(이미지 id 로). 없으면 null. 날짜 폴더 전체를 열거하지 않는다 — 라벨에서 짝 레코드로 가는 읽기용.
+    /// </summary>
+    Task<StoredResult?> ReadResultAsync(
+        string scenarioId, string date, string imageId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 저장된 캡처 이미지 바이트를 읽는다(조회 UI 서빙). stem(<paramref name="imageId"/>)으로
     /// 디렉토리에서 매칭(ext 무관, json 제외). 없으면 null.
     /// </summary>

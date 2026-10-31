@@ -376,6 +376,11 @@ public class InspectTests : IClassFixture<UVisionApiFactory>
             string scenarioId, string date, int limit, string? cursor, CancellationToken cancellationToken = default) =>
             Task.FromResult(new ResultPage([], null));
 
+        public Task<StoredResult?> ReadResultAsync(
+            string scenarioId, string date, string imageId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<StoredResult?>(null);
+
         public Task<InspectionImage?> ReadImageAsync(
             string scenarioId, string date, string imageId,
             CancellationToken cancellationToken = default) =>
