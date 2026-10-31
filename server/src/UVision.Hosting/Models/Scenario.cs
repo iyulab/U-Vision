@@ -104,15 +104,34 @@ public sealed record Scenario
 
     // --- 계수(type: counting)에서만 뜻이 있다. 다른 유형이면 쓰지 않는다.
 
-    /// <summary>기대 개수 — 센 수가 <c>expected_count ± count_tolerance</c> 안이면 OK, 밖이면 NG. 계수 시나리오는 필수.</summary>
+    /// <summary>
+    /// 기대 개수 — 센 수가 <c>expected_count ± count_tolerance</c> 안이면 OK, 밖이면 NG. 계수 시나리오는 이것과
+    /// <see cref="ExpectedByClass"/> 중 정확히 하나가 필수.
+    /// </summary>
     [JsonPropertyName("expected_count")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? ExpectedCount { get; init; }
 
-    /// <summary>허용 오차 — 없으면 0(정확히).</summary>
+    /// <summary>허용 오차 — 없으면 0(정확히). <see cref="ExpectedCount"/> 와 함께만 쓴다.</summary>
     [JsonPropertyName("count_tolerance")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? CountTolerance { get; init; }
+
+    /// <summary>
+    /// 종류별 기대 개수(구성 확인) — 기대한 종류가 모두 그 수만큼 있고 더한 것이 없는가를 본다. 종류 하나라도 모자라면 NG.
+    /// <see cref="ExpectedCount"/> 와 함께 줄 수 없다(총 개수를 견주는 계수와 종류별로 견주는 구성 확인은 서로 다른 시나리오).
+    /// </summary>
+    [JsonPropertyName("expected_by_class")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, int>? ExpectedByClass { get; init; }
+
+    /// <summary>
+    /// 기대보다 많거나 기대에 없는 종류가 검출됐을 때 — <c>ng</c>(기본, 불량) · <c>warn</c>(항목에 올리되 판정은 그대로) ·
+    /// <c>ignore</c>(보지 않는다). <see cref="ExpectedByClass"/> 와 함께만 쓴다.
+    /// </summary>
+    [JsonPropertyName("extra_policy")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ExtraPolicy { get; init; }
 
     /// <summary>이 신뢰도(0 초과 1 이하) 이상인 상자만 센다 — 없으면 설치 옵션의 기본.</summary>
     [JsonPropertyName("min_confidence")]
@@ -181,10 +200,16 @@ public sealed record ScenarioInput
     [JsonPropertyName("patch_encoder")] public string? PatchEncoder { get; init; }
 
     // 계수 — 생략하면 수정 시 기존 값을 보존한다(유형이 바뀌면 옮기지 않는다). 계수가 아닌 시나리오에는 줄 수 없다.
+    // 기대의 두 모양(총 개수 expected_count · 종류별 expected_by_class)은 서로 바꿔 줄 수 있다 — 한쪽을 주면 다른 쪽(과 그에 묶인
+    // count_tolerance · extra_policy)은 보존하지 않고 지운다. 같은 요청에 둘을 함께 주면 400.
 
     [JsonPropertyName("expected_count")] public int? ExpectedCount { get; init; }
 
     [JsonPropertyName("count_tolerance")] public int? CountTolerance { get; init; }
+
+    [JsonPropertyName("expected_by_class")] public Dictionary<string, int>? ExpectedByClass { get; init; }
+
+    [JsonPropertyName("extra_policy")] public string? ExtraPolicy { get; init; }
 
     [JsonPropertyName("min_confidence")] public double? MinConfidence { get; init; }
 
@@ -212,6 +237,8 @@ public sealed record ScenarioInput
         PatchEncoder = string.IsNullOrEmpty(PatchEncoder) ? null : PatchEncoder,
         ExpectedCount = ExpectedCount,
         CountTolerance = CountTolerance,
+        ExpectedByClass = ExpectedByClass,
+        ExtraPolicy = ExtraPolicy,
         MinConfidence = MinConfidence,
         CountClasses = CountClasses,
     };

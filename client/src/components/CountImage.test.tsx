@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { CountInfo } from '../lib/types'
@@ -78,5 +78,36 @@ describe('CountImage', () => {
 
     expect(screen.getByTestId('count-layer').children).toHaveLength(0)
     expect(screen.getByText('센 개수 0 (기대 3 ± 0)')).toBeTruthy()
+  })
+
+  it('총 개수 계수에는 항목 표가 없다', () => {
+    render(<CountImage scenarioId="s" date="d" imageId="i" count={COUNT} />)
+
+    expect(screen.queryByTestId('count-items')).toBeNull()
+  })
+
+  it('구성 확인은 종류별 항목을 글자로 보인다 — 부족 · 초과는 개수까지, 과잉 처리 문구와 함께', () => {
+    const count: CountInfo = {
+      ...COUNT,
+      total: 4,
+      by_class: { scalpel: 2, gauze: 2 },
+      expected: 4,
+      tolerance: 0,
+      extra_policy: 'warn',
+      items: [
+        { class: 'forceps', expected: 1, found: 0, status: 'missing' },
+        { class: 'gauze', expected: 1, found: 2, status: 'extra' },
+        { class: 'scalpel', expected: 2, found: 2, status: 'ok' },
+      ],
+    }
+    render(<CountImage scenarioId="s" date="d" imageId="i" count={count} />)
+
+    const rows = within(screen.getByTestId('count-items')).getAllByRole('row').slice(1)
+    expect(rows.map((r) => r.getAttribute('data-status'))).toEqual(['missing', 'extra', 'ok'])
+    expect(rows[0]!.textContent).toContain('부족 1')
+    expect(rows[1]!.textContent).toContain('초과 1')
+    expect(rows[2]!.textContent).toContain('맞음')
+    expect(screen.getByText('구성 확인 — 센 개수 4 (기대 합계 4)')).toBeTruthy()
+    expect(screen.getByText('초과는 항목에 올리지만 판정에는 반영하지 않는다')).toBeTruthy()
   })
 })

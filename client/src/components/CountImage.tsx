@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import { resultImageUrl } from '../lib/api'
-import { boxStyles, countSummary, nearBoxStyles } from '../lib/countBoxes'
+import { boxStyles, countSummary, extraPolicyNote, itemStatusLabel, nearBoxStyles } from '../lib/countBoxes'
 import type { CountInfo } from '../lib/types'
 
 /**
@@ -72,6 +72,40 @@ export function CountImage({
         )}
         {count.uncertain && <span className="text-amber-300">흔들리는 판정이라 NG · 사람 확인 대상</span>}
       </div>
+
+      {count.items && (
+        <div className="space-y-1">
+          <table className="w-full text-left text-xs" data-testid="count-items">
+            <thead className="text-slate-400">
+              <tr>
+                <th className="py-1 pr-3 font-medium">종류</th>
+                <th className="py-1 pr-3 font-medium">기대</th>
+                <th className="py-1 pr-3 font-medium">센 수</th>
+                <th className="py-1 font-medium">상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              {count.items.map((item) => (
+                <tr key={item.class} data-status={item.status} className="border-t border-slate-700">
+                  <td className="py-1 pr-3 text-slate-200">{item.class}</td>
+                  <td className="py-1 pr-3 tabular-nums text-slate-300">{item.expected}</td>
+                  <td className="py-1 pr-3 tabular-nums text-slate-300">{item.found}</td>
+                  <td
+                    className={`py-1 font-medium ${
+                      item.status === 'missing' ? 'text-red-300' : item.status === 'extra' ? 'text-amber-300' : 'text-emerald-300'
+                    }`}
+                  >
+                    {itemStatusLabel(item.status)}
+                    {item.status === 'missing' && ` ${item.expected - item.found}`}
+                    {item.status === 'extra' && ` ${item.found - item.expected}`}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="text-xs text-slate-500">{extraPolicyNote(count.extra_policy)}</p>
+        </div>
+      )}
     </div>
   )
 }

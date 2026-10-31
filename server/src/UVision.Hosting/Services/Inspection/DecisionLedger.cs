@@ -222,6 +222,14 @@ public sealed record CountDecision(
             a["count:expected"] = expected.ToString(System.Globalization.CultureInfo.InvariantCulture);
         if (Result.Tolerance is { } tolerance)
             a["count:tolerance"] = tolerance.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        // 구성 확인 — 모자란 개수 · 넘친 개수의 합. 종류 이름을 값에 싣지 않는다(줄 · 구분자 안전, 종류별은 레코드의 count.items).
+        if (Result.Items is { } items)
+        {
+            a["count:missing"] = items.Where(i => i.Status == ItemStatus.Missing).Sum(i => i.Expected - i.Found)
+                .ToString(System.Globalization.CultureInfo.InvariantCulture);
+            a["count:extra"] = items.Where(i => i.Status == ItemStatus.Extra).Sum(i => i.Found - i.Expected)
+                .ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
         if (ModelSha256 is not null)
             a["detector:model_sha256"] = ModelSha256;
         return a;

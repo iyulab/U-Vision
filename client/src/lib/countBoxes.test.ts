@@ -41,6 +41,9 @@ describe('nearBoxStyles', () => {
 describe('countSummary', () => {
   it('센 수와 기대를 한 줄로, 종류가 여럿일 때만 나눠 보인다', () => {
     expect(countSummary({ total: 5, expected: 6, tolerance: 1, by_class: { pill: 5 } })).toBe('센 개수 5 (기대 6 ± 1)')
+    expect(
+      countSummary({ total: 5, expected: 6, tolerance: 0, by_class: { a: 5 }, items: [{ class: 'a', expected: 6, found: 5, status: 'missing' }] }),
+    ).toBe('구성 확인 — 센 개수 5 (기대 합계 6)')
     expect(countSummary({ total: 5, expected: 6, tolerance: 0, by_class: { helmet: 3, head: 2 } })).toBe(
       '센 개수 5 (기대 6 ± 0) — helmet 3 · head 2',
     )

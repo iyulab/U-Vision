@@ -76,7 +76,7 @@ public class ScenarioV2Tests : IClassFixture<PinFactory>
     public void V1Scenario_OnDisk_HasNoV2Keys()
     {
         var json = JsonSerializer.Serialize(V1(), StoragePaths.Json);
-        foreach (var key in new[] { "\"type\"", "\"trigger\"", "\"classes\"", "\"judges\"", "\"trust\"", "\"patch_encoder\"", "\"expected_count\"", "\"count_tolerance\"", "\"min_confidence\"", "\"count_classes\"" })
+        foreach (var key in new[] { "\"type\"", "\"trigger\"", "\"classes\"", "\"judges\"", "\"trust\"", "\"patch_encoder\"", "\"expected_count\"", "\"count_tolerance\"", "\"expected_by_class\"", "\"extra_policy\"", "\"min_confidence\"", "\"count_classes\"" })
             Assert.DoesNotContain(key, json);
     }
 
@@ -93,6 +93,16 @@ public class ScenarioV2Tests : IClassFixture<PinFactory>
         { """{"name":"x","type":"counting","expected_count":4,"judges":[{"tier":"vlm"}]}""", "judges" },
         { """{"name":"x","expected_count":4}""", "counting" },
         { """{"name":"x","type":"verification","count_classes":["a"]}""", "counting" },
+        { """{"name":"x","type":"verification","expected_by_class":{"a":1}}""", "counting" },
+        { """{"name":"x","type":"verification","extra_policy":"warn"}""", "counting" },
+        { """{"name":"x","type":"counting","expected_count":4,"expected_by_class":{"a":1}}""", "함께 줄 수 없다" },
+        { """{"name":"x","type":"counting","expected_by_class":{"a":1},"count_tolerance":1}""", "count_tolerance" },
+        { """{"name":"x","type":"counting","expected_count":4,"extra_policy":"warn"}""", "extra_policy" },
+        { """{"name":"x","type":"counting","expected_by_class":{"a":1},"extra_policy":"loose"}""", "extra_policy" },
+        { """{"name":"x","type":"counting","expected_by_class":{}}""", "expected_by_class" },
+        { """{"name":"x","type":"counting","expected_by_class":{"a":-1}}""", "expected_by_class" },
+        { """{"name":"x","type":"counting","expected_by_class":{" a":1}}""", "expected_by_class" },
+        { """{"name":"x","type":"counting","expected_by_class":{"a":1,"b":1},"count_classes":["a"]}""", "count_classes" },
         { """{"name":"x","trigger":"stream"}""", "trigger" },
         { """{"name":"x","judges":[{"tier":"vlm"},{"tier":"ml"}]}""", "꼭대기" },
         { """{"name":"x","judges":[{"tier":"system1"},{"tier":"vlm"}]}""", "tier" },
@@ -241,6 +251,98 @@ public class ScenarioV2Tests : IClassFixture<PinFactory>
 
         Assert.False(e.IsCounting);
         Assert.Null(e.ExpectedCount);
+    }
+
+    [Fact]
+    public void Resolve_Composition_CarriesTheKindExpectations_WithNgAsTheDefaultExtraPolicy()
+    {
+        var byClass = new Dictionary<string, int> { ["scalpel"] = 2, ["forceps"] = 1 };
+
+        var e = EffectiveScenario.Resolve(V1() with { Type = "counting", ExpectedByClass = byClass }, mlEnabled: true);
+        var warn = EffectiveScenario.Resolve(V1() with { Type = "counting", ExpectedByClass = byClass, ExtraPolicy = "warn" }, mlEnabled: true);
+
+        Assert.True(e.IsCounting);
+        Assert.True(e.IsComposition);
+        Assert.Equal(["detector"], e.Tiers);
+        Assert.Equal(byClass, e.ExpectedByClass);
+        Assert.Null(e.ExpectedCount);
+        Assert.Equal("ng", e.ExtraPolicy);
+        Assert.Equal("warn", warn.ExtraPolicy);
+    }
+
+    [Fact]
+    public void Resolve_PlainCounting_IsNotAComposition_AndNonCountingIgnoresStrayKindFields()
+    {
+        var counting = EffectiveScenario.Resolve(V1() with { Type = "counting", ExpectedCount = 3, ExtraPolicy = "warn" }, mlEnabled: false);
+        var stray = EffectiveScenario.Resolve(
+            V1() with { ExpectedByClass = new Dictionary<string, int> { ["a"] = 1 }, ExtraPolicy = "warn" }, mlEnabled: false);
+
+        Assert.False(counting.IsComposition);
+        Assert.Null(counting.ExtraPolicy); // 종류별 기대가 없으면 과잉 정책은 뜻이 없다
+        Assert.False(stray.IsComposition);
+        Assert.Null(stray.ExpectedByClass);
+        Assert.Null(stray.ExtraPolicy);
+    }
+
+    [Fact]
+    public async Task Composition_RoundTrips_AndUpdateWithoutKindFields_KeepsThem()
+    {
+        var id = await CreateCountingAsync(new
+        {
+            name = "tray", type = "counting", expected_by_class = new Dictionary<string, int> { ["scalpel"] = 2, ["forceps"] = 1 },
+            extra_policy = "warn", min_confidence = 0.6,
+        });
+
+        var put = await Admin().PutAsync($"/api/u-vision/scenarios/{id}",
+            JsonContent.Create(new { name = "tray", criteria = "바뀐 기준" }));
+        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+
+        var got = await _factory.CreateClient().GetFromJsonAsync<JsonElement>($"/api/u-vision/scenarios/{id}");
+        Assert.Equal(2, got.GetProperty("expected_by_class").GetProperty("scalpel").GetInt32());
+        Assert.Equal(1, got.GetProperty("expected_by_class").GetProperty("forceps").GetInt32());
+        Assert.Equal("warn", got.GetProperty("extra_policy").GetString());
+        Assert.False(got.TryGetProperty("expected_count", out _));
+    }
+
+    [Fact]
+    public async Task Composition_SwitchingTheShapeOfTheExpectation_DropsTheOtherShapeAndItsCompanions()
+    {
+        var id = await CreateCountingAsync(new { name = "shape", type = "counting", expected_count = 5, count_tolerance = 1 });
+
+        // 총 개수 → 종류별: expected_count · count_tolerance 는 보존하지 않는다(생략 = 보존이면 영영 못 바꾼다).
+        var toKinds = await Admin().PutAsync($"/api/u-vision/scenarios/{id}",
+            JsonContent.Create(new { name = "shape", expected_by_class = new Dictionary<string, int> { ["a"] = 5 }, extra_policy = "ignore" }));
+        Assert.Equal(HttpStatusCode.OK, toKinds.StatusCode);
+        var kinds = await _factory.CreateClient().GetFromJsonAsync<JsonElement>($"/api/u-vision/scenarios/{id}");
+        Assert.False(kinds.TryGetProperty("expected_count", out _));
+        Assert.False(kinds.TryGetProperty("count_tolerance", out _));
+        Assert.Equal(5, kinds.GetProperty("expected_by_class").GetProperty("a").GetInt32());
+
+        // 종류별 → 총 개수: expected_by_class · extra_policy 를 지운다.
+        var toTotal = await Admin().PutAsync($"/api/u-vision/scenarios/{id}",
+            JsonContent.Create(new { name = "shape", expected_count = 4 }));
+        Assert.Equal(HttpStatusCode.OK, toTotal.StatusCode);
+        var total = await _factory.CreateClient().GetFromJsonAsync<JsonElement>($"/api/u-vision/scenarios/{id}");
+        Assert.Equal(4, total.GetProperty("expected_count").GetInt32());
+        Assert.False(total.TryGetProperty("expected_by_class", out _));
+        Assert.False(total.TryGetProperty("extra_policy", out _));
+    }
+
+    [Fact]
+    public async Task Composition_ChangingTypeAway_DropsTheKindFields()
+    {
+        var id = await CreateCountingAsync(new
+        {
+            name = "tray away", type = "counting", expected_by_class = new Dictionary<string, int> { ["a"] = 1 }, extra_policy = "warn",
+        });
+
+        var put = await Admin().PutAsync($"/api/u-vision/scenarios/{id}",
+            JsonContent.Create(new { name = "tray away", type = "inspection" }));
+        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+
+        var got = await _factory.CreateClient().GetFromJsonAsync<JsonElement>($"/api/u-vision/scenarios/{id}");
+        Assert.False(got.TryGetProperty("expected_by_class", out _));
+        Assert.False(got.TryGetProperty("extra_policy", out _));
     }
 
     private async Task<string> CreateCountingAsync(object body)

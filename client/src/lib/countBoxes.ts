@@ -47,9 +47,24 @@ export function boxStyles(count: Pick<CountInfo, 'boxes' | 'min_confidence'>): B
   }))
 }
 
-/** 센 결과 한 줄 — «센 개수 5 (기대 6 ± 1)» + 종류별. */
-export function countSummary(count: Pick<CountInfo, 'total' | 'expected' | 'tolerance' | 'by_class'>): string {
+/** 센 결과 한 줄 — «센 개수 5 (기대 6 ± 1)» + 종류별. 구성 확인(항목 목록이 있는 판정)이면 «구성 확인 — 센 개수 5 (기대 합계 6)». */
+export function countSummary(count: Pick<CountInfo, 'total' | 'expected' | 'tolerance' | 'by_class' | 'items'>): string {
+  if (count.items) return `구성 확인 — 센 개수 ${count.total} (기대 합계 ${count.expected})`
   const kinds = Object.entries(count.by_class)
   const split = kinds.length > 1 ? ` — ${kinds.map(([k, n]) => `${k} ${n}`).join(' · ')}` : ''
   return `센 개수 ${count.total} (기대 ${count.expected} ± ${count.tolerance})${split}`
+}
+
+/** 항목 상태의 글자 — 색에만 기대지 않고 글자를 함께 보인다. 모르는 상태(서버가 더 지은 것)는 그대로 보인다. */
+export function itemStatusLabel(status: string): string {
+  return status === 'ok' ? '맞음' : status === 'missing' ? '부족' : status === 'extra' ? '초과' : status
+}
+
+/** 과잉 처리 문구 — 결과 화면이 «왜 이 판정인가» 를 읽게 한다. */
+export function extraPolicyNote(policy: string | undefined): string {
+  return policy === 'warn'
+    ? '초과는 항목에 올리지만 판정에는 반영하지 않는다'
+    : policy === 'ignore'
+      ? '초과는 보지 않는다'
+      : '초과도 불량으로 본다'
 }

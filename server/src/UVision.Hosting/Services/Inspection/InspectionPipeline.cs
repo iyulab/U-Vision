@@ -283,8 +283,8 @@ public sealed class InspectionPipeline(
     {
         string? unavailable = null;
         DetectionSet? detected = null;
-        if (effective.ExpectedCount is null)
-            unavailable = "계수 시나리오에 기대 개수가 없다(scenario.json 을 고쳐야 한다)";
+        if (effective.ExpectedCount is null && effective.ExpectedByClass is null)
+            unavailable = "계수 시나리오에 기대가 없다 — expected_count 또는 expected_by_class(scenario.json 을 고쳐야 한다)";
         else if (!detector.IsEnabled)
             unavailable = "검출기가 꺼져 있다(UVision:Detection:Provider)";
         else
@@ -336,12 +336,16 @@ public sealed class InspectionPipeline(
         }
 
         var minConfidence = effective.MinConfidence ?? detectionOptions.MinConfidence;
-        var counted = CountEvaluator.Count(
-            detected.Boxes, minConfidence, effective.CountClasses, effective.ExpectedCount, effective.CountTolerance);
+        // 종류별 기대(구성 확인)와 총 개수 기대는 같은 검출기 단 · 같은 OK/NG 를 쓰고, 기대를 견주는 순수 함수만 다르다.
+        var counted = effective.IsComposition
+            ? CompositionEvaluator.Evaluate(
+                detected.Boxes, minConfidence, effective.CountClasses, effective.ExpectedByClass!, effective.ExtraPolicy!)
+            : CountEvaluator.Count(
+                detected.Boxes, minConfidence, effective.CountClasses, effective.ExpectedCount, effective.CountTolerance);
         var decidedClass = counted.WithinRange == true && !counted.Uncertain ? ScenarioVocabulary.Ok : ScenarioVocabulary.Ng;
         var verdict = effective.VerdictOf(decidedClass);
         var confidence = counted.Boxes.Count > 0 ? counted.Boxes.Min(b => b.Confidence) : 1.0;
-        var findings = FindingsOf(counted, minConfidence);
+        var findings = FindingsOf(counted, minConfidence, effective.ExtraPolicy);
         var decision = new CountDecision(counted, decidedClass, confidence, findings, minConfidence, detected.ModelSha256);
         var info = new CountInfo
         {
@@ -354,6 +358,10 @@ public sealed class InspectionPipeline(
             Boxes = [.. counted.Boxes.Select(BoxOf)],
             NearBoxes = counted.NearBoxes.Count == 0 ? null : [.. counted.NearBoxes.Select(BoxOf)],
             ModelSha256 = detected.ModelSha256,
+            Items = counted.Items is null
+                ? null
+                : [.. counted.Items.Select(i => new CountItemInfo { Class = i.Class, Expected = i.Expected, Found = i.Found, Status = i.Status })],
+            ExtraPolicy = counted.Items is null ? null : effective.ExtraPolicy,
         };
         // 흔들리는 사진은 NG 로 두고 확인 전까지 다음 캡처를 막는다 — 개수를 못 믿는 채 흘려보내지 않는다.
         bool? requiresReview = counted.Uncertain ? true : null;
@@ -442,9 +450,25 @@ public sealed class InspectionPipeline(
     private static CountBox BoxOf(Detection b) =>
         new() { Class = b.Class, X = b.X, Y = b.Y, W = b.W, H = b.H, Confidence = b.Confidence };
 
-    /// <summary>센 결과의 한 줄 소견 — 센 수, 기대와 허용, 문턱, 그리고 왜 NG 인지.</summary>
-    private static string FindingsOf(CountResult counted, double minConfidence)
+    /// <summary>센 결과의 한 줄 소견 — 센 수, 기대와 허용, 문턱, 그리고 왜 NG 인지. 구성 확인이면 모자란 종류와 많은 종류를 짚는다.</summary>
+    private static string FindingsOf(CountResult counted, double minConfidence, string? extraPolicy)
     {
+        if (counted.Items is { } items)
+        {
+            var composed = string.Create(CultureInfo.InvariantCulture,
+                $"구성 확인 — 센 개수 {counted.Total} (기대 합계 {counted.Expected}, 신뢰도 {minConfidence:0.##} 이상)");
+            var missing = items.Where(i => i.Status == ItemStatus.Missing).ToList();
+            var extra = items.Where(i => i.Status == ItemStatus.Extra).ToList();
+            if (missing.Count > 0)
+                composed += " — 누락: " + string.Join(", ", missing.Select(i => $"{i.Class} {i.Expected - i.Found}개 부족"));
+            if (extra.Count > 0)
+                composed += " — 과잉: " + string.Join(", ", extra.Select(i => $"{i.Class} {i.Found - i.Expected}개 초과"))
+                    + (extraPolicy == ExtraPolicies.Ng ? "" : " (판정에는 반영하지 않음)");
+            if (counted.Uncertain)
+                composed += " — 문턱 근처 상자가 결과를 바꿀 수 있어 사람 확인이 필요하다";
+            return composed;
+        }
+
         var text = string.Create(CultureInfo.InvariantCulture,
             $"센 개수 {counted.Total} (기대 {counted.Expected} ± {counted.Tolerance}, 신뢰도 {minConfidence:0.##} 이상)");
         if (counted.WithinRange != true)

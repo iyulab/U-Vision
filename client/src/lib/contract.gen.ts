@@ -45,6 +45,7 @@ export interface Contract {
   ContestedBy?: ContestedBy
   CountBox?: CountBox
   CountInfo?: CountInfo
+  CountItemInfo?: CountItemInfo
   DatasetClassCount?: DatasetClassCount
   DatasetExportManifest?: DatasetExportManifest
   DatasetItem?: DatasetItem
@@ -250,11 +251,23 @@ export interface CountInfo {
   }
   expected: number
   tolerance: number
+  items?: CountItemInfo[]
+  extra_policy?: string
   min_confidence: number
   uncertain: boolean
   boxes: CountBox[]
   near_boxes?: CountBox[]
   model_sha256?: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "CountItemInfo".
+ */
+export interface CountItemInfo {
+  class: string
+  expected: number
+  found: number
+  status: string
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
@@ -733,6 +746,10 @@ export interface Scenario {
   patch_encoder?: string
   expected_count?: number
   count_tolerance?: number
+  expected_by_class?: {
+    [k: string]: number
+  }
+  extra_policy?: string
   min_confidence?: number
   count_classes?: string[]
 }
@@ -806,6 +823,10 @@ export interface ScenarioInput {
   patch_encoder?: null | string
   expected_count?: null | number
   count_tolerance?: null | number
+  expected_by_class?: null | {
+    [k: string]: number
+  }
+  extra_policy?: null | string
   min_confidence?: null | number
   count_classes?: null | string[]
 }

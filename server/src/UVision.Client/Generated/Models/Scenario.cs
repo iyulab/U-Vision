@@ -42,8 +42,24 @@ namespace UVision.Client.Models
 #else
         public string Criteria { get; set; }
 #endif
+        /// <summary>The expected_by_class property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::UVision.Client.Models.Scenario_expected_by_class? ExpectedByClass { get; set; }
+#nullable restore
+#else
+        public global::UVision.Client.Models.Scenario_expected_by_class ExpectedByClass { get; set; }
+#endif
         /// <summary>The expected_count property</summary>
         public int? ExpectedCount { get; set; }
+        /// <summary>The extra_policy property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? ExtraPolicy { get; set; }
+#nullable restore
+#else
+        public string ExtraPolicy { get; set; }
+#endif
         /// <summary>The judges property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -158,7 +174,9 @@ namespace UVision.Client.Models
                 { "count_classes", n => { CountClasses = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "count_tolerance", n => { CountTolerance = n.GetIntValue(); } },
                 { "criteria", n => { Criteria = n.GetStringValue(); } },
+                { "expected_by_class", n => { ExpectedByClass = n.GetObjectValue<global::UVision.Client.Models.Scenario_expected_by_class>(global::UVision.Client.Models.Scenario_expected_by_class.CreateFromDiscriminatorValue); } },
                 { "expected_count", n => { ExpectedCount = n.GetIntValue(); } },
+                { "extra_policy", n => { ExtraPolicy = n.GetStringValue(); } },
                 { "judges", n => { Judges = n.GetCollectionOfObjectValues<global::UVision.Client.Models.ScenarioJudge>(global::UVision.Client.Models.ScenarioJudge.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "max_image_dimension", n => { MaxImageDimension = n.GetIntValue(); } },
                 { "min_confidence", n => { MinConfidence = n.GetDoubleValue(); } },
@@ -188,7 +206,9 @@ namespace UVision.Client.Models
             writer.WriteCollectionOfPrimitiveValues<string>("count_classes", CountClasses);
             writer.WriteIntValue("count_tolerance", CountTolerance);
             writer.WriteStringValue("criteria", Criteria);
+            writer.WriteObjectValue<global::UVision.Client.Models.Scenario_expected_by_class>("expected_by_class", ExpectedByClass);
             writer.WriteIntValue("expected_count", ExpectedCount);
+            writer.WriteStringValue("extra_policy", ExtraPolicy);
             writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.ScenarioJudge>("judges", Judges);
             writer.WriteIntValue("max_image_dimension", MaxImageDimension);
             writer.WriteDoubleValue("min_confidence", MinConfidence);

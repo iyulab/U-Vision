@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using UVision.Api.Models;
+using UVision.Api.Services.Counting;
 
 namespace UVision.Api.Services.Scenarios;
 
@@ -21,7 +22,9 @@ public sealed record EffectiveScenario(
     int? ExpectedCount = null,
     int? CountTolerance = null,
     double? MinConfidence = null,
-    IReadOnlyList<string>? CountClasses = null)
+    IReadOnlyList<string>? CountClasses = null,
+    IReadOnlyDictionary<string, int>? ExpectedByClass = null,
+    string? ExtraPolicy = null)
 {
     /// <summary>v1 검사의 클래스 — OK 는 아래 단이 확정할 수 있고, NG 는 언제나 꼭대기로 간다.</summary>
     public static readonly IReadOnlyList<ScenarioClass> InspectionClasses =
@@ -44,6 +47,12 @@ public sealed record EffectiveScenario(
     /// 세는 물건의 종류(<see cref="CountClasses"/>)는 판정 클래스와 다른 말이다.
     /// </summary>
     public bool IsCounting => Type == ScenarioVocabulary.Counting;
+
+    /// <summary>
+    /// 종류별 기대로 구성을 확인하는가 — 계수의 한 모양이다(같은 검출기 단 · OK/NG). 총 개수만 견주는 계수와 달리 기대가
+    /// <see cref="ExpectedByClass"/> 에 있고 과잉은 <see cref="ExtraPolicy"/> 가 정한다.
+    /// </summary>
+    public bool IsComposition => IsCounting && ExpectedByClass is not null;
 
     /// <summary>
     /// 불량 유형 — 검사에서 OK 가 아닌 클래스. 선언하지 않은 검사는 <c>NG</c> 하나, 오투입 확인은 없다(불일치는
@@ -124,7 +133,9 @@ public sealed record EffectiveScenario(
             counting ? scenario.ExpectedCount : null,
             counting ? scenario.CountTolerance : null,
             counting ? scenario.MinConfidence : null,
-            counting ? scenario.CountClasses : null);
+            counting ? scenario.CountClasses : null,
+            counting ? scenario.ExpectedByClass : null,
+            counting && scenario.ExpectedByClass is not null ? scenario.ExtraPolicy ?? ExtraPolicies.Ng : null);
     }
 
     /// <summary>
@@ -213,28 +224,50 @@ public sealed record EffectiveScenario(
         return ValidateCounting(input, existing, type, typeChanged);
     }
 
-    // 계수 필드는 계수 시나리오에만 뜻이 있다 — 다른 유형에 주면 거부한다(변형하지 않는다). 기대 개수는 필수: 지금은 센 수를
-    // 기대와 견줘 OK/NG 를 내는 계수만 지원한다(기대 없이 세기만 하는 시나리오는 아직 짓지 않았다).
+    // 계수 필드는 계수 시나리오에만 뜻이 있다 — 다른 유형에 주면 거부한다(변형하지 않는다). 기대는 필수이고 두 모양 중 정확히
+    // 하나: 센 총 개수를 기대와 견주는 expected_count, 종류마다 기대를 두는 expected_by_class(구성 확인). 기대 없이 세기만
+    // 하는 시나리오는 아직 짓지 않았다.
     private static string? ValidateCounting(ScenarioInput input, Scenario? existing, string type, bool typeChanged)
     {
         var supplied = input.ExpectedCount is not null || input.CountTolerance is not null
-            || input.MinConfidence is not null || input.CountClasses is not null;
+            || input.MinConfidence is not null || input.CountClasses is not null
+            || input.ExpectedByClass is not null || input.ExtraPolicy is not null;
         if (type != ScenarioVocabulary.Counting)
-            return supplied ? $"expected_count · count_tolerance · min_confidence · count_classes 는 type 이 counting 일 때만 줄 수 있다: {type}" : null;
+            return supplied ? $"expected_count · count_tolerance · expected_by_class · extra_policy · min_confidence · count_classes 는 type 이 counting 일 때만 줄 수 있다: {type}" : null;
 
-        // 생략은 보존이다 — 합친 값으로 검증한다(유형이 바뀌면 옮기지 않는다).
-        int? expected = input.ExpectedCount ?? (typeChanged ? null : existing?.ExpectedCount);
-        int? tolerance = input.CountTolerance ?? (typeChanged ? null : existing?.CountTolerance);
-        double? minConfidence = input.MinConfidence ?? (typeChanged ? null : existing?.MinConfidence);
-        var kinds = input.CountClasses ?? (typeChanged ? null : existing?.CountClasses);
+        // 생략은 보존이다 — 합친 값으로 검증한다(유형이 바뀌면 옮기지 않는다, 기대의 모양을 바꾸면 다른 모양은 지운다).
+        var merged = CountingFields.Merge(input, existing, typeChanged);
+        var expected = merged.ExpectedCount;
+        var tolerance = merged.CountTolerance;
+        var minConfidence = merged.MinConfidence;
+        var kinds = merged.CountClasses;
+        var byClass = merged.ExpectedByClass;
         // 판정 클래스는 OK/NG 둘 — 개수 부족 · 초과를 유형으로 나누는 것은 아직 짓지 않았다(파이프라인이 OK/NG 만 낸다).
         var classes = input.Classes ?? (typeChanged ? null : existing?.Classes);
         if (classes is not null
             && !(classes.Count == 2 && classes.Any(c => c.Id == ScenarioVocabulary.Ok) && classes.Any(c => c.Id == ScenarioVocabulary.Ng)))
             return "counting 의 classes 는 OK · NG 둘만 둘 수 있다(생략하면 OK/NG 로 파생된다)";
 
-        if (expected is null)
-            return "counting 시나리오는 expected_count 가 필수다(센 수를 견줄 기대 개수)";
+        if (expected is null && byClass is null)
+            return "counting 시나리오는 expected_count(센 총 개수를 견줄 기대) 또는 expected_by_class(종류별 기대)가 필수다";
+        if (expected is not null && byClass is not null)
+            return "expected_count 와 expected_by_class 는 함께 줄 수 없다 — 총 개수로 견줄지 종류별로 견줄지 하나만";
+        if (byClass is null && merged.ExtraPolicy is not null)
+            return "extra_policy 는 expected_by_class 와 함께만 줄 수 있다";
+        if (byClass is not null)
+        {
+            if (tolerance is not null)
+                return "count_tolerance 는 expected_count 와 함께만 줄 수 있다(종류별 기대에는 허용 오차가 없다 — 모자라면 언제나 NG)";
+            if (merged.ExtraPolicy is { } policy && !ExtraPolicies.All.Contains(policy))
+                return $"extra_policy 는 {string.Join(", ", ExtraPolicies.All)} 중 하나: {policy}";
+            if (byClass.Count is 0 or > MaxCountClasses || byClass.Keys.Any(k => !CountClassId.IsMatch(k)))
+                return $"expected_by_class 는 앞뒤 공백 · 제어문자 없는 1~64자 종류 이름 1~{MaxCountClasses}개";
+            if (byClass.Values.Any(n => n is < 0 or > MaxCount))
+                return $"expected_by_class 의 개수는 0~{MaxCount}";
+            // 세는 종류를 좁히면 기대 종류가 센 결과에 못 들어와 언제나 누락이 된다 — 모순이라 거부한다.
+            if (kinds is { Count: > 0 } && byClass.Keys.Any(k => !kinds.Contains(k, StringComparer.Ordinal)))
+                return "count_classes 는 비어 있거나 expected_by_class 의 종류를 모두 포함해야 한다(세지 않는 종류의 기대는 언제나 누락이다)";
+        }
         if (expected is < 0 or > MaxCount)
             return $"expected_count 는 0~{MaxCount}";
         if (tolerance is < 0 or > MaxCount)

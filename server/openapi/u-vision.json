@@ -3142,6 +3142,15 @@
             "type": "integer",
             "format": "int32"
           },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CountItemInfo"
+            }
+          },
+          "extra_policy": {
+            "type": "string"
+          },
           "min_confidence": {
             "type": "number",
             "format": "double"
@@ -3162,6 +3171,31 @@
             }
           },
           "model_sha256": {
+            "type": "string"
+          }
+        }
+      },
+      "CountItemInfo": {
+        "required": [
+          "class",
+          "expected",
+          "found",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "class": {
+            "type": "string"
+          },
+          "expected": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "found": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
             "type": "string"
           }
         }
@@ -4556,6 +4590,16 @@
             "type": "integer",
             "format": "int32"
           },
+          "expected_by_class": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "extra_policy": {
+            "type": "string"
+          },
           "min_confidence": {
             "type": "number",
             "format": "double"
@@ -4694,6 +4738,22 @@
               "integer"
             ],
             "format": "int32"
+          },
+          "expected_by_class": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "extra_policy": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "min_confidence": {
             "type": [

@@ -299,4 +299,122 @@ public class CountingInspectTests
         Assert.False((await resp.Content.ReadFromJsonAsync<JsonElement>()).TryGetProperty("count", out _));
         Assert.Equal(0, detector.Calls);
     }
+
+    // ── 구성 확인(종류별 기대) ────────────────────────────────────────────
+
+    private static void SeedComposition(UVisionApiFactory factory, string? extraPolicy = null, string[]? kinds = null)
+    {
+        factory.CreateClient();
+        factory.SeedScenario(new Scenario
+        {
+            ScenarioId = ScenarioId,
+            Name = "수술 트레이",
+            Type = "counting",
+            ExpectedByClass = new Dictionary<string, int> { ["scalpel"] = 2, ["forceps"] = 1 },
+            ExtraPolicy = extraPolicy,
+            CountClasses = kinds is null ? null : [.. kinds],
+        });
+    }
+
+    private static DetectionSet Tray(params (string Kind, double Confidence)[] boxes) =>
+        new([.. boxes.Select(b => Box(b.Confidence, b.Kind))], "sha-abc");
+
+    [Fact]
+    public async Task Composition_AsExpected_IsOk_WithItems_AndWithoutCallingTheVlm()
+    {
+        using var factory = new UVisionApiFactory();
+        SeedComposition(factory);
+        var detector = new ScriptedDetector(() => Tray(("scalpel", 0.95), ("scalpel", 0.9), ("forceps", 0.85)));
+
+        var resp = await Client(factory, detector).PostAsync("/api/u-vision/v2/inspect", Form());
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("OK", body.GetProperty("class").GetString());
+        var count = body.GetProperty("count");
+        Assert.Equal(3, count.GetProperty("expected").GetInt32()); // 기대 합계
+        Assert.Equal(0, count.GetProperty("tolerance").GetInt32());
+        Assert.Equal("ng", count.GetProperty("extra_policy").GetString());
+        var items = count.GetProperty("items").EnumerateArray().ToList();
+        Assert.Equal(["forceps", "scalpel"], items.Select(i => i.GetProperty("class").GetString()));
+        Assert.All(items, i => Assert.Equal("ok", i.GetProperty("status").GetString()));
+        Assert.False(body.TryGetProperty("requires_review", out _));
+    }
+
+    [Fact]
+    public async Task Composition_MissingKind_IsNg_V1ShowsFindingsNamingIt_AndTheRecordKeepsTheItems()
+    {
+        using var factory = new UVisionApiFactory();
+        SeedComposition(factory);
+        var client = Client(factory, new ScriptedDetector(() => Tray(("scalpel", 0.95), ("scalpel", 0.9))));
+
+        var v1 = await client.PostAsync("/api/u-vision/inspect", Form());
+
+        Assert.Equal(HttpStatusCode.OK, v1.StatusCode);
+        var body = await v1.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("NG", body.GetProperty("verdict").GetString());
+        Assert.Contains("누락: forceps 1개 부족", body.GetProperty("findings").GetString());
+        Assert.False(body.TryGetProperty("count", out _)); // v1 은 OK/NG 보기
+
+        var record = StoredRecord(factory).GetProperty("count");
+        var forceps = record.GetProperty("items").EnumerateArray().Single(i => i.GetProperty("class").GetString() == "forceps");
+        Assert.Equal("missing", forceps.GetProperty("status").GetString());
+        Assert.Equal(0, forceps.GetProperty("found").GetInt32());
+        var annotations = (await LedgerLineAsync(factory)).Provenance.Annotations!;
+        Assert.Equal("1", annotations["count:missing"]);
+        Assert.Equal("0", annotations["count:extra"]);
+    }
+
+    [Theory]
+    [InlineData(null, "NG", true)]    // 기본은 과잉도 불량
+    [InlineData("warn", "OK", true)]  // 항목에는 올리되 판정은 그대로
+    [InlineData("ignore", "OK", false)]
+    public async Task Composition_UnexpectedKind_FollowsTheExtraPolicy(string? policy, string expectedClass, bool listedAsExtra)
+    {
+        using var factory = new UVisionApiFactory();
+        SeedComposition(factory, extraPolicy: policy);
+        var detector = new ScriptedDetector(() => Tray(("scalpel", 0.95), ("scalpel", 0.9), ("forceps", 0.85), ("lighter", 0.9)));
+
+        var body = await (await Client(factory, detector).PostAsync("/api/u-vision/v2/inspect", Form()))
+            .Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(expectedClass, body.GetProperty("class").GetString());
+        var items = body.GetProperty("count").GetProperty("items").EnumerateArray().ToList();
+        Assert.Equal(listedAsExtra, items.Any(i => i.GetProperty("class").GetString() == "lighter" && i.GetProperty("status").GetString() == "extra"));
+        Assert.Equal(policy ?? "ng", body.GetProperty("count").GetProperty("extra_policy").GetString());
+    }
+
+    [Fact]
+    public async Task Composition_BoxNearTheThreshold_ThatSavesAMissingKind_IsNg_WithReviewBlock()
+    {
+        using var factory = new UVisionApiFactory();
+        SeedComposition(factory);
+        // forceps 는 문턱 바로 위(0.52) 한 개뿐 — 지금은 맞지만 그 상자가 없으면 누락이다.
+        var detector = new ScriptedDetector(() => Tray(("scalpel", 0.95), ("scalpel", 0.9), ("forceps", 0.52)));
+
+        var body = await (await Client(factory, detector).PostAsync("/api/u-vision/v2/inspect", Form()))
+            .Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal("NG", body.GetProperty("class").GetString());
+        Assert.True(body.GetProperty("requires_review").GetBoolean());
+        Assert.Equal("review_block", body.GetProperty("posture").GetString());
+        Assert.True(body.GetProperty("count").GetProperty("uncertain").GetBoolean());
+    }
+
+    [Fact]
+    public async Task TotalCounting_NeverGetsItemsOrAnExtraPolicy_SoItsWireIsUnchanged()
+    {
+        using var factory = new UVisionApiFactory();
+        Seed(factory, expected: 2);
+        var detector = new ScriptedDetector(() => Boxes(0.95, 0.9));
+
+        var body = await (await Client(factory, detector).PostAsync("/api/u-vision/v2/inspect", Form()))
+            .Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.False(body.GetProperty("count").TryGetProperty("items", out _));
+        Assert.False(body.GetProperty("count").TryGetProperty("extra_policy", out _));
+        Assert.False(StoredRecord(factory).GetProperty("count").TryGetProperty("items", out _));
+        var annotations = (await LedgerLineAsync(factory)).Provenance.Annotations!;
+        Assert.False(annotations.ContainsKey("count:missing"));
+    }
 }

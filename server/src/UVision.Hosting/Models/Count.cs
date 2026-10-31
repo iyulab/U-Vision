@@ -14,11 +14,27 @@ public sealed record CountInfo
     /// <summary>종류(검출기 라벨)별 개수.</summary>
     [JsonPropertyName("by_class")] public required IReadOnlyDictionary<string, int> ByClass { get; init; }
 
-    /// <summary>시나리오의 기대 개수.</summary>
+    /// <summary>시나리오의 기대 개수 — 구성 확인(<see cref="Items"/> 가 있는 판정)이면 종류별 기대의 합계.</summary>
     [JsonPropertyName("expected")] public required int Expected { get; init; }
 
-    /// <summary>시나리오의 허용 오차(0 = 정확히).</summary>
+    /// <summary>시나리오의 허용 오차(0 = 정확히). 구성 확인에는 허용 오차가 없어 언제나 0.</summary>
     [JsonPropertyName("tolerance")] public required int Tolerance { get; init; }
+
+    /// <summary>
+    /// 종류별 기대 대비 항목 목록 — 구성 확인 시나리오(<c>expected_by_class</c>)의 판정에만 있다. 모자라는 종류가 하나라도 있으면
+    /// 판정은 NG 다. 총 개수만 견주는 계수의 응답 · 레코드에는 나타나지 않는다(byte 보존).
+    /// </summary>
+    [JsonPropertyName("items")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<CountItemInfo>? Items { get; init; }
+
+    /// <summary>
+    /// 기대보다 많거나 기대에 없는 종류를 어떻게 봤는가 — <c>ng</c> · <c>warn</c> · <c>ignore</c>. 구성 확인에만 있다
+    /// (과잉이 판정에 반영됐는지 읽는 이가 시나리오를 다시 열지 않아도 되게).
+    /// </summary>
+    [JsonPropertyName("extra_policy")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ExtraPolicy { get; init; }
 
     /// <summary>센 데 쓴 신뢰도 문턱 — 시나리오 값, 없으면 설치 기본.</summary>
     [JsonPropertyName("min_confidence")] public required double MinConfidence { get; init; }
@@ -42,6 +58,19 @@ public sealed record CountInfo
     [JsonPropertyName("model_sha256")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ModelSha256 { get; init; }
+}
+
+/// <summary>구성 항목 하나 — 한 종류의 기대와 센 수, 그리고 둘을 견준 상태(<c>ok</c> · <c>missing</c> · <c>extra</c>).</summary>
+public sealed record CountItemInfo
+{
+    [JsonPropertyName("class")] public required string Class { get; init; }
+
+    [JsonPropertyName("expected")] public required int Expected { get; init; }
+
+    [JsonPropertyName("found")] public required int Found { get; init; }
+
+    /// <summary><c>ok</c> 기대와 같음(또는 무시하기로 한 과잉) · <c>missing</c> 모자람 · <c>extra</c> 많거나 기대에 없는 종류.</summary>
+    [JsonPropertyName("status")] public required string Status { get; init; }
 }
 
 /// <summary>센 상자 하나 — 좌표는 원본 이미지 기준 비율(0~1, 왼쪽 위 + 크기)이다.</summary>

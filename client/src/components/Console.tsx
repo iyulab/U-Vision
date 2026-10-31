@@ -6,7 +6,7 @@ import { derivedScenarioId, isValidScenarioId, needsExplicitScenarioId } from '.
 import { usePin, type PinRunResult } from '../hooks/usePin'
 import { useResource } from '../hooks/useResource'
 import { AdminSetup } from './AdminSetup'
-import { countDraftOf, countLine, EMPTY_COUNT_DRAFT, parseCountDraft, type CountDraft } from '../lib/counting'
+import { countDraftOf, countLine, EMPTY_COUNT_DRAFT, EXTRA_POLICIES, parseCountDraft, type CountDraft } from '../lib/counting'
 import { classesFor, defectsOf, formatDefects, parseDefects, type Defect } from '../lib/defectClasses'
 import { DEFAULT_MOTION_CONFIG } from '../lib/motion'
 import { DEFAULT_ROI, fromScenarioRoi, toScenarioRoi, type Roi } from '../lib/roi'
@@ -562,7 +562,10 @@ function ScenarioIdField({ draft, onChange }: { draft: DraftScenario; onChange: 
   )
 }
 
-/** 개수 세기 입력란 — 기대 개수(필수) · 허용 오차 · 최소 신뢰도 · 세는 종류. 서버가 거부할 입력은 사유와 함께 보인다. */
+/**
+ * 개수 세기 입력란 — 기대(총 개수 또는 종류별) · 최소 신뢰도 · 세는 종류. 기대는 두 모양 중 하나만 보낸다(서버가 한쪽을 받으면
+ * 다른 쪽을 지운다). 서버가 거부할 입력은 사유와 함께 보인다.
+ */
 function CountingFields({ draft, onChange }: { draft: DraftScenario; onChange: (d: DraftScenario) => void }) {
   const parsed = parseCountDraft(draft.count)
   const set = (patch: Partial<CountDraft>) => onChange({ ...draft, count: { ...draft.count, ...patch } })
@@ -571,28 +574,73 @@ function CountingFields({ draft, onChange }: { draft: DraftScenario; onChange: (
   return (
     <div className="space-y-3 rounded-lg border border-slate-700 p-4">
       <h3 className="text-sm font-semibold text-slate-200">개수 세기</h3>
-      <div className="grid grid-cols-2 gap-3">
-        <label className="block space-y-1">
-          <span className="text-sm text-slate-300">기대 개수 (필수)</span>
-          <input
-            inputMode="numeric"
-            value={draft.count.expected}
-            onChange={(e) => set({ expected: e.target.value })}
-            placeholder="예: 6"
-            className={field}
-          />
-        </label>
-        <label className="block space-y-1">
-          <span className="text-sm text-slate-300">허용 오차</span>
-          <input
-            inputMode="numeric"
-            value={draft.count.tolerance}
-            onChange={(e) => set({ tolerance: e.target.value })}
-            placeholder="0 = 정확히"
-            className={field}
-          />
-        </label>
-      </div>
+      <fieldset className="space-y-1">
+        <legend className="text-sm text-slate-300">기대를 어떻게 적나</legend>
+        <div className="flex flex-wrap gap-4 text-sm text-slate-200">
+          <label className="flex items-center gap-2">
+            <input type="radio" name="count-mode" checked={draft.count.mode === 'total'} onChange={() => set({ mode: 'total' })} />
+            총 개수
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="radio" name="count-mode" checked={draft.count.mode === 'by_class'} onChange={() => set({ mode: 'by_class' })} />
+            종류별 (구성 확인)
+          </label>
+        </div>
+      </fieldset>
+      {draft.count.mode === 'total' ? (
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block space-y-1">
+            <span className="text-sm text-slate-300">기대 개수 (필수)</span>
+            <input
+              inputMode="numeric"
+              value={draft.count.expected}
+              onChange={(e) => set({ expected: e.target.value })}
+              placeholder="예: 6"
+              className={field}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-sm text-slate-300">허용 오차</span>
+            <input
+              inputMode="numeric"
+              value={draft.count.tolerance}
+              onChange={(e) => set({ tolerance: e.target.value })}
+              placeholder="0 = 정확히"
+              className={field}
+            />
+          </label>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <label className="block space-y-1">
+            <span className="text-sm text-slate-300">종류별 기대 (필수)</span>
+            <textarea
+              value={draft.count.byClass}
+              onChange={(e) => set({ byClass: e.target.value })}
+              rows={4}
+              placeholder={['한 줄에 하나씩 «종류=개수»', '예: scalpel=2', 'forceps=1'].join('\n')}
+              className={field}
+            />
+            <span className="block text-xs text-slate-500">
+              종류는 검출기 라벨. 0 은 «이 종류가 있으면 안 된다». 기대보다 모자라면 언제나 NG 다 — 허용 오차는 없다.
+            </span>
+          </label>
+          <label className="block space-y-1">
+            <span className="text-sm text-slate-300">기대보다 많거나 기대에 없는 종류가 검출되면</span>
+            <select
+              value={draft.count.extraPolicy}
+              onChange={(e) => set({ extraPolicy: e.target.value as CountDraft['extraPolicy'] })}
+              className={field}
+            >
+              {EXTRA_POLICIES.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
       <label className="block space-y-1">
         <span className="text-sm text-slate-300">최소 신뢰도 (선택)</span>
         <input
@@ -617,8 +665,10 @@ function CountingFields({ draft, onChange }: { draft: DraftScenario; onChange: (
         <p className="text-xs text-amber-300">{parsed.error}</p>
       ) : (
         <p className="text-xs text-slate-500">
-          센 수가 {parsed.fields.expected_count} ± {parsed.fields.count_tolerance} 안이면 OK, 밖이면 NG. 문턱 근처 상자가 결과를 바꾸면
-          NG 로 두고 사람 확인을 요구한다. 검출기가 닿지 않으면 판정하지 않는다.
+          {'expected_count' in parsed.fields
+            ? `센 수가 ${parsed.fields.expected_count} ± ${parsed.fields.count_tolerance} 안이면 OK, 밖이면 NG.`
+            : '모든 종류가 기대한 수만큼 있어야 OK 다 — 하나라도 모자라면 NG.'}{' '}
+          문턱 근처 상자가 결과를 바꾸면 NG 로 두고 사람 확인을 요구한다. 검출기가 닿지 않으면 판정하지 않는다.
         </p>
       )}
     </div>

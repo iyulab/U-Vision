@@ -32,6 +32,22 @@ namespace UVision.Client.Models
 #endif
         /// <summary>The expected property</summary>
         public int? Expected { get; set; }
+        /// <summary>The extra_policy property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? ExtraPolicy { get; set; }
+#nullable restore
+#else
+        public string ExtraPolicy { get; set; }
+#endif
+        /// <summary>The items property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::UVision.Client.Models.CountItemInfo>? Items { get; set; }
+#nullable restore
+#else
+        public List<global::UVision.Client.Models.CountItemInfo> Items { get; set; }
+#endif
         /// <summary>The min_confidence property</summary>
         public double? MinConfidence { get; set; }
         /// <summary>The model_sha256 property</summary>
@@ -84,6 +100,8 @@ namespace UVision.Client.Models
                 { "boxes", n => { Boxes = n.GetCollectionOfObjectValues<global::UVision.Client.Models.CountBox>(global::UVision.Client.Models.CountBox.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "by_class", n => { ByClass = n.GetObjectValue<global::UVision.Client.Models.CountInfo_by_class>(global::UVision.Client.Models.CountInfo_by_class.CreateFromDiscriminatorValue); } },
                 { "expected", n => { Expected = n.GetIntValue(); } },
+                { "extra_policy", n => { ExtraPolicy = n.GetStringValue(); } },
+                { "items", n => { Items = n.GetCollectionOfObjectValues<global::UVision.Client.Models.CountItemInfo>(global::UVision.Client.Models.CountItemInfo.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "min_confidence", n => { MinConfidence = n.GetDoubleValue(); } },
                 { "model_sha256", n => { ModelSha256 = n.GetStringValue(); } },
                 { "near_boxes", n => { NearBoxes = n.GetCollectionOfObjectValues<global::UVision.Client.Models.CountBox>(global::UVision.Client.Models.CountBox.CreateFromDiscriminatorValue)?.AsList(); } },
@@ -102,6 +120,8 @@ namespace UVision.Client.Models
             writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.CountBox>("boxes", Boxes);
             writer.WriteObjectValue<global::UVision.Client.Models.CountInfo_by_class>("by_class", ByClass);
             writer.WriteIntValue("expected", Expected);
+            writer.WriteStringValue("extra_policy", ExtraPolicy);
+            writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.CountItemInfo>("items", Items);
             writer.WriteDoubleValue("min_confidence", MinConfidence);
             writer.WriteStringValue("model_sha256", ModelSha256);
             writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.CountBox>("near_boxes", NearBoxes);

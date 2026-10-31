@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using UVision.Api.Models;
+using UVision.Api.Services.Scenarios;
 
 namespace UVision.Api.Storage;
 
@@ -78,6 +79,7 @@ public sealed partial class FileScenarioStore : IScenarioStore
         var existing = await GetAsync(scenarioId, cancellationToken);
         var typeChanged = input.Type is not null
             && (input.Type ?? ScenarioVocabulary.Inspection) != (existing?.Type ?? ScenarioVocabulary.Inspection);
+        var counting = CountingFields.Merge(input, existing, typeChanged);
         var scenario = input.ToScenario(scenarioId) with // id 불변
         {
             Type = input.Type ?? existing?.Type,
@@ -88,10 +90,12 @@ public sealed partial class FileScenarioStore : IScenarioStore
             // 생략 = 보존, 빈 문자열 = 지움(전역 설정으로).
             PatchEncoder = input.PatchEncoder is { } encoder ? (encoder.Length == 0 ? null : encoder) : existing?.PatchEncoder,
             // 계수 필드도 같다 — 유형이 바뀌면 옮기지 않는다(계수에서 검사로 바꿨는데 기대 개수가 남지 않게).
-            ExpectedCount = input.ExpectedCount ?? (typeChanged ? null : existing?.ExpectedCount),
-            CountTolerance = input.CountTolerance ?? (typeChanged ? null : existing?.CountTolerance),
-            MinConfidence = input.MinConfidence ?? (typeChanged ? null : existing?.MinConfidence),
-            CountClasses = input.CountClasses ?? (typeChanged ? null : existing?.CountClasses),
+            ExpectedCount = counting.ExpectedCount,
+            CountTolerance = counting.CountTolerance,
+            ExpectedByClass = counting.ExpectedByClass,
+            ExtraPolicy = counting.ExtraPolicy,
+            MinConfidence = counting.MinConfidence,
+            CountClasses = counting.CountClasses,
         };
         await StoragePaths.AtomicWriteJsonAsync(path, scenario, cancellationToken);
         return scenario;

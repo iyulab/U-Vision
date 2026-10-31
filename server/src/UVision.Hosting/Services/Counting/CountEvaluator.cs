@@ -24,7 +24,12 @@ public sealed record CountResult
 
     public int? Tolerance { get; init; }
 
-    /// <summary>기대 개수가 있을 때만 — 센 수가 <c>expected ± tolerance</c> 안인가. 기대가 없으면 null(세기만).</summary>
+    /// <summary>종류별 기대 대비 항목 목록 — 구성 확인(<see cref="CompositionEvaluator"/>)일 때만. 총 개수만 견주는 계수는 null.</summary>
+    public IReadOnlyList<CountItem>? Items { get; init; }
+
+    /// <summary>
+    /// 기대가 있을 때만 — 센 수가 <c>expected ± tolerance</c> 안인가(구성 확인이면 모든 항목이 맞는가). 기대가 없으면 null(세기만).
+    /// </summary>
     public bool? WithinRange { get; init; }
 
     /// <summary>
