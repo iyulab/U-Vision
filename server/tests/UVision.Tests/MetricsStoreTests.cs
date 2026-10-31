@@ -158,6 +158,33 @@ public class MetricsStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task ListDates_ReturnsOnlyDateFiles_NewestFirst()
+    {
+        var store = Store;
+        await store.AppendAsync("demo", Row("img_a", "2026-06-20"));
+        await store.AppendAsync("demo", Row("img_b", "2026-06-22"));
+        await store.AppendAsync("demo", Row("img_c", "2026-06-21"));
+        // 날짜가 아닌 이름은 목록에 섞이지 않는다.
+        var dir = Path.Combine(_dataPath, "demo", "metrics");
+        File.WriteAllText(Path.Combine(dir, "notes.jsonl"), "");
+        File.WriteAllText(Path.Combine(dir, "2026-06-23.txt"), "");
+
+        Assert.Equal(["2026-06-22", "2026-06-21", "2026-06-20"], await store.ListDatesAsync("demo"));
+    }
+
+    [Fact]
+    public async Task ListDates_WithoutMetrics_IsEmpty()
+    {
+        Assert.Empty(await Store.ListDatesAsync("never-inspected"));
+    }
+
+    [Fact]
+    public async Task ListDates_RejectsMalformedScenarioId()
+    {
+        await Assert.ThrowsAsync<ArgumentException>(() => Store.ListDatesAsync("../etc"));
+    }
+
+    [Fact]
     public async Task Metrics_NotMistakenForDateBucket()
     {
         // metrics 디렉토리가 ListDatesAsync 의 날짜 목록에 섞이면 안 된다(references·datasets 와 동일).

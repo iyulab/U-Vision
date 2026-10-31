@@ -8,6 +8,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Threading;
 using System;
+using UVision.Client.Metrics.Dates;
 using UVision.Client.Models;
 namespace UVision.Client.Metrics
 {
@@ -17,6 +18,11 @@ namespace UVision.Client.Metrics
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class MetricsRequestBuilder : BaseRequestBuilder
     {
+        /// <summary>The dates property</summary>
+        public global::UVision.Client.Metrics.Dates.DatesRequestBuilder Dates
+        {
+            get => new global::UVision.Client.Metrics.Dates.DatesRequestBuilder(PathParameters, RequestAdapter);
+        }
         /// <summary>
         /// Instantiates a new <see cref="global::UVision.Client.Metrics.MetricsRequestBuilder"/> and sets the default values.
         /// </summary>

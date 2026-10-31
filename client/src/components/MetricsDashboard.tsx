@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 import { useResource } from '../hooks/useResource'
 
-import { getAmbiguity, getMemory, getMetrics, getSolverTrust, getTrainingReadiness, listResultDates } from '../lib/api'
+import { getAmbiguity, getMemory, getMetrics, getSolverTrust, getTrainingReadiness, listMetricsDates } from '../lib/api'
 import { classNameOf } from '../lib/labels'
 import { formatDistance, hasMiss, memoryStatusLine } from '../lib/memory'
 import { auditAgreementLine, datasetNotice, emptyMetricsNotice, falseAlarmLead, formatPercent, fraction, hasNoMetricData, hasVlmMlMetrics, recallLead } from '../lib/metrics'
@@ -17,7 +17,7 @@ import { SolverTrustPanel } from './SolverTrustPanel'
 /**
  * 메트릭 대시보드(신뢰성 플라이휠 B3 소비) — 시나리오·날짜의 2중체크 관측 신호를 본다(무인증 읽기).
  * agreement·검토·ML degrade 율 + **VLM↔ML NG recall 비교**(전용 ML 이 VLM 보다 NG 를 잘 잡는지 운영
- * 데이터로 확인 — ML 권한 단계를 올릴 근거). 메트릭 날짜 버킷은 결과와 동일하므로 날짜 목록을 공유한다.
+ * 데이터로 확인 — ML 권한 단계를 올릴 근거). 날짜 목록은 메트릭 파일이 있는 날(`GET /metrics/dates`)이다.
  */
 export function MetricsDashboard({
   scenarios,
@@ -29,8 +29,9 @@ export function MetricsDashboard({
   const [scenarioId, setScenarioId] = useState(
     () => initialScenarioId ?? scenarios[0]?.scenario_id ?? '',
   )
-  // 날짜 목록은 결과와 공유한다. 고른 날짜가 목록에 없으면(시나리오를 바꿨거나 아직 안 골랐으면) 최신 날짜.
-  const datesRes = useResource(scenarioId || null, () => listResultDates(scenarioId), '날짜 목록 로드 실패')
+  // 날짜 목록은 메트릭이 있는 날이다(검사 결과 날짜가 아니다 — 하루 종일 검출기 불능이던 날은 레코드가 없다).
+  // 고른 날짜가 목록에 없으면(시나리오를 바꿨거나 아직 안 골랐으면) 최신 날짜.
+  const datesRes = useResource(scenarioId || null, () => listMetricsDates(scenarioId), '날짜 목록 로드 실패')
   const dates = datesRes.data ?? []
   const [pickedDate, setPickedDate] = useState('')
   const date = dates.includes(pickedDate) ? pickedDate : (dates[0] ?? '')

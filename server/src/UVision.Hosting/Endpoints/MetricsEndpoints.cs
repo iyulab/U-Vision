@@ -24,6 +24,27 @@ public static class MetricsEndpoints
             .WithName("GetMetrics")
             .Produces<MetricsSummary>()
             .ProducesProblem(400);
+        // 메트릭이 있는 날짜 — 검사 날짜 목록과 다르다: 검출기 불능은 레코드 없이 행만 남기고 보존 삭제는 부류별이라,
+        // 레코드가 없는 날에도 읽을 메트릭이 있을 수 있다.
+        group.MapGet("/metrics/dates", ListMetricsDatesAsync)
+            .WithName("ListMetricsDates")
+            .Produces<IReadOnlyList<string>>()
+            .ProducesProblem(400);
+    }
+
+    private static async Task<IResult> ListMetricsDatesAsync(
+        [FromQuery(Name = "scenario_id")] string scenarioId,
+        IMetricsStore metricsStore,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Results.Ok(await metricsStore.ListDatesAsync(scenarioId, cancellationToken));
+        }
+        catch (ArgumentException) // 형식 위반 scenario_id → 400
+        {
+            return Results.Problem(statusCode: 400, detail: "유효하지 않은 scenario_id");
+        }
     }
 
     private static async Task<IResult> GetMetricsAsync(

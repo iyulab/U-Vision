@@ -25,4 +25,11 @@ public interface IMetricsStore
     /// </summary>
     Task<IReadOnlyList<MetricsRow>> ReadAsync(
         string scenarioId, string date, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 메트릭 파일이 있는 날짜(<c>yyyy-MM-dd</c>)를 최신 먼저 돌려준다. 메트릭은 검사 레코드와 따로 살아서 날짜가 갈린다 —
+    /// 검출기 불능은 레코드 없이 행만 남기고, 보존 삭제는 부류별로 지울 수 있다. 시나리오 · 파일이 없으면 빈 리스트.
+    /// </summary>
+    Task<IReadOnlyList<string>> ListDatesAsync(
+        string scenarioId, CancellationToken cancellationToken = default);
 }

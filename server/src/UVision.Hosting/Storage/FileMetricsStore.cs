@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using UVision.Api.Models;
@@ -69,5 +70,23 @@ public sealed class FileMetricsStore : IMetricsStore
                 rows.Add(row);
         }
         return rows;
+    }
+
+    public Task<IReadOnlyList<string>> ListDatesAsync(
+        string scenarioId, CancellationToken cancellationToken = default)
+    {
+        var dir = _paths.MetricsDir(scenarioId); // 형식 위반이면 ArgumentException(→400)
+        if (!Directory.Exists(dir))
+            return Task.FromResult<IReadOnlyList<string>>([]);
+
+        // 날짜로 파싱되는 파일 이름만 — 최신 먼저(검사 날짜 목록과 같은 순서).
+        var dates = Directory.EnumerateFiles(dir, "*.jsonl")
+            .Select(Path.GetFileNameWithoutExtension)
+            .Where(name => name is not null
+                && DateOnly.TryParseExact(name, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                    DateTimeStyles.None, out _))
+            .OrderByDescending(name => name, StringComparer.Ordinal)
+            .ToList();
+        return Task.FromResult<IReadOnlyList<string>>(dates!);
     }
 }

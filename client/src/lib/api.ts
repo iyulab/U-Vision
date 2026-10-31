@@ -131,6 +131,18 @@ export async function listResultDates(scenarioId: string): Promise<string[]> {
   return (await res.json()) as string[]
 }
 
+/**
+ * 시나리오의 메트릭 날짜 목록(yyyy-MM-dd, 최신 먼저). 검사 날짜와 다르다 — 검출기 불능은 레코드 없이 메트릭 행만 남기고
+ * 보존 삭제는 부류별이라, 레코드가 없는 날에도 읽을 메트릭이 있을 수 있다.
+ */
+export async function listMetricsDates(scenarioId: string): Promise<string[]> {
+  const res = await fetch(
+    `${API_BASE}/metrics/dates?scenario_id=${encodeURIComponent(scenarioId)}`,
+  )
+  await ensureOk(res, '메트릭 날짜 목록')
+  return (await res.json()) as string[]
+}
+
 /** 시나리오·날짜의 검사 결과 레코드(image_id 순). */
 export async function listResults(scenarioId: string, date: string): Promise<StoredResult[]> {
   const res = await fetch(

@@ -322,6 +322,21 @@ public class CountingInspectTests
         Assert.False(Has(row, "posture"));
     }
 
+    [Fact]
+    public async Task DetectorDown_TheDayHasNoRecord_ButStillAppearsInTheMetricsDates()
+    {
+        using var factory = new UVisionApiFactory();
+        Seed(factory, expected: 3);
+        var client = Client(factory, new ThrowingDetector());
+
+        await client.PostAsync("/api/u-vision/v2/inspect", Form());
+
+        // 검출기 불능은 레코드를 남기지 않아 검사 날짜 목록에는 그 날이 없다 — 메트릭 날짜 목록에는 있어야 콘솔이 그 날의
+        // «검출기 불능 100 %» 를 읽을 수 있다(하루 종일 불능이었던 날이 가장 알려야 할 날이다).
+        Assert.Empty(await client.GetFromJsonAsync<string[]>($"/api/u-vision/results/dates?scenario_id={ScenarioId}") ?? []);
+        Assert.Equal([Day], (await client.GetFromJsonAsync<string[]>($"/api/u-vision/metrics/dates?scenario_id={ScenarioId}"))!);
+    }
+
     // ── 검출기가 없거나 답하지 못함 = 판정 불가 ───────────────────────────────
 
     [Fact]

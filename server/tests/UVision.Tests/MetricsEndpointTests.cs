@@ -152,6 +152,20 @@ public class MetricsEndpointTests
         Assert.Equal(JsonValueKind.Null, summary.GetProperty("agreement_rate").ValueKind);
     }
 
+    [Fact]
+    public async Task MetricsDates_ListsDaysWithMetrics_AndRejectsABadScenarioId()
+    {
+        await using var factory = new UVisionApiFactory();
+        var client = factory.CreateClient();
+        Assert.Empty(await client.GetFromJsonAsync<string[]>("/api/u-vision/metrics/dates?scenario_id=demo") ?? []);
+
+        (await client.PostAsync("/api/u-vision/inspect", Form("demo"))).EnsureSuccessStatusCode();
+
+        Assert.Equal([TodayUtc()], (await client.GetFromJsonAsync<string[]>("/api/u-vision/metrics/dates?scenario_id=demo"))!);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest,
+            (await client.GetAsync("/api/u-vision/metrics/dates?scenario_id=../etc")).StatusCode);
+    }
+
     /// <summary>IsEnabled=true 이지만 분류 시 항상 throw — degrade 메트릭 경로 검증용.</summary>
     private sealed class ThrowingMlClassifier : IMlClassifier
     {
