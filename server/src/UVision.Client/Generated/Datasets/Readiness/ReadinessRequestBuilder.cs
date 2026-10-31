@@ -38,6 +38,7 @@ namespace UVision.Client.Datasets.Readiness
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
         /// <exception cref="global::UVision.Client.Models.ProblemDetails">When receiving a 400 status code</exception>
         /// <exception cref="global::UVision.Client.Models.ProblemDetails">When receiving a 404 status code</exception>
+        /// <exception cref="global::UVision.Client.Models.ProblemDetails">When receiving a 409 status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public async Task<global::UVision.Client.Models.TrainingReadinessResponse?> GetAsync(Action<RequestConfiguration<global::UVision.Client.Datasets.Readiness.ReadinessRequestBuilder.ReadinessRequestBuilderGetQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
@@ -52,6 +53,7 @@ namespace UVision.Client.Datasets.Readiness
             {
                 { "400", global::UVision.Client.Models.ProblemDetails.CreateFromDiscriminatorValue },
                 { "404", global::UVision.Client.Models.ProblemDetails.CreateFromDiscriminatorValue },
+                { "409", global::UVision.Client.Models.ProblemDetails.CreateFromDiscriminatorValue },
             };
             return await RequestAdapter.SendAsync<global::UVision.Client.Models.TrainingReadinessResponse>(requestInfo, global::UVision.Client.Models.TrainingReadinessResponse.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }

@@ -36,12 +36,14 @@ public static class DatasetEndpoints
             .WithName("GetTrainingReadiness")
             .Produces<TrainingReadinessResponse>()
             .ProducesProblem(400)
-            .ProducesProblem(404);
+            .ProducesProblem(404)
+            .ProducesProblem(409);
         group.MapPost("/export", ExportAsync).RequireAdminPin()
             .WithName("ExportDataset")
             .Produces<DatasetExportManifest>(201)
             .ProducesProblem(400)
-            .ProducesProblem(404);
+            .ProducesProblem(404)
+            .ProducesProblem(409);
     }
 
     private static async Task<IResult> ListAsync(
@@ -93,6 +95,9 @@ public static class DatasetEndpoints
             if (scenario is null)
                 return Results.Problem(statusCode: 404, detail: $"시나리오 없음: {scenarioId}");
 
+            if (scenario.Type == ScenarioVocabulary.Counting)
+                return Results.Problem(statusCode: 409, detail: NotTrainable);
+
             var exportId = NewExportId();
             var rules = EffectiveScenario.Resolve(scenario, mlEnabled: false).Training;
             var manifest = await exporter.ExportAsync(scenarioId, exportId, rules, ct);
@@ -125,6 +130,9 @@ public static class DatasetEndpoints
             if (scenario is null)
                 return Results.Problem(statusCode: 404, detail: $"시나리오 없음: {scenarioId}");
 
+            if (scenario.Type == ScenarioVocabulary.Counting)
+                return Results.Problem(statusCode: 409, detail: NotTrainable);
+
             var effective = EffectiveScenario.Resolve(scenario, mlEnabled: false);
             var candidates = await new TrainingCandidateSource(inspections, labels).LoadAsync(scenarioId, ct);
             var selection = TrainingSetSelector.Select(candidates.Items, effective.Training);
@@ -153,6 +161,10 @@ public static class DatasetEndpoints
             return Results.Problem(statusCode: 400, detail: "유효하지 않은 scenario_id");
         }
     }
+
+    // 계수의 OK/NG 는 «개수가 맞는가» 이지 사진의 불량이 아니다 — 이미지 분류 학습 입력으로 내보내면 엉뚱한 분류기를 가르친다.
+    private const string NotTrainable =
+        "계수 시나리오는 분류 학습 데이터셋을 만들지 않는다(OK/NG 는 개수가 허용 범위 안이냐이지 사진의 불량이 아니다)";
 
     /// <summary>타임스탬프 기반 export id(정렬 가능 + 충돌 방지 짧은 suffix). Id() 허용 문자만.</summary>
     private static string NewExportId() =>

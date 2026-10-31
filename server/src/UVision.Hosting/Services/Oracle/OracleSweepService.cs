@@ -44,6 +44,9 @@ public sealed class OracleSweepService
                 break;
             if (!OracleSweepPlanner.EgressAllowed(_oracle.IsCloud, scenario.AllowCloudEgress))
                 continue;
+            // 오라클은 2차 의견 VLM 이다 — VLM 은 세지 못하므로 계수 판정에 소견을 달지 않는다.
+            if (scenario.Type == ScenarioVocabulary.Counting)
+                continue;
 
             foreach (var date in RecentDates(_options.LookbackDays))
             {
