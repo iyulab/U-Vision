@@ -446,6 +446,40 @@ public class MetricsAggregatorTests
     }
 
     [Fact]
+    public void FalseAlarms_CountOnlyHumanOkLabels_ForVlmAndMl()
+    {
+        // 정답 OK 4건: VLM 이 NG 로 부른 것 1건, ML 이 NG 로 부른 것 2건, ML degrade 1건(분모에서 제외).
+        var rows = new List<MetricsRow>
+        {
+            Row("a", Verdict.OK, "OK", agreement: true, requiresReview: false),
+            Row("b", Verdict.NG, "NG", agreement: true, requiresReview: false),
+            Row("c", Verdict.OK, "NG", agreement: false, requiresReview: true),
+            Row("d", Verdict.OK, null, agreement: true, requiresReview: false, degraded: true),
+            Row("e", Verdict.NG, "NG", agreement: true, requiresReview: false),   // 정답 NG — 오경보가 아니다
+        };
+        var labels = new List<StoredLabel> { Label("a", "OK"), Label("b", "OK"), Label("c", "OK"), Label("d", "OK"), Label("e", "NG") };
+
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, labels, new AuthorityOptions());
+
+        Assert.Equal(4, s.LabeledOk);
+        Assert.Equal(1, s.VlmFalseAlarms);
+        Assert.Equal(0.25, s.VlmFalseAlarmRate);
+        Assert.Equal(3, s.MlOkScored);
+        Assert.Equal(2, s.MlFalseAlarms);
+        Assert.Equal(2.0 / 3.0, s.MlFalseAlarmRate!.Value, 9);
+    }
+
+    [Fact]
+    public void FalseAlarmRates_AreNullWithoutHumanOkLabels()
+    {
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], [], new AuthorityOptions());
+
+        Assert.Null(s.VlmFalseAlarmRate);
+        Assert.Null(s.MlFalseAlarmRate);
+        Assert.Equal(0, s.LabeledOk);
+    }
+
+    [Fact]
     public void PromotionEligible_NullWhenNgSamplesTooFew_EvenIfWindowMet()
     {
         // 검사 60건이지만 사람 라벨 NG 는 1건 — ML 이 맞히고 VLM 이 놓쳐 점추정은 1.0 대 0.0 이어도 true 가 아니라 null.

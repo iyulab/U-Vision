@@ -50,6 +50,8 @@ namespace UVision.Client.Models
         public int? Labeled { get; set; }
         /// <summary>The labeled_ng property</summary>
         public int? LabeledNg { get; set; }
+        /// <summary>The labeled_ok property</summary>
+        public int? LabeledOk { get; set; }
         /// <summary>The match_abstained property</summary>
         public int? MatchAbstained { get; set; }
         /// <summary>The match_mismatches property</summary>
@@ -58,12 +60,18 @@ namespace UVision.Client.Models
         public int? MlChecked { get; set; }
         /// <summary>The ml_degraded property</summary>
         public int? MlDegraded { get; set; }
+        /// <summary>The ml_false_alarm_rate property</summary>
+        public double? MlFalseAlarmRate { get; set; }
+        /// <summary>The ml_false_alarms property</summary>
+        public int? MlFalseAlarms { get; set; }
         /// <summary>The ml_ng_hits property</summary>
         public int? MlNgHits { get; set; }
         /// <summary>The ml_ng_recall property</summary>
         public double? MlNgRecall { get; set; }
         /// <summary>The ml_ng_scored property</summary>
         public int? MlNgScored { get; set; }
+        /// <summary>The ml_ok_scored property</summary>
+        public int? MlOkScored { get; set; }
         /// <summary>The oracle_conflicts property</summary>
         public int? OracleConflicts { get; set; }
         /// <summary>The oracle_consistency_rate property</summary>
@@ -88,6 +96,10 @@ namespace UVision.Client.Models
 #else
         public string ScenarioId { get; set; }
 #endif
+        /// <summary>The vlm_false_alarm_rate property</summary>
+        public double? VlmFalseAlarmRate { get; set; }
+        /// <summary>The vlm_false_alarms property</summary>
+        public int? VlmFalseAlarms { get; set; }
         /// <summary>The vlm_ng_hits property</summary>
         public int? VlmNgHits { get; set; }
         /// <summary>The vlm_ng_recall property</summary>
@@ -132,13 +144,17 @@ namespace UVision.Client.Models
                 { "label_consistent", n => { LabelConsistent = n.GetIntValue(); } },
                 { "labeled", n => { Labeled = n.GetIntValue(); } },
                 { "labeled_ng", n => { LabeledNg = n.GetIntValue(); } },
+                { "labeled_ok", n => { LabeledOk = n.GetIntValue(); } },
                 { "match_abstained", n => { MatchAbstained = n.GetIntValue(); } },
                 { "match_mismatches", n => { MatchMismatches = n.GetIntValue(); } },
                 { "ml_checked", n => { MlChecked = n.GetIntValue(); } },
                 { "ml_degraded", n => { MlDegraded = n.GetIntValue(); } },
+                { "ml_false_alarm_rate", n => { MlFalseAlarmRate = n.GetDoubleValue(); } },
+                { "ml_false_alarms", n => { MlFalseAlarms = n.GetIntValue(); } },
                 { "ml_ng_hits", n => { MlNgHits = n.GetIntValue(); } },
                 { "ml_ng_recall", n => { MlNgRecall = n.GetDoubleValue(); } },
                 { "ml_ng_scored", n => { MlNgScored = n.GetIntValue(); } },
+                { "ml_ok_scored", n => { MlOkScored = n.GetIntValue(); } },
                 { "oracle_conflicts", n => { OracleConflicts = n.GetIntValue(); } },
                 { "oracle_consistency_rate", n => { OracleConsistencyRate = n.GetDoubleValue(); } },
                 { "oracle_coverage_rate", n => { OracleCoverageRate = n.GetDoubleValue(); } },
@@ -148,6 +164,8 @@ namespace UVision.Client.Models
                 { "review_rate", n => { ReviewRate = n.GetDoubleValue(); } },
                 { "reviews_required", n => { ReviewsRequired = n.GetIntValue(); } },
                 { "scenario_id", n => { ScenarioId = n.GetStringValue(); } },
+                { "vlm_false_alarm_rate", n => { VlmFalseAlarmRate = n.GetDoubleValue(); } },
+                { "vlm_false_alarms", n => { VlmFalseAlarms = n.GetIntValue(); } },
                 { "vlm_ng_hits", n => { VlmNgHits = n.GetIntValue(); } },
                 { "vlm_ng_recall", n => { VlmNgRecall = n.GetDoubleValue(); } },
             };
@@ -174,13 +192,17 @@ namespace UVision.Client.Models
             writer.WriteIntValue("label_consistent", LabelConsistent);
             writer.WriteIntValue("labeled", Labeled);
             writer.WriteIntValue("labeled_ng", LabeledNg);
+            writer.WriteIntValue("labeled_ok", LabeledOk);
             writer.WriteIntValue("match_abstained", MatchAbstained);
             writer.WriteIntValue("match_mismatches", MatchMismatches);
             writer.WriteIntValue("ml_checked", MlChecked);
             writer.WriteIntValue("ml_degraded", MlDegraded);
+            writer.WriteDoubleValue("ml_false_alarm_rate", MlFalseAlarmRate);
+            writer.WriteIntValue("ml_false_alarms", MlFalseAlarms);
             writer.WriteIntValue("ml_ng_hits", MlNgHits);
             writer.WriteDoubleValue("ml_ng_recall", MlNgRecall);
             writer.WriteIntValue("ml_ng_scored", MlNgScored);
+            writer.WriteIntValue("ml_ok_scored", MlOkScored);
             writer.WriteIntValue("oracle_conflicts", OracleConflicts);
             writer.WriteDoubleValue("oracle_consistency_rate", OracleConsistencyRate);
             writer.WriteDoubleValue("oracle_coverage_rate", OracleCoverageRate);
@@ -190,6 +212,8 @@ namespace UVision.Client.Models
             writer.WriteDoubleValue("review_rate", ReviewRate);
             writer.WriteIntValue("reviews_required", ReviewsRequired);
             writer.WriteStringValue("scenario_id", ScenarioId);
+            writer.WriteDoubleValue("vlm_false_alarm_rate", VlmFalseAlarmRate);
+            writer.WriteIntValue("vlm_false_alarms", VlmFalseAlarms);
             writer.WriteIntValue("vlm_ng_hits", VlmNgHits);
             writer.WriteDoubleValue("vlm_ng_recall", VlmNgRecall);
             writer.WriteAdditionalData(AdditionalData);

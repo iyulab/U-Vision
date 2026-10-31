@@ -72,6 +72,7 @@ public static class MetricsAggregator
         int matchMismatches = 0, matchAbstained = 0, contested = 0, datasetInspections = 0;
         int degraded = 0, agreements = 0, reviews = 0, oraclePending = 0;
         int labeled = 0, labeledNg = 0, vlmNgHits = 0, mlNgScored = 0, mlNgHits = 0;
+        int labeledOk = 0, vlmFalseAlarms = 0, mlOkScored = 0, mlFalseAlarms = 0;
 
         foreach (var r in rows)
         {
@@ -110,9 +111,20 @@ public static class MetricsAggregator
                 continue;
             labeled++;
 
-            // NG recall: 정답이 NG 인 건만(ground-truth 양성) 분모에 든다.
+            // NG recall: 정답이 NG 인 건만(ground-truth 양성) 분모에 든다. 정답이 OK 인 건은 오경보율의 분모다.
             if (!isNg(truth))
+            {
+                labeledOk++;
+                if (r.Verdict == Verdict.NG)
+                    vlmFalseAlarms++;
+                if (r.MlLabel is not null)
+                {
+                    mlOkScored++;
+                    if (isNg(r.MlLabel))
+                        mlFalseAlarms++;
+                }
                 continue;
+            }
             labeledNg++;
 
             if (r.Verdict == Verdict.NG)
@@ -166,6 +178,10 @@ public static class MetricsAggregator
             OraclePending = oraclePending,
             Labeled = labeled,
             LabeledNg = labeledNg,
+            LabeledOk = labeledOk,
+            VlmFalseAlarms = vlmFalseAlarms,
+            MlOkScored = mlOkScored,
+            MlFalseAlarms = mlFalseAlarms,
             VlmNgHits = vlmNgHits,
             MlNgScored = mlNgScored,
             MlNgHits = mlNgHits,
@@ -176,6 +192,8 @@ public static class MetricsAggregator
             DegradeRate = Rate(degraded, mlChecked),
             VlmNgRecall = vlmRecall,
             MlNgRecall = mlRecall,
+            VlmFalseAlarmRate = Rate(vlmFalseAlarms, labeledOk),
+            MlFalseAlarmRate = Rate(mlFalseAlarms, mlOkScored),
             LabelConsistencyRate = Rate(labelConsistent, audited),
             OracleConsistencyRate = Rate(oracleEvaluated - oracleConflicts, oracleEvaluated),
             OracleCoverageRate = Rate(reviews - oraclePending, reviews),

@@ -156,6 +156,18 @@ public sealed record MetricsSummary
     /// <summary>labeled_ng 중 VLM verdict=NG(VLM 이 NG 를 잡은 건).</summary>
     [JsonPropertyName("vlm_ng_hits")] public required int VlmNgHits { get; init; }
 
+    /// <summary>사람 라벨 = OK 인 건(오경보율 분모 = ground-truth 음성). 학습용 라벨은 들지 않는다.</summary>
+    [JsonPropertyName("labeled_ok")] public int LabeledOk { get; init; }
+
+    /// <summary>labeled_ok 중 VLM verdict 가 NG 인 건(오경보).</summary>
+    [JsonPropertyName("vlm_false_alarms")] public int VlmFalseAlarms { get; init; }
+
+    /// <summary>labeled_ok 중 ML 라벨이 존재하는 건(ML 오경보율 분모 — degrade 제외).</summary>
+    [JsonPropertyName("ml_ok_scored")] public int MlOkScored { get; init; }
+
+    /// <summary>ml_ok_scored 중 ML 라벨이 NG 인 건(오경보).</summary>
+    [JsonPropertyName("ml_false_alarms")] public int MlFalseAlarms { get; init; }
+
     /// <summary>labeled_ng 중 ML 라벨이 존재하는 건(ML recall 분모 — degrade 제외).</summary>
     [JsonPropertyName("ml_ng_scored")] public required int MlNgScored { get; init; }
 
@@ -179,10 +191,20 @@ public sealed record MetricsSummary
     /// <summary>ML NG recall = ml_ng_hits / ml_ng_scored. ML 라벨된 NG 0 건이면 null.</summary>
     [JsonPropertyName("ml_ng_recall")] public double? MlNgRecall { get; init; }
 
+    /// <summary>VLM 오경보율 = vlm_false_alarms / labeled_ok. 라벨된 OK 0 건이면 null. NG recall(놓침의 반대)과 짝인 «참값 대비» 지표다.</summary>
+    [JsonPropertyName("vlm_false_alarm_rate")] public double? VlmFalseAlarmRate { get; init; }
+
+    /// <summary>ML 오경보율 = ml_false_alarms / ml_ok_scored. ML 이 라벨된 OK 0 건이면 null.</summary>
+    [JsonPropertyName("ml_false_alarm_rate")] public double? MlFalseAlarmRate { get; init; }
+
     /// <summary>fail-closed율 = fail_closed / (inspections + fail_closed). 총 시도 0 이면 null.</summary>
     [JsonPropertyName("fail_closed_rate")] public double? FailClosedRate { get; init; }
 
-    /// <summary>라벨 일관성률 = label_consistent / audited. 감사 0 건이면 null(소표본 정직). (C1)</summary>
+    /// <summary>
+    /// 라벨 일관성률 = label_consistent / audited. 감사 0 건이면 null(소표본 정직). (C1) 같은 사람 라벨을 블라인드로 다시 매겼을 때
+    /// 일치하는 비율 — <b>반복성</b>(관측 일치)이지 참값 대비 정확도가 아니다. 한 사람이 같은 실수를 반복하면 높게 나온다.
+    /// 참값 대비 지표는 NG recall · 오경보율(위)이고 그 참값은 2인 독립 판정으로 만든 정답을 뜻한다.
+    /// </summary>
     [JsonPropertyName("label_consistency_rate")] public double? LabelConsistencyRate { get; init; }
 
     /// <summary>

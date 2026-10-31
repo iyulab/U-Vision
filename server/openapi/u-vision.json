@@ -3292,11 +3292,17 @@
           "ml_ng_scored",
           "ml_ng_hits",
           "dataset_inspections",
+          "labeled_ok",
+          "vlm_false_alarms",
+          "ml_ok_scored",
+          "ml_false_alarms",
           "agreement_rate",
           "review_rate",
           "degrade_rate",
           "vlm_ng_recall",
           "ml_ng_recall",
+          "vlm_false_alarm_rate",
+          "ml_false_alarm_rate",
           "fail_closed_rate",
           "label_consistency_rate",
           "oracle_consistency_rate",
@@ -3386,6 +3392,22 @@
             "type": "integer",
             "format": "int32"
           },
+          "labeled_ok": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "vlm_false_alarms": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ml_ok_scored": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ml_false_alarms": {
+            "type": "integer",
+            "format": "int32"
+          },
           "ml_ng_scored": {
             "type": "integer",
             "format": "int32"
@@ -3423,6 +3445,20 @@
             "format": "double"
           },
           "ml_ng_recall": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "vlm_false_alarm_rate": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "ml_false_alarm_rate": {
             "type": [
               "null",
               "number"

@@ -447,6 +447,10 @@ export interface MetricsSummary {
   labeled: number
   labeled_ng: number
   vlm_ng_hits: number
+  labeled_ok: number
+  vlm_false_alarms: number
+  ml_ok_scored: number
+  ml_false_alarms: number
   ml_ng_scored: number
   ml_ng_hits: number
   agreement_rate: null | number
@@ -454,6 +458,8 @@ export interface MetricsSummary {
   degrade_rate: null | number
   vlm_ng_recall: null | number
   ml_ng_recall: null | number
+  vlm_false_alarm_rate: null | number
+  ml_false_alarm_rate: null | number
   fail_closed_rate: null | number
   label_consistency_rate: null | number
   oracle_consistency_rate: null | number
