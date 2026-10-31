@@ -1,0 +1,38 @@
+import type { CountInfo } from './types'
+
+/** 서버 `CountEvaluator` 의 «문턱 근처» 띠 폭과 같다 — 이 안의 상자는 있을 수도 없을 수도 있는 상자다. */
+export const NEAR_THRESHOLD_BAND = 0.1
+
+/** 사진 위에 그릴 상자 하나 — 위치 · 크기는 이미지 표시 영역에 대한 퍼센트(좌표가 이미지 비율이라 크기를 몰라도 된다). */
+export interface BoxStyle {
+  left: number
+  top: number
+  width: number
+  height: number
+  label: string
+  /** 신뢰도 0~1. */
+  confidence: number
+  /** 문턱 근처 — 넣고 빼는 데 따라 결론이 바뀔 수 있는 상자. */
+  near: boolean
+}
+
+/** 근거 상자 → 그릴 사각형. 이미지 밖으로 나간 값은 0~100 으로 자른다. */
+export function boxStyles(count: Pick<CountInfo, 'boxes' | 'min_confidence'>): BoxStyle[] {
+  const clamp = (v: number) => Math.min(100, Math.max(0, v * 100))
+  return count.boxes.map((b) => ({
+    left: clamp(b.x),
+    top: clamp(b.y),
+    width: clamp(b.w),
+    height: clamp(b.h),
+    label: b.class,
+    confidence: b.confidence,
+    near: Math.abs(b.confidence - count.min_confidence) <= NEAR_THRESHOLD_BAND,
+  }))
+}
+
+/** 센 결과 한 줄 — «센 개수 5 (기대 6 ± 1)» + 종류별. */
+export function countSummary(count: Pick<CountInfo, 'total' | 'expected' | 'tolerance' | 'by_class'>): string {
+  const kinds = Object.entries(count.by_class)
+  const split = kinds.length > 1 ? ` — ${kinds.map(([k, n]) => `${k} ${n}`).join(' · ')}` : ''
+  return `센 개수 ${count.total} (기대 ${count.expected} ± ${count.tolerance})${split}`
+}

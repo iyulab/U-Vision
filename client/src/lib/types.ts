@@ -11,6 +11,7 @@ export type ContestedBy = Wire.ContestedBy
 export type InspectResultV2 = Wire.InspectResultV2
 export type DetectionUnavailable = Wire.DetectionUnavailableResponse
 export type StoredResult = Wire.StoredResult
+export type CountInfo = Wire.CountInfo
 export type Scenario = Wire.Scenario
 export type ScenarioClass = Wire.ScenarioClass
 export type ScenarioInput = Wire.ScenarioInput

@@ -8,6 +8,7 @@ import { classNameOf, labelMapOf, labelsOf } from '../lib/labels'
 import { pendingReviewCount, reviewStateOf } from '../lib/review'
 import { percent, summarizeResults } from '../lib/resultSummary'
 import { AnomalyImage } from './AnomalyImage'
+import { CountImage } from './CountImage'
 import { ResultsTable } from './ResultsTable'
 import type { Scenario, StoredLabel, StoredResult } from '../lib/types'
 import { termOf } from '../lib/verification'
@@ -317,7 +318,11 @@ function ResultDetail({
           </button>
         </div>
 
-        <AnomalyImage scenarioId={result.scenario_id} date={date} imageId={result.image_id} />
+        {result.count ? (
+          <CountImage scenarioId={result.scenario_id} date={date} imageId={result.image_id} count={result.count} />
+        ) : (
+          <AnomalyImage scenarioId={result.scenario_id} date={date} imageId={result.image_id} />
+        )}
 
         {ng && result.findings && (
           <div className="rounded-lg bg-red-600/20 p-3 text-sm leading-snug text-red-200">
