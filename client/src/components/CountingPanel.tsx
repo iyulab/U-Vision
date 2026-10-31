@@ -54,16 +54,17 @@ export function CountingPanel({ counting }: { counting: CountingMetrics }) {
                 <thead className="text-xs text-slate-400">
                   <tr>
                     <th className="py-1 pr-4 font-medium">종류</th>
-                    <th className="py-1 pr-4 font-medium">모자람</th>
-                    <th className="py-1 font-medium">과잉</th>
+                    <th className="whitespace-nowrap py-1 pr-4 font-medium">모자람</th>
+                    <th className="whitespace-nowrap py-1 font-medium">과잉</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((r) => (
                     <tr key={r.kind} className="border-t border-slate-700 text-slate-300">
-                      <td className="py-1 pr-4">{r.kind}</td>
-                      <td className={`py-1 pr-4 ${r.missing > 0 ? 'text-amber-400' : ''}`}>{r.missing}</td>
-                      <td className={`py-1 ${r.extra > 0 ? 'text-amber-400' : ''}`}>{r.extra}</td>
+                      {/* 종류 이름은 검출기 라벨이라 길이를 모른다 — 줄을 바꿔 숫자 열이 좁은 폭에서 밀려나지 않게 한다. */}
+                      <td className="min-w-0 break-all py-1 pr-4">{r.kind}</td>
+                      <td className={`whitespace-nowrap py-1 pr-4 ${r.missing > 0 ? 'text-amber-400' : ''}`}>{r.missing}</td>
+                      <td className={`whitespace-nowrap py-1 ${r.extra > 0 ? 'text-amber-400' : ''}`}>{r.extra}</td>
                     </tr>
                   ))}
                 </tbody>
