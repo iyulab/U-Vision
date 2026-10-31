@@ -1,4 +1,4 @@
-import type { AdminStatus, AnomalyMap, AuthorityState, DetectionUnavailable, EventsStatus, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Question, QuestionAnswer, Reference, Scenario, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
+import type { AdminStatus, AnomalyMap, AuthorityState, DetectionUnavailable, EventsStatus, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Question, QuestionAnswer, Reference, RetentionPurgeInput, RetentionPurgeResponse, Scenario, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
 import type { QuestionAnswerInput } from './contract.gen'
 import type { AuthorityStage } from './authority'
 import { resolveApiBase } from './runtimeConfig'
@@ -351,6 +351,22 @@ export async function demoteAuthority(
     body: JSON.stringify({ by, reason }),
   })
   await ensureOk(res, '단계 격하')
+}
+
+// --- 보존 삭제 (PIN) -------------------------------------------------------
+
+/**
+ * 보존 삭제 한 번. `input.dry_run` 이 true(또는 생략)면 계획만 받고 아무것도 지우지 않는다. 지우려면 `dry_run: false` 와
+ * 바로 직전 계획이 돌려준 `plan_fingerprint` 를 함께 보낸다 — 지문이 없거나 그 사이 구간이 달라졌으면 서버가 409 로 거절한다.
+ */
+export async function runRetention(scenarioId: string, input: RetentionPurgeInput, pin: string): Promise<RetentionPurgeResponse> {
+  const res = await fetch(`${API_BASE}/scenarios/${encodeURIComponent(scenarioId)}/retention/purge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', [PIN_HEADER]: pin },
+    body: JSON.stringify(input),
+  })
+  await ensureOk(res, input.dry_run === false ? '보존 삭제' : '보존 삭제 계획')
+  return (await res.json()) as RetentionPurgeResponse
 }
 
 // --- 시나리오 CRUD (S-B 서버 계약) ---------------------------------------

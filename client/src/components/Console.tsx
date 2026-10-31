@@ -16,6 +16,7 @@ import { DataVolumePanel } from './DataVolumePanel'
 import { EventsStatusPanel } from './EventsStatusPanel'
 import { MetricsDashboard } from './MetricsDashboard'
 import { ReferenceGallery } from './ReferenceGallery'
+import { RetentionPanel } from './RetentionPanel'
 import { ResultsBrowser } from './ResultsBrowser'
 import { RoiEditor } from './RoiEditor'
 
@@ -33,7 +34,7 @@ const RESOLUTION_PRESETS: { value: number; label: string }[] = [
   { value: 128, label: '128' },
 ]
 
-type Tab = 'scenarios' | 'results' | 'metrics' | 'audit' | 'authority'
+type Tab = 'scenarios' | 'results' | 'metrics' | 'audit' | 'authority' | 'retention'
 
 interface ConsoleProps {
   /** 운영 화면으로 복귀. */
@@ -137,6 +138,9 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
           <TabButton active={tab === 'authority'} onClick={() => setTab('authority')}>
             권한 단계
           </TabButton>
+          <TabButton active={tab === 'retention'} onClick={() => setTab('retention')}>
+            보존
+          </TabButton>
         </div>
         <button
           onClick={onClose}
@@ -161,12 +165,14 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
           </>
         ) : tab === 'audit' ? (
           <LabelAudit scenarios={scenarios} initialScenarioId={activeScenarioId} />
-        ) : (
+        ) : tab === 'authority' ? (
           <AuthorityPanel
             scenarios={scenarios}
             initialScenarioId={activeScenarioId}
             runWithPin={runWithPin}
           />
+        ) : (
+          <RetentionPanel scenarios={scenarios} initialScenarioId={activeScenarioId} runWithPin={runWithPin} />
         )}
       </main>
 
