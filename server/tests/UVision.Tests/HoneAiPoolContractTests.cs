@@ -100,6 +100,26 @@ public sealed class HoneAiPoolContractTests : IDisposable
     }
 
     [Fact]
+    public async Task AnUnsureAnswer_CountsAsReached_ButIsNeitherALabelNorAFailure()
+    {
+        IRecheckPoolStore store = new JsonlRecheckPoolStore(_dir);
+        await store.AddAsync(Item("answered", PoolItemKind.Recheck), CancellationToken.None);
+        await store.AddAsync(Item("unsure", PoolItemKind.Recheck), CancellationToken.None);
+        await store.AddAsync(Item("missed", PoolItemKind.Recheck), CancellationToken.None);
+        // 응답은 «답함» 과 «모르겠음» 한 건씩 — 세 번째 항목은 응답 없이 만료된다.
+        await store.RespondAsync(Answer("answered", PoolPurpose.Recheck, RecheckOutcome.Agreed), CancellationToken.None);
+        await store.RespondAsync(Answer("unsure", PoolPurpose.Recheck, RecheckOutcome.Agreed) with { Kind = PoolResponseKind.Unsure }, CancellationToken.None);
+
+        var account = await RecheckPool.AccountAsync(store, Now.AddDays(-1), Now.AddDays(1), Now.AddDays(2), CancellationToken.None);
+
+        var reach = Assert.Single(account.Reach);
+        Assert.Equal(3, reach.Pooled);   // 닿지 못해 만료된 것도 분모에 든다 — 비응답 편향 회계
+        Assert.Equal(2, reach.Reached);  // 답함 + 모르겠음
+        Assert.Equal(1, reach.Unsure);
+        Assert.True(account.Closed);     // 창의 모든 재확인 항목이 응답되었거나 만료됐다
+    }
+
+    [Fact]
     public async Task AStoreReopenedOnTheSameDirectory_SeesWhatWasWritten()
     {
         await new JsonlRecheckPoolStore(_dir).AddAsync(Item("persist"), CancellationToken.None);
