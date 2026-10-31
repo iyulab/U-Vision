@@ -76,13 +76,23 @@ public class ScenarioV2Tests : IClassFixture<PinFactory>
     public void V1Scenario_OnDisk_HasNoV2Keys()
     {
         var json = JsonSerializer.Serialize(V1(), StoragePaths.Json);
-        foreach (var key in new[] { "\"type\"", "\"trigger\"", "\"classes\"", "\"judges\"", "\"trust\"", "\"patch_encoder\"" })
+        foreach (var key in new[] { "\"type\"", "\"trigger\"", "\"classes\"", "\"judges\"", "\"trust\"", "\"patch_encoder\"", "\"expected_count\"", "\"count_tolerance\"", "\"min_confidence\"", "\"count_classes\"" })
             Assert.DoesNotContain(key, json);
     }
 
     public static TheoryData<string, string> Invalid => new()
     {
-        { """{"name":"x","type":"counting"}""", "type" },
+        { """{"name":"x","type":"streaming"}""", "type" },
+        { """{"name":"x","type":"counting"}""", "expected_count" },
+        { """{"name":"x","type":"counting","expected_count":-1}""", "expected_count" },
+        { """{"name":"x","type":"counting","expected_count":4,"count_tolerance":-1}""", "count_tolerance" },
+        { """{"name":"x","type":"counting","expected_count":4,"min_confidence":0}""", "min_confidence" },
+        { """{"name":"x","type":"counting","expected_count":4,"min_confidence":1.5}""", "min_confidence" },
+        { """{"name":"x","type":"counting","expected_count":4,"count_classes":["helmet","helmet"]}""", "겹친다" },
+        { """{"name":"x","type":"counting","expected_count":4,"count_classes":[" helmet"]}""", "count_classes" },
+        { """{"name":"x","type":"counting","expected_count":4,"judges":[{"tier":"vlm"}]}""", "judges" },
+        { """{"name":"x","expected_count":4}""", "counting" },
+        { """{"name":"x","type":"verification","count_classes":["a"]}""", "counting" },
         { """{"name":"x","trigger":"stream"}""", "trigger" },
         { """{"name":"x","judges":[{"tier":"vlm"},{"tier":"ml"}]}""", "꼭대기" },
         { """{"name":"x","judges":[{"tier":"system1"},{"tier":"vlm"}]}""", "tier" },
@@ -205,5 +215,118 @@ public class ScenarioV2Tests : IClassFixture<PinFactory>
 
         Assert.DoesNotContain("\"judges\"", json);
         Assert.DoesNotContain("\"type\"", json);
+    }
+
+    // ── 계수(counting) ─────────────────────────────────────────────────
+
+    [Fact]
+    public void Resolve_Counting_HasOneDetectorTier_AndOkNgDecisionClasses()
+    {
+        var counting = V1() with { Type = "counting", ExpectedCount = 4, CountTolerance = 1, MinConfidence = 0.6, CountClasses = ["helmet"] };
+
+        // 켜진 판정원과 상관없이 검출기 한 단 — VLM 은 세지 못하고 ML · 기억은 개수와 무관하다.
+        var e = EffectiveScenario.Resolve(counting, mlEnabled: true, memoryEnabled: true);
+
+        Assert.True(e.IsCounting);
+        Assert.Equal(["detector"], e.Tiers);
+        Assert.Equal(["OK", "NG"], e.Classes.Select(c => c.Id));
+        Assert.Equal((4, 1, 0.6), (e.ExpectedCount, e.CountTolerance, e.MinConfidence));
+        Assert.Equal(["helmet"], e.CountClasses);
+    }
+
+    [Fact]
+    public void Resolve_NonCounting_IgnoresStrayCountFields()
+    {
+        var e = EffectiveScenario.Resolve(V1() with { ExpectedCount = 3 }, mlEnabled: false);
+
+        Assert.False(e.IsCounting);
+        Assert.Null(e.ExpectedCount);
+    }
+
+    private async Task<string> CreateCountingAsync(object body)
+    {
+        var create = await Admin().PostAsync("/api/u-vision/scenarios", JsonContent.Create(body));
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        return (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("scenario_id").GetString()!;
+    }
+
+    [Fact]
+    public async Task Counting_RoundTrips_AndUpdateWithoutCountFields_KeepsThem()
+    {
+        var id = await CreateCountingAsync(new
+        {
+            name = "count keep", type = "counting", expected_count = 6, count_tolerance = 1, min_confidence = 0.7,
+            count_classes = new[] { "helmet" },
+        });
+
+        // 계수를 모르는 수정(유형도 생략) — 기대 개수 등이 남는다.
+        var put = await Admin().PutAsync($"/api/u-vision/scenarios/{id}",
+            JsonContent.Create(new { name = "count keep", criteria = "바뀐 기준" }));
+        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+
+        var got = await _factory.CreateClient().GetFromJsonAsync<JsonElement>($"/api/u-vision/scenarios/{id}");
+        Assert.Equal("counting", got.GetProperty("type").GetString());
+        Assert.Equal(6, got.GetProperty("expected_count").GetInt32());
+        Assert.Equal(1, got.GetProperty("count_tolerance").GetInt32());
+        Assert.Equal(0.7, got.GetProperty("min_confidence").GetDouble());
+        Assert.Equal("helmet", got.GetProperty("count_classes")[0].GetString());
+    }
+
+    [Fact]
+    public async Task Counting_UpdateWithTypeButWithoutExpected_ValidatesTheStoredExpected()
+    {
+        var id = await CreateCountingAsync(new { name = "count merge", type = "counting", expected_count = 3 });
+
+        // 유형은 보내고 기대 개수는 생략 — 보존되므로 필수 검사를 통과한다.
+        var put = await Admin().PutAsync($"/api/u-vision/scenarios/{id}",
+            JsonContent.Create(new { name = "count merge", type = "counting", min_confidence = 0.9 }));
+
+        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+        var got = await _factory.CreateClient().GetFromJsonAsync<JsonElement>($"/api/u-vision/scenarios/{id}");
+        Assert.Equal(3, got.GetProperty("expected_count").GetInt32());
+        Assert.Equal(0.9, got.GetProperty("min_confidence").GetDouble());
+    }
+
+    [Fact]
+    public async Task Counting_ChangingTypeAway_DropsCountFields()
+    {
+        var id = await CreateCountingAsync(new { name = "count away", type = "counting", expected_count = 3, count_classes = new[] { "a" } });
+
+        var put = await Admin().PutAsync($"/api/u-vision/scenarios/{id}",
+            JsonContent.Create(new { name = "count away", type = "inspection" }));
+        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+
+        var got = await _factory.CreateClient().GetFromJsonAsync<JsonElement>($"/api/u-vision/scenarios/{id}");
+        Assert.False(got.TryGetProperty("expected_count", out _));
+        Assert.False(got.TryGetProperty("count_classes", out _));
+    }
+
+    [Fact]
+    public async Task Counting_ChangingTypeToCounting_RequiresAnExpectedCount_NotTheOldTypesLeftovers()
+    {
+        var create = await Admin().PostAsync("/api/u-vision/scenarios", JsonContent.Create(new { name = "to count" }));
+        var id = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("scenario_id").GetString();
+
+        var put = await Admin().PutAsync($"/api/u-vision/scenarios/{id}",
+            JsonContent.Create(new { name = "to count", type = "counting" }));
+
+        Assert.Equal(HttpStatusCode.BadRequest, put.StatusCode);
+        Assert.Contains("expected_count", await put.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task OmittedTypeOnAVerificationScenario_ValidatesClassesAsVerification()
+    {
+        var create = await Admin().PostAsync("/api/u-vision/scenarios", JsonContent.Create(new { name = "ver keep", type = "verification" }));
+        var id = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("scenario_id").GetString();
+
+        // 유형을 생략한 수정은 저장된 유형(오투입 확인)의 클래스 규칙으로 본다 — 검사 규칙(OK 필수)으로 거부하지 않는다.
+        var put = await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new
+        {
+            name = "ver keep",
+            classes = new object[] { new { id = "MATCH", settleable = true }, new { id = "MISMATCH", must_catch = true } },
+        }));
+
+        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
     }
 }

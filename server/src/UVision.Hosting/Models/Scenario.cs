@@ -101,6 +101,28 @@ public sealed record Scenario
     [JsonPropertyName("patch_encoder")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PatchEncoder { get; init; }
+
+    // --- 계수(type: counting)에서만 뜻이 있다. 다른 유형이면 쓰지 않는다.
+
+    /// <summary>기대 개수 — 센 수가 <c>expected_count ± count_tolerance</c> 안이면 OK, 밖이면 NG. 계수 시나리오는 필수.</summary>
+    [JsonPropertyName("expected_count")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? ExpectedCount { get; init; }
+
+    /// <summary>허용 오차 — 없으면 0(정확히).</summary>
+    [JsonPropertyName("count_tolerance")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? CountTolerance { get; init; }
+
+    /// <summary>이 신뢰도(0 초과 1 이하) 이상인 상자만 센다 — 없으면 설치 옵션의 기본.</summary>
+    [JsonPropertyName("min_confidence")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? MinConfidence { get; init; }
+
+    /// <summary>세는 물건의 종류(검출기가 내는 라벨) — 없으면 검출된 모든 종류를 센다. 판정 클래스(<c>classes</c>, OK/NG)와 다르다.</summary>
+    [JsonPropertyName("count_classes")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? CountClasses { get; init; }
 }
 
 /// <summary>
@@ -158,6 +180,16 @@ public sealed record ScenarioInput
     /// <summary>패치 인코더 id — 생략하면 수정 시 기존 값을 보존하고, 빈 문자열은 지운다(설정의 인코더로 돌아간다).</summary>
     [JsonPropertyName("patch_encoder")] public string? PatchEncoder { get; init; }
 
+    // 계수 — 생략하면 수정 시 기존 값을 보존한다(유형이 바뀌면 옮기지 않는다). 계수가 아닌 시나리오에는 줄 수 없다.
+
+    [JsonPropertyName("expected_count")] public int? ExpectedCount { get; init; }
+
+    [JsonPropertyName("count_tolerance")] public int? CountTolerance { get; init; }
+
+    [JsonPropertyName("min_confidence")] public double? MinConfidence { get; init; }
+
+    [JsonPropertyName("count_classes")] public List<string>? CountClasses { get; init; }
+
     /// <summary>입력 + 확정 id → 영속 시나리오.</summary>
     public Scenario ToScenario(string scenarioId) => new()
     {
@@ -178,5 +210,9 @@ public sealed record ScenarioInput
         Judges = Judges,
         Trust = Trust,
         PatchEncoder = string.IsNullOrEmpty(PatchEncoder) ? null : PatchEncoder,
+        ExpectedCount = ExpectedCount,
+        CountTolerance = CountTolerance,
+        MinConfidence = MinConfidence,
+        CountClasses = CountClasses,
     };
 }

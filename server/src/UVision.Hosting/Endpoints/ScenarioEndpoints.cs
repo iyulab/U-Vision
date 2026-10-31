@@ -67,7 +67,8 @@ public static class ScenarioEndpoints
                     return Results.Problem(statusCode: 400, detail: "name 은 필수");
                 if (input.ScenarioId is { } other && other != id)
                     return Results.Problem(statusCode: 400, detail: "시나리오 id 는 바꿀 수 없다");
-                if (EffectiveScenario.Validate(input) is { } invalid)
+                // 생략한 유형 · 계수 필드는 저장된 값이 보존되므로 합쳐진 모양으로 검증한다.
+                if (EffectiveScenario.Validate(input, await store.GetAsync(id, ct)) is { } invalid)
                     return Results.Problem(statusCode: 400, detail: invalid);
 
                 var updated = await store.UpdateAsync(id, input, ct);

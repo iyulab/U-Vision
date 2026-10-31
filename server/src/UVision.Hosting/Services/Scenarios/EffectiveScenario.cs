@@ -17,7 +17,11 @@ public sealed record EffectiveScenario(
     string SliceKey,
     ScenarioTargets Targets,
     ScenarioTraining Training,
-    string? PatchEncoder = null)
+    string? PatchEncoder = null,
+    int? ExpectedCount = null,
+    int? CountTolerance = null,
+    double? MinConfidence = null,
+    IReadOnlyList<string>? CountClasses = null)
 {
     /// <summary>v1 검사의 클래스 — OK 는 아래 단이 확정할 수 있고, NG 는 언제나 꼭대기로 간다.</summary>
     public static readonly IReadOnlyList<ScenarioClass> InspectionClasses =
@@ -34,6 +38,12 @@ public sealed record EffectiveScenario(
     ];
 
     public bool IsVerification => Type == ScenarioVocabulary.Verification;
+
+    /// <summary>
+    /// 개수를 세어 판정하는가 — 판정 클래스는 검사와 같은 OK/NG(허용 범위 안/밖)이고, 세는 일은 검출기 단이 한다.
+    /// 세는 물건의 종류(<see cref="CountClasses"/>)는 판정 클래스와 다른 말이다.
+    /// </summary>
+    public bool IsCounting => Type == ScenarioVocabulary.Counting;
 
     /// <summary>
     /// 불량 유형 — 검사에서 OK 가 아닌 클래스. 선언하지 않은 검사는 <c>NG</c> 하나, 오투입 확인은 없다(불일치는
@@ -97,6 +107,7 @@ public sealed record EffectiveScenario(
     {
         var type = scenario.Type ?? ScenarioVocabulary.Inspection;
         var verification = type == ScenarioVocabulary.Verification;
+        var counting = type == ScenarioVocabulary.Counting;
         return new(
             scenario.ScenarioId,
             type,
@@ -104,19 +115,28 @@ public sealed record EffectiveScenario(
             scenario.Classes is { Count: > 0 } classes ? classes : verification ? VerificationClasses : InspectionClasses,
             scenario.Judges is { Count: > 0 } judges ? judges.Select(j => j.Tier).ToList()
                 : verification ? [ScenarioVocabulary.MatchTier, ScenarioVocabulary.VlmTier]
+                : counting ? [ScenarioVocabulary.DetectorTier]
                 : [.. InspectionTiers(mlEnabled, memoryEnabled)],
             scenario.Trust?.SliceKey ?? ScenarioVocabulary.ScenarioSlice,
             scenario.Trust?.Targets ?? ScenarioTargets.Default,
             scenario.Trust?.Training ?? ScenarioTraining.Default,
-            scenario.PatchEncoder);
+            scenario.PatchEncoder,
+            counting ? scenario.ExpectedCount : null,
+            counting ? scenario.CountTolerance : null,
+            counting ? scenario.MinConfidence : null,
+            counting ? scenario.CountClasses : null);
     }
 
     /// <summary>
     /// 경계 검증 — 지어지지 않은 값 · 모순된 구성을 거부한다(변형하지 않는다). 위반이면 사람이 읽을 사유, 아니면 null.
     /// </summary>
-    public static string? Validate(ScenarioInput input)
+    /// <param name="input">요청 본문.</param>
+    /// <param name="existing">수정이면 지금 저장된 시나리오 — 생략한 유형 · 계수 필드는 보존되므로(<c>FileScenarioStore.UpdateAsync</c>)
+    /// 합쳐진 모양으로 검증한다. 생성이면 null.</param>
+    public static string? Validate(ScenarioInput input, Scenario? existing = null)
     {
-        var type = input.Type ?? ScenarioVocabulary.Inspection;
+        var type = input.Type ?? existing?.Type ?? ScenarioVocabulary.Inspection;
+        var typeChanged = input.Type is not null && input.Type != (existing?.Type ?? ScenarioVocabulary.Inspection);
         if (input.Type is { } requested && !ScenarioVocabulary.Types.Contains(requested))
             return $"type 은 아직 {string.Join(", ", ScenarioVocabulary.Types)} 만 지원한다: {requested}";
         if (input.Trigger is { } trigger && !ScenarioVocabulary.Triggers.Contains(trigger))
@@ -167,9 +187,10 @@ public sealed record EffectiveScenario(
                 return $"{type} 의 judges[].tier 는 {string.Join(", ", allowed)} 중 하나";
             if (judges.Select(j => j.Tier).Distinct(StringComparer.Ordinal).Count() != judges.Count)
                 return "judges[].tier 가 겹친다";
-            // 꼭대기는 VLM — 아래 단이 모두 기권해도 답할 단이 있어야 하고, 지금 교사는 VLM 이다.
-            if (judges[^1].Tier != ScenarioVocabulary.VlmTier)
-                return "judges 의 마지막(꼭대기)은 vlm 이어야 한다";
+            // 꼭대기는 VLM — 아래 단이 모두 기권해도 답할 단이 있어야 하고, 지금 교사는 VLM 이다. 계수는 검출기 한 단이 꼭대기다.
+            var top = type == ScenarioVocabulary.Counting ? ScenarioVocabulary.DetectorTier : ScenarioVocabulary.VlmTier;
+            if (judges[^1].Tier != top)
+                return $"judges 의 마지막(꼭대기)은 {top} 이어야 한다";
         }
 
         if (input.Trust is { } trust)
@@ -189,8 +210,49 @@ public sealed record EffectiveScenario(
         if (input.PatchEncoder is { Length: > 0 } patchEncoder && !EncoderId.IsMatch(patchEncoder))
             return "patch_encoder 는 영숫자로 시작하는 영숫자 · '.' · '_' · '-' 1~64자(빈 문자열은 지움)";
 
+        return ValidateCounting(input, existing, type, typeChanged);
+    }
+
+    // 계수 필드는 계수 시나리오에만 뜻이 있다 — 다른 유형에 주면 거부한다(변형하지 않는다). 기대 개수는 필수: 지금은 센 수를
+    // 기대와 견줘 OK/NG 를 내는 계수만 지원한다(기대 없이 세기만 하는 시나리오는 아직 짓지 않았다).
+    private static string? ValidateCounting(ScenarioInput input, Scenario? existing, string type, bool typeChanged)
+    {
+        var supplied = input.ExpectedCount is not null || input.CountTolerance is not null
+            || input.MinConfidence is not null || input.CountClasses is not null;
+        if (type != ScenarioVocabulary.Counting)
+            return supplied ? $"expected_count · count_tolerance · min_confidence · count_classes 는 type 이 counting 일 때만 줄 수 있다: {type}" : null;
+
+        // 생략은 보존이다 — 합친 값으로 검증한다(유형이 바뀌면 옮기지 않는다).
+        int? expected = input.ExpectedCount ?? (typeChanged ? null : existing?.ExpectedCount);
+        int? tolerance = input.CountTolerance ?? (typeChanged ? null : existing?.CountTolerance);
+        double? minConfidence = input.MinConfidence ?? (typeChanged ? null : existing?.MinConfidence);
+        var kinds = input.CountClasses ?? (typeChanged ? null : existing?.CountClasses);
+
+        if (expected is null)
+            return "counting 시나리오는 expected_count 가 필수다(센 수를 견줄 기대 개수)";
+        if (expected is < 0 or > MaxCount)
+            return $"expected_count 는 0~{MaxCount}";
+        if (tolerance is < 0 or > MaxCount)
+            return $"count_tolerance 는 0~{MaxCount}";
+        if (minConfidence is { } m && !(m > 0 && m <= 1))
+            return "min_confidence 는 0 초과 1 이하";
+        if (kinds is not null)
+        {
+            if (kinds.Count > MaxCountClasses || kinds.Any(k => k is null || !CountClassId.IsMatch(k)))
+                return $"count_classes 는 앞뒤 공백 · 제어문자 없는 1~64자 이름 {MaxCountClasses}개 이하";
+            if (kinds.Distinct(StringComparer.Ordinal).Count() != kinds.Count)
+                return "count_classes 가 겹친다";
+        }
         return null;
     }
+
+    /// <summary>기대 개수 · 허용 오차의 상한 — 화면 · 검증용 방어선이지 제품 한계가 아니다.</summary>
+    public const int MaxCount = 100_000;
+
+    private const int MaxCountClasses = 64;
+
+    // 세는 종류는 검출기가 내는 라벨이라 판정 클래스 id 보다 넓게 받는다 — 줄을 끊거나 앞뒤가 흐린 값만 거른다.
+    private static readonly Regex CountClassId = new(@"^(?=\S)[^\p{C}]{1,64}(?<=\S)\z", RegexOptions.Compiled);
 
     // 검사의 기본 단 순서 — 비용 순(기억 → 전용 ML → VLM). 꺼진 판정원의 단은 없다.
     private static IEnumerable<string> InspectionTiers(bool mlEnabled, bool memoryEnabled)

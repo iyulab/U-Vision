@@ -87,6 +87,11 @@ public sealed partial class FileScenarioStore : IScenarioStore
             Trust = input.Trust ?? existing?.Trust,
             // 생략 = 보존, 빈 문자열 = 지움(전역 설정으로).
             PatchEncoder = input.PatchEncoder is { } encoder ? (encoder.Length == 0 ? null : encoder) : existing?.PatchEncoder,
+            // 계수 필드도 같다 — 유형이 바뀌면 옮기지 않는다(계수에서 검사로 바꿨는데 기대 개수가 남지 않게).
+            ExpectedCount = input.ExpectedCount ?? (typeChanged ? null : existing?.ExpectedCount),
+            CountTolerance = input.CountTolerance ?? (typeChanged ? null : existing?.CountTolerance),
+            MinConfidence = input.MinConfidence ?? (typeChanged ? null : existing?.MinConfidence),
+            CountClasses = input.CountClasses ?? (typeChanged ? null : existing?.CountClasses),
         };
         await StoragePaths.AtomicWriteJsonAsync(path, scenario, cancellationToken);
         return scenario;

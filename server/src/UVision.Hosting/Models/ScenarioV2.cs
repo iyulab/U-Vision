@@ -97,11 +97,13 @@ public static class ScenarioVocabulary
 {
     public const string Inspection = "inspection";
     public const string Verification = "verification";
+    public const string Counting = "counting";
     public const string Still = "still";
     public const string MatchTier = "match";
     public const string MlTier = "ml";
     public const string MemoryTier = "memory";
     public const string VlmTier = "vlm";
+    public const string DetectorTier = "detector";
 
     /// <summary>조각 = 시나리오 하나. 장부에 이미 쌓인 기록과 이어지도록 이름을 유지한다.</summary>
     public const string ScenarioSlice = "scenario-v1";
@@ -111,17 +113,24 @@ public static class ScenarioVocabulary
     public const string Match = "MATCH";
     public const string Mismatch = "MISMATCH";
 
-    public static readonly IReadOnlySet<string> Types = new HashSet<string>(StringComparer.Ordinal) { Inspection, Verification };
+    public static readonly IReadOnlySet<string> Types = new HashSet<string>(StringComparer.Ordinal) { Inspection, Verification, Counting };
     public static readonly IReadOnlySet<string> Triggers = new HashSet<string>(StringComparer.Ordinal) { Still };
-    public static readonly IReadOnlySet<string> Tiers = new HashSet<string>(StringComparer.Ordinal) { MatchTier, MemoryTier, MlTier, VlmTier };
+    public static readonly IReadOnlySet<string> Tiers = new HashSet<string>(StringComparer.Ordinal) { MatchTier, MemoryTier, MlTier, VlmTier, DetectorTier };
 
     /// <summary>
     /// 시나리오 유형마다 쓸 수 있는 단 — 대조(<c>match</c>)는 기대값이 있는 확인에만, 전용 ML 분류기와 확정 사례 기억
     /// (<c>memory</c>)은 클래스가 이미지 자체로 정해지는 검사에만 뜻이 있다(확인의 일치/불일치는 기대 품번에 상대적이다).
+    /// 계수는 검출기(<c>detector</c>) 한 단뿐이다 — VLM 은 세지 못한다.
     /// </summary>
-    public static IReadOnlySet<string> TiersFor(string type) => type == Verification ? VerificationTiers : InspectionTiers;
+    public static IReadOnlySet<string> TiersFor(string type) => type switch
+    {
+        Verification => VerificationTiers,
+        Counting => CountingTiers,
+        _ => InspectionTiers,
+    };
 
     private static readonly IReadOnlySet<string> InspectionTiers = new HashSet<string>(StringComparer.Ordinal) { MemoryTier, MlTier, VlmTier };
+    private static readonly IReadOnlySet<string> CountingTiers = new HashSet<string>(StringComparer.Ordinal) { DetectorTier };
     private static readonly IReadOnlySet<string> VerificationTiers = new HashSet<string>(StringComparer.Ordinal) { MatchTier, VlmTier };
     public static readonly IReadOnlySet<string> SliceKeys = new HashSet<string>(StringComparer.Ordinal) { ScenarioSlice };
 }

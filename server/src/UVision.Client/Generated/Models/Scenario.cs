@@ -24,6 +24,16 @@ namespace UVision.Client.Models
 #else
         public List<global::UVision.Client.Models.ScenarioClass> Classes { get; set; }
 #endif
+        /// <summary>The count_classes property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<string>? CountClasses { get; set; }
+#nullable restore
+#else
+        public List<string> CountClasses { get; set; }
+#endif
+        /// <summary>The count_tolerance property</summary>
+        public int? CountTolerance { get; set; }
         /// <summary>The criteria property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -32,6 +42,8 @@ namespace UVision.Client.Models
 #else
         public string Criteria { get; set; }
 #endif
+        /// <summary>The expected_count property</summary>
+        public int? ExpectedCount { get; set; }
         /// <summary>The judges property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -42,6 +54,8 @@ namespace UVision.Client.Models
 #endif
         /// <summary>The max_image_dimension property</summary>
         public int? MaxImageDimension { get; set; }
+        /// <summary>The min_confidence property</summary>
+        public double? MinConfidence { get; set; }
         /// <summary>The min_sharpness property</summary>
         public int? MinSharpness { get; set; }
         /// <summary>The motion_threshold property</summary>
@@ -141,9 +155,13 @@ namespace UVision.Client.Models
             {
                 { "allow_cloud_egress", n => { AllowCloudEgress = n.GetBoolValue(); } },
                 { "classes", n => { Classes = n.GetCollectionOfObjectValues<global::UVision.Client.Models.ScenarioClass>(global::UVision.Client.Models.ScenarioClass.CreateFromDiscriminatorValue)?.AsList(); } },
+                { "count_classes", n => { CountClasses = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
+                { "count_tolerance", n => { CountTolerance = n.GetIntValue(); } },
                 { "criteria", n => { Criteria = n.GetStringValue(); } },
+                { "expected_count", n => { ExpectedCount = n.GetIntValue(); } },
                 { "judges", n => { Judges = n.GetCollectionOfObjectValues<global::UVision.Client.Models.ScenarioJudge>(global::UVision.Client.Models.ScenarioJudge.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "max_image_dimension", n => { MaxImageDimension = n.GetIntValue(); } },
+                { "min_confidence", n => { MinConfidence = n.GetDoubleValue(); } },
                 { "min_sharpness", n => { MinSharpness = n.GetIntValue(); } },
                 { "motion_threshold", n => { MotionThreshold = n.GetIntValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
@@ -167,9 +185,13 @@ namespace UVision.Client.Models
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteBoolValue("allow_cloud_egress", AllowCloudEgress);
             writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.ScenarioClass>("classes", Classes);
+            writer.WriteCollectionOfPrimitiveValues<string>("count_classes", CountClasses);
+            writer.WriteIntValue("count_tolerance", CountTolerance);
             writer.WriteStringValue("criteria", Criteria);
+            writer.WriteIntValue("expected_count", ExpectedCount);
             writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.ScenarioJudge>("judges", Judges);
             writer.WriteIntValue("max_image_dimension", MaxImageDimension);
+            writer.WriteDoubleValue("min_confidence", MinConfidence);
             writer.WriteIntValue("min_sharpness", MinSharpness);
             writer.WriteIntValue("motion_threshold", MotionThreshold);
             writer.WriteStringValue("name", Name);

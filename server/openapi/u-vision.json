@@ -4333,6 +4333,24 @@
           },
           "patch_encoder": {
             "type": "string"
+          },
+          "expected_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "count_tolerance": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "min_confidence": {
+            "type": "number",
+            "format": "double"
+          },
+          "count_classes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -4448,6 +4466,36 @@
               "null",
               "string"
             ]
+          },
+          "expected_count": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "count_tolerance": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "min_confidence": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "count_classes": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

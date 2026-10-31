@@ -677,6 +677,10 @@ export interface Scenario {
   judges?: ScenarioJudge[]
   trust?: ScenarioTrust
   patch_encoder?: string
+  expected_count?: number
+  count_tolerance?: number
+  min_confidence?: number
+  count_classes?: string[]
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
@@ -746,6 +750,10 @@ export interface ScenarioInput {
   judges?: null | ScenarioJudge[]
   trust?: null | ScenarioTrust
   patch_encoder?: null | string
+  expected_count?: null | number
+  count_tolerance?: null | number
+  min_confidence?: null | number
+  count_classes?: null | string[]
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
