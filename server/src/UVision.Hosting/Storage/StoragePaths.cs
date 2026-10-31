@@ -115,6 +115,27 @@ public sealed partial class StoragePaths
     public string LedgerJsonl(string scenarioId, string date) =>
         Path.Combine(ScenarioDir(scenarioId), LedgerSegment, Date(date) + ".jsonl");
 
+    // --- 보존 삭제 기록 (설치자가 구간을 골라 지운 사실) -----------------------------
+    // 지울 때마다 한 줄 append — «왜 이 날의 기록이 없는가» 에 답하는 근거라 이 파일은 지우지 않는다. 시나리오 디렉터리 직속 파일이라
+    // 날짜 목록에 들지 않는다.
+
+    /// <summary>삭제 기록 <c>{scenario}/retention.jsonl</c>(append-only, 지우지 않음).</summary>
+    public string RetentionJsonl(string scenarioId) =>
+        Path.Combine(ScenarioDir(scenarioId), "retention.jsonl");
+
+    /// <summary>시나리오의 날짜 폴더 이름(<c>yyyy-MM-dd</c>)과 그 경로 — 지울 날짜를 찾는 열거. 날짜가 아닌 폴더(references 등)는 빠진다.</summary>
+    public IEnumerable<(string Date, string Dir)> DateDirs(string scenarioId)
+    {
+        var dir = ScenarioDir(scenarioId);
+        if (!Directory.Exists(dir)) yield break;
+        foreach (var d in Directory.EnumerateDirectories(dir))
+        {
+            var name = Path.GetFileName(d);
+            if (DateOnly.TryParseExact(name, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+                yield return (name, d);
+        }
+    }
+
     // --- 문제 큐 (사람이 푸는 라벨링 문제) ---------------------------------------
     // 문제 한 건마다 파일 하나 — 출제 이유 · 점수 · 답. 라벨 사이드카와 분리된 추가 기록이라 지워도 라벨은 그대로다.
     // <c>questions</c> 도 날짜로 파싱되지 않아 목록에서 빠진다.

@@ -12,6 +12,7 @@ using UVision.Client.Models;
 using UVision.Client.Scenarios.Item.Authority;
 using UVision.Client.Scenarios.Item.ModelsRequests;
 using UVision.Client.Scenarios.Item.References;
+using UVision.Client.Scenarios.Item.Retention;
 namespace UVision.Client.Scenarios.Item
 {
     /// <summary>
@@ -34,6 +35,11 @@ namespace UVision.Client.Scenarios.Item
         public global::UVision.Client.Scenarios.Item.References.ReferencesRequestBuilder References
         {
             get => new global::UVision.Client.Scenarios.Item.References.ReferencesRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The retention property</summary>
+        public global::UVision.Client.Scenarios.Item.Retention.RetentionRequestBuilder Retention
+        {
+            get => new global::UVision.Client.Scenarios.Item.Retention.RetentionRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::UVision.Client.Scenarios.Item.ScenariosItemRequestBuilder"/> and sets the default values.

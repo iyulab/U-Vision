@@ -73,6 +73,10 @@ export interface Contract {
   ReferenceInfo?: ReferenceInfo
   ReferenceLabel?: ReferenceLabel
   RegisterModelInput?: RegisterModelInput
+  RetentionKindSummary?: RetentionKindSummary
+  RetentionLoss?: RetentionLoss
+  RetentionPurgeInput?: RetentionPurgeInput
+  RetentionPurgeResponse?: RetentionPurgeResponse
   Roi?: Roi
   Scenario?: Scenario
   ScenarioClass?: ScenarioClass
@@ -588,6 +592,54 @@ export interface RegisterModelInput {
   }
   note?: null | string
   by?: null | string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "RetentionKindSummary".
+ */
+export interface RetentionKindSummary {
+  kind: string
+  days: number
+  files: number
+  bytes: number
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "RetentionLoss".
+ */
+export interface RetentionLoss {
+  results: number
+  human_labels: number
+  labels_not_exported: number
+  open_questions: number
+  decisions: number
+  metric_rows: number
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "RetentionPurgeInput".
+ */
+export interface RetentionPurgeInput {
+  from: string
+  to: string
+  kinds: string[]
+  dry_run?: null | boolean
+  plan_fingerprint?: null | string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "RetentionPurgeResponse".
+ */
+export interface RetentionPurgeResponse {
+  scenario_id: string
+  from: string
+  to: string
+  dry_run: boolean
+  purged: boolean
+  plan_fingerprint: string
+  kinds: RetentionKindSummary[]
+  lost: RetentionLoss
+  covered_by_export?: boolean
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

@@ -82,6 +82,7 @@ public static class UVisionServiceExtensions
 
         // 관측성 메트릭(신뢰성 플라이휠 B3) — inspect 예측 신호의 append-only 시계열.
         services.AddSingleton<IMetricsStore, FileMetricsStore>();
+        services.AddSingleton<Services.Retention.RetentionService>();
 
         // 판정 파이프라인 — 판정원 실행 · 판정 결정 · 기록. HTTP 엔드포인트는 이것을 부르기만 한다.
         services.AddSingleton<Services.Inspection.DecisionLedger>();

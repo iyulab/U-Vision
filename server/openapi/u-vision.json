@@ -1157,6 +1157,96 @@
         }
       }
     },
+    "/api/u-vision/scenarios/{id}/retention/purge": {
+      "post": {
+        "tags": [
+          "U-Vision"
+        ],
+        "operationId": "PurgeRetention",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionPurgeInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSetupRequiredResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionPurgeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/u-vision/events/status": {
       "get": {
         "tags": [
@@ -3884,6 +3974,148 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "RetentionKindSummary": {
+        "required": [
+          "kind",
+          "days",
+          "files",
+          "bytes"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "days": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "files": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "bytes": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "RetentionLoss": {
+        "required": [
+          "results",
+          "human_labels",
+          "labels_not_exported",
+          "open_questions",
+          "decisions",
+          "metric_rows"
+        ],
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "human_labels": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "labels_not_exported": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "open_questions": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "decisions": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "metric_rows": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "RetentionPurgeInput": {
+        "required": [
+          "from",
+          "to",
+          "kinds"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "kinds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dry_run": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "plan_fingerprint": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RetentionPurgeResponse": {
+        "required": [
+          "scenario_id",
+          "from",
+          "to",
+          "dry_run",
+          "purged",
+          "plan_fingerprint",
+          "kinds",
+          "lost"
+        ],
+        "type": "object",
+        "properties": {
+          "scenario_id": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "purged": {
+            "type": "boolean"
+          },
+          "plan_fingerprint": {
+            "type": "string"
+          },
+          "kinds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RetentionKindSummary"
+            }
+          },
+          "lost": {
+            "$ref": "#/components/schemas/RetentionLoss"
+          },
+          "covered_by_export": {
+            "type": "boolean"
           }
         }
       },
