@@ -40,6 +40,8 @@ using UVision.Api.Services.Vlm;
 //   UVISION_DATA_ROOT=... MEMORY_ENDPOINT=http://localhost:5417 MEMORY_ENCODER=dinov2-small MEMORY_TOKEN=... //       dotnet run --project src/UVision.Benchmark -- embed-cpu --manifest <이름> --server-pid <PID> [--bank 600] [--reps 15] [--patches false] [--out report.md]
 //   # 결과 목록 조회의 규모별 시간 — 합성 결과 N 건을 저장소로 쓰고 ListAsync 시간(파생 색인이 필요한 규모인지의 증거). Release 로.
 //   dotnet run -c Release --project src/UVision.Benchmark -- results-scale [--counts 500,1000,2000,5000] [--image-kb 150] [--label-every 10] [--out report.md]
+//   # 문제 큐 후보 수집의 시간 — 날짜 창 장부 · 라벨 목록 · 낸 문제 목록을 합성 데이터로 잰다(느린 저장소에서 읽는 파일 수가 자라는 곳). Release 로.
+//   dotnet run -c Release --project src/UVision.Benchmark -- questions-scale [--days 7] [--per-day 1000] [--labeled-per-day 100] [--questions 200,1000] [--dir <루트>] [--out report.md]
 //   # 순서 있는 등급(예: 상 > 중 > 하) 판정 가능성 — 표본 목록의 train 에서 기준 이미지를 등급마다 고르고 test 를 물어 정확 · ±1 정확도와 혼동표
 //   UVISION_DATA_ROOT=... VLM_API_KEY=... dotnet run -c Release --project src/UVision.Benchmark -- grade --manifest <이름> --order 상,중,하
 //       --endpoint <OpenAI 호환 /v1 주소> --model <모델> [--refs-per-class 2] [--per-class 20] [--concurrency 3] [--context "홍삼 X선 사진"] [--criteria 등급기준.txt] [--out report.md]
@@ -93,6 +95,8 @@ switch (args.FirstOrDefault())
         return await UVision.Benchmark.GradeBench.RunAsync(opts);
     case "results-scale":
         return await UVision.Benchmark.ResultsScaleBench.RunAsync(opts);
+    case "questions-scale":
+        return await UVision.Benchmark.QuestionsScaleBench.RunAsync(opts);
     case "embed-cpu":
         return await UVision.Benchmark.EmbedCpuBench.RunAsync(opts);
     case "crops":
