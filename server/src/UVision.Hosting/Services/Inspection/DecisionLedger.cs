@@ -3,6 +3,7 @@ using HoneAI;
 using HoneAI.Routing;
 using UVision.Api.Configuration;
 using UVision.Api.Models;
+using UVision.Api.Services.Counting;
 using UVision.Api.Services.Memory;
 using UVision.Api.Services.Ml;
 using UVision.Api.Services.Scenarios;
@@ -25,6 +26,7 @@ public sealed class DecisionLedger(
     StoragePaths paths,
     IVlmProvider provider,
     IMlClassifier classifier,
+    IObjectDetector detector,
     VlmOptions vlmOptions,
     ILogger<DecisionLedger> logger)
 {
@@ -64,7 +66,8 @@ public sealed class DecisionLedger(
             // 꼭대기까지 아무도 답하지 않음(VLM 실패) — 실제 판정도 fail-closed 다. 경로만 남긴다.
             return new PredictionProvenance
             {
-                Kind = JudgeKind.Vlm,
+                // 계수의 꼭대기는 검출기(학습된 모델)다 — VLM 이 아니다.
+                Kind = subject.Scenario.IsCounting ? JudgeKind.Ml : JudgeKind.Vlm,
                 SliceKey = slices.KeyOf(subject),
                 Path = ex.Path,
                 Rationale = "no tier settled",
@@ -94,6 +97,9 @@ public sealed class DecisionLedger(
             var annotations = new Dictionary<string, string>(operative.ToAnnotations(), StringComparer.Ordinal);
             // 기억 단의 거리 · 이웃 수 · 인코더 판 — 문턱을 재생으로 고르는 원천 자료.
             foreach (var (k, v) in subject.Memory?.ToAnnotations() ?? new Dictionary<string, string>())
+                annotations[k] = v;
+            // 계수의 근거 — 센 개수 · 기대 · 문턱 · 검출 모델 판(개수 오차를 모델별로 가르는 원천 자료).
+            foreach (var (k, v) in subject.Count?.ToAnnotations() ?? new Dictionary<string, string>())
                 annotations[k] = v;
             // 시험 데이터셋에서 넣은 판정 — 관문 판정 · 문턱 재생이 현장 데이터와 나눠 볼 수 있게.
             if (subject.Origin is { } origin)
@@ -148,6 +154,14 @@ public sealed class DecisionLedger(
                             ? JudgeVerdict<string>.Answer(c.Label, c.Confidence)
                             : JudgeVerdict<string>.Abstain("ml failed: " + ml.FailureReason));
                     break;
+                // 계수의 검출기 — 상자를 세어 낸 OK/NG. 검출기가 닿지 않으면(Count 없음) 기권한 단으로 남아 아무도 확정하지 못한다.
+                case ScenarioVocabulary.DetectorTier:
+                    yield return new AnsweredJudge(
+                        new Tier { Id = tier, Kind = JudgeKind.Ml, Version = subject.Count?.ModelSha256 ?? detector.Name, CostRank = 1 },
+                        subject.Count is { } count
+                            ? JudgeVerdict<string>.Answer(count.Class, count.Confidence, count.Findings)
+                            : JudgeVerdict<string>.Abstain("detector unavailable"));
+                    break;
                 case ScenarioVocabulary.VlmTier:
                     yield return new AnsweredJudge(
                         new Tier { Id = tier, Kind = JudgeKind.Vlm, Version = subject.TeacherEdition ?? $"{provider.Name}:{vlmOptions.Model}", CostRank = 2 },
@@ -182,7 +196,37 @@ public sealed class DecisionLedger(
 public sealed record LedgerSubject(
     string DecisionId, EffectiveScenario Scenario, string Timestamp, InspectionResult? Vlm, MlOutcome? Ml,
     InspectionContext? Context = null, MemoryOutcome? Memory = null, CaptureOrigin? Origin = null,
-    string? TeacherEdition = null);
+    string? TeacherEdition = null, CountDecision? Count = null);
+
+/// <summary>
+/// 계수 시나리오의 판정 — 센 결과와, 그것이 낸 클래스 · 신뢰도 · 소견. 파이프라인이 한 번 정하고 레코드 · 응답 · 장부가 같은 값을 본다.
+/// </summary>
+/// <param name="Result">개수 세기의 결과(<see cref="CountEvaluator"/>).</param>
+/// <param name="Class">판정한 클래스 — 허용 범위 안이고 흔들리지 않으면 <c>OK</c>, 아니면 <c>NG</c>.</param>
+/// <param name="Confidence">센 상자 가운데 가장 낮은 신뢰도(가장 약한 근거). 센 상자가 없으면 1 — 흔들림은 <see cref="CountResult.Uncertain"/> 이 말한다.</param>
+/// <param name="Findings">사람이 읽는 한 줄 소견.</param>
+/// <param name="MinConfidence">센 데 쓴 문턱.</param>
+/// <param name="ModelSha256">상자를 낸 모델 파일의 SHA-256(서버가 알려 줄 때만).</param>
+public sealed record CountDecision(
+    CountResult Result, string Class, double Confidence, string Findings, double MinConfidence, string? ModelSha256)
+{
+    internal IReadOnlyDictionary<string, string> ToAnnotations()
+    {
+        var a = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["count:total"] = Result.Total.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["count:min_confidence"] = MinConfidence.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture),
+            ["count:uncertain"] = Result.Uncertain ? "true" : "false",
+        };
+        if (Result.Expected is { } expected)
+            a["count:expected"] = expected.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (Result.Tolerance is { } tolerance)
+            a["count:tolerance"] = tolerance.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (ModelSha256 is not null)
+            a["detector:model_sha256"] = ModelSha256;
+        return a;
+    }
+}
 
 /// <summary>실제로 쓴 결정 — 장부에서 라우터의 결정과 나란히 비교하기 위해 남긴다.</summary>
 /// <param name="Verdict">응답한 판정(null = fail-closed).</param>

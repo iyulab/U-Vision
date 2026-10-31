@@ -34,6 +34,14 @@ namespace UVision.Client.Models
 #endif
         /// <summary>The confidence property</summary>
         public double? Confidence { get; set; }
+        /// <summary>The count property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::UVision.Client.Models.CountInfo? Count { get; set; }
+#nullable restore
+#else
+        public global::UVision.Client.Models.CountInfo Count { get; set; }
+#endif
         /// <summary>The device_id property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -171,6 +179,7 @@ namespace UVision.Client.Models
                 { "captured_at", n => { CapturedAt = n.GetStringValue(); } },
                 { "class", n => { Class = n.GetStringValue(); } },
                 { "confidence", n => { Confidence = n.GetDoubleValue(); } },
+                { "count", n => { Count = n.GetObjectValue<global::UVision.Client.Models.CountInfo>(global::UVision.Client.Models.CountInfo.CreateFromDiscriminatorValue); } },
                 { "device_id", n => { DeviceId = n.GetStringValue(); } },
                 { "device_label", n => { DeviceLabel = n.GetStringValue(); } },
                 { "expected_part", n => { ExpectedPart = n.GetStringValue(); } },
@@ -199,6 +208,7 @@ namespace UVision.Client.Models
             writer.WriteStringValue("captured_at", CapturedAt);
             writer.WriteStringValue("class", Class);
             writer.WriteDoubleValue("confidence", Confidence);
+            writer.WriteObjectValue<global::UVision.Client.Models.CountInfo>("count", Count);
             writer.WriteStringValue("device_id", DeviceId);
             writer.WriteStringValue("device_label", DeviceLabel);
             writer.WriteStringValue("expected_part", ExpectedPart);

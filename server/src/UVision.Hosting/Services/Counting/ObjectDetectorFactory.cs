@@ -11,6 +11,8 @@ public static class ObjectDetectorFactory
 {
     public static IObjectDetector Create(DetectionOptions options)
     {
+        if (!(options.MinConfidence > 0 && options.MinConfidence <= 1))
+            throw new ArgumentException("UVision:Detection:MinConfidence 는 0 초과 1 이하여야 합니다");
         switch (options.Provider.ToLowerInvariant())
         {
             case "none":

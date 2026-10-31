@@ -61,6 +61,11 @@ public sealed record InspectResultV2
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<PathStepV2>? Path { get; init; }
 
+    /// <summary>계수 시나리오의 판정 근거(센 개수 · 상자) — 계수가 아니면 생략한다.</summary>
+    [JsonPropertyName("count")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CountInfo? Count { get; init; }
+
     [JsonPropertyName("detection_unavailable")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool DetectionUnavailable { get; init; }

@@ -30,6 +30,11 @@ internal static class StandaloneEnv
         Put("MEMORY_ENDPOINT", "UVision:Memory:Endpoint");
         Put("MEMORY_ENCODER", "UVision:Memory:Encoder");
         Put("MEMORY_TOKEN", "UVision:Memory:Token");
+        // 객체 검출기(계수 시나리오의 검출기 단) — 기본 none. 검출은 mloop serve 의 object-detection 모델 /predict.
+        Put("DETECTION_PROVIDER", "UVision:Detection:Provider");
+        Put("DETECTION_ENDPOINT", "UVision:Detection:Endpoint");
+        Put("DETECTION_MODEL", "UVision:Detection:Model");
+        Put("DETECTION_TOKEN", "UVision:Detection:Token");
         Put("ADMIN_PIN", "UVision:AdminPin");
         // Storage__DataPath: .NET 시절부터 문서화된 기존 override 키(하위호환 보존). VLM_* 는 Python .env 유래.
         Put("Storage__DataPath", "UVision:Storage:DataPath");

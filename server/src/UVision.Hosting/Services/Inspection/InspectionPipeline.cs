@@ -4,6 +4,7 @@ using UVision.Api.Imaging;
 using UVision.Api.Models;
 using UVision.Api.Services.Authority;
 using UVision.Api.Services.Confidence;
+using UVision.Api.Services.Counting;
 using UVision.Api.Services.DualCheck;
 using UVision.Api.Services.Memory;
 using UVision.Api.Services.Metrics;
@@ -30,6 +31,7 @@ namespace UVision.Api.Services.Inspection;
 public sealed class InspectionPipeline(
     IVlmProvider provider,
     IMlClassifier classifier,
+    IObjectDetector detector,
     CaseMemory memory,
     IConfidenceCalibrator calibrator,
     IScenarioStore scenarioStore,
@@ -43,6 +45,7 @@ public sealed class InspectionPipeline(
     Events.DecisionEventPublisher events,
     VlmOptions vlmOptions,
     MlOptions mlOptions,
+    DetectionOptions detectionOptions,
     AuthorityOptions authorityOptions,
     ILogger<InspectionPipeline> logger)
 {
@@ -58,6 +61,8 @@ public sealed class InspectionPipeline(
         Scenario scenario, InspectionCapture capture, CancellationToken cancellationToken)
     {
         var effective = EffectiveScenario.Resolve(scenario, classifier.IsEnabled, memory.IsEnabled);
+        if (effective.IsCounting)
+            return await RunCountingAsync(scenario, effective, capture, cancellationToken);
         // 전용 ML 은 시나리오의 단에 있을 때만 부른다 — 기본 파생([ml, vlm])이면 지금과 같고, 오투입 확인처럼
         // ML 이 뜻 없는 시나리오는 부르지 않는다.
         var mlActive = classifier.IsEnabled && effective.Tiers.Contains(ScenarioVocabulary.MlTier);
@@ -260,6 +265,189 @@ public sealed class InspectionPipeline(
                 Posture = posture,
             },
             v2);
+    }
+
+    /// <summary>
+    /// 계수 시나리오의 판정 — VLM 이 아니라 검출기가 상자를 내고, 순수 함수(<see cref="CountEvaluator"/>)가 신뢰도 문턱으로 걸러
+    /// 센 수를 기대 개수 ± 허용 오차와 견줘 OK/NG 를 낸다. 단은 검출기 하나라 그것이 확정한다.
+    /// <para>
+    /// 실패 등급은 검사와 같다: 검출기가 꺼졌거나 답하지 못하면 개수를 모르므로 판정 불가(503, 레코드 없음 — 개수를 모르는 채
+    /// OK 를 내지 않는다), 레코드 저장은 must-succeed, 장부 · 사건은 degrade. 문턱 근처 상자가 결론을 바꾸는 사진은 NG 로 두고
+    /// 사람 확인(<c>review_block</c>)을 요구한다.
+    /// </para>
+    /// 메트릭 행은 쓰지 않는다 — 지금의 행은 VLM · ML 의 신뢰도 · 일치를 전제로 한 집계의 입력이라 검출기 점수를 거기 섞으면
+    /// 뜻이 흐려진다. 계수의 개수 오차 분포는 장부의 <c>count:*</c> 주석과 레코드의 <c>count</c> 로 읽는다.
+    /// </summary>
+    private async Task<InspectionOutcome> RunCountingAsync(
+        Scenario scenario, EffectiveScenario effective, InspectionCapture capture, CancellationToken cancellationToken)
+    {
+        string? unavailable = null;
+        DetectionSet? detected = null;
+        if (effective.ExpectedCount is null)
+            unavailable = "계수 시나리오에 기대 개수가 없다(scenario.json 을 고쳐야 한다)";
+        else if (!detector.IsEnabled)
+            unavailable = "검출기가 꺼져 있다(UVision:Detection:Provider)";
+        else
+        {
+            try
+            {
+                detected = await detector.DetectAsync(capture.Image, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex,
+                    "검출 실패 — 개수를 알 수 없어 fail-closed(판정 불가) (provider={Provider}, scenario={ScenarioId})",
+                    detector.Name, scenario.ScenarioId);
+                unavailable = "검출기가 답하지 못했다 — 개수를 알 수 없다";
+            }
+        }
+
+        var stage = AuthorityStageJsonConverter.ToWire(AuthorityStage.Advisory);
+        if (detected is null)
+        {
+            var failedAt = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
+            var failedSubject = new LedgerSubject(
+                $"dec_{Guid.NewGuid():N}", effective, failedAt, null, null, capture.Context, null, capture.Origin, null);
+            var failedRoute = await ledger.DecideAsync(failedSubject, cancellationToken);
+            await ledger.RecordAsync(
+                failedSubject, failedRoute,
+                new OperativeDecision(null, ScenarioVocabulary.DetectorTier, stage, MetricsRow.PostureFailClosed),
+                cancellationToken);
+            return new InspectionOutcome.Unavailable(
+                new DetectionUnavailableResponse { Reason = unavailable! },
+                new InspectResultV2
+                {
+                    DecisionId = failedSubject.DecisionId,
+                    ScenarioId = scenario.ScenarioId,
+                    Timestamp = failedAt,
+                    Path = PathStepV2.From(failedRoute),
+                    DetectionUnavailable = true,
+                    Reason = unavailable,
+                    DeviceId = NullIfEmpty(capture.DeviceId),
+                    DeviceLabel = NullIfEmpty(capture.DeviceLabel),
+                    CapturedAt = capture.CapturedAt,
+                    Origin = capture.Origin?.Kind,
+                    OriginRef = capture.Origin?.Ref,
+                });
+        }
+
+        var minConfidence = effective.MinConfidence ?? detectionOptions.MinConfidence;
+        var counted = CountEvaluator.Count(
+            detected.Boxes, minConfidence, effective.CountClasses, effective.ExpectedCount, effective.CountTolerance);
+        var decidedClass = counted.WithinRange == true && !counted.Uncertain ? ScenarioVocabulary.Ok : ScenarioVocabulary.Ng;
+        var verdict = effective.VerdictOf(decidedClass);
+        var confidence = counted.Boxes.Count > 0 ? counted.Boxes.Min(b => b.Confidence) : 1.0;
+        var findings = FindingsOf(counted, minConfidence);
+        var decision = new CountDecision(counted, decidedClass, confidence, findings, minConfidence, detected.ModelSha256);
+        var info = new CountInfo
+        {
+            Total = counted.Total,
+            ByClass = counted.ByClass,
+            Expected = counted.Expected!.Value,
+            Tolerance = counted.Tolerance!.Value,
+            MinConfidence = minConfidence,
+            Uncertain = counted.Uncertain,
+            Boxes = [.. counted.Boxes.Select(b => new CountBox { Class = b.Class, X = b.X, Y = b.Y, W = b.W, H = b.H, Confidence = b.Confidence })],
+            ModelSha256 = detected.ModelSha256,
+        };
+        // 흔들리는 사진은 NG 로 두고 확인 전까지 다음 캡처를 막는다 — 개수를 못 믿는 채 흘려보내지 않는다.
+        bool? requiresReview = counted.Uncertain ? true : null;
+        var posture = counted.Uncertain ? "review_block" : null;
+
+        var imageId = $"img_{Guid.NewGuid():N}";
+        var timestamp = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
+        var ext = ImageFiles.ExtensionFor(capture.ContentType);
+        var stored = new StoredResult
+        {
+            ScenarioId = scenario.ScenarioId,
+            ImageId = imageId,
+            Verdict = verdict,
+            Findings = findings,
+            Confidence = confidence,
+            Timestamp = timestamp,
+            ImageFile = imageId + ext,
+            DeviceId = capture.DeviceId ?? "",
+            DeviceLabel = capture.DeviceLabel ?? "",
+            RequiresReview = requiresReview,
+            Posture = posture,
+            CapturedAt = capture.CapturedAt,
+            Origin = capture.Origin?.Kind,
+            OriginRef = capture.Origin?.Ref,
+            Count = info,
+        };
+        try
+        {
+            await inspectionStore.SaveAsync(capture.Image, ext, stored, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "검사 결과 영속화 실패 (scenario={ScenarioId}, image={ImageId})", scenario.ScenarioId, imageId);
+            return new InspectionOutcome.RecordFailed();
+        }
+
+        var subject = new LedgerSubject(
+            imageId, effective, timestamp, null, null, capture.Context, null, capture.Origin, null, decision);
+        var route = await ledger.DecideAsync(subject, cancellationToken);
+        await ledger.RecordAsync(
+            subject, route, new OperativeDecision(verdict, ScenarioVocabulary.DetectorTier, stage, posture), cancellationToken);
+
+        var v2 = new InspectResultV2
+        {
+            DecisionId = imageId,
+            ScenarioId = scenario.ScenarioId,
+            Timestamp = timestamp,
+            Class = decidedClass,
+            SettledBy = new SettledBy { Tier = ScenarioVocabulary.DetectorTier, Kind = "ml" },
+            Confidence = confidence,
+            Findings = findings,
+            RequiresReview = requiresReview,
+            Posture = posture,
+            Count = info,
+            Path = PathStepV2.From(route),
+            DeviceId = NullIfEmpty(capture.DeviceId),
+            DeviceLabel = NullIfEmpty(capture.DeviceLabel),
+            CapturedAt = capture.CapturedAt,
+            Origin = capture.Origin?.Kind,
+            OriginRef = capture.Origin?.Ref,
+        };
+        try
+        {
+            await events.PublishAsync(v2, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "판정 사건 기록 실패 — 판정은 그대로 (scenario={ScenarioId}, image={ImageId})",
+                scenario.ScenarioId, imageId);
+        }
+
+        return new InspectionOutcome.Completed(
+            new InspectResponse
+            {
+                Verdict = verdict,
+                Findings = findings,
+                Confidence = confidence,
+                Timestamp = timestamp,
+                ImageId = imageId,
+                RequiresReview = requiresReview,
+                Posture = posture,
+            },
+            v2);
+    }
+
+    /// <summary>센 결과의 한 줄 소견 — 센 수, 기대와 허용, 문턱, 그리고 왜 NG 인지.</summary>
+    private static string FindingsOf(CountResult counted, double minConfidence)
+    {
+        var text = string.Create(CultureInfo.InvariantCulture,
+            $"센 개수 {counted.Total} (기대 {counted.Expected} ± {counted.Tolerance}, 신뢰도 {minConfidence:0.##} 이상)");
+        if (counted.WithinRange != true)
+            text += " — 허용 범위 밖";
+        if (counted.Uncertain)
+            text += " — 문턱 근처 상자가 결과를 바꿀 수 있어 사람 확인이 필요하다";
+        return text;
     }
 
     /// <summary>

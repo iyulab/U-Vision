@@ -227,6 +227,11 @@ public sealed record EffectiveScenario(
         int? tolerance = input.CountTolerance ?? (typeChanged ? null : existing?.CountTolerance);
         double? minConfidence = input.MinConfidence ?? (typeChanged ? null : existing?.MinConfidence);
         var kinds = input.CountClasses ?? (typeChanged ? null : existing?.CountClasses);
+        // 판정 클래스는 OK/NG 둘 — 개수 부족 · 초과를 유형으로 나누는 것은 아직 짓지 않았다(파이프라인이 OK/NG 만 낸다).
+        var classes = input.Classes ?? (typeChanged ? null : existing?.Classes);
+        if (classes is not null
+            && !(classes.Count == 2 && classes.Any(c => c.Id == ScenarioVocabulary.Ok) && classes.Any(c => c.Id == ScenarioVocabulary.Ng)))
+            return "counting 의 classes 는 OK · NG 둘만 둘 수 있다(생략하면 OK/NG 로 파생된다)";
 
         if (expected is null)
             return "counting 시나리오는 expected_count 가 필수다(센 수를 견줄 기대 개수)";

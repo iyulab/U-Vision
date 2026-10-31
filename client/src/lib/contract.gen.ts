@@ -41,6 +41,8 @@ export interface Contract {
   AuthorityTransition?: AuthorityTransition
   AuthorityTransitionResponse?: AuthorityTransitionResponse
   ContestedBy?: ContestedBy
+  CountBox?: CountBox
+  CountInfo?: CountInfo
   DatasetClassCount?: DatasetClassCount
   DatasetExportManifest?: DatasetExportManifest
   DatasetItem?: DatasetItem
@@ -205,6 +207,34 @@ export interface ContestedBy {
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "CountBox".
+ */
+export interface CountBox {
+  class: string
+  x: number
+  y: number
+  w: number
+  h: number
+  confidence: number
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "CountInfo".
+ */
+export interface CountInfo {
+  total: number
+  by_class: {
+    [k: string]: number
+  }
+  expected: number
+  tolerance: number
+  min_confidence: number
+  uncertain: boolean
+  boxes: CountBox[]
+  model_sha256?: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
  * via the `definition` "DatasetClassCount".
  */
 export interface DatasetClassCount {
@@ -342,6 +372,7 @@ export interface InspectResultV2 {
   posture?: string
   contested_by?: ContestedBy[]
   path?: PathStepV2[]
+  count?: CountInfo
   detection_unavailable?: boolean
   reason?: string
   device_id?: string
@@ -818,6 +849,7 @@ export interface StoredResult {
   origin?: string
   origin_ref?: string
   class?: string
+  count?: CountInfo
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

@@ -66,6 +66,19 @@ public class CountEvaluatorTests
     }
 
     [Fact]
+    public void WhenOnlyTheMiddleCountIsInRange_BothExtremesBeingOut_StillMakesItUncertain()
+    {
+        // 기대 3 · 허용 0, 문턱 0.5: 확실한 2 + 띠 안의 둘(0.55 는 위, 0.45 는 아래). 모두 빼면 2 · 모두 넣으면 4 — 둘 다 밖이지만
+        // 하나만 넣으면 3 이다. 지금 센 수(3)가 범위 안이어도 한 상자의 판단에 달려 있다.
+        var detections = new[] { D("pill", 0.95), D("pill", 0.9), D("pill", 0.55), D("pill", 0.45) };
+
+        var r = CountEvaluator.Count(detections, 0.5, null, expected: 3, tolerance: 0);
+
+        Assert.True(r.WithinRange);
+        Assert.True(r.Uncertain);
+    }
+
+    [Fact]
     public void ANearThresholdBox_ThatCannotChangeTheVerdict_DoesNotMakeItUncertain()
     {
         // 기대 3 · 허용 1: 2 개든 3 개든 범위 안이다 — 문턱 근처 상자가 결론을 못 바꾼다.

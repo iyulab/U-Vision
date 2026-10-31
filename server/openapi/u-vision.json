@@ -2955,6 +2955,91 @@
           }
         }
       },
+      "CountBox": {
+        "required": [
+          "class",
+          "x",
+          "y",
+          "w",
+          "h",
+          "confidence"
+        ],
+        "type": "object",
+        "properties": {
+          "class": {
+            "type": "string"
+          },
+          "x": {
+            "type": "number",
+            "format": "double"
+          },
+          "y": {
+            "type": "number",
+            "format": "double"
+          },
+          "w": {
+            "type": "number",
+            "format": "double"
+          },
+          "h": {
+            "type": "number",
+            "format": "double"
+          },
+          "confidence": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "CountInfo": {
+        "required": [
+          "total",
+          "by_class",
+          "expected",
+          "tolerance",
+          "min_confidence",
+          "uncertain",
+          "boxes"
+        ],
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "by_class": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "expected": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tolerance": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "min_confidence": {
+            "type": "number",
+            "format": "double"
+          },
+          "uncertain": {
+            "type": "boolean"
+          },
+          "boxes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CountBox"
+            }
+          },
+          "model_sha256": {
+            "type": "string"
+          }
+        }
+      },
       "DatasetClassCount": {
         "required": [
           "class_dir",
@@ -3263,6 +3348,9 @@
             "items": {
               "$ref": "#/components/schemas/PathStepV2"
             }
+          },
+          "count": {
+            "$ref": "#/components/schemas/CountInfo"
           },
           "detection_unavailable": {
             "type": "boolean"
@@ -4763,6 +4851,9 @@
           },
           "class": {
             "type": "string"
+          },
+          "count": {
+            "$ref": "#/components/schemas/CountInfo"
           }
         }
       },

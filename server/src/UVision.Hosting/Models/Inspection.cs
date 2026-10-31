@@ -207,6 +207,11 @@ public sealed record StoredResult
     [JsonPropertyName("class")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Class { get; init; }
+
+    /// <summary>계수 시나리오의 판정 근거(센 개수 · 상자) — 계수가 아니면 생략한다.</summary>
+    [JsonPropertyName("count")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CountInfo? Count { get; init; }
 }
 
 /// <summary>

@@ -26,4 +26,10 @@ public sealed class DetectionOptions
     /// 멈춘 MLoop 이 판정을 붙잡는 상한이다. 기본 30 — 검출은 분류보다 무거워 분류기 기본(15)보다 넉넉히 둔다(아직 실측 전).
     /// </summary>
     public int TimeoutSeconds { get; set; } = 30;
+
+    /// <summary>
+    /// 계수가 세는 상자의 신뢰도 문턱(0 초과 1 이하)의 설치 기본 — 시나리오의 <c>min_confidence</c> 가 있으면 그것이 이긴다.
+    /// 기본 0.5. 문턱 근처(± 0.1)의 상자가 개수를 바꾸면 판정은 NG 이고 사람 확인을 요구한다.
+    /// </summary>
+    public double MinConfidence { get; set; } = 0.5;
 }

@@ -41,6 +41,14 @@ namespace UVision.Client.Models
 #else
         public List<global::UVision.Client.Models.ContestedBy> ContestedBy { get; set; }
 #endif
+        /// <summary>The count property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::UVision.Client.Models.CountInfo? Count { get; set; }
+#nullable restore
+#else
+        public global::UVision.Client.Models.CountInfo Count { get; set; }
+#endif
         /// <summary>The decision_id property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -172,6 +180,7 @@ namespace UVision.Client.Models
                 { "class", n => { Class = n.GetStringValue(); } },
                 { "confidence", n => { Confidence = n.GetDoubleValue(); } },
                 { "contested_by", n => { ContestedBy = n.GetCollectionOfObjectValues<global::UVision.Client.Models.ContestedBy>(global::UVision.Client.Models.ContestedBy.CreateFromDiscriminatorValue)?.AsList(); } },
+                { "count", n => { Count = n.GetObjectValue<global::UVision.Client.Models.CountInfo>(global::UVision.Client.Models.CountInfo.CreateFromDiscriminatorValue); } },
                 { "decision_id", n => { DecisionId = n.GetStringValue(); } },
                 { "detection_unavailable", n => { DetectionUnavailable = n.GetBoolValue(); } },
                 { "device_id", n => { DeviceId = n.GetStringValue(); } },
@@ -199,6 +208,7 @@ namespace UVision.Client.Models
             writer.WriteStringValue("class", Class);
             writer.WriteDoubleValue("confidence", Confidence);
             writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.ContestedBy>("contested_by", ContestedBy);
+            writer.WriteObjectValue<global::UVision.Client.Models.CountInfo>("count", Count);
             writer.WriteStringValue("decision_id", DecisionId);
             writer.WriteBoolValue("detection_unavailable", DetectionUnavailable);
             writer.WriteStringValue("device_id", DeviceId);

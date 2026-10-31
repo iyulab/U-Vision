@@ -50,11 +50,12 @@ public static class CountEvaluator
         var counted = Filter(detections, classes);
         var boxes = counted.Where(d => d.Confidence >= minConfidence).ToList();
 
-        // 문턱 근처 상자를 모두 빼거나 모두 넣었을 때 결론이 달라지면 흔들리는 사진이다.
+        // 문턱 근처 상자를 넣고 빼서 닿을 수 있는 개수(모두 빼면 strict, 모두 넣으면 loose, 그 사이는 일부만)에서 결론이 하나가
+        // 아니면 흔들리는 사진이다. 양 끝만 견주면 «끝은 둘 다 밖인데 가운데(지금 센 수)만 안» 인 사진을 놓친다.
         var strict = counted.Count(d => d.Confidence >= minConfidence + uncertainBand);
         var loose = counted.Count(d => d.Confidence >= minConfidence - uncertainBand);
         var uncertain = expected is { } e
-            ? Within(strict, e, tol!.Value) != Within(loose, e, tol.Value)
+            ? Enumerable.Range(strict, loose - strict + 1).Select(n => Within(n, e, tol!.Value)).Distinct().Count() > 1
             : strict != loose;
 
         return new CountResult
