@@ -82,6 +82,7 @@ public static class DatasetEndpoints
         [FromQuery(Name = "scenario_id")] string scenarioId,
         IScenarioStore scenarioStore,
         IDatasetExporter exporter,
+        DatasetExportTrimmer trimmer,
         HttpRequest request,
         UVisionOptions options,
         CancellationToken ct)
@@ -95,6 +96,7 @@ public static class DatasetEndpoints
             var exportId = NewExportId();
             var rules = EffectiveScenario.Resolve(scenario, mlEnabled: false).Training;
             var manifest = await exporter.ExportAsync(scenarioId, exportId, rules, ct);
+            await trimmer.TrimAsync(scenarioId, exportId, ct); // 옵션(기본 꺼짐)이 켜졌을 때만 오래된 export 를 정리
             return Results.Created(
                 ApiLocation.For(request, options, $"datasets/{exportId}/manifest?scenario_id={scenarioId}"), manifest);
         }

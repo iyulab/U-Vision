@@ -28,4 +28,11 @@ public sealed class StorageOptions
     /// 기본 2 GiB. 0 이하는 경고 없음(여유 수치만 보인다).
     /// </summary>
     public long LowSpaceWarningBytes { get; set; } = 2L * 1024 * 1024 * 1024;
+
+    /// <summary>
+    /// 데이터셋 export 를 새로 만든 뒤 시나리오마다 최근 이 개수만 남긴다(파생물 정리 — export 는 라벨에서 다시 만들 수 있다). 방금 만든 것과
+    /// 모델 레지스트리가 <c>export_id</c> 로 가리키는 것은 이 수와 무관하게 남는다. 0 이하는 지우지 않는다(기본). 정본(판정 레코드 · 장부 ·
+    /// 메트릭)은 이 옵션이 지우지 않는다 — 그건 <c>POST /scenarios/{id}/retention/purge</c> 가 설치자의 명시 행위로만 지운다.
+    /// </summary>
+    public int DatasetExportKeep { get; set; }
 }
