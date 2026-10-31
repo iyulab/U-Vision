@@ -1106,6 +1106,56 @@
         }
       }
     },
+    "/api/u-vision/questions/ambiguity": {
+      "get": {
+        "tags": [
+          "U-Vision"
+        ],
+        "operationId": "GetQuestionAmbiguity",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AmbiguityResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/u-vision/questions/answer": {
       "post": {
         "tags": [
@@ -2737,6 +2787,56 @@
           },
           "setup_required": {
             "type": "boolean"
+          }
+        }
+      },
+      "AmbiguityGroup": {
+        "required": [
+          "answered",
+          "abstained",
+          "open"
+        ],
+        "type": "object",
+        "properties": {
+          "answered": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "abstained": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "open": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "abstain_rate": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "AmbiguityResponse": {
+        "required": [
+          "scenario_id",
+          "min_answers_for_rate",
+          "representative",
+          "targeted"
+        ],
+        "type": "object",
+        "properties": {
+          "scenario_id": {
+            "type": "string"
+          },
+          "min_answers_for_rate": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "representative": {
+            "$ref": "#/components/schemas/AmbiguityGroup"
+          },
+          "targeted": {
+            "$ref": "#/components/schemas/AmbiguityGroup"
           }
         }
       },

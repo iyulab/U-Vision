@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System;
+using UVision.Client.Questions.Ambiguity;
 using UVision.Client.Questions.Answer;
 using UVision.Client.Questions.Image;
 using UVision.Client.Questions.Next;
@@ -18,6 +19,11 @@ namespace UVision.Client.Questions
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class QuestionsRequestBuilder : BaseRequestBuilder
     {
+        /// <summary>The ambiguity property</summary>
+        public global::UVision.Client.Questions.Ambiguity.AmbiguityRequestBuilder Ambiguity
+        {
+            get => new global::UVision.Client.Questions.Ambiguity.AmbiguityRequestBuilder(PathParameters, RequestAdapter);
+        }
         /// <summary>The answer property</summary>
         public global::UVision.Client.Questions.Answer.AnswerRequestBuilder Answer
         {

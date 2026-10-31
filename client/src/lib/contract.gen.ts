@@ -32,6 +32,8 @@ export interface Contract {
   AdminSetupInput?: AdminSetupInput
   AdminSetupRequiredResponse?: AdminSetupRequiredResponse
   AdminStatusResponse?: AdminStatusResponse
+  AmbiguityGroup?: AmbiguityGroup
+  AmbiguityResponse?: AmbiguityResponse
   AnomalyCrop?: AnomalyCrop
   AnomalyMap?: AnomalyMap
   AuditInput?: AuditInput
@@ -121,6 +123,26 @@ export interface AdminSetupRequiredResponse {
 export interface AdminStatusResponse {
   pin_configured: boolean
   setup_required: boolean
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "AmbiguityGroup".
+ */
+export interface AmbiguityGroup {
+  answered: number
+  abstained: number
+  open: number
+  abstain_rate?: number
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "AmbiguityResponse".
+ */
+export interface AmbiguityResponse {
+  scenario_id: string
+  min_answers_for_rate: number
+  representative: AmbiguityGroup
+  targeted: AmbiguityGroup
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

@@ -29,6 +29,11 @@ public static class QuestionEndpoints
             .Produces<SolverTrustResponse>()
             .ProducesProblem(400)
             .ProducesProblem(404);
+        group.MapGet("/questions/ambiguity", AmbiguityAsync)
+            .WithName("GetQuestionAmbiguity")
+            .Produces<AmbiguityResponse>()
+            .ProducesProblem(400)
+            .ProducesProblem(404);
         group.MapPost("/questions/answer", AnswerAsync)
             .WithName("PostQuestionAnswer")
             .Produces<QuestionAnswerResponse>()
@@ -90,6 +95,24 @@ public static class QuestionEndpoints
             if (await scenarios.GetAsync(scenarioId, cancellationToken) is null)
                 return Results.Problem(statusCode: 404, detail: $"시나리오 없음: {scenarioId}");
             return Results.Ok(SolverTrustSummary.Summarize(scenarioId, await questions.ListAsync(scenarioId, cancellationToken)));
+        }
+        catch (ArgumentException)
+        {
+            return Results.Problem(statusCode: 400, detail: "유효하지 않은 scenario_id");
+        }
+    }
+
+    private static async Task<IResult> AmbiguityAsync(
+        [FromQuery(Name = "scenario_id")] string scenarioId,
+        IScenarioStore scenarios,
+        IQuestionStore questions,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (await scenarios.GetAsync(scenarioId, cancellationToken) is null)
+                return Results.Problem(statusCode: 404, detail: $"시나리오 없음: {scenarioId}");
+            return Results.Ok(AmbiguitySummary.Summarize(scenarioId, await questions.ListAsync(scenarioId, cancellationToken)));
         }
         catch (ArgumentException)
         {
