@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { ApiError, DetectionUnavailableError, getAdminStatus, getAnomalyMap, inspectImage, listAuditSample, putAudit, setupAdmin } from './api'
+import { ApiError, DetectionUnavailableError, getAdminStatus, getAnomalyMap, inspectImage, listAuditSample, putAudit, questionImageUrl, setupAdmin } from './api'
 
 function mockFetch(status: number, body: unknown) {
   return vi.fn().mockResolvedValue({
@@ -108,5 +108,13 @@ describe('getAnomalyMap', () => {
 
     vi.stubGlobal('fetch', mockFetch(500, { detail: 'x' }))
     await expect(getAnomalyMap('s', 'd', 'i')).rejects.toBeInstanceOf(ApiError)
+  })
+})
+
+describe('questionImageUrl', () => {
+  it('문제 id 와 시나리오 id 만으로 만든다 — 사진의 출처(결과 · 기준 이미지)가 주소에 드러나지 않는다', () => {
+    const url = questionImageUrl('s 1', 'q/2')
+    expect(url).toMatch(/\/questions\/image\?scenario_id=s%201&question_id=q%2F2$/)
+    expect(url).not.toMatch(/references|results|\/ok|\/ng|date=/)
   })
 })

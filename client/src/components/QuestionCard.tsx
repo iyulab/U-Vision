@@ -1,5 +1,5 @@
 import { useQuestionQueue } from '../hooks/useQuestionQueue'
-import { resultImageUrl } from '../lib/api'
+import { questionImageUrl } from '../lib/api'
 import { getDeviceId } from '../lib/deviceIdentity'
 import { classNameOf } from '../lib/labels'
 import { choiceTone } from '../lib/question'
@@ -57,7 +57,7 @@ export function QuestionCard({ scenario }: { scenario: Scenario }) {
         <>
           <img
             key={view.question.question_id}
-            src={resultImageUrl(view.question.scenario_id, view.question.date, view.question.image_id)}
+            src={questionImageUrl(view.question.scenario_id, view.question.question_id)}
             alt="확인할 사진"
             className="max-h-[60vh] w-full rounded-lg bg-black object-contain"
           />

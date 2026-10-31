@@ -63,6 +63,7 @@ public static class UVisionServiceExtensions
         services.AddSingleton(options.Questions);
         services.AddSingleton<IQuestionStore, FileQuestionStore>();
         services.AddSingleton<Services.Questions.IQuestionCandidateSource, Services.Questions.LedgerQuestionCandidateSource>();
+        services.AddSingleton<Services.Questions.PlantFlow>();
         services.AddSingleton<Services.Questions.QuestionService>();
         services.AddSingleton<IMemoryVectorStore, FileMemoryVectorStore>();
         services.AddSingleton<IPatchBankStore, FilePatchBankStore>();

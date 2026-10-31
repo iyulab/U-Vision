@@ -7,6 +7,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System;
 using UVision.Client.Questions.Answer;
+using UVision.Client.Questions.Image;
 using UVision.Client.Questions.Next;
 namespace UVision.Client.Questions
 {
@@ -20,6 +21,11 @@ namespace UVision.Client.Questions
         public global::UVision.Client.Questions.Answer.AnswerRequestBuilder Answer
         {
             get => new global::UVision.Client.Questions.Answer.AnswerRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The image property</summary>
+        public global::UVision.Client.Questions.Image.ImageRequestBuilder Image
+        {
+            get => new global::UVision.Client.Questions.Image.ImageRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The next property</summary>
         public global::UVision.Client.Questions.Next.NextRequestBuilder Next

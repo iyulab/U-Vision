@@ -150,6 +150,15 @@ public sealed partial class StoragePaths
     public string QuestionJson(string scenarioId, string questionId) =>
         Path.Combine(QuestionsDir(scenarioId), Id(questionId) + ".json");
 
+    // 측정용 흐름의 재확인 풀(HoneAI `JsonlRecheckPoolStore`)과 정답 심기 기록(`JsonlPlantStore`) — 사람이 푼 정답 심기의 근거.
+    // <c>pool</c> · <c>plants</c> 도 날짜로 파싱되지 않아 목록에서 빠진다.
+
+    /// <summary>재확인 풀 디렉토리 <c>{scenario}/pool</c>.</summary>
+    public string PoolDir(string scenarioId) => Path.Combine(ScenarioDir(scenarioId), "pool");
+
+    /// <summary>정답 심기 기록 디렉토리 <c>{scenario}/plants</c>.</summary>
+    public string PlantsDir(string scenarioId) => Path.Combine(ScenarioDir(scenarioId), "plants");
+
     // --- 확정 사례 기억 (system 1 임베딩 단) ----------------------------------
     // 사람이 확정한 라벨 이미지의 임베딩 벡터 캐시 — 인코더 판(encoderKey)마다 따로 둔다. 판이 다른 벡터는 서로
     // 비교할 수 없기 때문이다. 이미지 · 라벨 정본에서 다시 만들 수 있는 파생물이라 지워도 된다. 클래스는 여기 적지

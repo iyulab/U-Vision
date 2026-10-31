@@ -146,6 +146,14 @@ export function resultImageUrl(scenarioId: string, date: string, imageId: string
 }
 
 /**
+ * 문제의 사진 서빙 URL(무인증, `<img src>` 직접 사용). 모든 문제가 같은 주소 모양을 쓴다 — 사진이 어디서 왔는지(판정 결과 · 기준 이미지)가
+ * 주소에 드러나지 않아야 풀이자 눈에 문제 사이의 차이가 없다.
+ */
+export function questionImageUrl(scenarioId: string, questionId: string): string {
+  return `${API_BASE}/questions/image?scenario_id=${encodeURIComponent(scenarioId)}&question_id=${encodeURIComponent(questionId)}`
+}
+
+/**
  * 한 검사의 이상 지도(패치별 정상 기억까지의 거리 — 열지도 근거). 서버가 패치 이상 점수를 쌓지 않았거나 그 검사에 지도가 없으면
  * `null`(404 는 오류가 아니다). 판정과 무관한 관찰 자료라 그 밖의 실패만 던진다.
  */

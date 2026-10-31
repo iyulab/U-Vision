@@ -18,6 +18,13 @@ public static class QuestionState
     public const string Withdrawn = "withdrawn";
 }
 
+/// <summary>문제 사진의 출처 — 단일 출처. 판정 결과 사진은 값이 없다.</summary>
+public static class QuestionSource
+{
+    /// <summary>정답을 아는 기준 이미지를 심었다(측정용 흐름의 정답 심기).</summary>
+    public const string Reference = "reference";
+}
+
 /// <summary>문제 형식 — 단일 출처. 지금은 «이 사진은 클래스 중 무엇인가» 하나.</summary>
 public static class QuestionForm
 {
@@ -54,6 +61,24 @@ public sealed record StoredQuestion
     public double? Score { get; init; }
 
     [JsonPropertyName("created_at")] public required string CreatedAt { get; init; }
+
+    /// <summary>
+    /// 사진의 출처(<see cref="QuestionSource"/>). 판정 결과 사진이면 없다 — 심은 문제(정답을 아는 기준 이미지)만 적힌다. 서버 안의
+    /// 기록이며 풀이자에게 보이는 응답에는 실리지 않는다.
+    /// </summary>
+    [JsonPropertyName("source")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Source { get; init; }
+
+    /// <summary>심은 문제의 기준 이미지 id(<c>references</c> 의 ref id).</summary>
+    [JsonPropertyName("source_ref")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourceRef { get; init; }
+
+    /// <summary>심은 문제의 정답 클래스 — 답을 채점할 때만 읽는다(풀이자에게 보이지 않는다).</summary>
+    [JsonPropertyName("source_truth")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourceTruth { get; init; }
 
     /// <summary>문제를 받은 풀이자(장치 id). 없으면 "".</summary>
     [JsonPropertyName("asked_to")] public required string AskedTo { get; init; }

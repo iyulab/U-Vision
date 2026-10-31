@@ -993,6 +993,69 @@
         }
       }
     },
+    "/api/u-vision/questions/image": {
+      "get": {
+        "tags": [
+          "U-Vision"
+        ],
+        "operationId": "GetQuestionImage",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "question_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stream"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stream"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/u-vision/questions/answer": {
       "post": {
         "tags": [

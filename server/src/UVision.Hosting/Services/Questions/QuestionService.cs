@@ -98,6 +98,7 @@ public sealed class QuestionService
     private readonly QuestionsOptions _options;
     private readonly TimeProvider _clock;
     private readonly Random _rng;
+    private readonly PlantFlow? _plants;
 
     // 문제를 내는 일과 답을 적는 일을 한 줄로 세운다 — 두 풀이자가 같은 사진을 받거나 같은 문제에 두 번 답하지 않게.
     // 저장소는 한 프로세스가 연다(라벨 저장소와 같은 전제).
@@ -105,7 +106,7 @@ public sealed class QuestionService
 
     public QuestionService(
         IScenarioStore scenarios, ILabelStore labels, IQuestionStore questions, IQuestionCandidateSource candidates,
-        QuestionsOptions options, TimeProvider? clock = null, Random? rng = null)
+        QuestionsOptions options, TimeProvider? clock = null, Random? rng = null, PlantFlow? plants = null)
     {
         _scenarios = scenarios;
         _labels = labels;
@@ -114,6 +115,7 @@ public sealed class QuestionService
         _options = options;
         _clock = clock ?? TimeProvider.System;
         _rng = rng ?? Random.Shared;
+        _plants = plants;
     }
 
     public async Task<QuestionOutcome> NextAsync(string scenarioId, string by, CancellationToken cancellationToken)
@@ -134,6 +136,31 @@ public sealed class QuestionService
                 .OrderBy(q => q.CreatedAt, StringComparer.Ordinal).FirstOrDefault();
             if (open is not null)
                 return new QuestionOutcome.Asked(open, effective.Labels);
+
+            // 정답 심기 — 켜져 있고(기본 꺼짐) 이번이 심을 차례이면 일반 문제 대신 정답을 아는 기준 이미지 한 장. 심을 이미지가 없으면 일반 문제로.
+            if (_plants is not null && PlantPicker.ShouldPlant(_options.PlantRate, _rng)
+                && await _plants.PickAsync(scenario, effective, asked, by, _rng, cancellationToken) is { } plant)
+            {
+                var planted = new StoredQuestion
+                {
+                    QuestionId = Guid.NewGuid().ToString("N"),
+                    ScenarioId = scenarioId,
+                    Date = QuestionSource.Reference,
+                    ImageId = plant.RefId,
+                    Form = QuestionForm.Single,
+                    Stream = LabelStream.Measure,
+                    Reason = QuestionReason.Plant,
+                    CreatedAt = _clock.GetUtcNow().UtcDateTime.ToString("o", CultureInfo.InvariantCulture),
+                    AskedTo = by,
+                    State = QuestionState.Open,
+                    Source = QuestionSource.Reference,
+                    SourceRef = plant.RefId,
+                    SourceTruth = plant.Truth,
+                };
+                await _questions.CreateAsync(planted, cancellationToken);
+                await _plants.RecordAskedAsync(planted, cancellationToken);
+                return new QuestionOutcome.Asked(planted, effective.Labels);
+            }
 
             var dates = WindowDates();
             var candidates = await _candidates.ListAsync(scenarioId, dates, cancellationToken);
@@ -214,6 +241,15 @@ public sealed class QuestionService
                 var allowed = EffectiveScenario.Resolve(scenario, mlEnabled: false).Labels;
                 if (!LabelSet.IsValid(choice!, allowed))
                     return new AnswerOutcome.InvalidChoice($"허용되지 않은 라벨: '{choice}'");
+            }
+
+            // 심은 문제의 답은 라벨이 아니다 — 풀이자의 정답률로만 적는다(풀 응답 + 정답 심기 기록).
+            if (question.Source == QuestionSource.Reference && _plants is not null)
+            {
+                await _plants.RecordAnsweredAsync(question, EffectiveScenario.Resolve(scenario, mlEnabled: false), abstain ? null : choice, by, cancellationToken);
+                await _questions.TryCloseAsync(
+                    scenarioId, questionId, abstain ? QuestionState.Abstained : QuestionState.Answered, abstain ? null : choice, by, cancellationToken);
+                return new AnswerOutcome.Recorded(questionId, abstain ? "abstain" : "label");
             }
 
             // 그 사이 다른 경로(결과 목록의 라벨 달기)로 라벨이 붙었으면 덮어쓰지 않는다.

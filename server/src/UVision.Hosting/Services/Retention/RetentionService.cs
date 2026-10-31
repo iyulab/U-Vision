@@ -147,7 +147,7 @@ public sealed class RetentionService
                 }
             }
             covered = notExported == 0;
-            openQuestions = (await _questions.ListAsync(scenarioId, ct)).Count(q => q.State == QuestionState.Open && InRange(q.Date));
+            openQuestions = (await _questions.ListAsync(scenarioId, ct)).Count(q => q.State == QuestionState.Open && q.Source is null && InRange(q.Date));
             summaries.Add(new RetentionKindSummary { Kind = RetentionKinds.Records, Days = days, Files = files, Bytes = bytes });
         }
 
@@ -231,7 +231,7 @@ public sealed class RetentionService
             // 지운 사진을 가리키는 열린 문제는 풀 수 없다 — 그대로 두면 풀이자가 사진 없는 같은 문제를 다시 받는다.
             if (plan.Kinds.Contains(RetentionKinds.Records))
                 foreach (var q in await _questions.ListAsync(scenarioId, ct))
-                    if (q.State == QuestionState.Open
+                    if (q.State == QuestionState.Open && q.Source is null // 심은 문제는 결과 사진을 가리키지 않는다
                         && string.CompareOrdinal(q.Date, plan.From) >= 0 && string.CompareOrdinal(q.Date, plan.To) <= 0)
                         await _questions.TryCloseAsync(scenarioId, q.QuestionId, QuestionState.Withdrawn, null, "retention", ct);
             completed = true;

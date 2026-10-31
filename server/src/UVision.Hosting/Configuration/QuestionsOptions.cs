@@ -27,6 +27,12 @@ public sealed class QuestionsOptions
     /// <summary>문제 후보로 삼는 판정의 최근 일수(오늘 포함, 1~60, 기본 7). 이보다 오래된 판정은 문제로 내지 않는다.</summary>
     public int WindowDays { get; set; } = 7;
 
+    /// <summary>
+    /// 정답 심기의 몫(0 ~ 1, 기본 0 = 심지 않는다). 문제를 낼 때마다 이 확률로 일반 문제 대신 정답을 아는 기준 이미지 한 장을 같은
+    /// 카드로 낸다 — 풀이자의 정답률이 풀이자 신뢰의 숫자가 된다. 기본 0 이면 문제 큐의 동작은 심기가 없던 때와 같다.
+    /// </summary>
+    public double PlantRate { get; set; }
+
     /// <summary>잘못된 값은 기동에서 멈춘다 — 첫 문제 요청이 아니라.</summary>
     public void Validate()
     {
@@ -34,6 +40,8 @@ public sealed class QuestionsOptions
             throw new ArgumentException($"UVision:Questions:Rule 은 '{RandomRule}' 또는 '{UncertainRule}' 이어야 한다: '{Rule}'");
         if (double.IsNaN(RandomFloor) || RandomFloor is < 0 or > 1)
             throw new ArgumentException($"UVision:Questions:RandomFloor 는 0 ~ 1 이어야 한다: {RandomFloor}");
+        if (double.IsNaN(PlantRate) || PlantRate is < 0 or > 1)
+            throw new ArgumentException($"UVision:Questions:PlantRate 는 0 ~ 1 이어야 한다: {PlantRate}");
         if (WindowDays is < 1 or > 60)
             throw new ArgumentException($"UVision:Questions:WindowDays 는 1 ~ 60 이어야 한다: {WindowDays}");
     }

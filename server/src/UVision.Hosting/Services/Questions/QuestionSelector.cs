@@ -29,6 +29,9 @@ public static class QuestionReason
 
     /// <summary>무작위 규칙(기본) — 모든 후보에서 균등하게 고른다.</summary>
     public const string Random = "random";
+
+    /// <summary>정답을 아는 기준 이미지를 심었다 — 풀이자의 정답률을 재는 문제. 풀이자에게 보이는 응답은 이 값을 <see cref="Random"/> 으로 가린다.</summary>
+    public const string Plant = "plant";
 }
 
 /// <summary>
