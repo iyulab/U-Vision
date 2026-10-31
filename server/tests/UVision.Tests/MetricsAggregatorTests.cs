@@ -33,6 +33,109 @@ public class MetricsAggregatorTests
         Timestamp = "2026-06-22T13:00:00.0000000+00:00",
     };
 
+    private static MetricsRow CountRow(
+        string imageId, Verdict? verdict, MetricsCount count, string? origin = null) => new()
+        {
+            ImageId = imageId,
+            Timestamp = "2026-06-22T12:00:00.0000000+00:00",
+            Verdict = verdict,
+            MlDegraded = false,
+            VlmOnly = true,
+            Origin = origin,
+            Count = count,
+        };
+
+    [Fact]
+    public void CountingRows_AreCountedApart_AndNeverTouchTheVlmMlAggregates()
+    {
+        // 같은 날 같은 파일에 VLM 행과 계수 행이 함께 있어도(시나리오 유형을 바꾼 날) VLM 지표는 그대로여야 한다.
+        var vlmRows = new[]
+        {
+            Row("a", Verdict.NG, "ng", agreement: true, requiresReview: false),
+            Row("b", Verdict.OK, "ok", agreement: true, requiresReview: false),
+        };
+        var countRows = new[]
+        {
+            CountRow("c1", Verdict.NG, new MetricsCount()),
+            CountRow("c2", Verdict.OK, new MetricsCount()),
+        };
+        var labels = new[] { Label("c1", "NG"), Label("a", "NG") }; // 계수 행에 사람 라벨이 붙어도 재현율에 들지 않는다
+
+        var alone = MetricsAggregator.Summarize("demo", "2026-06-22", vlmRows, labels, new AuthorityOptions());
+        var mixed = MetricsAggregator.Summarize("demo", "2026-06-22", [.. vlmRows, .. countRows], labels, new AuthorityOptions());
+
+        Assert.Null(alone.Counting);
+        Assert.NotNull(mixed.Counting);
+        Assert.Equal(alone with { Counting = null }, mixed with { Counting = null }); // VLM · ML 쪽은 한 필드도 안 변한다
+        Assert.Equal(2, mixed.Inspections);
+        Assert.Equal(1, mixed.VlmNgHits);
+        Assert.Equal(1, mixed.LabeledNg);
+    }
+
+    [Fact]
+    public void Counting_NgUncertainUnavailableAndDatasetRates()
+    {
+        var rows = new[]
+        {
+            CountRow("a", Verdict.OK, new MetricsCount()),
+            CountRow("b", Verdict.NG, new MetricsCount()),
+            CountRow("c", Verdict.NG, new MetricsCount { Uncertain = true }, origin: CaptureOrigin.Dataset),
+            CountRow("d", null, new MetricsCount { Unavailable = true }),
+        };
+
+        var c = MetricsAggregator.Summarize("demo", "2026-06-22", rows, [], new AuthorityOptions()).Counting!;
+
+        Assert.Equal(3, c.Checked);
+        Assert.Equal(1, c.Unavailable);
+        Assert.Equal(2, c.Ng);
+        Assert.Equal(1, c.Uncertain);
+        Assert.Equal(1, c.DatasetChecked);
+        Assert.Equal(2.0 / 3, c.NgRate);
+        Assert.Equal(1.0 / 3, c.UncertainRate);
+        Assert.Equal(1.0 / 4, c.UnavailableRate); // 시도 = 판정 3 + 불능 1
+        Assert.Equal(0, c.CompositionChecked);
+        Assert.Null(c.MissingRate); // 구성 확인이 없으면 비율은 null — 0 으로 위장하지 않는다
+        Assert.Null(c.ExtraRate);
+    }
+
+    [Fact]
+    public void Counting_Composition_CountsKindsOncePerRow_InNameOrder_AndEmptyArraysStillCountAsAComposition()
+    {
+        var rows = new[]
+        {
+            CountRow("a", Verdict.OK, new MetricsCount { Missing = [], Extra = [] }),
+            CountRow("b", Verdict.NG, new MetricsCount { Missing = ["scalpel", "forceps"], Extra = [] }),
+            CountRow("c", Verdict.NG, new MetricsCount { Missing = ["scalpel", "scalpel"], Extra = ["clamp"] }), // 손상된 중복은 한 건
+            CountRow("d", Verdict.OK, new MetricsCount()), // 총 개수 기대 — 구성 확인의 분모에 들지 않는다
+        };
+
+        var c = MetricsAggregator.Summarize("demo", "2026-06-22", rows, [], new AuthorityOptions()).Counting!;
+
+        Assert.Equal(4, c.Checked);
+        Assert.Equal(3, c.CompositionChecked);
+        Assert.Equal(2, c.WithMissing);
+        Assert.Equal(1, c.WithExtra);
+        Assert.Equal(["forceps", "scalpel"], c.MissingByKind.Keys);
+        Assert.Equal(1, c.MissingByKind["forceps"]);
+        Assert.Equal(2, c.MissingByKind["scalpel"]);
+        Assert.Equal(["clamp"], c.ExtraByKind.Keys);
+        Assert.Equal(2.0 / 3, c.MissingRate);
+        Assert.Equal(1.0 / 3, c.ExtraRate);
+    }
+
+    [Fact]
+    public void Counting_OnlyUnavailableRows_StillProduceTheBlock_WithNullNgRate()
+    {
+        var rows = new[] { CountRow("a", null, new MetricsCount { Unavailable = true }) };
+
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", rows, [], new AuthorityOptions());
+
+        Assert.Equal(0, s.Inspections);
+        Assert.Equal(0, s.FailClosed); // VLM 판정 불가가 아니다
+        Assert.Equal(1.0, s.Counting!.UnavailableRate);
+        Assert.Null(s.Counting.NgRate);
+    }
+
     [Fact]
     public void Empty_YieldsZeroCounts_NullRates()
     {

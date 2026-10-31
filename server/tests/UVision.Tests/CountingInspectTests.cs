@@ -232,16 +232,94 @@ public class CountingInspectTests
         Assert.Equal("detector", provenance.Annotations["operative:source"]);
     }
 
+    /// <summary>값이 있는가 — 속성이 없거나 <c>null</c> 이면 없는 것이다(기존 행은 null 을 명시로 쓰는 필드가 있다).</summary>
+    private static bool Has(JsonElement row, string name) =>
+        row.TryGetProperty(name, out var v) && v.ValueKind != JsonValueKind.Null;
+
+    private static List<JsonElement> MetricsRows(UVisionApiFactory factory)
+    {
+        var dir = Path.Combine(factory.DataPath, ScenarioId, "metrics");
+        if (!Directory.Exists(dir)) return [];
+        return [.. Directory.GetFiles(dir, "*.jsonl").SelectMany(File.ReadAllLines)
+            .Where(l => l.Length > 0).Select(l => JsonDocument.Parse(l).RootElement)];
+    }
+
     [Fact]
-    public async Task NoMetricsRowIsWritten_ForCounting()
+    public async Task MetricsRow_IsWrittenWithTheCountMarker_AndNoDetectorScoresOrMlFields()
     {
         using var factory = new UVisionApiFactory();
         Seed(factory, expected: 1);
 
         await Client(factory, new ScriptedDetector(() => Boxes(0.9))).PostAsync("/api/u-vision/v2/inspect", Form());
 
-        // 지금의 메트릭 행은 VLM · ML 의 신뢰도를 전제한 집계의 입력이다 — 검출기 점수를 섞지 않는다.
-        Assert.False(Directory.Exists(Path.Combine(factory.DataPath, ScenarioId, "metrics")));
+        // 계수 행은 쓰되 표지(count)를 달아 집계가 VLM · ML 집계와 갈라 센다 — 검출기 점수 · ML 필드는 싣지 않는다.
+        var row = Assert.Single(MetricsRows(factory));
+        Assert.Equal("OK", row.GetProperty("verdict").GetString());
+        Assert.True(row.TryGetProperty("count", out var count));
+        Assert.False(count.TryGetProperty("uncertain", out _));   // 흔들리지 않으면 생략
+        Assert.False(count.TryGetProperty("missing", out _));     // 총 개수 기대 — 종류별 신호 없음
+        Assert.False(Has(row, "vlm_confidence"));
+        Assert.False(Has(row, "ml_label"));
+        Assert.True(row.GetProperty("vlm_only").GetBoolean());
+        Assert.False(Has(row, "posture"));
+    }
+
+    [Fact]
+    public async Task MetricsRow_ForAShakyPhoto_MarksUncertain()
+    {
+        using var factory = new UVisionApiFactory();
+        Seed(factory, expected: 3);
+
+        await Client(factory, new ScriptedDetector(() => Boxes(0.95, 0.9, 0.55, 0.45))).PostAsync("/api/u-vision/v2/inspect", Form());
+
+        var row = Assert.Single(MetricsRows(factory));
+        Assert.Equal("NG", row.GetProperty("verdict").GetString());
+        Assert.True(row.GetProperty("count").GetProperty("uncertain").GetBoolean());
+    }
+
+    [Fact]
+    public async Task MetricsRow_ForAComposition_NamesTheMissingAndExtraKinds()
+    {
+        using var factory = new UVisionApiFactory();
+        SeedComposition(factory);
+        // scalpel 은 기대 2 에 1개(모자람), forceps 는 기대 1 에 2개(과잉), 기대에 없는 clamp 1개(과잉).
+        var detector = new ScriptedDetector(() =>
+            Tray(("scalpel", 0.95), ("forceps", 0.9), ("forceps", 0.88), ("clamp", 0.9)));
+
+        await Client(factory, detector).PostAsync("/api/u-vision/v2/inspect", Form());
+
+        var count = Assert.Single(MetricsRows(factory)).GetProperty("count");
+        Assert.Equal(["scalpel"], count.GetProperty("missing").EnumerateArray().Select(e => e.GetString()));
+        Assert.Equal(["clamp", "forceps"], count.GetProperty("extra").EnumerateArray().Select(e => e.GetString()).Order());
+    }
+
+    [Fact]
+    public async Task MetricsRow_ForAComposition_AsExpected_HasEmptyArrays_SoItStillCountsAsAComposition()
+    {
+        using var factory = new UVisionApiFactory();
+        SeedComposition(factory);
+
+        await Client(factory, new ScriptedDetector(() => Tray(("scalpel", 0.95), ("scalpel", 0.9), ("forceps", 0.85))))
+            .PostAsync("/api/u-vision/v2/inspect", Form());
+
+        var count = Assert.Single(MetricsRows(factory)).GetProperty("count");
+        Assert.Equal(0, count.GetProperty("missing").GetArrayLength());
+        Assert.Equal(0, count.GetProperty("extra").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task DetectorDown_WritesAnUnavailableCountRow_NotAFailClosedOne()
+    {
+        using var factory = new UVisionApiFactory();
+        Seed(factory, expected: 3);
+
+        await Client(factory, new ThrowingDetector()).PostAsync("/api/u-vision/v2/inspect", Form());
+
+        // «검출기 불능» 은 «VLM 판정 불가(fail_closed)» 가 아니다 — 행은 있되 fail_closed 자세 · verdict 가 없고 표지만 불능이다.
+        var row = Assert.Single(MetricsRows(factory));
+        Assert.True(row.GetProperty("count").GetProperty("unavailable").GetBoolean());
+        Assert.False(Has(row, "verdict"));
+        Assert.False(Has(row, "posture"));
     }
 
     // ── 검출기가 없거나 답하지 못함 = 판정 불가 ───────────────────────────────

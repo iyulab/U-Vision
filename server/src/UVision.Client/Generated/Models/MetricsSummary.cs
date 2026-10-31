@@ -34,6 +34,14 @@ namespace UVision.Client.Models
         public double? AuditPositiveAgreement { get; set; }
         /// <summary>The contested property</summary>
         public int? Contested { get; set; }
+        /// <summary>The counting property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::UVision.Client.Models.CountingMetrics? Counting { get; set; }
+#nullable restore
+#else
+        public global::UVision.Client.Models.CountingMetrics Counting { get; set; }
+#endif
         /// <summary>The dataset_inspections property</summary>
         public int? DatasetInspections { get; set; }
         /// <summary>The date property</summary>
@@ -151,6 +159,7 @@ namespace UVision.Client.Models
                 { "audit_positive_agreement", n => { AuditPositiveAgreement = n.GetDoubleValue(); } },
                 { "audited", n => { Audited = n.GetIntValue(); } },
                 { "contested", n => { Contested = n.GetIntValue(); } },
+                { "counting", n => { Counting = n.GetObjectValue<global::UVision.Client.Models.CountingMetrics>(global::UVision.Client.Models.CountingMetrics.CreateFromDiscriminatorValue); } },
                 { "dataset_inspections", n => { DatasetInspections = n.GetIntValue(); } },
                 { "date", n => { Date = n.GetStringValue(); } },
                 { "degrade_rate", n => { DegradeRate = n.GetDoubleValue(); } },
@@ -205,6 +214,7 @@ namespace UVision.Client.Models
             writer.WriteIntValue("audit_ok_ok", AuditOkOk);
             writer.WriteDoubleValue("audit_positive_agreement", AuditPositiveAgreement);
             writer.WriteIntValue("contested", Contested);
+            writer.WriteObjectValue<global::UVision.Client.Models.CountingMetrics>("counting", Counting);
             writer.WriteIntValue("dataset_inspections", DatasetInspections);
             writer.WriteStringValue("date", Date);
             writer.WriteDoubleValue("degrade_rate", DegradeRate);

@@ -78,6 +78,41 @@ public sealed record MetricsRow
     [JsonPropertyName("origin")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Origin { get; init; }
+
+    /// <summary>
+    /// 계수 판정의 표지 — 있으면 이 행은 검출기가 낸 계수 판정이다. 집계는 이 행을 맨 앞에서 갈라 VLM · ML 집계(검사 수 ·
+    /// 재현율 · 오경보 · 격상 신호)에 섞지 않고 따로 센다(<see cref="MetricsSummary.Counting"/>). 계수가 아닌 행에는 없다.
+    /// </summary>
+    [JsonPropertyName("count")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MetricsCount? Count { get; init; }
+}
+
+/// <summary>
+/// 계수 행의 관측 신호 — 정답 없이 읽을 수 있는 것만 담는다(개수 오차는 정수 정답이 있어야 해서 여기 없다).
+/// 개수 자체나 상자 점수는 싣지 않는다 — 그건 레코드의 <c>count</c> 와 장부의 몫이다.
+/// </summary>
+public sealed record MetricsCount
+{
+    /// <summary>검출기가 꺼졌거나 답하지 못해 판정하지 못했다(fail-closed) — 이 행은 판정이 아니라 불능 한 건이다. 이때 verdict 는 없다.</summary>
+    [JsonPropertyName("unavailable")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Unavailable { get; init; }
+
+    /// <summary>문턱 근처 상자가 결론을 바꾸는 흔들리는 사진이라 NG 로 두고 사람 확인(<c>review_block</c>)을 요구했다.</summary>
+    [JsonPropertyName("uncertain")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Uncertain { get; init; }
+
+    /// <summary>구성 확인에서 모자란 종류. 구성 확인 행이면 비어 있어도 배열이 있다(그 행이 구성 확인이라는 표지이기도 하다).</summary>
+    [JsonPropertyName("missing")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? Missing { get; init; }
+
+    /// <summary>구성 확인에서 기대보다 많거나 기대에 없는 종류(정책이 <c>ignore</c> 면 과잉으로 세지 않는다).</summary>
+    [JsonPropertyName("extra")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? Extra { get; init; }
 }
 
 /// <summary>
@@ -251,4 +286,65 @@ public sealed record MetricsSummary
     [JsonPropertyName("promotion_eligible")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? PromotionEligible { get; init; }
+
+    /// <summary>
+    /// 계수 판정의 관측 — 그 날짜에 계수 행이 있을 때만 나온다(계수가 아닌 시나리오 응답은 byte 동일). 위 VLM · ML 집계와
+    /// 섞이지 않는다: 계수 행은 <c>inspections</c> · 재현율 · 오경보 · 격상 신호에 들지 않는다.
+    /// </summary>
+    [JsonPropertyName("counting")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CountingMetrics? Counting { get; init; }
+}
+
+/// <summary>
+/// 계수 판정의 정답 없는 관측 — 검출기 불능 · NG · 흔들림 비율과 구성 확인의 종류별 누락/과잉 빈도.
+/// 참값 대비 지표(개수 오차)가 아니다 — 그것은 정수 정답이 있어야 하고 벤치마크 <c>count-error</c> · <c>composition-error</c> 가 잰다.
+/// 원시 카운트가 근본이고 비율은 분모 0 이면 null 이다.
+/// </summary>
+public sealed record CountingMetrics
+{
+    /// <summary>판정한 계수 건(검출기 불능은 제외).</summary>
+    [JsonPropertyName("checked")] public required int Checked { get; init; }
+
+    /// <summary>검출기가 꺼졌거나 답하지 못해 판정하지 못한 건(fail-closed).</summary>
+    [JsonPropertyName("unavailable")] public required int Unavailable { get; init; }
+
+    /// <summary>판정한 건 가운데 NG. 흔들려서 NG 로 둔 건도 든다.</summary>
+    [JsonPropertyName("ng")] public required int Ng { get; init; }
+
+    /// <summary>판정한 건 가운데 흔들려서 사람 확인을 요구한 건.</summary>
+    [JsonPropertyName("uncertain")] public required int Uncertain { get; init; }
+
+    /// <summary>판정한 건 가운데 시험 데이터셋에서 넣은 것 — 0 이 아니면 이 집계에 현장 촬영이 아닌 판정이 섞여 있다.</summary>
+    [JsonPropertyName("dataset_checked")] public required int DatasetChecked { get; init; }
+
+    /// <summary>판정한 건 가운데 구성 확인(종류별 기대)인 것 — 아래 종류별 빈도의 분모.</summary>
+    [JsonPropertyName("composition_checked")] public required int CompositionChecked { get; init; }
+
+    /// <summary>구성 확인 가운데 모자란 종류가 하나라도 있던 건.</summary>
+    [JsonPropertyName("with_missing")] public required int WithMissing { get; init; }
+
+    /// <summary>구성 확인 가운데 과잉인 종류가 하나라도 있던 건.</summary>
+    [JsonPropertyName("with_extra")] public required int WithExtra { get; init; }
+
+    /// <summary>종류 → 그 종류가 모자랐던 건수(구성 확인). 종류 이름 순.</summary>
+    [JsonPropertyName("missing_by_kind")] public required IReadOnlyDictionary<string, int> MissingByKind { get; init; }
+
+    /// <summary>종류 → 그 종류가 과잉이었던 건수(구성 확인). 종류 이름 순.</summary>
+    [JsonPropertyName("extra_by_kind")] public required IReadOnlyDictionary<string, int> ExtraByKind { get; init; }
+
+    /// <summary>NG 비율 = ng / checked. 판정 0 건이면 null.</summary>
+    [JsonPropertyName("ng_rate")] public double? NgRate { get; init; }
+
+    /// <summary>흔들림 비율 = uncertain / checked. 판정 0 건이면 null.</summary>
+    [JsonPropertyName("uncertain_rate")] public double? UncertainRate { get; init; }
+
+    /// <summary>검출기 불능 비율 = unavailable / (checked + unavailable). 시도 0 건이면 null.</summary>
+    [JsonPropertyName("unavailable_rate")] public double? UnavailableRate { get; init; }
+
+    /// <summary>구성 확인에서 모자란 종류가 있던 비율 = with_missing / composition_checked.</summary>
+    [JsonPropertyName("missing_rate")] public double? MissingRate { get; init; }
+
+    /// <summary>구성 확인에서 과잉인 종류가 있던 비율 = with_extra / composition_checked.</summary>
+    [JsonPropertyName("extra_rate")] public double? ExtraRate { get; init; }
 }

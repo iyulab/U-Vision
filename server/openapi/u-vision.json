@@ -3175,6 +3175,109 @@
           }
         }
       },
+      "CountingMetrics": {
+        "required": [
+          "checked",
+          "unavailable",
+          "ng",
+          "uncertain",
+          "dataset_checked",
+          "composition_checked",
+          "with_missing",
+          "with_extra",
+          "missing_by_kind",
+          "extra_by_kind",
+          "ng_rate",
+          "uncertain_rate",
+          "unavailable_rate",
+          "missing_rate",
+          "extra_rate"
+        ],
+        "type": "object",
+        "properties": {
+          "checked": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unavailable": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ng": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "uncertain": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dataset_checked": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "composition_checked": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "with_missing": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "with_extra": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "missing_by_kind": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "extra_by_kind": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "ng_rate": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "uncertain_rate": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "unavailable_rate": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "missing_rate": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "extra_rate": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "CountItemInfo": {
         "required": [
           "class",
@@ -3982,6 +4085,9 @@
           },
           "promotion_eligible": {
             "type": "boolean"
+          },
+          "counting": {
+            "$ref": "#/components/schemas/CountingMetrics"
           }
         }
       },

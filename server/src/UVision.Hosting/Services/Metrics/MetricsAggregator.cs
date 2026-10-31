@@ -84,8 +84,17 @@ public static class MetricsAggregator
         int labeled = 0, labeledNg = 0, vlmNgHits = 0, mlNgScored = 0, mlNgHits = 0;
         int labeledOk = 0, vlmFalseAlarms = 0, mlOkScored = 0, mlFalseAlarms = 0;
 
+        // 계수 판정(검출기) 줄은 VLM · ML 집계와 뜻이 달라 맨 앞에서 갈라 따로 센다 — 검사 수 · 재현율 · 오경보 · 격상 신호에 들지 않는다.
+        // 사람 라벨 조인도 하지 않는다: 검출기의 정확도는 정수 정답이 있는 개수 오차 측정이 잰다.
+        var counting = new CountingTally();
+
         foreach (var r in rows)
         {
+            if (r.Count is { } count)
+            {
+                counting.Add(r, count);
+                continue;
+            }
             if (r.Posture == MetricsRow.PostureFailClosed)
             {
                 failClosed++;
@@ -214,7 +223,61 @@ public static class MetricsAggregator
             OracleConsistencyRate = Rate(oracleEvaluated - oracleConflicts, oracleEvaluated),
             OracleCoverageRate = Rate(reviews - oraclePending, reviews),
             PromotionEligible = eligible,
+            Counting = counting.ToMetrics(),
         };
+    }
+
+    /// <summary>계수 줄의 집계 — 원시 카운트를 모으고 비율은 끝에서 한 번에 낸다. 계수 줄이 없으면 <c>null</c>(응답에서 생략).</summary>
+    private sealed class CountingTally
+    {
+        private int _checked, _unavailable, _ng, _uncertain, _dataset, _composition, _withMissing, _withExtra;
+        private readonly SortedDictionary<string, int> _missingByKind = new(StringComparer.Ordinal);
+        private readonly SortedDictionary<string, int> _extraByKind = new(StringComparer.Ordinal);
+
+        public void Add(MetricsRow row, MetricsCount count)
+        {
+            if (count.Unavailable)
+            {
+                _unavailable++;
+                return;
+            }
+            _checked++;
+            if (row.Verdict == Verdict.NG) _ng++;
+            if (count.Uncertain) _uncertain++;
+            if (row.Origin == CaptureOrigin.Dataset) _dataset++;
+            if (count.Missing is null && count.Extra is null) return; // 총 개수 기대 — 종류별 신호가 없다
+
+            _composition++;
+            // 같은 종류가 한 줄에 두 번 들어 있어도 한 건으로 센다(손상 · 수동 편집에 강하게).
+            var missing = count.Missing?.Distinct(StringComparer.Ordinal).ToList() ?? [];
+            var extra = count.Extra?.Distinct(StringComparer.Ordinal).ToList() ?? [];
+            if (missing.Count > 0) _withMissing++;
+            if (extra.Count > 0) _withExtra++;
+            foreach (var kind in missing) _missingByKind[kind] = _missingByKind.GetValueOrDefault(kind) + 1;
+            foreach (var kind in extra) _extraByKind[kind] = _extraByKind.GetValueOrDefault(kind) + 1;
+        }
+
+        public CountingMetrics? ToMetrics() =>
+            _checked + _unavailable == 0
+                ? null
+                : new CountingMetrics
+                {
+                    Checked = _checked,
+                    Unavailable = _unavailable,
+                    Ng = _ng,
+                    Uncertain = _uncertain,
+                    DatasetChecked = _dataset,
+                    CompositionChecked = _composition,
+                    WithMissing = _withMissing,
+                    WithExtra = _withExtra,
+                    MissingByKind = _missingByKind,
+                    ExtraByKind = _extraByKind,
+                    NgRate = Rate(_ng, _checked),
+                    UncertainRate = Rate(_uncertain, _checked),
+                    UnavailableRate = Rate(_unavailable, _checked + _unavailable),
+                    MissingRate = Rate(_withMissing, _composition),
+                    ExtraRate = Rate(_withExtra, _composition),
+                };
     }
 
     /// <summary>

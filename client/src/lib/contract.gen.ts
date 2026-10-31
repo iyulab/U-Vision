@@ -45,6 +45,7 @@ export interface Contract {
   ContestedBy?: ContestedBy
   CountBox?: CountBox
   CountInfo?: CountInfo
+  CountingMetrics?: CountingMetrics
   CountItemInfo?: CountItemInfo
   DatasetClassCount?: DatasetClassCount
   DatasetExportManifest?: DatasetExportManifest
@@ -268,6 +269,31 @@ export interface CountItemInfo {
   expected: number
   found: number
   status: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "CountingMetrics".
+ */
+export interface CountingMetrics {
+  checked: number
+  unavailable: number
+  ng: number
+  uncertain: number
+  dataset_checked: number
+  composition_checked: number
+  with_missing: number
+  with_extra: number
+  missing_by_kind: {
+    [k: string]: number
+  }
+  extra_by_kind: {
+    [k: string]: number
+  }
+  ng_rate: null | number
+  uncertain_rate: null | number
+  unavailable_rate: null | number
+  missing_rate: null | number
+  extra_rate: null | number
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
@@ -544,6 +570,7 @@ export interface MetricsSummary {
   oracle_consistency_rate: null | number
   oracle_coverage_rate: null | number
   promotion_eligible?: boolean
+  counting?: CountingMetrics
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

@@ -275,8 +275,9 @@ public sealed class InspectionPipeline(
     /// OK 를 내지 않는다), 레코드 저장은 must-succeed, 장부 · 사건은 degrade. 문턱 근처 상자가 결론을 바꾸는 사진은 NG 로 두고
     /// 사람 확인(<c>review_block</c>)을 요구한다.
     /// </para>
-    /// 메트릭 행은 쓰지 않는다 — 지금의 행은 VLM · ML 의 신뢰도 · 일치를 전제로 한 집계의 입력이라 검출기 점수를 거기 섞으면
-    /// 뜻이 흐려진다. 계수의 개수 오차 분포는 장부의 <c>count:*</c> 주석과 레코드의 <c>count</c> 로 읽는다.
+    /// 메트릭 행은 쓰되(degrade — 관측만 누락) <c>count</c> 표지를 달아 집계가 VLM · ML 집계와 갈라 센다 — 검출기 점수나 개수를
+    /// 싣지 않고 정답 없이 읽는 신호(불능 · 흔들림 · 구성의 어긋난 종류)만 싣는다. 계수의 개수 오차 분포는 장부의 <c>count:*</c>
+    /// 주석과 레코드의 <c>count</c> 로 읽는다.
     /// </summary>
     private async Task<InspectionOutcome> RunCountingAsync(
         Scenario scenario, EffectiveScenario effective, InspectionCapture capture, CancellationToken cancellationToken)
@@ -317,6 +318,9 @@ public sealed class InspectionPipeline(
                 failedSubject, failedRoute,
                 new OperativeDecision(null, ScenarioVocabulary.DetectorTier, stage, MetricsRow.PostureFailClosed),
                 cancellationToken);
+            // 검출기 불능은 «VLM 판정 불가» 가 아니다 — 행은 쓰되 fail_closed 로 세지 않고 계수 집계의 불능으로 센다.
+            await WriteCountingMetricSafelyAsync(
+                scenario.ScenarioId, failedAt, null, new MetricsCount { Unavailable = true }, capture.Origin?.Kind, cancellationToken);
             return new InspectionOutcome.Unavailable(
                 new DetectionUnavailableResponse { Reason = unavailable! },
                 new InspectResultV2
@@ -403,6 +407,8 @@ public sealed class InspectionPipeline(
         var route = await ledger.DecideAsync(subject, cancellationToken);
         await ledger.RecordAsync(
             subject, route, new OperativeDecision(verdict, ScenarioVocabulary.DetectorTier, stage, posture), cancellationToken);
+        await WriteCountingMetricSafelyAsync(
+            scenario.ScenarioId, timestamp, verdict, CountMetricOf(counted), capture.Origin?.Kind, cancellationToken, imageId);
 
         var v2 = new InspectResultV2
         {
@@ -639,6 +645,42 @@ public sealed class InspectionPipeline(
             return null;
         }
     }
+
+    /// <summary>
+    /// 계수 메트릭 행을 기록하되 실패를 삼킨다(관측 — degrade-safe). 판정이 없는 행(검출기 불능)은 verdict · 이미지가 없어
+    /// 새 id 를 쓴다. 계수는 ML 을 묻지 않으므로 <c>vlm_only</c> 로 남겨 표지를 모르는 읽는 쪽이 ML 비율에 세지 않게 한다.
+    /// </summary>
+    private async Task WriteCountingMetricSafelyAsync(
+        string scenarioId, string timestamp, Verdict? verdict, MetricsCount count, string? origin,
+        CancellationToken cancellationToken, string? imageId = null)
+    {
+        var row = new MetricsRow
+        {
+            ImageId = imageId ?? $"img_{Guid.NewGuid():N}",
+            Timestamp = timestamp,
+            Verdict = verdict,
+            MlDegraded = false,
+            VlmOnly = true,
+            Origin = origin,
+            Count = count,
+        };
+        try { await metricsStore.AppendAsync(scenarioId, row, cancellationToken); }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "계수 메트릭 기록 실패 — 관측만 누락 (scenario={ScenarioId})", scenarioId);
+        }
+    }
+
+    /// <summary>
+    /// 계수 결과에서 정답 없이 읽는 신호만 뽑는다. 구성 확인(<c>Items</c> 가 있을 때)이면 어긋난 종류 배열을 싣는다 —
+    /// 과잉은 정책이 <c>ignore</c> 면 항목 상태가 이미 ok 라 자연히 빠지고, <c>warn</c> 이면 판정은 막지 않아도 빈도에는 센다.
+    /// </summary>
+    private static MetricsCount CountMetricOf(CountResult counted) => new()
+    {
+        Uncertain = counted.Uncertain,
+        Missing = counted.Items is null ? null : [.. counted.Items.Where(i => i.Status == ItemStatus.Missing).Select(i => i.Class)],
+        Extra = counted.Items is null ? null : [.. counted.Items.Where(i => i.Status == ItemStatus.Extra).Select(i => i.Class)],
+    };
 
     /// <summary>
     /// ML 분류를 호출하되 실패를 삼킨다(degrade) — references 로드와 동일 규율: ML 오류가 판정을
