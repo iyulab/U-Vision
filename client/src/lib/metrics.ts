@@ -35,6 +35,17 @@ export function recallLead(vlm: number | null, ml: number | null): RecallLead {
 }
 
 /**
+ * VLM·ML 오경보율(사람이 OK 라 한 것을 불량으로 부른 비율) 비교 — 재현율과 반대로 **낮을수록** 좋다. 재현율만 보면 불량을
+ * 많이 부르는 쪽이 좋아 보이므로 한 쌍으로 읽게 하는 짝이다. 하나라도 측정 불가(null)면 비교 안 함('none').
+ */
+export function falseAlarmLead(vlm: number | null, ml: number | null): RecallLead {
+  if (vlm === null || ml === null) return 'none'
+  if (ml < vlm) return 'ml'
+  if (vlm < ml) return 'vlm'
+  return 'tie'
+}
+
+/**
  * 시험 데이터셋에서 넣은 판정이 집계에 있으면 그 사실 한 줄 — 없으면 null. 전부 주입이면 현장 수치가 아니라는 것을,
  * 일부면 섞여 있다는 것을 말한다.
  */

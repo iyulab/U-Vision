@@ -5,7 +5,7 @@ import { useResource } from '../hooks/useResource'
 import { getMemory, getMetrics, getTrainingReadiness, listResultDates } from '../lib/api'
 import { classNameOf } from '../lib/labels'
 import { formatDistance, hasMiss, memoryStatusLine } from '../lib/memory'
-import { datasetNotice, formatPercent, fraction, hasNoMetricData, recallLead } from '../lib/metrics'
+import { datasetNotice, falseAlarmLead, formatPercent, fraction, hasNoMetricData, recallLead } from '../lib/metrics'
 import { readinessLine } from '../lib/training'
 import type { MemoryReport, MetricsSummary, Scenario } from '../lib/types'
 
@@ -185,6 +185,7 @@ function Cards({ summary }: { summary: MetricsSummary }) {
   const nonDegraded = summary.ml_checked - summary.ml_degraded
   const matchSeen = summary.match_mismatches + summary.match_abstained + summary.contested > 0
   const lead = recallLead(summary.vlm_ng_recall, summary.ml_ng_recall)
+  const alarmLead = falseAlarmLead(summary.vlm_false_alarm_rate, summary.ml_false_alarm_rate)
   const notice = datasetNotice(summary)
 
   return (
@@ -266,6 +267,33 @@ function Cards({ summary }: { summary: MetricsSummary }) {
         )}
       </div>
 
+      {/* 오경보율 — 재현율의 짝. 불량을 많이 부를수록 재현율은 오르므로 «정상을 불량으로 부른 비율» 없이는 우열을 못 가린다. */}
+      <div className="rounded-2xl border border-slate-700 bg-slate-800/50 p-5">
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-200">오경보율 (정상을 불량으로 부른 비율)</h2>
+          <span className="text-xs text-slate-500">
+            사람 라벨 OK {summary.labeled_ok}건 기준 · 낮을수록 좋음
+            {summary.labeled_ok === 0 && ' — OK 라벨 필요'}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <RecallCell
+            label="VLM (주 판정)"
+            rate={summary.vlm_false_alarm_rate}
+            detail={fraction(summary.vlm_false_alarms, summary.labeled_ok)}
+            leading={alarmLead === 'vlm'}
+            suffix="오경보"
+          />
+          <RecallCell
+            label="ML (교차검증)"
+            rate={summary.ml_false_alarm_rate}
+            detail={fraction(summary.ml_false_alarms, summary.ml_ok_scored)}
+            leading={alarmLead === 'ml'}
+            suffix="오경보"
+          />
+        </div>
+      </div>
+
       {/* 오라클 2차 검증(④-B) — 활동이 있을 때만(none 기본 비활성이면 숨김 = 이전과 동일). */}
       {(summary.oracle_evaluated > 0 || summary.oracle_pending > 0) && (
         <div className="rounded-2xl border border-slate-700 bg-slate-800/50 p-5">
@@ -301,7 +329,7 @@ function Cards({ summary }: { summary: MetricsSummary }) {
       )}
 
       <p className="text-xs text-slate-500">
-        라벨 진척 {fraction(summary.labeled, summary.inspections)} · 미라벨 검사는 NG recall 분모에서 제외됩니다.
+        라벨 진척 {fraction(summary.labeled, summary.inspections)} · 미라벨 검사는 NG recall · 오경보율 분모에서 제외됩니다.
       </p>
     </div>
   )
@@ -334,11 +362,13 @@ function RecallCell({
   rate,
   detail,
   leading,
+  suffix = '검출',
 }: {
   label: string
   rate: number | null
   detail: string
   leading: boolean
+  suffix?: string
 }) {
   return (
     <div
@@ -350,7 +380,9 @@ function RecallCell({
       <div className={`mt-1 text-2xl font-bold ${leading ? 'text-emerald-400' : 'text-white'}`}>
         {formatPercent(rate)}
       </div>
-      <div className="mt-1 text-xs text-slate-500">{detail} 검출</div>
+      <div className="mt-1 text-xs text-slate-500">
+        {detail} {suffix}
+      </div>
     </div>
   )
 }

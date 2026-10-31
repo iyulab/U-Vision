@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { datasetNotice, formatPercent, fraction, hasNoMetricData, recallLead } from './metrics'
+import { datasetNotice, falseAlarmLead, formatPercent, fraction, hasNoMetricData, recallLead } from './metrics'
 import type { MetricsSummary } from './types'
 
 /** 최소 MetricsSummary 픽스처 — 필수 필드만 채움. */
@@ -96,6 +96,24 @@ describe('recallLead', () => {
     expect(recallLead(null, 0.9)).toBe('none')
     expect(recallLead(0.9, null)).toBe('none')
     expect(recallLead(null, null)).toBe('none')
+  })
+})
+
+describe('falseAlarmLead', () => {
+  it('오경보율은 낮은 쪽이 앞선다(재현율과 반대)', () => {
+    expect(falseAlarmLead(0.2, 0.1)).toBe('ml')
+    expect(falseAlarmLead(0.1, 0.2)).toBe('vlm')
+    expect(falseAlarmLead(0.1, 0.1)).toBe('tie')
+  })
+
+  it('한쪽이라도 측정 불가(null)면 비교하지 않는다', () => {
+    expect(falseAlarmLead(null, 0.1)).toBe('none')
+    expect(falseAlarmLead(0.1, null)).toBe('none')
+    expect(falseAlarmLead(null, null)).toBe('none')
+  })
+
+  it('0 은 측정 불가가 아니라 「오경보 없음」이다', () => {
+    expect(falseAlarmLead(0, 0.1)).toBe('vlm')
   })
 })
 
