@@ -16,6 +16,22 @@ export function fraction(numerator: number, denominator: number): string {
   return `${numerator}/${denominator}`
 }
 
+/**
+ * 메트릭이 비었을 때 보일 안내. 계수 시나리오는 메트릭 행을 쓰지 않으므로(지표는 VLM · ML 의 신뢰도와 일치를 전제로 한
+ * 집계의 입력이다) 비어 있는 것이 «0건 판정» 이 아니라 «이 지표를 쓰지 않음» 이다 — 그 둘이 같은 말로 읽히지 않게 가른다.
+ */
+export function emptyMetricsNotice(counting: boolean): { lead: string; detail: string } {
+  return counting
+    ? {
+        lead: '계수 시나리오는 이 지표(2중체크 · 재현율)를 쓰지 않습니다.',
+        detail: '판정 건수와 센 개수는 결과 조회에서 근거 상자와 함께 봅니다.',
+      }
+    : {
+        lead: '이 날짜에 ML 2중체크 검사 데이터가 없습니다.',
+        detail: '(ML 분류기가 비활성[none]이거나 해당 날짜 검사가 없음 — 플라이휠 ① 단계)',
+      }
+}
+
 /** 메트릭 데이터(2중체크 또는 fail-closed)가 한 건도 없는가 — 대시보드 empty-state 판정. */
 export function hasNoMetricData(summary: MetricsSummary): boolean {
   return summary.inspections + summary.fail_closed === 0

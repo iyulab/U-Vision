@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { auditAgreementLine, datasetNotice, falseAlarmLead, formatPercent, fraction, hasNoMetricData, recallLead } from './metrics'
+import { auditAgreementLine, datasetNotice, emptyMetricsNotice, falseAlarmLead, formatPercent, fraction, hasNoMetricData, recallLead } from './metrics'
 import type { MetricsSummary } from './types'
 
 /** 최소 MetricsSummary 픽스처 — 필수 필드만 채움. */
@@ -74,6 +74,21 @@ describe('formatPercent', () => {
 describe('fraction', () => {
   it('n/d 표기', () => {
     expect(fraction(2, 3)).toBe('2/3')
+  })
+})
+
+describe('emptyMetricsNotice', () => {
+  it('계수 시나리오는 이 지표를 쓰지 않는다고 말한다 — 0 건이 측정값처럼 읽히지 않게', () => {
+    const notice = emptyMetricsNotice(true)
+    expect(notice.lead).toContain('계수')
+    expect(notice.lead).not.toContain('ML')
+    expect(notice.detail).toContain('결과 조회')
+  })
+
+  it('그 밖의 시나리오는 데이터 없음 안내 그대로 — 켜지 않은 ML 이거나 그날 검사가 없다', () => {
+    const notice = emptyMetricsNotice(false)
+    expect(notice.lead).toContain('ML 2중체크')
+    expect(notice.detail).toContain('플라이휠')
   })
 })
 

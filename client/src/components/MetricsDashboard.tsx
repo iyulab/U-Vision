@@ -5,7 +5,7 @@ import { useResource } from '../hooks/useResource'
 import { getMemory, getMetrics, getSolverTrust, getTrainingReadiness, listResultDates } from '../lib/api'
 import { classNameOf } from '../lib/labels'
 import { formatDistance, hasMiss, memoryStatusLine } from '../lib/memory'
-import { auditAgreementLine, datasetNotice, falseAlarmLead, formatPercent, fraction, hasNoMetricData, recallLead } from '../lib/metrics'
+import { auditAgreementLine, datasetNotice, emptyMetricsNotice, falseAlarmLead, formatPercent, fraction, hasNoMetricData, recallLead } from '../lib/metrics'
 import { hasPlants } from '../lib/solverTrust'
 import { readinessLine } from '../lib/training'
 import type { MemoryReport, MetricsSummary, Scenario } from '../lib/types'
@@ -55,6 +55,7 @@ export function MetricsDashboard({
   const solverTrust = useResource(scenarioId || null, () => getSolverTrust(scenarioId), '풀이자 신뢰 조회 실패')
   const error = datesRes.error ?? metrics.error
   const loading = metrics.loading
+  const emptyNotice = emptyMetricsNotice(counting)
 
   return (
     <div className="space-y-6">
@@ -108,11 +109,9 @@ export function MetricsDashboard({
         <p className="text-sm text-slate-400">시나리오·날짜를 선택하세요.</p>
       ) : hasNoMetricData(summary) ? (
         <p className="rounded-xl border border-slate-700 bg-slate-800/50 px-5 py-8 text-center text-sm text-slate-400">
-          이 날짜에 ML 2중체크 검사 데이터가 없습니다.
+          {emptyNotice.lead}
           <br />
-          <span className="text-xs text-slate-500">
-            (ML 분류기가 비활성[none]이거나 해당 날짜 검사가 없음 — 플라이휠 ① 단계)
-          </span>
+          <span className="text-xs text-slate-500">{emptyNotice.detail}</span>
         </p>
       ) : (
         <Cards summary={summary} />
