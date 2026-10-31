@@ -58,6 +58,8 @@ using UVision.Api.Services.Vlm;
 //   UVISION_DATA_ROOT=... dotnet run --project src/UVision.Benchmark -- inject --manifest <이름> --scenario <id> \
 //       --engine http://localhost:8080 [--split test] [--limit N | --per-class N [--offset K]] [--label | --label-after]
 //   #   --label-after: 한 묶음을 다 넣은 뒤에 정답을 심는다(질의가 자기 묶음의 이전 질의를 기억으로 보지 않게)
+//   # 계수 검출기의 개수 오차 — 사진별 정답 개수 + 검출 상자(JSON)를 신뢰도 문턱별로 채점(검출기를 부르지 않는다)
+//   dotnet run --project src/UVision.Benchmark -- count-error --input counts.json [--thresholds 0.3,0.5,0.7] [--classes helmet] [--tolerance 1] [--out report.md]
 
 const string DefaultCriteria =
     "제품 표면에 긁힘, 이물질, 균열, 솔더 브릿지 등 외관 결함이 없어야 한다. " +
@@ -107,6 +109,8 @@ switch (args.FirstOrDefault())
         return UVision.Benchmark.RepeatBench.Run(opts);
     case "ledger-replay":
         return await UVision.Benchmark.LedgerReplay.RunAsync(opts);
+    case "count-error":
+        return await UVision.Benchmark.CountErrorBench.RunAsync(opts);
 }
 
 List<(string Name, string Path, Verdict? Truth)> images;
