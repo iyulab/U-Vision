@@ -8,7 +8,7 @@ import { type InspectionPhase } from '../lib/capturePolicy'
 import { getDeviceId, getDeviceLabel } from '../lib/deviceIdentity'
 import { classifyTriggerError } from '../lib/inspectionError'
 import { addLateAlert } from '../lib/lateResults'
-import type { SendOutcome } from '../lib/queueSender'
+import { isStuckNotice, type SendOutcome, stuckNotice } from '../lib/queueSender'
 import type { Roi } from '../lib/roi'
 import type { InspectResult, MlResult } from '../lib/types'
 
@@ -116,25 +116,29 @@ export function useInspection(
   // 쌓인 캡처 보내기 — 처음 · 다시 연결됐을 때 · 큐가 남아 있는 동안 주기적으로.
   useEffect(() => {
     let cancelled = false
-    const drain = async () => {
+    const drain = async (force: boolean) => {
       const sender = await getCaptureSender()
       if (!sender || cancelled) return
       setStorageDurable(sender.durable)
-      await sender.drain(onDrained)
+      await sender.drain(onDrained, { force })
       if (cancelled) return
       const left = await sender.count()
       setPending(left)
+      // 서버가 계속 받아들이지 않는 캡처가 있으면 알린다(간격을 늘려 다시 보내는 중) — 다 풀리면 그 문구만 걷는다.
+      const stuck = stuckNotice(sender.stuckCount())
+      setQueueNotice((prev) => stuck ?? (isStuckNotice(prev) ? null : prev))
       // 다 보냈으면 «오프라인 — 저장됨» 상태를 내린다(다음 캡처를 기다리는 상태로).
       if (left === 0) setPhase((p) => (p === 'queued' ? 'idle' : p))
     }
-    void drain()
-    window.addEventListener('online', drain)
+    const drainNow = () => void drain(true)
+    drainNow()
+    window.addEventListener('online', drainNow)
     const timer = window.setInterval(() => {
-      if (hasPending()) void drain()
+      if (hasPending()) void drain(false)
     }, RETRY_INTERVAL_MS)
     return () => {
       cancelled = true
-      window.removeEventListener('online', drain)
+      window.removeEventListener('online', drainNow)
       window.clearInterval(timer)
     }
   }, [onDrained])

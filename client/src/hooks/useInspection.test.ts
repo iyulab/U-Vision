@@ -192,6 +192,30 @@ describe('useInspection', () => {
     expect(hook.current.history[0]).toMatchObject({ image_id: late.image_id, late: true })
   })
 
+  it('서버가 계속 받아들이지 않는 캡처는 알리고, 풀리면 그 알림을 걷는다', async () => {
+    const queue = await useRealQueue()
+    h.send.mockRejectedValue(new ApiError(500, '판정 요청 실패 (500) 검사 결과 저장 실패'))
+    const { result: hook } = await mounted()
+
+    act(() => hook.current.trigger())
+    await waitFor(() => expect(hook.current.phase).toBe('queued'))
+    // 연결 신호(online)는 기다리지 않고 다시 보내므로 실패가 쌓여 «막힌 항목» 이 된다.
+    for (let i = 0; i < 5; i++)
+      await act(async () => {
+        window.dispatchEvent(new Event('online'))
+      })
+    await waitFor(() => expect(hook.current.queueNotice).toContain('계속 받지 못하고'))
+    expect(await queue.count()).toBe(1)
+
+    h.send.mockResolvedValue(result('OK'))
+    await act(async () => {
+      window.dispatchEvent(new Event('online'))
+    })
+
+    await waitFor(() => expect(hook.current.pending).toBe(0))
+    expect(hook.current.queueNotice).toBeNull()
+  })
+
   it('늦게 보낸 캡처를 서버가 거부하면 알림만 남기고 큐에서 뺀다', async () => {
     const queue = await useRealQueue()
     h.send.mockRejectedValue(new NetworkError(new TypeError('fetch failed')))
