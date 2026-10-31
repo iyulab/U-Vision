@@ -33,6 +33,8 @@ public static class MetricsAggregator
         // 오라클↔사람 비교(④-B) — operative·oracle 둘 다 있는 건만(순수 파생, 항상 최신). 같은 패스에서 집계.
         int audited = 0, labelConsistent = 0, labelConflictsOpen = 0;
         int oracleEvaluated = 0, oracleConflicts = 0;
+        // 감사의 양성/음성별 일치(2x2) — 처음 매긴 라벨(행) × 블라인드 재라벨(열), 불량(NG 쪽) 여부로.
+        int auditNgNg = 0, auditNgOk = 0, auditOkNg = 0, auditOkOk = 0;
         // 학습용 출제(능동 선택)로 모은 라벨은 어려운 사례가 농축된 표본이라 측정(재현율 · 격상 신호 · 일관성)이 읽지 않는다 —
         // 읽으면 재현율이 어려운 쪽으로 치우친다.
         var measured = labels.Where(l => !l.IsLearnStream).ToList();
@@ -44,6 +46,14 @@ public static class MetricsAggregator
                 case LabelAuditStatus.Conflicted: audited++; labelConflictsOpen++; break;
                 case LabelAuditStatus.Resolved: audited++; break;
                 // unaudited → 집계 제외
+            }
+
+            if (FirstAuditPair(l) is var (first, reLabeled))
+            {
+                var firstNg = isNg(first);
+                var reNg = isNg(reLabeled);
+                if (firstNg) { if (reNg) auditNgNg++; else auditNgOk++; }
+                else { if (reNg) auditOkNg++; else auditOkOk++; }
             }
 
             if (l.OperativeLabel is { } op && l.LatestOracleOpinion is { } oracle)
@@ -173,6 +183,10 @@ public static class MetricsAggregator
             Audited = audited,
             LabelConsistent = labelConsistent,
             LabelConflictsOpen = labelConflictsOpen,
+            AuditNgNg = auditNgNg,
+            AuditNgOk = auditNgOk,
+            AuditOkNg = auditOkNg,
+            AuditOkOk = auditOkOk,
             OracleEvaluated = oracleEvaluated,
             OracleConflicts = oracleConflicts,
             OraclePending = oraclePending,
@@ -195,11 +209,38 @@ public static class MetricsAggregator
             VlmFalseAlarmRate = Rate(vlmFalseAlarms, labeledOk),
             MlFalseAlarmRate = Rate(mlFalseAlarms, mlOkScored),
             LabelConsistencyRate = Rate(labelConsistent, audited),
+            AuditPositiveAgreement = SpecificAgreement(auditNgNg, auditNgOk + auditOkNg),
+            AuditNegativeAgreement = SpecificAgreement(auditOkOk, auditNgOk + auditOkNg),
             OracleConsistencyRate = Rate(oracleEvaluated - oracleConflicts, oracleEvaluated),
             OracleCoverageRate = Rate(reviews - oraclePending, reviews),
             PromotionEligible = eligible,
         };
     }
+
+    /// <summary>
+    /// 한 라벨의 첫 블라인드 재라벨과 그때 효력이 있던 라벨의 쌍 = history 에서 첫 <see cref="LabelMode.Audit"/> 이벤트와 그 앞의
+    /// 마지막 <see cref="LabelMode.Label"/> 이벤트. 첫 재라벨만 읽는 이유 — 충돌이 해소된 뒤의 재감사는 이미 한 번 고쳐진 라벨과
+    /// 견주므로 처음 라벨의 반복성을 재지 못한다. 재라벨이 없거나 앞선 라벨이 없으면 null.
+    /// </summary>
+    private static (string First, string ReLabeled)? FirstAuditPair(StoredLabel l)
+    {
+        if (l.History is not { } history) return null;
+        string? prior = null;
+        foreach (var e in history)
+        {
+            if (e.Mode == LabelMode.Label) prior = e.Label;
+            else if (e.Mode == LabelMode.Audit)
+                return prior is null ? null : (prior, e.Label);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// 양성/음성별 일치(Cicchetti–Feinstein) = 2a / (2a + b + c) — a 는 둘 다 그 쪽으로 매긴 쌍, b+c 는 갈린 쌍. 한 쪽 클래스가 드물 때
+    /// 전체 일치율이 그 쪽의 불일치를 가리는 것(κ 패러독스)을 클래스마다 따로 보여 준다. 분모 0 이면 null.
+    /// </summary>
+    private static double? SpecificAgreement(int both, int discordant) =>
+        2 * both + discordant == 0 ? null : 2.0 * both / (2 * both + discordant);
 
     private static bool IsBinaryNg(string label) =>
         string.Equals(label, NgLabel, StringComparison.OrdinalIgnoreCase);

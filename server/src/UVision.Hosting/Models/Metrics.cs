@@ -138,6 +138,21 @@ public sealed record MetricsSummary
     /// <summary>미해소 충돌(conflicted) 라벨 수 — 검토 액션 큐.</summary>
     [JsonPropertyName("label_conflicts_open")] public required int LabelConflictsOpen { get; init; }
 
+    /// <summary>
+    /// 감사 쌍(처음 라벨 × 첫 블라인드 재라벨, 불량 쪽인지로 이분)의 칸 — 둘 다 불량. 학습용 라벨은 들지 않는다.
+    /// 감사 쌍이 없으면 네 칸 모두 0. <c>audited</c> 와 달리 충돌이 해소된 뒤의 재감사는 세지 않는다.
+    /// </summary>
+    [JsonPropertyName("audit_ng_ng")] public int AuditNgNg { get; init; }
+
+    /// <summary>감사 쌍 가운데 처음 불량으로 매겼는데 재라벨이 정상인 건.</summary>
+    [JsonPropertyName("audit_ng_ok")] public int AuditNgOk { get; init; }
+
+    /// <summary>감사 쌍 가운데 처음 정상으로 매겼는데 재라벨이 불량인 건.</summary>
+    [JsonPropertyName("audit_ok_ng")] public int AuditOkNg { get; init; }
+
+    /// <summary>감사 쌍 가운데 둘 다 정상인 건.</summary>
+    [JsonPropertyName("audit_ok_ok")] public int AuditOkOk { get; init; }
+
     /// <summary>오라클 2차 소견과 operative 라벨을 모두 가진 건(④-B 계통편향 비교 분모). 둘 중 하나라도 없으면 제외.</summary>
     [JsonPropertyName("oracle_evaluated")] public required int OracleEvaluated { get; init; }
 
@@ -206,6 +221,15 @@ public sealed record MetricsSummary
     /// 참값 대비 지표는 NG recall · 오경보율(위)이고 그 참값은 2인 독립 판정으로 만든 정답을 뜻한다.
     /// </summary>
     [JsonPropertyName("label_consistency_rate")] public double? LabelConsistencyRate { get; init; }
+
+    /// <summary>
+    /// 불량(양성) 일치 = 2·audit_ng_ng / (2·audit_ng_ng + audit_ng_ok + audit_ok_ng). 감사 쌍 가운데 불량이 한 건도 없으면 null.
+    /// 불량이 드물면 <c>label_consistency_rate</c> 가 높아도 이 값은 낮을 수 있다 — 드문 클래스의 일치를 따로 본다.
+    /// </summary>
+    [JsonPropertyName("audit_positive_agreement")] public double? AuditPositiveAgreement { get; init; }
+
+    /// <summary>정상(음성) 일치 = 2·audit_ok_ok / (2·audit_ok_ok + audit_ng_ok + audit_ok_ng). 정상 쌍이 없으면 null.</summary>
+    [JsonPropertyName("audit_negative_agreement")] public double? AuditNegativeAgreement { get; init; }
 
     /// <summary>
     /// 오라클↔사람 일관성률 = (oracle_evaluated − oracle_conflicts) / oracle_evaluated. 비교 0 건이면 null.

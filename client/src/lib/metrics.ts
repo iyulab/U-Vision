@@ -46,6 +46,27 @@ export function falseAlarmLead(vlm: number | null, ml: number | null): RecallLea
 }
 
 /**
+ * 감사(블라인드 재라벨)의 불량 쪽 · 정상 쪽 일치 한 줄 — 감사 쌍이 없으면 null. 전체 일관성률은 정상이 압도적일 때 불량 쪽의
+ * 갈림을 가리므로(κ 패러독스) 두 클래스를 따로 보인다. 괄호의 쌍 수는 그 일치율의 분모 칸(둘 다 그 클래스인 쌍 + 갈린 쌍)이다.
+ */
+export function auditAgreementLine(
+  s: Pick<
+    MetricsSummary,
+    | 'audit_ng_ng'
+    | 'audit_ng_ok'
+    | 'audit_ok_ng'
+    | 'audit_ok_ok'
+    | 'audit_positive_agreement'
+    | 'audit_negative_agreement'
+  >,
+): string | null {
+  const ngSeen = s.audit_ng_ng + s.audit_ng_ok + s.audit_ok_ng
+  const okSeen = s.audit_ok_ok + s.audit_ng_ok + s.audit_ok_ng
+  if (s.audit_ng_ng + s.audit_ng_ok + s.audit_ok_ng + s.audit_ok_ok === 0) return null
+  return `불량 일치 ${formatPercent(s.audit_positive_agreement)} (불량으로 본 쌍 ${ngSeen}) · 정상 일치 ${formatPercent(s.audit_negative_agreement)} (정상으로 본 쌍 ${okSeen})`
+}
+
+/**
  * 시험 데이터셋에서 넣은 판정이 집계에 있으면 그 사실 한 줄 — 없으면 null. 전부 주입이면 현장 수치가 아니라는 것을,
  * 일부면 섞여 있다는 것을 말한다.
  */

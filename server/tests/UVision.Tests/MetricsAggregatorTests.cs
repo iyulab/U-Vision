@@ -479,6 +479,98 @@ public class MetricsAggregatorTests
         Assert.Equal(0, s.LabeledOk);
     }
 
+    // --- 감사의 양성/음성별 일치 (κ 패러독스 보완) ---
+
+    /// <summary>처음 라벨 → 블라인드 재라벨 순서의 history 를 가진 라벨 한 건. <paramref name="resolution"/> 이 있으면 충돌 해소 라벨과 그 뒤 재감사를 덧붙인다.</summary>
+    private static StoredLabel AuditedPair(string id, string first, string reLabel, string? stream = null, string? resolution = null)
+    {
+        var history = new List<LabelEvent>
+        {
+            new() { Label = first, By = "dev", At = "t1", Mode = LabelMode.Label, Stream = stream },
+            new() { Label = reLabel, By = "dev2", At = "t2", Mode = LabelMode.Audit },
+        };
+        if (resolution is not null)
+        {
+            history.Add(new LabelEvent { Label = resolution, By = "dev", At = "t3", Mode = LabelMode.Label, Stream = stream });
+            history.Add(new LabelEvent { Label = resolution, By = "dev2", At = "t4", Mode = LabelMode.Audit });
+        }
+        return new StoredLabel
+        {
+            ImageId = id, Label = resolution ?? first, Timestamp = "t", History = history,
+            Audit = new LabelAudit { Status = first == reLabel ? LabelAuditStatus.Consistent : LabelAuditStatus.Conflicted },
+        };
+    }
+
+    [Fact]
+    public void AuditAgreement_SplitsByDefectSide_WithSpecificAgreement()
+    {
+        var labels = new[]
+        {
+            AuditedPair("a", "NG", "NG"), AuditedPair("b", "NG", "OK"), AuditedPair("c", "OK", "NG"),
+            AuditedPair("d", "OK", "OK"), AuditedPair("e", "OK", "OK"),
+        };
+
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], labels, new AuthorityOptions());
+
+        Assert.Equal((1, 1, 1, 2), (s.AuditNgNg, s.AuditNgOk, s.AuditOkNg, s.AuditOkOk));
+        Assert.Equal(0.5, s.AuditPositiveAgreement);                       // 2·1 / (2·1 + 2)
+        Assert.Equal(2.0 / 3.0, s.AuditNegativeAgreement!.Value, 9);       // 2·2 / (2·2 + 2)
+    }
+
+    [Fact]
+    public void AuditAgreement_RareDefects_ShowLowPositiveAgreementBehindHighOverallAgreement()
+    {
+        // 정상 95 건은 모두 일치, 불량 5 건은 단 한 건도 일치하지 않는다 — 전체 일치율은 95 % 인데 불량 일치는 0 이다.
+        var labels = new List<StoredLabel>();
+        for (var i = 0; i < 95; i++) labels.Add(AuditedPair($"ok{i}", "OK", "OK"));
+        for (var i = 0; i < 3; i++) labels.Add(AuditedPair($"ng{i}", "NG", "OK"));
+        for (var i = 0; i < 2; i++) labels.Add(AuditedPair($"fa{i}", "OK", "NG"));
+
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], labels, new AuthorityOptions());
+
+        Assert.Equal(0.95, s.LabelConsistencyRate);
+        Assert.Equal(0.0, s.AuditPositiveAgreement);
+        Assert.True(s.AuditNegativeAgreement > 0.97);
+    }
+
+    [Fact]
+    public void AuditAgreement_ReadsOnlyTheFirstReLabel_AndSkipsLearnStream()
+    {
+        var labels = new[]
+        {
+            // 첫 재라벨은 (NG, OK) — 해소된 뒤의 재감사 (OK, OK) 는 세지 않는다.
+            AuditedPair("a", "NG", "OK", resolution: "OK"),
+            // 학습용 출제로 모은 라벨은 측정이 읽지 않는다.
+            AuditedPair("b", "NG", "NG", stream: LabelStream.Learn),
+        };
+
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], labels, new AuthorityOptions());
+
+        Assert.Equal((0, 1, 0, 0), (s.AuditNgNg, s.AuditNgOk, s.AuditOkNg, s.AuditOkOk));
+    }
+
+    [Fact]
+    public void AuditAgreement_IsNullWithoutPairs()
+    {
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], [Label("a", "NG")], new AuthorityOptions());
+
+        Assert.Equal(0, s.AuditNgNg + s.AuditNgOk + s.AuditOkNg + s.AuditOkOk);
+        Assert.Null(s.AuditPositiveAgreement);
+        Assert.Null(s.AuditNegativeAgreement);
+    }
+
+    [Fact]
+    public void AuditAgreement_UsesTheScenariosDefectSide_ForMultiClassLabels()
+    {
+        // 불량 유형을 나누는 시나리오 — 모든 유형이 불량 쪽이라 유형이 달라도 «둘 다 불량» 으로 센다.
+        var labels = new[] { AuditedPair("a", "scratch", "dent"), AuditedPair("b", "ok", "ok") };
+
+        var s = MetricsAggregator.Summarize("demo", "2026-06-22", [], labels, new AuthorityOptions(), label => label != "ok");
+
+        Assert.Equal((1, 0, 0, 1), (s.AuditNgNg, s.AuditNgOk, s.AuditOkNg, s.AuditOkOk));
+        Assert.Equal(1.0, s.AuditPositiveAgreement);
+    }
+
     [Fact]
     public void PromotionEligible_NullWhenNgSamplesTooFew_EvenIfWindowMet()
     {

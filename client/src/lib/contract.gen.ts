@@ -441,6 +441,10 @@ export interface MetricsSummary {
   audited: number
   label_consistent: number
   label_conflicts_open: number
+  audit_ng_ng: number
+  audit_ng_ok: number
+  audit_ok_ng: number
+  audit_ok_ok: number
   oracle_evaluated: number
   oracle_conflicts: number
   oracle_pending: number
@@ -462,6 +466,8 @@ export interface MetricsSummary {
   ml_false_alarm_rate: null | number
   fail_closed_rate: null | number
   label_consistency_rate: null | number
+  audit_positive_agreement: null | number
+  audit_negative_agreement: null | number
   oracle_consistency_rate: null | number
   oracle_coverage_rate: null | number
   promotion_eligible?: boolean

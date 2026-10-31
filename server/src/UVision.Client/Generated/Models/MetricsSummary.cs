@@ -20,6 +20,18 @@ namespace UVision.Client.Models
         public int? Agreements { get; set; }
         /// <summary>The audited property</summary>
         public int? Audited { get; set; }
+        /// <summary>The audit_negative_agreement property</summary>
+        public double? AuditNegativeAgreement { get; set; }
+        /// <summary>The audit_ng_ng property</summary>
+        public int? AuditNgNg { get; set; }
+        /// <summary>The audit_ng_ok property</summary>
+        public int? AuditNgOk { get; set; }
+        /// <summary>The audit_ok_ng property</summary>
+        public int? AuditOkNg { get; set; }
+        /// <summary>The audit_ok_ok property</summary>
+        public int? AuditOkOk { get; set; }
+        /// <summary>The audit_positive_agreement property</summary>
+        public double? AuditPositiveAgreement { get; set; }
         /// <summary>The contested property</summary>
         public int? Contested { get; set; }
         /// <summary>The dataset_inspections property</summary>
@@ -131,6 +143,12 @@ namespace UVision.Client.Models
             {
                 { "agreement_rate", n => { AgreementRate = n.GetDoubleValue(); } },
                 { "agreements", n => { Agreements = n.GetIntValue(); } },
+                { "audit_negative_agreement", n => { AuditNegativeAgreement = n.GetDoubleValue(); } },
+                { "audit_ng_ng", n => { AuditNgNg = n.GetIntValue(); } },
+                { "audit_ng_ok", n => { AuditNgOk = n.GetIntValue(); } },
+                { "audit_ok_ng", n => { AuditOkNg = n.GetIntValue(); } },
+                { "audit_ok_ok", n => { AuditOkOk = n.GetIntValue(); } },
+                { "audit_positive_agreement", n => { AuditPositiveAgreement = n.GetDoubleValue(); } },
                 { "audited", n => { Audited = n.GetIntValue(); } },
                 { "contested", n => { Contested = n.GetIntValue(); } },
                 { "dataset_inspections", n => { DatasetInspections = n.GetIntValue(); } },
@@ -180,6 +198,12 @@ namespace UVision.Client.Models
             writer.WriteDoubleValue("agreement_rate", AgreementRate);
             writer.WriteIntValue("agreements", Agreements);
             writer.WriteIntValue("audited", Audited);
+            writer.WriteDoubleValue("audit_negative_agreement", AuditNegativeAgreement);
+            writer.WriteIntValue("audit_ng_ng", AuditNgNg);
+            writer.WriteIntValue("audit_ng_ok", AuditNgOk);
+            writer.WriteIntValue("audit_ok_ng", AuditOkNg);
+            writer.WriteIntValue("audit_ok_ok", AuditOkOk);
+            writer.WriteDoubleValue("audit_positive_agreement", AuditPositiveAgreement);
             writer.WriteIntValue("contested", Contested);
             writer.WriteIntValue("dataset_inspections", DatasetInspections);
             writer.WriteStringValue("date", Date);

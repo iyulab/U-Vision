@@ -5,7 +5,7 @@ import { useResource } from '../hooks/useResource'
 import { getMemory, getMetrics, getTrainingReadiness, listResultDates } from '../lib/api'
 import { classNameOf } from '../lib/labels'
 import { formatDistance, hasMiss, memoryStatusLine } from '../lib/memory'
-import { datasetNotice, falseAlarmLead, formatPercent, fraction, hasNoMetricData, recallLead } from '../lib/metrics'
+import { auditAgreementLine, datasetNotice, falseAlarmLead, formatPercent, fraction, hasNoMetricData, recallLead } from '../lib/metrics'
 import { readinessLine } from '../lib/training'
 import type { MemoryReport, MetricsSummary, Scenario } from '../lib/types'
 
@@ -187,6 +187,7 @@ function Cards({ summary }: { summary: MetricsSummary }) {
   const lead = recallLead(summary.vlm_ng_recall, summary.ml_ng_recall)
   const alarmLead = falseAlarmLead(summary.vlm_false_alarm_rate, summary.ml_false_alarm_rate)
   const notice = datasetNotice(summary)
+  const auditLine = auditAgreementLine(summary)
 
   return (
     <div className="space-y-6">
@@ -231,6 +232,11 @@ function Cards({ summary }: { summary: MetricsSummary }) {
           warn={summary.label_conflicts_open > 0}
         />
       </div>
+      {auditLine && (
+        <p className="text-xs text-slate-400">
+          감사 · {auditLine} — 불량이 드물면 위 라벨 일관성만으로는 불량 쪽의 갈림이 가려집니다.
+        </p>
+      )}
 
       {/* NG recall 비교 — 플라이휠의 핵심 질문: ML 이 VLM 이 놓친 불량을 잡는가. */}
       <div className="rounded-2xl border border-slate-700 bg-slate-800/50 p-5">
