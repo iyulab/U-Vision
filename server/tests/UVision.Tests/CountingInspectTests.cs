@@ -127,6 +127,7 @@ public class CountingInspectTests
         Assert.Equal(0, count.GetProperty("tolerance").GetInt32());
         Assert.Equal(0.5, count.GetProperty("min_confidence").GetDouble());
         Assert.False(count.GetProperty("uncertain").GetBoolean());
+        Assert.False(count.TryGetProperty("near_boxes", out _)); // 근처 상자가 없으면 필드가 없다
         Assert.Equal(3, count.GetProperty("boxes").GetArrayLength());
         Assert.Equal("sha-abc", count.GetProperty("model_sha256").GetString());
         // 흔들림 · 검토가 없으면 그 신호가 응답에 없다.
@@ -199,6 +200,10 @@ public class CountingInspectTests
 
         Assert.Equal("NG", body.GetProperty("class").GetString());
         Assert.True(body.GetProperty("count").GetProperty("uncertain").GetBoolean());
+        // 흔들림의 원인 — 세지 않은 근처 상자(0.45)가 응답에 실려 확인하는 사람이 사진에서 찾는다.
+        var near = Assert.Single(body.GetProperty("count").GetProperty("near_boxes").EnumerateArray());
+        Assert.Equal(0.45, near.GetProperty("confidence").GetDouble());
+        Assert.Equal(3, body.GetProperty("count").GetProperty("boxes").GetArrayLength());
         Assert.True(body.GetProperty("requires_review").GetBoolean());
         Assert.Equal("review_block", body.GetProperty("posture").GetString());
     }

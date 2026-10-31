@@ -79,6 +79,27 @@ public class CountEvaluatorTests
     }
 
     [Fact]
+    public void NearBoxes_AreTheUncountedBoxesJustBelowTheThreshold_OfTheCountedKindsOnly()
+    {
+        var detections = new[]
+        {
+            D("pill", 0.95), D("pill", 0.45),   // 0.45: 문턱 0.5 아래 · 띠(0.1) 안 → 근처
+            D("pill", 0.20),                    // 띠 밖 — 근처가 아니다
+            D("head", 0.45),                    // 세는 종류가 아니다
+        };
+
+        var r = CountEvaluator.Count(detections, 0.5, ["pill"], expected: 2, tolerance: 0);
+
+        Assert.Equal([0.45], r.NearBoxes.Select(b => b.Confidence));
+        Assert.Equal("pill", Assert.Single(r.NearBoxes).Class);
+        Assert.Single(r.Boxes); // 센 것은 0.95 하나 — 근처 상자는 세지 않았다
+    }
+
+    [Fact]
+    public void WithoutBoxesJustBelowTheThreshold_NearBoxesIsEmpty() =>
+        Assert.Empty(CountEvaluator.Count([D("pill", 0.95), D("pill", 0.1)], 0.5, null, expected: 1, tolerance: 0).NearBoxes);
+
+    [Fact]
     public void ANearThresholdBox_ThatCannotChangeTheVerdict_DoesNotMakeItUncertain()
     {
         // 기대 3 · 허용 1: 2 개든 3 개든 범위 안이다 — 문턱 근처 상자가 결론을 못 바꾼다.

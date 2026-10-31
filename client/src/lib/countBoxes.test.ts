@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { boxStyles, countSummary, NEAR_THRESHOLD_BAND } from './countBoxes'
+import { boxStyles, countSummary, NEAR_THRESHOLD_BAND, nearBoxStyles } from './countBoxes'
 
 const box = (x: number, confidence: number, cls = 'pill') => ({ class: cls, x, y: 0.2, w: 0.1, h: 0.3, confidence })
 
@@ -27,6 +27,14 @@ describe('boxStyles', () => {
 
   it('상자가 없으면 빈 목록', () => {
     expect(boxStyles({ min_confidence: 0.5, boxes: [] })).toEqual([])
+  })
+})
+
+describe('nearBoxStyles', () => {
+  it('세지 않은 근처 상자를 그릴 사각형으로 — 언제나 near, 없으면 빈 목록', () => {
+    expect(nearBoxStyles({})).toEqual([])
+    const [s] = nearBoxStyles({ near_boxes: [box(0.5, 0.45)] })
+    expect(s).toMatchObject({ left: 50, label: 'pill', confidence: 0.45, near: true })
   })
 })
 

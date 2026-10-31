@@ -42,6 +42,14 @@ namespace UVision.Client.Models
 #else
         public string ModelSha256 { get; set; }
 #endif
+        /// <summary>The near_boxes property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::UVision.Client.Models.CountBox>? NearBoxes { get; set; }
+#nullable restore
+#else
+        public List<global::UVision.Client.Models.CountBox> NearBoxes { get; set; }
+#endif
         /// <summary>The tolerance property</summary>
         public int? Tolerance { get; set; }
         /// <summary>The total property</summary>
@@ -78,6 +86,7 @@ namespace UVision.Client.Models
                 { "expected", n => { Expected = n.GetIntValue(); } },
                 { "min_confidence", n => { MinConfidence = n.GetDoubleValue(); } },
                 { "model_sha256", n => { ModelSha256 = n.GetStringValue(); } },
+                { "near_boxes", n => { NearBoxes = n.GetCollectionOfObjectValues<global::UVision.Client.Models.CountBox>(global::UVision.Client.Models.CountBox.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "tolerance", n => { Tolerance = n.GetIntValue(); } },
                 { "total", n => { Total = n.GetIntValue(); } },
                 { "uncertain", n => { Uncertain = n.GetBoolValue(); } },
@@ -95,6 +104,7 @@ namespace UVision.Client.Models
             writer.WriteIntValue("expected", Expected);
             writer.WriteDoubleValue("min_confidence", MinConfidence);
             writer.WriteStringValue("model_sha256", ModelSha256);
+            writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.CountBox>("near_boxes", NearBoxes);
             writer.WriteIntValue("tolerance", Tolerance);
             writer.WriteIntValue("total", Total);
             writer.WriteBoolValue("uncertain", Uncertain);

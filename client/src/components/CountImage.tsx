@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import { resultImageUrl } from '../lib/api'
-import { boxStyles, countSummary } from '../lib/countBoxes'
+import { boxStyles, countSummary, nearBoxStyles } from '../lib/countBoxes'
 import type { CountInfo } from '../lib/types'
 
 /**
@@ -21,6 +21,7 @@ export function CountImage({
 }) {
   const [show, setShow] = useState(true)
   const boxes = boxStyles(count)
+  const uncounted = nearBoxStyles(count)
   const near = boxes.filter((b) => b.near).length
 
   return (
@@ -35,6 +36,16 @@ export function CountImage({
                 data-near={b.near}
                 title={`${b.label} ${(b.confidence * 100).toFixed(0)}%`}
                 className={`absolute border-2 ${b.near ? 'border-amber-400' : 'border-emerald-400'}`}
+                style={{ left: `${b.left}%`, top: `${b.top}%`, width: `${b.width}%`, height: `${b.height}%` }}
+              />
+            ))}
+            {/* 세지 않았지만 문턱 바로 아래 — 점선. 이 상자를 넣었다면 개수(판정)가 달라졌을 것이다. */}
+            {uncounted.map((b, i) => (
+              <div
+                key={`u${i}`}
+                data-uncounted="true"
+                title={`세지 않음 · ${b.label} ${(b.confidence * 100).toFixed(0)}%`}
+                className="absolute border-2 border-dashed border-amber-400"
                 style={{ left: `${b.left}%`, top: `${b.top}%`, width: `${b.width}%`, height: `${b.height}%` }}
               />
             ))}
@@ -56,6 +67,9 @@ export function CountImage({
         <span className="text-slate-200">{countSummary(count)}</span>
         <span>신뢰도 {count.min_confidence} 이상만 센다</span>
         {near > 0 && <span className="text-amber-300">노란 상자 {near}개는 문턱 근처 — 넣고 빼는 데 따라 판정이 바뀔 수 있다</span>}
+        {uncounted.length > 0 && (
+          <span className="text-amber-300">점선 상자 {uncounted.length}개는 세지 않았지만 문턱 바로 아래 — 이것을 넣으면 개수가 달라진다</span>
+        )}
         {count.uncertain && <span className="text-amber-300">흔들리는 판정이라 NG · 사람 확인 대상</span>}
       </div>
     </div>

@@ -351,7 +351,8 @@ public sealed class InspectionPipeline(
             Tolerance = counted.Tolerance!.Value,
             MinConfidence = minConfidence,
             Uncertain = counted.Uncertain,
-            Boxes = [.. counted.Boxes.Select(b => new CountBox { Class = b.Class, X = b.X, Y = b.Y, W = b.W, H = b.H, Confidence = b.Confidence })],
+            Boxes = [.. counted.Boxes.Select(BoxOf)],
+            NearBoxes = counted.NearBoxes.Count == 0 ? null : [.. counted.NearBoxes.Select(BoxOf)],
             ModelSha256 = detected.ModelSha256,
         };
         // 흔들리는 사진은 NG 로 두고 확인 전까지 다음 캡처를 막는다 — 개수를 못 믿는 채 흘려보내지 않는다.
@@ -437,6 +438,9 @@ public sealed class InspectionPipeline(
             },
             v2);
     }
+
+    private static CountBox BoxOf(Detection b) =>
+        new() { Class = b.Class, X = b.X, Y = b.Y, W = b.W, H = b.H, Confidence = b.Confidence };
 
     /// <summary>센 결과의 한 줄 소견 — 센 수, 기대와 허용, 문턱, 그리고 왜 NG 인지.</summary>
     private static string FindingsOf(CountResult counted, double minConfidence)

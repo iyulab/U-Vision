@@ -231,6 +231,7 @@ export interface CountInfo {
   min_confidence: number
   uncertain: boolean
   boxes: CountBox[]
+  near_boxes?: CountBox[]
   model_sha256?: string
 }
 /**

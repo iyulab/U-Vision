@@ -31,6 +31,13 @@ public sealed record CountInfo
     /// <summary>센 상자 — 근거로 보인다.</summary>
     [JsonPropertyName("boxes")] public required IReadOnlyList<CountBox> Boxes { get; init; }
 
+    /// <summary>
+    /// 세지 않았지만 문턱 바로 아래(0.1 안)인 상자 — 있으면 넣고 빼는 데 따라 판정이 바뀔 수 있다. 없으면 생략한다.
+    /// </summary>
+    [JsonPropertyName("near_boxes")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<CountBox>? NearBoxes { get; init; }
+
     /// <summary>상자를 낸 검출 모델 파일의 SHA-256 — 서버가 알려 줄 때만. 이 개수가 어느 모델의 것인지 남기는 출처.</summary>
     [JsonPropertyName("model_sha256")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

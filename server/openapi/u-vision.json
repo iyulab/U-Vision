@@ -3055,6 +3055,12 @@
               "$ref": "#/components/schemas/CountBox"
             }
           },
+          "near_boxes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CountBox"
+            }
+          },
           "model_sha256": {
             "type": "string"
           }

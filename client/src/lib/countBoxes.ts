@@ -16,9 +16,26 @@ export interface BoxStyle {
   near: boolean
 }
 
+const clamp = (v: number) => Math.min(100, Math.max(0, v * 100))
+
+/**
+ * 세지 않은 문턱 근처 상자 → 그릴 사각형(점선). 세지 않았으므로 `near` 는 언제나 참이다 — 넣었다면 개수가 달라졌을 상자라
+ * 확인하는 사람이 사진에서 이것을 찾는다.
+ */
+export function nearBoxStyles(count: Pick<CountInfo, 'near_boxes'>): BoxStyle[] {
+  return (count.near_boxes ?? []).map((b) => ({
+    left: clamp(b.x),
+    top: clamp(b.y),
+    width: clamp(b.w),
+    height: clamp(b.h),
+    label: b.class,
+    confidence: b.confidence,
+    near: true,
+  }))
+}
+
 /** 근거 상자 → 그릴 사각형. 이미지 밖으로 나간 값은 0~100 으로 자른다. */
 export function boxStyles(count: Pick<CountInfo, 'boxes' | 'min_confidence'>): BoxStyle[] {
-  const clamp = (v: number) => Math.min(100, Math.max(0, v * 100))
   return count.boxes.map((b) => ({
     left: clamp(b.x),
     top: clamp(b.y),

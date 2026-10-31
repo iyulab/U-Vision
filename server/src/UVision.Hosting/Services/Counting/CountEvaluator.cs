@@ -14,6 +14,12 @@ public sealed record CountResult
     /// <summary>센 상자(근거로 보인다).</summary>
     public required IReadOnlyList<Detection> Boxes { get; init; }
 
+    /// <summary>
+    /// 세지 않았지만 문턱 바로 아래(띠 안)라 «넣었다면 개수가 달라졌을» 상자 — 흔들림의 원인을 사람이 사진에서 찾게 한다.
+    /// 세는 종류가 아닌 상자는 들지 않는다.
+    /// </summary>
+    public IReadOnlyList<Detection> NearBoxes { get; init; } = [];
+
     public int? Expected { get; init; }
 
     public int? Tolerance { get; init; }
@@ -64,6 +70,7 @@ public static class CountEvaluator
             ByClass = boxes.GroupBy(d => d.Class, StringComparer.Ordinal)
                 .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal),
             Boxes = boxes,
+            NearBoxes = [.. counted.Where(d => d.Confidence < minConfidence && d.Confidence >= minConfidence - uncertainBand)],
             Expected = expected,
             Tolerance = tol,
             WithinRange = expected is { } exp ? Within(boxes.Count, exp, tol!.Value) : null,
