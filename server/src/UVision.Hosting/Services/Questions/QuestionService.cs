@@ -210,6 +210,8 @@ public sealed class QuestionService
                 Stream = LabelStream.Learn,
                 Reason = pick.Reason,
                 Score = pick.Score,
+                PoolSize = pick.PoolSize,
+                RandomFloor = pick.RandomFloor,
                 CreatedAt = _clock.GetUtcNow().UtcDateTime.ToString("o", CultureInfo.InvariantCulture),
                 AskedTo = by,
                 State = QuestionState.Open,
@@ -317,7 +319,7 @@ public sealed class QuestionService
     private QuestionPick Pick(IReadOnlyList<QuestionCandidate> pool) =>
         _options.Rule == QuestionsOptions.UncertainRule
             ? QuestionSelector.Pick(pool, new QuestionPolicy(_options.RandomFloor), _rng)!
-            : new QuestionPick(pool[_rng.Next(pool.Count)], QuestionReason.Random, null);
+            : new QuestionPick(pool[_rng.Next(pool.Count)], QuestionReason.Random, null, pool.Count);
 
     /// <summary>오늘부터 거슬러 올라가는 후보 날짜 창(UTC 날짜 버킷, 결과의 날짜 버킷과 같다).</summary>
     private List<string> WindowDates()

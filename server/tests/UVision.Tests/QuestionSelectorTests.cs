@@ -59,6 +59,20 @@ public class QuestionSelectorTests
     }
 
     [Fact]
+    public void EveryPick_RecordsThePoolSizeAndTheFloorItWasMadeUnder()
+    {
+        var pool = new[] { C("a", 0.9), C("b", 0.1), C("c", 0.2), C("d", null) };
+
+        var uncertain = QuestionSelector.Pick(pool, new QuestionPolicy(0.0), new Random(1))!;
+        var floor = QuestionSelector.Pick(pool, new QuestionPolicy(1.0), new Random(1))!;
+        var cold = QuestionSelector.Pick([C("x", null), C("y", null)], new QuestionPolicy(0.25), new Random(1))!;
+
+        Assert.Equal((QuestionReason.Uncertain, 4, 0.0), (uncertain.Reason, uncertain.PoolSize, uncertain.RandomFloor));
+        Assert.Equal((QuestionReason.RandomFloor, 4, 1.0), (floor.Reason, floor.PoolSize, floor.RandomFloor));
+        Assert.Equal((QuestionReason.ColdStart, 2, 0.25), (cold.Reason, cold.PoolSize, cold.RandomFloor));
+    }
+
+    [Fact]
     public void RandomFloor_MixesInAboutThatShareOfRandomPicks()
     {
         var pool = new[] { C("a", 0.9), C("b", 0.1), C("c", 0.2) };

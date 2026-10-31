@@ -60,6 +60,19 @@ public sealed record StoredQuestion
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? Score { get; init; }
 
+    /// <summary>
+    /// 고르던 순간의 후보 수 — 무작위로 고른 문제(<c>random_floor</c> · <c>cold_start</c> · <c>random</c>)가 그 걸음에서 뽑힐 확률을
+    /// 나중에 다시 만들려고 남긴다. 아직 라벨 확인 전의 수라 확률의 근사다. 심은 문제에는 없다.
+    /// </summary>
+    [JsonPropertyName("pool_size")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? PoolSize { get; init; }
+
+    /// <summary>고르던 순간 걸음마다 무작위로 낼 몫(0 ~ 1) — 무작위 규칙이거나 심은 문제이면 없다.</summary>
+    [JsonPropertyName("random_floor")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? RandomFloor { get; init; }
+
     [JsonPropertyName("created_at")] public required string CreatedAt { get; init; }
 
     /// <summary>

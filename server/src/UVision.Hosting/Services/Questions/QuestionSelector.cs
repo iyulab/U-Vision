@@ -9,8 +9,14 @@ namespace UVision.Api.Services.Questions;
 /// </summary>
 public sealed record QuestionCandidate(string ImageId, string Date, double? Uncertainty, double? PatchScore = null);
 
-/// <summary>고른 후보와 그 이유. <see cref="Score"/> 는 불확실도(확률이 아니다) — 무작위로 골랐으면 null.</summary>
-public sealed record QuestionPick(QuestionCandidate Candidate, string Reason, double? Score);
+/// <summary>
+/// 고른 후보와 그 이유. <see cref="Score"/> 는 불확실도(확률이 아니다) — 무작위로 골랐으면 null.
+/// <see cref="PoolSize"/> · <see cref="RandomFloor"/> 는 고르던 순간의 사실이다 — 후보 수와 무작위로 낼 몫(무작위 규칙이면 null). 무작위로 고른
+/// 사진이 그 걸음에서 뽑힐 확률(<c>RandomFloor / PoolSize</c>, 콜드스타트 · 무작위 규칙은 <c>1 / PoolSize</c>)을 나중에 다시 만들 수 있게 남긴다.
+/// 후보 수에는 아직 라벨 확인을 하지 않은 사진이 섞여 있을 수 있어(고른 뒤 라벨이 있으면 빼고 다시 고른다) 확률의 근사다.
+/// </summary>
+public sealed record QuestionPick(
+    QuestionCandidate Candidate, string Reason, double? Score, int PoolSize = 0, double? RandomFloor = null);
 
 /// <summary>학습용 출제 정책. <see cref="RandomFloor"/> 는 걸음 중 무작위로 낼 몫(0 ~ 1).</summary>
 public sealed record QuestionPolicy(double RandomFloor);
@@ -48,14 +54,14 @@ public static class QuestionSelector
 
         var scored = candidates.Where(c => c.Uncertainty is not null).ToList();
         if (scored.Count == 0)
-            return new(candidates[rng.Next(candidates.Count)], QuestionReason.ColdStart, null);
+            return new(candidates[rng.Next(candidates.Count)], QuestionReason.ColdStart, null, candidates.Count, policy.RandomFloor);
 
         if (policy.RandomFloor > 0 && rng.NextDouble() < policy.RandomFloor)
-            return new(candidates[rng.Next(candidates.Count)], QuestionReason.RandomFloor, null);
+            return new(candidates[rng.Next(candidates.Count)], QuestionReason.RandomFloor, null, candidates.Count, policy.RandomFloor);
 
         // 동률이면 먼저 온 것(입력 순서) — 같은 입력은 같은 답을 낸다.
         var top = scored.MaxBy(c => c.Uncertainty!.Value)!;
-        return new(top, QuestionReason.Uncertain, top.Uncertainty);
+        return new(top, QuestionReason.Uncertain, top.Uncertainty, candidates.Count, policy.RandomFloor);
     }
 }
 

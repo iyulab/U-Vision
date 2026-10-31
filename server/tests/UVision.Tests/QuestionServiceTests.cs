@@ -47,6 +47,8 @@ public class QuestionServiceTests : IDisposable
         Assert.Contains(q.ImageId, new[] { "a", "b", "c" });
         Assert.Equal(QuestionReason.Random, q.Reason);
         Assert.Null(q.Score);
+        Assert.Equal(3, q.PoolSize);
+        Assert.Null(q.RandomFloor);
         Assert.Equal(LabelStream.Learn, q.Stream);
         Assert.Equal(QuestionForm.Single, q.Form);
         Assert.Equal(QuestionState.Open, q.State);
@@ -191,6 +193,8 @@ public class QuestionServiceTests : IDisposable
         Assert.Equal("unsure", q.ImageId);
         Assert.Equal(QuestionReason.Uncertain, q.Reason);
         Assert.Equal(1.05, q.Score);
+        Assert.Equal(3, q.PoolSize);
+        Assert.Equal(0.0, q.RandomFloor);
     }
 
     [Fact]
