@@ -1,7 +1,25 @@
 import { describe, expect, it } from 'vitest'
 
-import { auditAgreementLine, datasetNotice, emptyMetricsNotice, falseAlarmLead, formatPercent, fraction, hasNoMetricData, recallLead } from './metrics'
-import type { MetricsSummary } from './types'
+import { auditAgreementLine, datasetNotice, emptyMetricsNotice, falseAlarmLead, formatPercent, fraction, hasNoMetricData, hasVlmMlMetrics, recallLead } from './metrics'
+import type { CountingMetrics, MetricsSummary } from './types'
+
+const COUNTING: CountingMetrics = {
+  checked: 4,
+  unavailable: 0,
+  ng: 1,
+  uncertain: 0,
+  dataset_checked: 0,
+  composition_checked: 0,
+  with_missing: 0,
+  with_extra: 0,
+  missing_by_kind: {},
+  extra_by_kind: {},
+  ng_rate: 0.25,
+  uncertain_rate: 0,
+  unavailable_rate: 0,
+  missing_rate: null,
+  extra_rate: null,
+}
 
 /** 최소 MetricsSummary 픽스처 — 필수 필드만 채움. */
 function makeSummary(overrides: Partial<MetricsSummary>): MetricsSummary {
@@ -78,9 +96,9 @@ describe('fraction', () => {
 })
 
 describe('emptyMetricsNotice', () => {
-  it('계수 시나리오는 이 지표를 쓰지 않는다고 말한다 — 0 건이 측정값처럼 읽히지 않게', () => {
+  it('계수 시나리오는 «그 날 계수 판정 기록이 없다» 고 말한다 — 줄을 남기기 전 판정은 결과 조회에 있다', () => {
     const notice = emptyMetricsNotice(true)
-    expect(notice.lead).toContain('계수')
+    expect(notice.lead).toContain('계수 판정 기록이 없습니다')
     expect(notice.lead).not.toContain('ML')
     expect(notice.detail).toContain('결과 조회')
   })
@@ -103,6 +121,21 @@ describe('hasNoMetricData', () => {
 
   it('inspections=3·fail_closed=0 → 데이터 있음(false)', () => {
     expect(hasNoMetricData(makeSummary({ inspections: 3 }))).toBe(false)
+  })
+
+  it('계수 관찰만 있는 날(inspections=0) → 데이터 있음(false) — 계수 시나리오가 빈 화면으로 보이던 회귀', () => {
+    expect(hasNoMetricData(makeSummary({ counting: COUNTING }))).toBe(false)
+  })
+})
+
+describe('hasVlmMlMetrics', () => {
+  it('계수만 있는 날은 VLM · ML 카드를 그리지 않는다 — 전부 0 인 칸이 데이터처럼 보이지 않게', () => {
+    expect(hasVlmMlMetrics(makeSummary({ counting: COUNTING }))).toBe(false)
+  })
+
+  it('검사나 fail-closed 가 있으면 그린다(계수와 섞인 날 포함)', () => {
+    expect(hasVlmMlMetrics(makeSummary({ inspections: 2, counting: COUNTING }))).toBe(true)
+    expect(hasVlmMlMetrics(makeSummary({ fail_closed: 1 }))).toBe(true)
   })
 })
 

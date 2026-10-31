@@ -25,6 +25,7 @@ export type MemoryReport = Wire.MemoryReport
 export type AnomalyMap = Wire.AnomalyMap
 export type MemoryReplayRow = Wire.MemoryReplayRow
 export type MetricsSummary = Wire.MetricsSummary
+export type CountingMetrics = Wire.CountingMetrics
 export type AuthorityTransition = Wire.AuthorityTransition
 export type AuthorityState = Wire.AuthorityState
 export type AdminStatus = Wire.AdminStatusResponse

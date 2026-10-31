@@ -17,14 +17,14 @@ export function fraction(numerator: number, denominator: number): string {
 }
 
 /**
- * 메트릭이 비었을 때 보일 안내. 계수 시나리오는 메트릭 행을 쓰지 않으므로(지표는 VLM · ML 의 신뢰도와 일치를 전제로 한
- * 집계의 입력이다) 비어 있는 것이 «0건 판정» 이 아니라 «이 지표를 쓰지 않음» 이다 — 그 둘이 같은 말로 읽히지 않게 가른다.
+ * 메트릭이 비었을 때 보일 안내. 계수 시나리오는 2중체크 · 재현율 지표를 쓰지 않고 계수 관찰(판정마다 남는 줄에서 센다)만 낸다 —
+ * 그 줄이 없는 날은 «지표를 안 쓴다» 가 아니라 «그 날 계수 판정 줄이 없다» 이며, 줄을 남기기 전에 한 판정은 여기 없고 결과 조회에 있다.
  */
 export function emptyMetricsNotice(counting: boolean): { lead: string; detail: string } {
   return counting
     ? {
-        lead: '계수 시나리오는 이 지표(2중체크 · 재현율)를 쓰지 않습니다.',
-        detail: '판정 건수와 센 개수는 결과 조회에서 근거 상자와 함께 봅니다.',
+        lead: '이 날짜에 계수 판정 기록이 없습니다.',
+        detail: '계수 관찰은 판정마다 남는 지표 줄에서 셉니다 — 그 줄을 남기기 전에 한 판정은 여기 없고, 결과 조회에서 근거 상자와 함께 봅니다.',
       }
     : {
         lead: '이 날짜에 ML 2중체크 검사 데이터가 없습니다.',
@@ -32,9 +32,17 @@ export function emptyMetricsNotice(counting: boolean): { lead: string; detail: s
       }
 }
 
-/** 메트릭 데이터(2중체크 또는 fail-closed)가 한 건도 없는가 — 대시보드 empty-state 판정. */
+/** 메트릭 데이터(2중체크 · fail-closed · 계수 관찰)가 한 건도 없는가 — 대시보드 empty-state 판정. */
 export function hasNoMetricData(summary: MetricsSummary): boolean {
-  return summary.inspections + summary.fail_closed === 0
+  return !hasVlmMlMetrics(summary) && !summary.counting
+}
+
+/**
+ * VLM · ML 집계(검사 · 일치 · 재현율 …)에 읽을 것이 있는가. 계수 판정은 이 집계에 들지 않으므로(서버가 갈라 따로 센다) 계수만 있는
+ * 날은 false 이고 이때 이 카드들을 그리면 전부 0 인 칸이 «데이터 있음» 처럼 보인다.
+ */
+export function hasVlmMlMetrics(summary: MetricsSummary): boolean {
+  return summary.inspections + summary.fail_closed > 0
 }
 
 /**

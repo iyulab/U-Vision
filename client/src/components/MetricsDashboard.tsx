@@ -5,12 +5,13 @@ import { useResource } from '../hooks/useResource'
 import { getAmbiguity, getMemory, getMetrics, getSolverTrust, getTrainingReadiness, listResultDates } from '../lib/api'
 import { classNameOf } from '../lib/labels'
 import { formatDistance, hasMiss, memoryStatusLine } from '../lib/memory'
-import { auditAgreementLine, datasetNotice, emptyMetricsNotice, falseAlarmLead, formatPercent, fraction, hasNoMetricData, recallLead } from '../lib/metrics'
+import { auditAgreementLine, datasetNotice, emptyMetricsNotice, falseAlarmLead, formatPercent, fraction, hasNoMetricData, hasVlmMlMetrics, recallLead } from '../lib/metrics'
 import { hasClosedQuestions } from '../lib/ambiguity'
 import { hasPlants } from '../lib/solverTrust'
 import { readinessLine } from '../lib/training'
 import type { MemoryReport, MetricsSummary, Scenario } from '../lib/types'
 import { AmbiguityPanel } from './AmbiguityPanel'
+import { CountingPanel } from './CountingPanel'
 import { SolverTrustPanel } from './SolverTrustPanel'
 
 /**
@@ -120,7 +121,10 @@ export function MetricsDashboard({
           <span className="text-xs text-slate-500">{emptyNotice.detail}</span>
         </p>
       ) : (
-        <Cards summary={summary} />
+        <>
+          {summary.counting && <CountingPanel counting={summary.counting} />}
+          {hasVlmMlMetrics(summary) && <Cards summary={summary} />}
+        </>
       )}
     </div>
   )
