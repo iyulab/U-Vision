@@ -34,6 +34,10 @@ public static class UVisionServiceExtensions
         services.AddSingleton<Services.Memory.CaseMemory>();
         services.AddHostedService<Services.Memory.CaseMemorySyncService>();
 
+        // 객체 검출기(계수의 검출기 단) — 기본 none(단 없음, 현재 동작 무변경). 잘못된 설정은 기동에서 멈춘다.
+        services.AddSingleton(options.Detection);
+        services.AddSingleton<Services.Counting.IObjectDetector>(Services.Counting.ObjectDetectorFactory.Create(options.Detection));
+
         // ML · 기억이 mloop 이면 기동 뒤 한 번 판을 확인해 알린다(로그만 — 판정 · 기동 무변경).
         services.AddHttpClient(Services.Mloop.MloopVersionCheckService.HttpClientName,
             c => c.Timeout = TimeSpan.FromSeconds(5));

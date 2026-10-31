@@ -18,6 +18,9 @@ public sealed class UVisionOptions
     /// <summary>확정 사례 임베딩 기억 단(system 1) 설정. 기본 none = 단 없음.</summary>
     public MemoryOptions Memory { get; set; } = new();
 
+    /// <summary>객체 검출기(계수 시나리오의 검출기 단) 설정. 기본 none = 검출기 없음.</summary>
+    public DetectionOptions Detection { get; set; } = new();
+
     /// <summary>문제 큐(사람이 한 번에 한 사진씩 푸는 라벨링) 설정. 기본은 무작위 출제.</summary>
     public QuestionsOptions Questions { get; set; } = new();
 
