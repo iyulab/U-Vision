@@ -142,6 +142,68 @@ public class CaseMemoryTests
         Assert.Equal(0, configured.GetProperty("missed").GetInt32());
     }
 
+    /// <summary>OK 라벨 둘이 든 하루를 만든다 — 첫 판정은 기억이 비어 거리를 남기지 않아 재생 건은 하나다.</summary>
+    private static async Task SeedTwoLabeledOkAsync(MemoryEnabledFactory factory, HttpClient client)
+    {
+        var image = Jpeg(11);
+        var first = (await (await client.PostAsync("/api/u-vision/inspect", Form(image))).Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("image_id").GetString()!;
+        await client.PutAsJsonAsync("/api/u-vision/results/label", new LabelInput
+        { ScenarioId = "demo", Date = Today, ImageId = first, Label = "OK" });
+        await factory.Services.GetRequiredService<CaseMemory>().SyncOnceAsync(CancellationToken.None);
+        var second = (await (await client.PostAsync("/api/u-vision/inspect", Form(image))).Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("image_id").GetString()!;
+        await client.PutAsJsonAsync("/api/u-vision/results/label", new LabelInput
+        { ScenarioId = "demo", Date = Today, ImageId = second, Label = "OK" });
+    }
+
+    [Fact]
+    public async Task MemoryReport_Recommendation_SaysWhyThereIsNoBasisWithoutDefectLabels()
+    {
+        using var factory = new MemoryEnabledFactory();
+        var client = factory.CreateClient();
+
+        var empty = await (await client.GetAsync("/api/u-vision/memory?scenario_id=demo")).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(empty.TryGetProperty("recommendation", out _)); // 재생이 없으면 추천도 없다
+        Assert.False(empty.TryGetProperty("days", out _));           // 기본 하루면 days 를 내지 않는다
+
+        await SeedTwoLabeledOkAsync(factory, client);
+        var report = await (await client.GetAsync("/api/u-vision/memory?scenario_id=demo")).Content.ReadFromJsonAsync<JsonElement>();
+        var rec = report.GetProperty("recommendation");
+
+        Assert.False(rec.TryGetProperty("max_distance", out _));
+        Assert.False(rec.TryGetProperty("defect_pass_upper_95", out _));
+        Assert.False(rec.GetProperty("sufficient").GetBoolean());
+        Assert.Equal(0, rec.GetProperty("labeled_defects").GetInt32());
+        Assert.Equal(0.02, rec.GetProperty("target_miss_rate").GetDouble()); // 시나리오 목표값 기본
+        Assert.Equal(149, rec.GetProperty("defects_needed").GetInt32());
+        Assert.Contains("불량 라벨", rec.GetProperty("reason").GetString());
+    }
+
+    [Fact]
+    public async Task MemoryReport_Days_ReadsEarlierDaysToo_AndRejectsABadWindow()
+    {
+        using var factory = new MemoryEnabledFactory();
+        var client = factory.CreateClient();
+        await SeedTwoLabeledOkAsync(factory, client);
+
+        // 어제 폴더 = 오늘 폴더의 복사(기록 · 라벨 사이드카 · 장부) — 두 날의 재생이 합쳐지는지 본다.
+        var yesterday = DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var scenarioDir = Path.Combine(factory.DataPath, "demo");
+        Directory.CreateDirectory(Path.Combine(scenarioDir, yesterday));
+        foreach (var file in Directory.GetFiles(Path.Combine(scenarioDir, Today)))
+            File.Copy(file, Path.Combine(scenarioDir, yesterday, Path.GetFileName(file)));
+        File.Copy(Path.Combine(scenarioDir, "ledger", Today + ".jsonl"), Path.Combine(scenarioDir, "ledger", yesterday + ".jsonl"));
+
+        var one = await (await client.GetAsync("/api/u-vision/memory?scenario_id=demo")).Content.ReadFromJsonAsync<JsonElement>();
+        var two = await (await client.GetAsync("/api/u-vision/memory?scenario_id=demo&days=2")).Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(one.GetProperty("replayed").GetInt32() * 2, two.GetProperty("replayed").GetInt32());
+        Assert.Equal(2, two.GetProperty("days").GetInt32());
+        foreach (var bad in new[] { "days=0", "days=91", "days=-1", "days=2&date=2026-13-40", "days=2&date=garbage" })
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync($"/api/u-vision/memory?scenario_id=demo&{bad}")).StatusCode);
+    }
+
     [Fact]
     public async Task MemoryReport_Disabled_IsEnabledFalse_UnknownScenario404_BadDate400()
     {

@@ -22,7 +22,7 @@ namespace UVision.Client.Memory
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public MemoryRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/memory?scenario_id={scenario_id}{&date*}", pathParameters)
+        public MemoryRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/memory?scenario_id={scenario_id}{&date*,days*}", pathParameters)
         {
         }
         /// <summary>
@@ -30,7 +30,7 @@ namespace UVision.Client.Memory
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public MemoryRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/memory?scenario_id={scenario_id}{&date*}", rawUrl)
+        public MemoryRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/memory?scenario_id={scenario_id}{&date*,days*}", rawUrl)
         {
         }
         /// <returns>A <see cref="global::UVision.Client.Models.MemoryReport"/></returns>
@@ -98,6 +98,10 @@ namespace UVision.Client.Memory
             public string Date { get; set; }
             #pragma warning restore CS1591
 #endif
+            #pragma warning disable CS1591
+            [QueryParameter("days")]
+            public int? Days { get; set; }
+            #pragma warning restore CS1591
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
             #pragma warning disable CS1591

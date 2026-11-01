@@ -32,9 +32,12 @@ public static class MemoryEndpoints
         StoragePaths paths,
         MemoryOptions options,
         CancellationToken cancellationToken,
-        [FromQuery(Name = "date")] string? date = null)
+        [FromQuery(Name = "date")] string? date = null,
+        [FromQuery(Name = "days")] int days = 1)
     {
         date ??= DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        if (days is < 1 or > ReplayWindow.MaxDays)
+            return Results.Problem(statusCode: 400, detail: $"days 는 1 이상 {ReplayWindow.MaxDays} 이하여야 합니다");
         try
         {
             var scenario = await scenarioStore.GetAsync(scenarioId, cancellationToken);
@@ -43,13 +46,16 @@ public static class MemoryEndpoints
             var effective = EffectiveScenario.Resolve(scenario, mlEnabled: false, memoryEnabled: memory.IsEnabled);
             var enabled = memory.IsEnabled && effective.Tiers.Contains(ScenarioVocabulary.MemoryTier);
 
-            var labels = (await labelStore.ListAsync(scenarioId, date, cancellationToken))
-                .Where(l => l.OperativeLabel is not null)
-                .ToDictionary(l => l.ImageId, l => l.OperativeLabel!, StringComparer.Ordinal);
             var cases = new List<ReplayCase>();
-            var ledger = paths.LedgerJsonl(scenarioId, date);
-            if (File.Exists(ledger))
+            // 하루면 지금 동작 그대로 — 여러 날이면 마지막 날(date)부터 거슬러 같은 읽기를 날마다 한다(라벨은 그날의 기록에 붙는다).
+            foreach (var day in days == 1 ? new[] { date } : ReplayWindow.Dates(date, days))
             {
+                var labels = (await labelStore.ListAsync(scenarioId, day, cancellationToken))
+                    .Where(l => l.OperativeLabel is not null)
+                    .ToDictionary(l => l.ImageId, l => l.OperativeLabel!, StringComparer.Ordinal);
+                var ledger = paths.LedgerJsonl(scenarioId, day);
+                if (!File.Exists(ledger))
+                    continue;
                 await foreach (var record in new JsonlProvenanceSink(ledger).ReadAsync(cancellationToken: cancellationToken))
                 {
                     labels.TryGetValue(record.SubjectId, out var label);
@@ -57,6 +63,10 @@ public static class MemoryEndpoints
                         cases.Add(c);
                 }
             }
+
+            var replay = cases.Count == 0 ? [] : MemoryReplay.Run(cases, effective, options.MaxDistance);
+            // 목표 놓침률 0 은 어떤 증거로도 주장할 수 없다 — 시나리오가 0 을 골랐으면 기본 목표로 센다.
+            var target = effective.Targets.MaxMissRate > 0 ? effective.Targets.MaxMissRate : ScenarioTargets.Default.MaxMissRate;
 
             var status = memory.StatusOf(scenarioId);
             return Results.Ok(new MemoryReport
@@ -68,7 +78,9 @@ public static class MemoryEndpoints
                 Cases = status?.Cases,
                 BuiltAt = status?.BuiltAt.UtcDateTime.ToString("o", CultureInfo.InvariantCulture),
                 Replayed = cases.Count,
-                Replay = cases.Count == 0 ? [] : MemoryReplay.Run(cases, effective, options.MaxDistance),
+                Replay = replay,
+                Days = days == 1 ? null : days,
+                Recommendation = replay.Count == 0 ? null : MemoryRecommendation.From(OptionAdvisor.AdviseMaxDistance(replay, target), target),
             });
         }
         catch (ArgumentException) // 형식 위반 scenario_id/date → 400

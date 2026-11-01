@@ -1327,6 +1327,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
           }
         ],
         "responses": {
@@ -3750,6 +3759,54 @@
           }
         }
       },
+      "MemoryRecommendation": {
+        "required": [
+          "answered",
+          "labeled_defects",
+          "missed",
+          "sufficient",
+          "target_miss_rate",
+          "defects_needed",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "max_distance": {
+            "type": "number",
+            "format": "double"
+          },
+          "answered": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "labeled_defects": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "missed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "defect_pass_upper_95": {
+            "type": "number",
+            "format": "double"
+          },
+          "sufficient": {
+            "type": "boolean"
+          },
+          "target_miss_rate": {
+            "type": "number",
+            "format": "double"
+          },
+          "defects_needed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
       "MemoryReplayRow": {
         "required": [
           "max_distance",
@@ -3861,6 +3918,13 @@
             "items": {
               "$ref": "#/components/schemas/MemoryReplayRow"
             }
+          },
+          "days": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "recommendation": {
+            "$ref": "#/components/schemas/MemoryRecommendation"
           }
         }
       },

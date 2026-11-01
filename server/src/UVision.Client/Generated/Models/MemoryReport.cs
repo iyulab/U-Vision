@@ -32,6 +32,8 @@ namespace UVision.Client.Models
 #else
         public string Date { get; set; }
 #endif
+        /// <summary>The days property</summary>
+        public int? Days { get; set; }
         /// <summary>The enabled property</summary>
         public bool? Enabled { get; set; }
         /// <summary>The encoder property</summary>
@@ -41,6 +43,14 @@ namespace UVision.Client.Models
 #nullable restore
 #else
         public string Encoder { get; set; }
+#endif
+        /// <summary>The recommendation property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::UVision.Client.Models.MemoryRecommendation? Recommendation { get; set; }
+#nullable restore
+#else
+        public global::UVision.Client.Models.MemoryRecommendation Recommendation { get; set; }
 #endif
         /// <summary>The replay property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -88,8 +98,10 @@ namespace UVision.Client.Models
                 { "built_at", n => { BuiltAt = n.GetStringValue(); } },
                 { "cases", n => { Cases = n.GetIntValue(); } },
                 { "date", n => { Date = n.GetStringValue(); } },
+                { "days", n => { Days = n.GetIntValue(); } },
                 { "enabled", n => { Enabled = n.GetBoolValue(); } },
                 { "encoder", n => { Encoder = n.GetStringValue(); } },
+                { "recommendation", n => { Recommendation = n.GetObjectValue<global::UVision.Client.Models.MemoryRecommendation>(global::UVision.Client.Models.MemoryRecommendation.CreateFromDiscriminatorValue); } },
                 { "replay", n => { Replay = n.GetCollectionOfObjectValues<global::UVision.Client.Models.MemoryReplayRow>(global::UVision.Client.Models.MemoryReplayRow.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "replayed", n => { Replayed = n.GetIntValue(); } },
                 { "scenario_id", n => { ScenarioId = n.GetStringValue(); } },
@@ -105,8 +117,10 @@ namespace UVision.Client.Models
             writer.WriteStringValue("built_at", BuiltAt);
             writer.WriteIntValue("cases", Cases);
             writer.WriteStringValue("date", Date);
+            writer.WriteIntValue("days", Days);
             writer.WriteBoolValue("enabled", Enabled);
             writer.WriteStringValue("encoder", Encoder);
+            writer.WriteObjectValue<global::UVision.Client.Models.MemoryRecommendation>("recommendation", Recommendation);
             writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.MemoryReplayRow>("replay", Replay);
             writer.WriteIntValue("replayed", Replayed);
             writer.WriteStringValue("scenario_id", ScenarioId);

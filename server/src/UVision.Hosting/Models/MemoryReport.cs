@@ -35,6 +35,67 @@ public sealed record MemoryReport
 
     /// <summary>문턱별 재생 결과(작은 문턱부터).</summary>
     [JsonPropertyName("replay")] public required IReadOnlyList<MemoryReplayRow> Replay { get; init; }
+
+    /// <summary>재생한 날 수 — 기본(하루)이면 생략한다. <c>date</c> 가 마지막 날이다.</summary>
+    [JsonPropertyName("days")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Days { get; init; }
+
+    /// <summary>재생이 있을 때 문턱 추천(없으면 생략). 추천은 제안이다 — 반영은 사람이 한다.</summary>
+    [JsonPropertyName("recommendation")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MemoryRecommendation? Recommendation { get; init; }
+}
+
+/// <summary>
+/// 문턱 추천 — 재생 표에서 «사람이 불량이라 확정한 사진이 한 장도 OK 로 지나가지 않은 가장 큰 문턱» 과 그 주장의 증거.
+/// 근거가 없으면 <see cref="MaxDistance"/> 가 없고 <see cref="Reason"/> 이 왜인지 말한다.
+/// </summary>
+public sealed record MemoryRecommendation
+{
+    /// <summary>추천하는 최근접 코사인 거리 상한(근거가 없으면 생략).</summary>
+    [JsonPropertyName("max_distance")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? MaxDistance { get; init; }
+
+    /// <summary>그 문턱에서 기억이 답했을 판정 수.</summary>
+    [JsonPropertyName("answered")] public required int Answered { get; init; }
+
+    /// <summary>재생한 판정 가운데 사람 라벨이 불량인 수 — 증거의 크기.</summary>
+    [JsonPropertyName("labeled_defects")] public required int LabeledDefects { get; init; }
+
+    /// <summary>그 문턱에서 불량이 OK 로 지나간 수(추천은 언제나 0).</summary>
+    [JsonPropertyName("missed")] public required int Missed { get; init; }
+
+    /// <summary>불량 통과율의 단측 95 % 상한 — 놓침 0 이어도 불량이 적으면 크게 남는다(근거가 없으면 생략).</summary>
+    [JsonPropertyName("defect_pass_upper_95")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? DefectPassUpper95 { get; init; }
+
+    /// <summary>그 상한이 목표 놓침률 안인가 — 아니면 추천은 후보일 뿐 증거가 모자라다.</summary>
+    [JsonPropertyName("sufficient")] public required bool Sufficient { get; init; }
+
+    /// <summary>목표 놓침률(시나리오 목표값의 누락 상한).</summary>
+    [JsonPropertyName("target_miss_rate")] public required double TargetMissRate { get; init; }
+
+    /// <summary>놓침 0 으로 목표를 95 % 신뢰로 주장하는 데 필요한 불량 라벨 수(총).</summary>
+    [JsonPropertyName("defects_needed")] public required int DefectsNeeded { get; init; }
+
+    /// <summary>한 문장 설명.</summary>
+    [JsonPropertyName("reason")] public required string Reason { get; init; }
+
+    public static MemoryRecommendation From(Services.Memory.OptionAdvice advice, double targetMissRate) => new()
+    {
+        MaxDistance = advice.MaxDistance,
+        Answered = advice.Answered,
+        LabeledDefects = advice.LabeledDefects,
+        Missed = advice.Missed,
+        DefectPassUpper95 = advice.DefectPassUpper95,
+        Sufficient = advice.Sufficient,
+        TargetMissRate = targetMissRate,
+        DefectsNeeded = advice.DefectsNeeded,
+        Reason = advice.Reason,
+    };
 }
 
 /// <summary>문턱 하나에서의 재생 — «이 문턱이었다면».</summary>

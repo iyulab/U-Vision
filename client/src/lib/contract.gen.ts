@@ -62,6 +62,7 @@ export interface Contract {
   LabelAudit?: LabelAudit
   LabelEvent?: LabelEvent
   LabelInput?: LabelInput
+  MemoryRecommendation?: MemoryRecommendation
   MemoryReplayRow?: MemoryReplayRow
   MemoryReport?: MemoryReport
   MetricsSummary?: MetricsSummary
@@ -491,6 +492,21 @@ export interface LabelInput {
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "MemoryRecommendation".
+ */
+export interface MemoryRecommendation {
+  max_distance?: number
+  answered: number
+  labeled_defects: number
+  missed: number
+  defect_pass_upper_95?: number
+  sufficient: boolean
+  target_miss_rate: number
+  defects_needed: number
+  reason: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
  * via the `definition` "MemoryReplayRow".
  */
 export interface MemoryReplayRow {
@@ -519,6 +535,8 @@ export interface MemoryReport {
   built_at?: string
   replayed: number
   replay: MemoryReplayRow[]
+  days?: number
+  recommendation?: MemoryRecommendation
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

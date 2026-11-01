@@ -112,3 +112,22 @@ public class OptionAdvisorTests
     public void TargetMissRateOutsideOpenUnitInterval_IsRejected(double target) =>
         Assert.Throws<ArgumentOutOfRangeException>(() => OptionAdvisor.AdviseMaxDistance([], target));
 }
+
+/// <summary>문턱 재생의 날짜 창 — 마지막 날부터 거슬러, 오래된 날부터 순서대로.</summary>
+public class ReplayWindowTests
+{
+    [Fact]
+    public void Dates_CountBackFromTheLastDay_OldestFirst_AcrossMonthBoundaries() =>
+        Assert.Equal(["2026-10-30", "2026-10-31", "2026-11-01"], ReplayWindow.Dates("2026-11-01", 3));
+
+    [Fact]
+    public void OneDay_IsJustTheLastDay() =>
+        Assert.Equal(["2026-11-01"], ReplayWindow.Dates("2026-11-01", 1));
+
+    [Theory]
+    [InlineData("garbage")]
+    [InlineData("2026-13-40")]
+    [InlineData("2026-1-1")]
+    public void NotADate_IsRejected(string date) =>
+        Assert.Throws<ArgumentException>(() => ReplayWindow.Dates(date, 2));
+}
