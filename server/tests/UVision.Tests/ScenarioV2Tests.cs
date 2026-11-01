@@ -246,6 +246,63 @@ public class ScenarioV2Tests : IClassFixture<PinFactory>
     }
 
     [Fact]
+    public async Task AllowCloudEgress_IsKeptWhenOmitted_AndReplacedByAnExplicitValueEitherWay()
+    {
+        // 외부 송출 허용은 수정 요청이 생략하면 그대로여야 한다(말없이 꺼지지 않는다) — 값을 주면 true · false 모두 교체한다.
+        var create = await Admin().PostAsync("/api/u-vision/scenarios", JsonContent.Create(new { name = "egress keep", allow_cloud_egress = true }));
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var id = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("scenario_id").GetString();
+        async Task<bool> EgressAsync() => (await _factory.CreateClient().GetFromJsonAsync<JsonElement>($"/api/u-vision/scenarios/{id}")).GetProperty("allow_cloud_egress").GetBoolean();
+
+        Assert.True(await EgressAsync());                                                                                  // 만들 때는 남는다
+
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "egress keep", criteria = "기준만 고침" }));
+        Assert.True(await EgressAsync());                                                                                  // 생략 = 보존
+
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "egress keep", allow_cloud_egress = false }));
+        Assert.False(await EgressAsync());                                                                                 // 명시 false = 교체(끄기)
+
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "egress keep", criteria = "다시 생략" }));
+        Assert.False(await EgressAsync());                                                                                 // 꺼진 것도 보존
+
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "egress keep", allow_cloud_egress = true }));
+        Assert.True(await EgressAsync());                                                                                  // 명시 true = 교체(켜기)
+    }
+
+    [Fact]
+    public async Task AllowCloudEgress_StaysDeniedByDefault_ForAScenarioThatNeverSetIt()
+    {
+        var create = await Admin().PostAsync("/api/u-vision/scenarios", JsonContent.Create(new { name = "egress default" }));
+        var id = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("scenario_id").GetString();
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "egress default", criteria = "x" }));
+
+        var got = await _factory.CreateClient().GetFromJsonAsync<JsonElement>($"/api/u-vision/scenarios/{id}");
+        Assert.False(got.GetProperty("allow_cloud_egress").GetBoolean());                                                  // 기본 deny 는 그대로
+        Assert.False(File.Exists(Path.Combine(_factory.DataPath, id!, "tuning.jsonl")));                                   // 바뀐 것이 없으면 이력도 없다
+    }
+
+    [Fact]
+    public async Task AllowCloudEgress_ChangesLeaveOneHistoryLineEach_AndOtherEditsLeaveNone()
+    {
+        var create = await Admin().PostAsync("/api/u-vision/scenarios", JsonContent.Create(new { name = "egress log", allow_cloud_egress = true }));
+        var id = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("scenario_id").GetString()!;
+        List<JsonElement> Lines() => File.ReadAllLines(Path.Combine(_factory.DataPath, id, "tuning.jsonl"))
+            .Select(l => JsonSerializer.Deserialize<JsonElement>(l)).ToList();
+
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "egress log", criteria = "다른 필드만" }));
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "egress log", allow_cloud_egress = true })); // 같은 값
+        Assert.Single(Lines());                                                                                           // 만들 때 한 줄(false → true)뿐
+
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "egress log", allow_cloud_egress = false }));
+        var lines = Lines();
+
+        Assert.Equal(2, lines.Count);
+        Assert.All(lines, l => Assert.Equal("allow_cloud_egress", l.GetProperty("option").GetString()));
+        Assert.Equal((false, true), (lines[0].GetProperty("from").GetBoolean(), lines[0].GetProperty("to").GetBoolean()));
+        Assert.Equal((true, false), (lines[1].GetProperty("from").GetBoolean(), lines[1].GetProperty("to").GetBoolean()));
+    }
+
+    [Fact]
     public async Task Update_WithoutNgLabels_KeepsTheReferenceImagesDefectDescriptions()
     {
         // 기준 이미지의 NG 유형 설명(ng_labels)은 수정 요청이 생략하면 그대로여야 한다 — 관리 화면이 이름 · 기준만 고쳐 보내도

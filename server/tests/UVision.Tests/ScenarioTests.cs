@@ -234,5 +234,6 @@ public class ScenarioTests : IClassFixture<PinFactory>
         var s = input.ToScenario("sc");
         Assert.True(s.AllowCloudEgress);
         Assert.False(new ScenarioInput { Name = "n" }.ToScenario("sc2").AllowCloudEgress);
+        Assert.False(new ScenarioInput { Name = "n", AllowCloudEgress = false }.ToScenario("sc3").AllowCloudEgress);
     }
 }

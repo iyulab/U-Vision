@@ -189,8 +189,11 @@ public sealed record ScenarioInput
     /// <summary>
     /// cloud 오라클(④-B·egress) 허용 여부 — per-scenario opt-in(기본 false=deny). 온프레미스 주권 가드.
     /// 로컬 오라클(openai-compatible)은 egress 아니므로 이 값과 무관. cloud provider 결선 전까지는 가드만 선재.
+    /// 수정 요청이 생략(null)하면 저장된 값을 보존하고, true · false 를 주면 그 값으로 교체한다 — 만들 때 생략하면 deny.
     /// </summary>
-    [JsonPropertyName("allow_cloud_egress")] public bool AllowCloudEgress { get; init; }
+    [JsonPropertyName("allow_cloud_egress")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? AllowCloudEgress { get; init; }
 
     // --- v2 — 생략(null)하면 수정 시 기존 값을 보존한다(FileScenarioStore.UpdateAsync). 관리 화면이
     // v2 필드를 모르는 동안 다른 필드를 고치다 v2 구성을 지우지 않게.
@@ -240,7 +243,7 @@ public sealed record ScenarioInput
         MaxImageDimension = MaxImageDimension,
         ReferenceCap = ReferenceCap,
         NgLabels = NgLabels,
-        AllowCloudEgress = AllowCloudEgress,
+        AllowCloudEgress = AllowCloudEgress ?? false,
         Type = Type,
         Trigger = Trigger,
         Classes = Classes,

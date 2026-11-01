@@ -77,9 +77,9 @@ export function canApplyRecommendation(rec: MemoryRecommendation, configured: nu
 }
 
 /**
- * 문턱만 바꾸는 시나리오 수정 본문. 서버 PUT 은 v1 필드(이름 · 기준 · 캡처 설정 · 클라우드 송출 허용)를 요청에서 그대로 받으므로
+ * 문턱만 바꾸는 시나리오 수정 본문. 서버 PUT 은 v1 필드(이름 · 기준 · 캡처 설정)를 요청에서 그대로 받으므로
  * 저장된 값을 모두 실어 보낸다 — 문턱 하나를 적용하다 다른 설정이 기본값으로 돌아가지 않게. 유형 · 불량 유형 · 계수 필드 ·
- * NG 유형 설명은 싣지 않는다(생략하면 서버가 저장된 값을 보존한다).
+ * NG 유형 설명 · 클라우드 송출 허용은 싣지 않는다(생략하면 서버가 저장된 값을 보존한다 — 허용은 보이는 토글로만 바꾼다).
  */
 export function distanceUpdateInput(scenario: Scenario, distance: number): ScenarioInput {
   return {
@@ -91,7 +91,6 @@ export function distanceUpdateInput(scenario: Scenario, distance: number): Scena
     min_sharpness: scenario.min_sharpness,
     max_image_dimension: scenario.max_image_dimension,
     reference_cap: scenario.reference_cap,
-    allow_cloud_egress: scenario.allow_cloud_egress,
     memory_max_distance: distance,
   }
 }

@@ -67,7 +67,8 @@ public sealed partial class FileScenarioStore : IScenarioStore
         var scenario = input.ToScenario(scenarioId);
         await StoragePaths.AtomicWriteJsonAsync(
             _paths.ScenarioJson(scenarioId), scenario, cancellationToken);
-        await RecordTuningAsync(scenarioId, null, scenario.MemoryMaxDistance, cancellationToken);
+        await RecordTuningAsync<double>(scenarioId, "memory_max_distance", null, scenario.MemoryMaxDistance, cancellationToken);
+        await RecordTuningAsync<bool>(scenarioId, "allow_cloud_egress", false, scenario.AllowCloudEgress, cancellationToken); // 만들 때의 기준은 deny
         return scenario;
     }
 
@@ -95,6 +96,8 @@ public sealed partial class FileScenarioStore : IScenarioStore
             // 한 장의 설명은 기준 이미지 쪽(SetNgLabelAsync)에서 고치고 지운다.
             NgLabels = input.NgLabels.Count > 0 ? input.NgLabels : existing?.NgLabels ?? new Dictionary<string, string>(),
             // 생략 = 보존, 빈 문자열 = 지움(전역 설정으로).
+            // 외부 송출 허용: 생략 = 보존, 값 = 교체(true · false 모두). 말없이 꺼지거나 켜지지 않는다 — 바뀌면 이력에 남는다.
+            AllowCloudEgress = input.AllowCloudEgress ?? existing?.AllowCloudEgress ?? false,
             PatchEncoder = input.PatchEncoder is { } encoder ? (encoder.Length == 0 ? null : encoder) : existing?.PatchEncoder,
             // 생략 = 보존, 0 = 지움. 유형이 바뀌면 옮기지 않는다(검사에서 다른 유형으로 바꿨는데 문턱이 남지 않게).
             MemoryMaxDistance = input.MemoryMaxDistance is { } distance ? (distance == 0 ? null : distance) : (typeChanged ? null : existing?.MemoryMaxDistance),
@@ -107,24 +110,27 @@ public sealed partial class FileScenarioStore : IScenarioStore
             CountClasses = counting.CountClasses,
         };
         await StoragePaths.AtomicWriteJsonAsync(path, scenario, cancellationToken);
-        await RecordTuningAsync(scenarioId, existing?.MemoryMaxDistance, scenario.MemoryMaxDistance, cancellationToken);
+        await RecordTuningAsync<double>(scenarioId, "memory_max_distance", existing?.MemoryMaxDistance, scenario.MemoryMaxDistance, cancellationToken);
+        await RecordTuningAsync<bool>(scenarioId, "allow_cloud_egress", existing?.AllowCloudEgress ?? false, scenario.AllowCloudEgress, cancellationToken);
         return scenario;
     }
 
     /// <summary>
     /// 옵션 레버가 실제로 바뀌었을 때만 한 줄 남긴다(<c>{scenario}/tuning.jsonl</c>, append-only) — 바꾼 값을 되돌릴 근거다.
-    /// 값이 같은 저장(다른 필드만 고친 수정)은 남기지 않는다. 기록이 실패해도 시나리오 저장은 이미 끝났으므로 던지지 않는다.
+    /// 레버는 <paramref name="option"/> 이름으로 구분한다(기억 단 거리 문턱 · 외부 송출 허용). 값이 같은 저장(다른 필드만
+    /// 고친 수정)은 남기지 않는다. 기록이 실패해도 시나리오 저장은 이미 끝났으므로 던지지 않는다.
     /// </summary>
-    private async Task RecordTuningAsync(string scenarioId, double? from, double? to, CancellationToken cancellationToken)
+    private async Task RecordTuningAsync<T>(string scenarioId, string option, T? from, T? to, CancellationToken cancellationToken)
+        where T : struct
     {
-        if (from == to)
+        if (EqualityComparer<T?>.Default.Equals(from, to))
             return;
         try
         {
             var line = JsonSerializer.Serialize(new
             {
                 at = DateTimeOffset.UtcNow.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
-                option = "memory_max_distance",
+                option,
                 from,
                 to,
             }, LineJson);

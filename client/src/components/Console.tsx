@@ -59,6 +59,8 @@ interface DraftScenario {
   minSharpness: number
   maxImageDimension: number
   referenceCap: number
+  /** 외부(클라우드) 오라클 송출 허용 — 보이는 토글. 수정할 때 저장된 값에서 시작해 그대로 다시 보낸다(말없이 바뀌지 않게). */
+  allowCloudEgress: boolean
   /** 시나리오 유형 — 검사(OK/NG) · 오투입 확인(기대 품번과 일치/불일치) · 개수 세기(기대 개수와 견줌). */
   type: ScenarioType
   /** 수정 시작 때의 유형 — 바뀌었을 때만 type 을 보낸다(생략하면 서버가 저장된 값을 유지). */
@@ -327,6 +329,7 @@ function ScenarioManager({
       min_sharpness: draft.minSharpness,
       max_image_dimension: draft.maxImageDimension,
       reference_cap: draft.referenceCap,
+      allow_cloud_egress: draft.allowCloudEgress,
       // 검사(기본)는 type 을 쓰지 않아 기존 시나리오 파일이 그대로다. 오투입 확인이거나 유형을 바꿨을 때만 보낸다.
       ...(draft.type === 'verification' || draft.type === 'counting' || draft.type !== (draft.originalType ?? 'inspection')
         ? { type: draft.type }
@@ -362,6 +365,7 @@ function ScenarioManager({
               minSharpness: DEFAULT_MIN_SHARPNESS,
               maxImageDimension: DEFAULT_MAX_IMAGE_DIMENSION,
               referenceCap: DEFAULT_REFERENCE_CAP,
+              allowCloudEgress: false,
               type: 'inspection',
               defects: '',
               originalDefects: [],
@@ -413,6 +417,7 @@ function ScenarioManager({
                   minSharpness: s.min_sharpness,
                   maxImageDimension: s.max_image_dimension,
                   referenceCap: s.reference_cap,
+                  allowCloudEgress: s.allow_cloud_egress,
                   type: s.type ?? 'inspection',
                   originalType: s.type ?? 'inspection',
                   defects: formatDefects(defectsOf(s)),
@@ -814,6 +819,23 @@ function ScenarioForm({
           />
         </div>
         )}
+
+        <label className="flex items-start gap-3 rounded-lg bg-slate-900 p-3">
+          <input
+            type="checkbox"
+            checked={draft.allowCloudEgress}
+            onChange={(e) => onChange({ ...draft, allowCloudEgress: e.target.checked })}
+            className="mt-1 accent-amber-400"
+          />
+          <span className="space-y-0.5">
+            <span className="block text-sm text-slate-200">외부(클라우드) 오라클로 사진 내보내기 허용</span>
+            <span className="block text-xs text-slate-500">
+              {draft.allowCloudEgress
+                ? '이 시나리오의 사진이 설치 밖 클라우드 모델로 나갈 수 있습니다. 저장할 때마다 이 값이 그대로 이어지며, 바꾸면 변경 기록에 남습니다.'
+                : '꺼짐(기본) — 사진은 이 설치 안에서만 처리됩니다.'}
+            </span>
+          </span>
+        </label>
 
         {draft.type === 'counting' ? (
           <p className="text-xs text-slate-500">

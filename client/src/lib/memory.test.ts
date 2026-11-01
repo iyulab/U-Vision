@@ -127,14 +127,13 @@ describe('distanceUpdateInput', () => {
       min_sharpness: 120,
       max_image_dimension: 512,
       reference_cap: 3,
-      allow_cloud_egress: true,
       memory_max_distance: 0.08,
     })
   })
 
-  it('유형 · 불량 유형 · 계수 필드는 싣지 않는다(서버가 보존한다)', () => {
+  it('유형 · 불량 유형 · 계수 필드 · 클라우드 송출 허용은 싣지 않는다(서버가 보존한다)', () => {
     const input = distanceUpdateInput(scenario, 0.08)
-    for (const key of ['type', 'classes', 'judges', 'trust', 'expected_count', 'ng_labels']) expect(input).not.toHaveProperty(key)
+    for (const key of ['type', 'classes', 'judges', 'trust', 'expected_count', 'ng_labels', 'allow_cloud_egress']) expect(input).not.toHaveProperty(key)
   })
 })
 
