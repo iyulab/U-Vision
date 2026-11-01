@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 import { useResource } from '../hooks/useResource'
 
-import { getAmbiguity, getMemory, getMetrics, getSolverTrust, getTrainingReadiness, listMetricsDates } from '../lib/api'
+import { getAmbiguity, getFlywheel, getMemory, getMetrics, getSolverTrust, getTrainingReadiness, listMetricsDates } from '../lib/api'
 import { classNameOf } from '../lib/labels'
 import { canApplyRecommendation, formatDistance, hasMiss, MEMORY_WINDOWS, memoryStatusLine, recommendationView } from '../lib/memory'
 import { auditAgreementLine, datasetNotice, emptyMetricsNotice, falseAlarmLead, formatPercent, fraction, hasNoMetricData, hasVlmMlMetrics, recallLead } from '../lib/metrics'
@@ -12,6 +12,7 @@ import { readinessLine } from '../lib/training'
 import type { MemoryReport, MetricsSummary, Scenario } from '../lib/types'
 import { AmbiguityPanel } from './AmbiguityPanel'
 import { CountingPanel } from './CountingPanel'
+import { FlywheelPanel } from './FlywheelPanel'
 import { SolverTrustPanel } from './SolverTrustPanel'
 
 /**
@@ -62,6 +63,13 @@ export function MetricsDashboard({
     scenarioId && date ? `${scenarioId}|${date}|${memoryDays}` : null,
     () => getMemory(scenarioId, date, memoryDays),
     '기억 조회 실패',
+  )
+  // 플라이휠 곡선 — 사람 확정 라벨이 쌓인 순서대로 본 정확도. 라벨이 없으면 칸이 없고, 실패해도 대시보드는 그대로 보인다.
+  const [flywheelBucket, setFlywheelBucket] = useState(25)
+  const flywheel = useResource(
+    scenarioId && date ? `${scenarioId}|${date}|flywheel|${flywheelBucket}` : null,
+    () => getFlywheel(scenarioId, date, flywheelBucket),
+    '플라이휠 곡선 조회 실패',
   )
   const activeScenario = scenarios.find((s) => s.scenario_id === scenarioId)
   const applyDistance = onApplyMemoryDistance && activeScenario
@@ -125,6 +133,10 @@ export function MetricsDashboard({
 
       {memory.data?.enabled && (
         <MemoryPanel report={memory.data} days={memoryDays} onDaysChange={setMemoryDays} onApply={applyDistance} />
+      )}
+
+      {flywheel.data && flywheel.data.labeled > 0 && (
+        <FlywheelPanel report={flywheel.data} bucket={flywheelBucket} onBucketChange={setFlywheelBucket} />
       )}
 
       {hasPlants(solverTrust.data) && <SolverTrustPanel trust={solverTrust.data} />}

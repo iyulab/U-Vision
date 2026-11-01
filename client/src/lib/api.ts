@@ -1,4 +1,4 @@
-import type { AdminStatus, Ambiguity, AnomalyMap, AuthorityState, DetectionUnavailable, EventsStatus, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Question, QuestionAnswer, Reference, RetentionPurgeInput, RetentionPurgeResponse, Scenario, SolverTrust, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
+import type { AdminStatus, Ambiguity, AnomalyMap, AuthorityState, DetectionUnavailable, EventsStatus, FlywheelReport, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Question, QuestionAnswer, Reference, RetentionPurgeInput, RetentionPurgeResponse, Scenario, SolverTrust, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
 import type { QuestionAnswerInput } from './contract.gen'
 import type { AuthorityStage } from './authority'
 import { resolveApiBase } from './runtimeConfig'
@@ -289,6 +289,15 @@ export async function getMemory(scenarioId: string, date: string, days = 1): Pro
   )
   await ensureOk(res, '기억 조회')
   return (await res.json()) as MemoryReport
+}
+
+/** 플라이휠 곡선(무인증 읽기) — 사람 확정 라벨이 쌓이는 순서대로 실제 판정 · 기억 단의 정확도. `date` 까지 `days` 일을 읽는다. */
+export async function getFlywheel(scenarioId: string, date: string, bucket: number, days = 30): Promise<FlywheelReport> {
+  const res = await fetch(
+    `${API_BASE}/flywheel?scenario_id=${encodeURIComponent(scenarioId)}&date=${encodeURIComponent(date)}&days=${days}&bucket=${bucket}`,
+  )
+  await ensureOk(res, '플라이휠 곡선 조회')
+  return (await res.json()) as FlywheelReport
 }
 
 /** 전용 ML 학습 준비 신호(무인증 읽기) — 빌드 · 재빌드는 관리자가 한다. */

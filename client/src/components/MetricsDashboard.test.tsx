@@ -1,17 +1,19 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { CountingMetrics, MemoryReport, MetricsSummary, Scenario } from '../lib/types'
+import type { CountingMetrics, FlywheelReport, MemoryReport, MetricsSummary, Scenario } from '../lib/types'
 
 const listMetricsDates = vi.fn<(id: string) => Promise<string[]>>()
 const getMetrics = vi.fn<(id: string, date: string) => Promise<MetricsSummary>>()
 const getMemory = vi.fn<(id: string, date: string, days?: number) => Promise<MemoryReport>>()
+const getFlywheel = vi.fn<(id: string, date: string, bucket: number) => Promise<FlywheelReport>>()
 
 // 검사 날짜 목록(listResultDates)은 일부러 내보내지 않는다 — 대시보드가 그것을 다시 부르면 시험이 깨져 되돌림을 알린다.
 vi.mock('../lib/api', () => ({
   listMetricsDates: (id: string) => listMetricsDates(id),
   getMetrics: (id: string, date: string) => getMetrics(id, date),
   getMemory: (id: string, date: string, days?: number) => getMemory(id, date, days),
+  getFlywheel: (id: string, date: string, bucket: number) => getFlywheel(id, date, bucket),
   getTrainingReadiness: () => Promise.reject(new Error('준비 없음')),
   getSolverTrust: () => Promise.reject(new Error('심은 문제 없음')),
   getAmbiguity: () => Promise.reject(new Error('닫힌 문제 없음')),
@@ -44,6 +46,8 @@ beforeEach(() => {
   getMetrics.mockReset()
   getMemory.mockReset()
   getMemory.mockRejectedValue(new Error('기억 꺼짐'))
+  getFlywheel.mockReset()
+  getFlywheel.mockRejectedValue(new Error('곡선 없음'))
 })
 afterEach(cleanup)
 
@@ -141,6 +145,56 @@ describe('MetricsDashboard', () => {
       await open(undefined)
       fireEvent.change(screen.getByLabelText('재생 기간'), { target: { value: '7' } })
       await waitFor(() => expect(getMemory).toHaveBeenLastCalledWith('s1', '2026-11-01', 7))
+    })
+  })
+
+  describe('플라이휠 곡선', () => {
+    const inspection = [{ scenario_id: 's1', name: '검사', type: 'inspection' }] as unknown as Scenario[]
+    const flywheel = (labeled: number): FlywheelReport => ({
+      scenario_id: 's1',
+      date: '2026-11-01',
+      days: 30,
+      bucket_size: 25,
+      memory_max_distance: 0.15,
+      labeled,
+      points:
+        labeled === 0
+          ? []
+          : [
+              { labeled_through: 25, judged: 25, operative_agreement: 0.8, labeled_defects: 0, operative_missed: 0, memory_answered: 2, memory_answered_rate: 0.08, memory_missed: 0 },
+              { labeled_through: 50, judged: 25, operative_agreement: 0.84, labeled_defects: 0, operative_missed: 0, memory_answered: 10, memory_answered_rate: 0.4, memory_agreement: 0.9, memory_missed: 0 },
+            ],
+    })
+    const open = () => {
+      listMetricsDates.mockResolvedValue(['2026-11-01'])
+      getMetrics.mockResolvedValue({ scenario_id: 's1', date: '2026-11-01' } as unknown as MetricsSummary)
+      render(<MetricsDashboard scenarios={inspection} initialScenarioId="s1" />)
+    }
+
+    it('라벨이 있으면 곡선 칸에 추세 한 줄과 구간 표가 보인다', async () => {
+      getFlywheel.mockResolvedValue(flywheel(50))
+      open()
+
+      const panel = await screen.findByTestId('flywheel-panel')
+      expect(panel.textContent).toContain('사람이 확정한 라벨 50건')
+      expect(screen.getByTestId('flywheel-trend').textContent).toContain('기억이 답한 비율은 오릅니다 (8% → 40%)')
+      expect(panel.querySelectorAll('tbody tr').length).toBe(2)
+      expect(getFlywheel).toHaveBeenCalledWith('s1', '2026-11-01', 25)
+    })
+
+    it('라벨이 하나도 없으면 칸이 없다', async () => {
+      getFlywheel.mockResolvedValue(flywheel(0))
+      open()
+      await waitFor(() => expect(getFlywheel).toHaveBeenCalled())
+      expect(screen.queryByTestId('flywheel-panel')).toBeNull()
+    })
+
+    it('구간 크기를 바꾸면 그 크기로 다시 읽는다', async () => {
+      getFlywheel.mockResolvedValue(flywheel(50))
+      open()
+      await screen.findByTestId('flywheel-panel')
+      fireEvent.change(screen.getByLabelText('구간 크기'), { target: { value: '50' } })
+      await waitFor(() => expect(getFlywheel).toHaveBeenLastCalledWith('s1', '2026-11-01', 50))
     })
   })
 })
