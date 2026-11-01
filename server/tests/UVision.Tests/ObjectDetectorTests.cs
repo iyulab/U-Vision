@@ -45,8 +45,9 @@ public class ObjectDetectorTests
         new(MloopClient.Create("http://mloop.test", 30, "jwt-abc", handler),
             new DetectionOptions { Provider = "mloop", Endpoint = "http://mloop.test", Model = model, Token = "jwt-abc" });
 
+    // 바깥 모양은 실 `mloop serve` 0.48.0 의 검출 모델 응답을 그대로 옮겼다(상자 0개 응답을 관측). 상자 한 개의 필드는 아직 문서의 서술이다.
     private static string Response(string detections) =>
-        $$"""{"modelName":"hardhat","task":"object-detection","count":1,"predictions":[{"imageSha256":"ab12","detections":{{detections}},"predictionId":"p1"}],"warnings":[]}""";
+        $$"""{"modelName":"hardhat","experimentId":"exp-001","modelSha256":"0034b724af4f8f9d39def5c0205c8c32d69ec0d755a6b25ee14caa5e180da0c4","predictedAt":"2026-11-01T05:50:37.7516564Z","task":"object-detection","count":1,"predictions":[{"imageSha256":"ab12","detections":{{detections}},"predictionId":"p1"}],"warnings":[]}""";
 
     // ── mloop: 요청 · 응답 파싱 ───────────────────────────────────────────
 

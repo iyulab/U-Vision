@@ -10,9 +10,11 @@ namespace UVision.Api.Services.Counting;
 /// (전용 ML 분류기 · 임베더와 같은 꼴, HTTP 계약은 HoneAI <see cref="IMLoopClient"/>(<c>PredictImagesAsync</c>)가 소유).
 /// 이미지 <b>내용</b>을 base64 로 보내므로 MLoop 이 같은 호스트에 있을 필요가 없다.
 /// <para>
-/// ⚠️ UNVERIFIED: 상자 응답 모양(<c>detections: [{label, score, x0, y0, x1, y1}]</c>, 좌표는 이미지 픽셀)은 업스트림 문서의
-/// 서술이고 이 머신에서 관측한 것이 아니다 — 상자를 내는 모델이 없었다. fake-handler 계약 테스트는 그 서술을 HoneAI 클라이언트를
-/// 거쳐 파싱하는 것만 가드한다. 실 <c>mloop serve</c> 와 학습된 검출 모델의 왕복은 아직 하지 않았다.
+/// ⚠️ UNVERIFIED: 상자 한 개의 필드(<c>detections: [{label, score, x0, y0, x1, y1}]</c>, 좌표는 이미지 픽셀)는 업스트림 문서의
+/// 서술이고 이 머신에서 관측한 것이 아니다 — 상자를 내는 모델이 아직 없었다(작은 학습은 아무것도 배우지 못해 승격되지 않았다).
+/// 관측한 것: 실 <c>mloop serve</c> 0.48.0 의 검출 모델 응답 바깥 모양(<c>modelName</c> · <c>modelSha256</c> · <c>task</c> ·
+/// <c>predictions[]</c>{<c>imageSha256</c>, <c>detections[]</c>, <c>predictionId</c>} · <c>warnings[]</c>)과, 상자 0개 응답이 이 검출기를 거쳐
+/// 개수 0 의 판정이 되는 왕복. fake-handler 계약 테스트는 상자 서술을 HoneAI 클라이언트를 거쳐 파싱하는 것만 가드한다.
 /// </para>
 /// 응답이 약속한 모양이 아니면(상자 필드 누락 · 비유한 숫자 · 넓이 없는 상자) 조용히 걸러 개수를 바꾸지 않고 예외로 알린다 —
 /// 호출 측은 개수를 모르는 것으로 다룬다.
