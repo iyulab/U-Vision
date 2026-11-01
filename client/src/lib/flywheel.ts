@@ -48,6 +48,13 @@ export function trendLine(points: readonly FlywheelPoint[]): string {
     const verb = answered.kind === 'up' ? '오릅니다' : answered.kind === 'down' ? '내려갑니다' : '평평합니다'
     parts.push(`기억이 답한 비율은 ${verb} (${span(answered)})`)
   }
+  // 전용 ML — ML 이 라벨을 낸 판정이 구간당 10건 이상인 구간이 둘 이상일 때만(소표본 비율을 추세로 읽지 않는다).
+  const mlSeries = points.flatMap((p) => (p.ml_checked >= MIN_JUDGED && p.ml_agreement !== undefined ? [p.ml_agreement] : []))
+  const ml = trendOf(mlSeries)
+  if (ml) {
+    const verb = ml.kind === 'up' ? '오릅니다' : ml.kind === 'down' ? '내려갑니다' : '평평합니다'
+    parts.push(`ML 라벨 일치율은 ${verb} (${span(ml)})`)
+  }
   const pass = trendOf(usable.flatMap((p) => (p.operative_defect_pass === undefined ? [] : [p.operative_defect_pass])))
   if (pass) {
     parts.push(
@@ -67,6 +74,13 @@ export interface FlywheelRow {
   memoryAnswered: string
   memoryAgreement: string
   memoryMissed: number
+  mlAgreement: string
+  mlMissed: number
+}
+
+/** ML 이 라벨을 낸 판정이 하나라도 있나 — 없으면(ML 을 켜지 않은 설치) 표 · 그래프에 ML 열 · 선을 보이지 않는다. */
+export function hasMlData(points: readonly FlywheelPoint[]): boolean {
+  return points.some((p) => p.ml_checked > 0)
 }
 
 /** 표 행 — 비율은 퍼센트로, 분모가 0 이라 서버가 생략한 값은 «—». */
@@ -79,6 +93,8 @@ export function flywheelRows(points: readonly FlywheelPoint[]): FlywheelRow[] {
     memoryAnswered: `${formatPercent(p.memory_answered_rate)} (${p.memory_answered})`,
     memoryAgreement: formatPercent(p.memory_agreement ?? null),
     memoryMissed: p.memory_missed,
+    mlAgreement: p.ml_agreement === undefined ? '—' : `${formatPercent(p.ml_agreement)} (${p.ml_checked})`,
+    mlMissed: p.ml_missed,
   }))
 }
 

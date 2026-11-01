@@ -161,8 +161,8 @@ describe('MetricsDashboard', () => {
         labeled === 0
           ? []
           : [
-              { labeled_through: 25, judged: 25, operative_agreement: 0.8, labeled_defects: 0, operative_missed: 0, memory_answered: 2, memory_answered_rate: 0.08, memory_missed: 0 },
-              { labeled_through: 50, judged: 25, operative_agreement: 0.84, labeled_defects: 0, operative_missed: 0, memory_answered: 10, memory_answered_rate: 0.4, memory_agreement: 0.9, memory_missed: 0 },
+              { labeled_through: 25, judged: 25, operative_agreement: 0.8, labeled_defects: 0, operative_missed: 0, memory_answered: 2, memory_answered_rate: 0.08, memory_missed: 0, ml_checked: 0, ml_missed: 0 },
+              { labeled_through: 50, judged: 25, operative_agreement: 0.84, labeled_defects: 0, operative_missed: 0, memory_answered: 10, memory_answered_rate: 0.4, memory_agreement: 0.9, memory_missed: 0, ml_checked: 0, ml_missed: 0 },
             ],
     })
     const open = () => {
@@ -180,6 +180,24 @@ describe('MetricsDashboard', () => {
       expect(screen.getByTestId('flywheel-trend').textContent).toContain('기억이 답한 비율은 오릅니다 (8% → 40%)')
       expect(panel.querySelectorAll('tbody tr').length).toBe(2)
       expect(getFlywheel).toHaveBeenCalledWith('s1', '2026-11-01', 25)
+    })
+
+    it('ML 을 켜지 않은 설치는 ML 열 · 선이 없고, ML 이 라벨을 낸 설치는 있다', async () => {
+      getFlywheel.mockResolvedValue(flywheel(50))
+      open()
+      const panel = await screen.findByTestId('flywheel-panel')
+      expect(panel.textContent).not.toContain('ML 라벨 일치')
+
+      cleanup()
+      const withMl = flywheel(50)
+      getFlywheel.mockResolvedValue({
+        ...withMl,
+        points: withMl.points.map((p) => ({ ...p, ml_checked: 20, ml_agreement: 0.9, ml_missed: 1 })),
+      })
+      open()
+      const panel2 = await screen.findByTestId('flywheel-panel')
+      expect(panel2.textContent).toContain('ML 라벨 일치')
+      expect(panel2.textContent).toContain('90% (20)')
     })
 
     it('라벨이 하나도 없으면 칸이 없다', async () => {

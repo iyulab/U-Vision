@@ -1,4 +1,4 @@
-import { chartPoints, flywheelRows, trendLine } from '../lib/flywheel'
+import { chartPoints, flywheelRows, hasMlData, trendLine } from '../lib/flywheel'
 import type { FlywheelReport } from '../lib/types'
 
 const W = 300
@@ -7,10 +7,11 @@ const H = 100
 /** 구간 크기 선택지 — 작을수록 점이 많고 흔들린다. */
 export const FLYWHEEL_BUCKETS: readonly number[] = [10, 25, 50]
 
-const LINES: readonly { key: 'agreement' | 'answered' | 'memory'; label: string; stroke: string }[] = [
+const LINES: readonly { key: 'agreement' | 'answered' | 'memory' | 'ml'; label: string; stroke: string }[] = [
   { key: 'agreement', label: '실제 판정 일치', stroke: '#cbd5e1' },
   { key: 'answered', label: '기억이 답한 비율', stroke: '#38bdf8' },
   { key: 'memory', label: '기억 답 일치', stroke: '#34d399' },
+  { key: 'ml', label: 'ML 라벨 일치', stroke: '#fbbf24' },
 ]
 
 /**
@@ -27,10 +28,14 @@ export function FlywheelPanel({
   onBucketChange: (bucket: number) => void
 }) {
   const rows = flywheelRows(report.points)
+  // ML 을 켜지 않은 설치는 ML 열 · 선이 없다 — 값이 없는 칸을 0 으로 채워 보이지 않는다.
+  const showMl = hasMlData(report.points)
+  const lines = LINES.filter((l) => l.key !== 'ml' || showMl)
   const series = {
     agreement: report.points.map((p) => p.operative_agreement),
     answered: report.points.map((p) => p.memory_answered_rate),
     memory: report.points.map((p) => p.memory_agreement),
+    ml: report.points.map((p) => p.ml_agreement),
   }
   return (
     <div className="rounded-2xl border border-slate-700 bg-slate-800/50 p-5" data-testid="flywheel-panel">
@@ -57,14 +62,14 @@ export function FlywheelPanel({
       </p>
       <p className="mt-1 text-xs text-slate-500">
         사람이 확정한 라벨 {report.labeled}건을 쌓인 순서대로 {report.bucket_size}건씩 나눴습니다(최근 {report.days}일). 정답은 사람
-        라벨뿐이고, 구간이 작으면 비율이 흔들립니다. 전용 ML 은 아직 이 곡선에 없습니다.
+        라벨뿐이고, 구간이 작으면 비율이 흔들립니다. ML 열은 전용 ML 이 라벨을 낸 설치에만 보입니다.
       </p>
       <svg role="img" aria-label="플라이휠 곡선" viewBox={`-4 -4 ${W + 8} ${H + 8}`} className="mt-3 h-28 w-full max-w-xl">
         <rect x="0" y="0" width={W} height={H} fill="none" stroke="#334155" />
         {[0.5].map((v) => (
           <line key={v} x1="0" x2={W} y1={(1 - v) * H} y2={(1 - v) * H} stroke="#334155" strokeDasharray="3 3" />
         ))}
-        {LINES.map((line) =>
+        {lines.map((line) =>
           chartPoints(series[line.key], W, H).map((pts, i) =>
             pts.includes(' ') ? (
               <polyline key={`${line.key}-${i}`} points={pts} fill="none" stroke={line.stroke} strokeWidth="1.5" />
@@ -75,7 +80,7 @@ export function FlywheelPanel({
         )}
       </svg>
       <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
-        {LINES.map((line) => (
+        {lines.map((line) => (
           <li key={line.key} className="flex items-center gap-1">
             <span aria-hidden className="inline-block h-0.5 w-4" style={{ backgroundColor: line.stroke }} />
             {line.label}
@@ -92,7 +97,9 @@ export function FlywheelPanel({
               <th className="py-1 pr-4 font-medium">불량 통과</th>
               <th className="py-1 pr-4 font-medium">기억이 답함</th>
               <th className="py-1 pr-4 font-medium">기억 답 일치</th>
-              <th className="py-1 font-medium">기억 놓침</th>
+              <th className="py-1 pr-4 font-medium">기억 놓침</th>
+              {showMl && <th className="py-1 pr-4 font-medium">ML 라벨 일치</th>}
+              {showMl && <th className="py-1 font-medium">ML 놓침</th>}
             </tr>
           </thead>
           <tbody>
@@ -104,7 +111,9 @@ export function FlywheelPanel({
                 <td className="py-1 pr-4">{r.defectPass}</td>
                 <td className="py-1 pr-4">{r.memoryAnswered}</td>
                 <td className="py-1 pr-4">{r.memoryAgreement}</td>
-                <td className={`py-1 ${r.memoryMissed > 0 ? 'text-amber-400' : ''}`}>{r.memoryMissed}</td>
+                <td className={`py-1 pr-4 ${r.memoryMissed > 0 ? 'text-amber-400' : ''}`}>{r.memoryMissed}</td>
+                {showMl && <td className="py-1 pr-4">{r.mlAgreement}</td>}
+                {showMl && <td className={`py-1 ${r.mlMissed > 0 ? 'text-amber-400' : ''}`}>{r.mlMissed}</td>}
               </tr>
             ))}
           </tbody>

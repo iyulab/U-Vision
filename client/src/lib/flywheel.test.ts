@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { chartPoints, flywheelRows, trendLine, trendOf } from './flywheel'
+import { chartPoints, flywheelRows, hasMlData, trendLine, trendOf } from './flywheel'
 import type { FlywheelPoint } from './types'
 
 const point = (over: Partial<FlywheelPoint>): FlywheelPoint => ({
@@ -11,6 +11,8 @@ const point = (over: Partial<FlywheelPoint>): FlywheelPoint => ({
   memory_answered: 0,
   memory_answered_rate: 0,
   memory_missed: 0,
+  ml_checked: 0,
+  ml_missed: 0,
   ...over,
 })
 
@@ -68,6 +70,8 @@ describe('flywheelRows', () => {
       memoryAnswered: '12% (3)',
       memoryAgreement: '100%',
       memoryMissed: 0,
+      mlAgreement: '—',
+      mlMissed: 0,
     })
   })
 })
@@ -80,5 +84,29 @@ describe('chartPoints', () => {
 
   it('점이 하나뿐이어도 그린다(가운데)', () => {
     expect(chartPoints([0.5], 300, 100)).toEqual(['150,50'])
+  })
+})
+
+describe('ML 단', () => {
+  const ml = (through: number, agreement: number | undefined, checked = 25) =>
+    point({ labeled_through: through, ml_checked: checked, ml_agreement: agreement })
+
+  it('hasMlData — ML 이 라벨을 낸 판정이 하나라도 있을 때만', () => {
+    expect(hasMlData([point({}), point({})])).toBe(false)
+    expect(hasMlData([point({}), ml(50, 0.9, 3)])).toBe(true)
+  })
+
+  it('표 행은 ML 일치율과 «ML 이 OK 로 지나간 불량»', () => {
+    const [row] = flywheelRows([point({ ml_checked: 20, ml_agreement: 0.95, ml_missed: 1 })])
+    expect(row.mlAgreement).toBe('95% (20)')
+    expect(row.mlMissed).toBe(1)
+  })
+
+  it('한 줄 판정에 ML 일치율 추세(ML 이 답한 구간 10건 이상이 둘 이상일 때만)', () => {
+    const line = trendLine([ml(25, 0.6), ml(50, 0.7), ml(75, 0.9), ml(100, 0.95)])
+    expect(line).toContain('ML 라벨 일치율은 오릅니다 (65% → 93%)')
+    // ML 이 답한 구간이 모자라면 ML 문장은 빠진다 — 다른 문장은 그대로.
+    const few = trendLine([ml(25, 0.6, 3), ml(50, 0.7, 4), point({ labeled_through: 75 }), point({ labeled_through: 100 })])
+    expect(few).not.toContain('ML 라벨')
   })
 })
