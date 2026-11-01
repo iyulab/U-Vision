@@ -44,15 +44,15 @@
   <ItemGroup>
     <!-- 이미지 디코드·축소·JPEG 인코드. ImageSharp 4.x 는 직접 참조하는 모든 Release 빌드에 벤더 라이선스 키를 요구해
          MIT 라이브러리에 맞지 않아 SkiaSharp(MIT)로 교체. Linux(x64·arm64, glibc·musl) 네이티브는 fontconfig 없는 판. -->
-    <PackageReference Include="SkiaSharp" Version="4.153.1" />
-    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
+    <PackageReference Include="SkiaSharp" Version="4.154.0" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.154.0" />
     <!-- 판정 라우터 · 결정 장부(HoneAI — Abstractions 는 Core 가 끌어온다). Core 는 외부 의존성 없음. -->
     <PackageReference Include="HoneAI.Core" Version="0.15.0" />
-    <PackageReference Include="IronHive.Abstractions" Version="0.69.0" />
-    <PackageReference Include="IronHive.Core" Version="0.69.0" />
-    <PackageReference Include="IronHive.Providers.GoogleAI" Version="0.69.0" />
-    <PackageReference Include="IronHive.Providers.OpenAI" Version="0.69.0" />
-    <PackageReference Include="IronHive.Providers.OpenAI.Compatible" Version="0.69.0" />
+    <PackageReference Include="IronHive.Abstractions" Version="0.75.0" />
+    <PackageReference Include="IronHive.Core" Version="0.75.0" />
+    <PackageReference Include="IronHive.Providers.GoogleAI" Version="0.75.0" />
+    <PackageReference Include="IronHive.Providers.OpenAI" Version="0.75.0" />
+    <PackageReference Include="IronHive.Providers.OpenAI.Compatible" Version="0.75.0" />
   </ItemGroup>
 
   <!-- 빌드된 PWA(client/npm run build:embed 산출물)를 임베드. Task 9 에서 wwwroot 채움. -->
