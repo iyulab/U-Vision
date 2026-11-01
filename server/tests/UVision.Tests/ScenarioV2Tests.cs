@@ -76,7 +76,7 @@ public class ScenarioV2Tests : IClassFixture<PinFactory>
     public void V1Scenario_OnDisk_HasNoV2Keys()
     {
         var json = JsonSerializer.Serialize(V1(), StoragePaths.Json);
-        foreach (var key in new[] { "\"type\"", "\"trigger\"", "\"classes\"", "\"judges\"", "\"trust\"", "\"patch_encoder\"", "\"expected_count\"", "\"count_tolerance\"", "\"expected_by_class\"", "\"extra_policy\"", "\"min_confidence\"", "\"count_classes\"" })
+        foreach (var key in new[] { "\"type\"", "\"trigger\"", "\"classes\"", "\"judges\"", "\"trust\"", "\"patch_encoder\"", "\"memory_max_distance\"", "\"expected_count\"", "\"count_tolerance\"", "\"expected_by_class\"", "\"extra_policy\"", "\"min_confidence\"", "\"count_classes\"" })
             Assert.DoesNotContain(key, json);
     }
 
@@ -103,6 +103,9 @@ public class ScenarioV2Tests : IClassFixture<PinFactory>
         { """{"name":"x","type":"counting","expected_by_class":{"a":-1}}""", "expected_by_class" },
         { """{"name":"x","type":"counting","expected_by_class":{" a":1}}""", "expected_by_class" },
         { """{"name":"x","type":"counting","expected_by_class":{"a":1,"b":1},"count_classes":["a"]}""", "count_classes" },
+        { """{"name":"x","memory_max_distance":2.5}""", "memory_max_distance" },
+        { """{"name":"x","memory_max_distance":-0.1}""", "memory_max_distance" },
+        { """{"name":"x","type":"verification","memory_max_distance":0.1}""", "inspection" },
         { """{"name":"x","trigger":"stream"}""", "trigger" },
         { """{"name":"x","judges":[{"tier":"vlm"},{"tier":"ml"}]}""", "꼭대기" },
         { """{"name":"x","judges":[{"tier":"system1"},{"tier":"vlm"}]}""", "tier" },
@@ -169,6 +172,75 @@ public class ScenarioV2Tests : IClassFixture<PinFactory>
 
         await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "enc keep", patch_encoder = "" }));
         Assert.False((await GetAsync()).TryGetProperty("patch_encoder", out _));                      // 빈 문자열 = 지움(v1 JSON 으로 돌아간다)
+    }
+
+    [Fact]
+    public void Resolve_CarriesTheMemoryThreshold_OnlyForInspection()
+    {
+        Assert.Null(EffectiveScenario.Resolve(V1(), mlEnabled: false).MemoryMaxDistance);
+        Assert.Equal(0.08, EffectiveScenario.Resolve(V1() with { MemoryMaxDistance = 0.08 }, mlEnabled: false).MemoryMaxDistance);
+        // 확인 시나리오에는 확정 사례 기억이 서지 않는다 — 남은 값이 있어도 유효 시나리오는 모른다.
+        Assert.Null(EffectiveScenario.Resolve(V1() with { Type = "verification", MemoryMaxDistance = 0.08 }, mlEnabled: false).MemoryMaxDistance);
+    }
+
+    [Theory]
+    [InlineData(0.08, true)]
+    [InlineData(2.0, true)]
+    [InlineData(0.0, true)]    // 0 = 지움
+    [InlineData(2.01, false)]
+    [InlineData(-0.01, false)]
+    [InlineData(double.NaN, false)]
+    public void Validate_MemoryMaxDistance_IsACosineDistanceAboveZeroUpToTwo(double distance, bool valid)
+    {
+        var reason = EffectiveScenario.Validate(new ScenarioInput { Name = "x", MemoryMaxDistance = distance });
+        Assert.Equal(valid, reason is null);
+        if (!valid) Assert.Contains("memory_max_distance", reason);
+    }
+
+    [Fact]
+    public async Task MemoryMaxDistance_IsKeptWhenOmitted_ReplacedWhenGiven_ClearedByZero_AndDroppedWhenTheTypeChanges()
+    {
+        var create = await Admin().PostAsync("/api/u-vision/scenarios", JsonContent.Create(new { name = "dist keep", memory_max_distance = 0.08 }));
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var id = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("scenario_id").GetString();
+        async Task<JsonElement> GetAsync() => await _factory.CreateClient().GetFromJsonAsync<JsonElement>($"/api/u-vision/scenarios/{id}");
+
+        Assert.Equal(0.08, (await GetAsync()).GetProperty("memory_max_distance").GetDouble());
+
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "dist keep", criteria = "생략" }));
+        Assert.Equal(0.08, (await GetAsync()).GetProperty("memory_max_distance").GetDouble());          // 생략 = 보존
+
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "dist keep", memory_max_distance = 0.12 }));
+        Assert.Equal(0.12, (await GetAsync()).GetProperty("memory_max_distance").GetDouble());          // 값 = 교체
+
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "dist keep", type = "verification" }));
+        Assert.False((await GetAsync()).TryGetProperty("memory_max_distance", out _));                  // 유형이 바뀌면 옮기지 않는다
+
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "dist keep", type = "inspection", memory_max_distance = 0.3 }));
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "dist keep", memory_max_distance = 0 }));
+        Assert.False((await GetAsync()).TryGetProperty("memory_max_distance", out _));                  // 0 = 지움(v1 JSON 으로 돌아간다)
+    }
+
+    [Fact]
+    public async Task MemoryMaxDistance_ChangesLeaveOneHistoryLineEach_AndOtherEditsLeaveNone()
+    {
+        var create = await Admin().PostAsync("/api/u-vision/scenarios", JsonContent.Create(new { name = "dist log", memory_max_distance = 0.08 }));
+        var id = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("scenario_id").GetString()!;
+        string[] Lines() => File.ReadAllLines(Path.Combine(_factory.DataPath, id, "tuning.jsonl"));
+
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "dist log", criteria = "다른 필드만" }));
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "dist log", memory_max_distance = 0.08 })); // 같은 값
+        Assert.Single(Lines());                                                                          // 만들 때 한 줄뿐
+
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "dist log", memory_max_distance = 0.12 }));
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "dist log", memory_max_distance = 0 }));
+        var lines = Lines().Select(l => JsonSerializer.Deserialize<JsonElement>(l)).ToList();
+
+        Assert.Equal(3, lines.Count);
+        Assert.Equal((0.08, 0.12), (lines[1].GetProperty("from").GetDouble(), lines[1].GetProperty("to").GetDouble()));
+        Assert.Equal(JsonValueKind.Null, lines[2].GetProperty("to").ValueKind);                         // 0 = 지움 — 이전 값 0.12 가 from 에 남는다
+        Assert.Equal(0.12, lines[2].GetProperty("from").GetDouble());
+        Assert.All(lines, l => Assert.Equal("memory_max_distance", l.GetProperty("option").GetString()));
     }
 
     [Fact]

@@ -181,6 +181,35 @@ public class CaseMemoryTests
     }
 
     [Fact]
+    public async Task ScenarioMemoryMaxDistance_OverridesTheInstallationThreshold_InTheJudgeAndInTheReplay()
+    {
+        using var factory = new MemoryEnabledFactory();
+        var client = factory.CreateClient();
+        var first = (await (await client.PostAsync("/api/u-vision/inspect", Form(Jpeg(7)))).Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("image_id").GetString()!;
+        await client.PutAsJsonAsync("/api/u-vision/results/label", new LabelInput
+        { ScenarioId = "demo", Date = Today, ImageId = first, Label = "OK" });
+        await factory.Services.GetRequiredService<CaseMemory>().SyncOnceAsync(CancellationToken.None);
+
+        // 다른 바이트 — mock 임베더에서 설치 문턱(0.15) 밖이라 기억이 기권한다.
+        await client.PostAsync("/api/u-vision/inspect", Form(Jpeg(9)));
+        Assert.Equal(StepOutcome.Abstained, (await LedgerAsync(factory))[^1].Provenance.Path![0].Outcome);
+
+        // 시나리오가 문턱을 코사인 거리의 끝(2)으로 두면 같은 사진에 기억이 답한다 — 설치 값은 그대로다.
+        factory.SeedScenario(new Scenario
+        {
+            ScenarioId = "demo", Name = "데모 검사", Criteria = "기준", MemoryMaxDistance = 2,
+        });
+        await client.PostAsync("/api/u-vision/inspect", Form(Jpeg(9)));
+        Assert.NotEqual(StepOutcome.Abstained, (await LedgerAsync(factory))[^1].Provenance.Path![0].Outcome);
+
+        // 재생 표의 «지금 설정값» 행도 시나리오 값을 따른다.
+        var report = await (await client.GetAsync("/api/u-vision/memory?scenario_id=demo")).Content.ReadFromJsonAsync<JsonElement>();
+        var configured = report.GetProperty("replay").EnumerateArray().Single(r => r.GetProperty("configured").GetBoolean());
+        Assert.Equal(2.0, configured.GetProperty("max_distance").GetDouble());
+    }
+
+    [Fact]
     public async Task MemoryReport_Days_ReadsEarlierDaysToo_AndRejectsABadWindow()
     {
         using var factory = new MemoryEnabledFactory();

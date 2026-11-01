@@ -24,7 +24,8 @@ public sealed record EffectiveScenario(
     double? MinConfidence = null,
     IReadOnlyList<string>? CountClasses = null,
     IReadOnlyDictionary<string, int>? ExpectedByClass = null,
-    string? ExtraPolicy = null)
+    string? ExtraPolicy = null,
+    double? MemoryMaxDistance = null)
 {
     /// <summary>v1 검사의 클래스 — OK 는 아래 단이 확정할 수 있고, NG 는 언제나 꼭대기로 간다.</summary>
     public static readonly IReadOnlyList<ScenarioClass> InspectionClasses =
@@ -135,7 +136,8 @@ public sealed record EffectiveScenario(
             counting ? scenario.MinConfidence : null,
             counting ? scenario.CountClasses : null,
             counting ? scenario.ExpectedByClass : null,
-            counting && scenario.ExpectedByClass is not null ? scenario.ExtraPolicy ?? ExtraPolicies.Ng : null);
+            counting && scenario.ExpectedByClass is not null ? scenario.ExtraPolicy ?? ExtraPolicies.Ng : null,
+            !verification && !counting ? scenario.MemoryMaxDistance : null);
     }
 
     /// <summary>
@@ -220,6 +222,16 @@ public sealed record EffectiveScenario(
         // 이 이름이 MLoop 에 없으면 거부가 아니라 기억 단 기권이다(임베딩 실패와 같다).
         if (input.PatchEncoder is { Length: > 0 } patchEncoder && !EncoderId.IsMatch(patchEncoder))
             return "patch_encoder 는 영숫자로 시작하는 영숫자 · '.' · '_' · '-' 1~64자(빈 문자열은 지움)";
+
+        // 기억 단 거리 문턱은 코사인 거리라 0 초과 2 이하다. 0 은 «지움» 표시(수정에서만 뜻이 있다) — 문턱이 될 수 없는 값이다.
+        // 확정 사례 기억은 검사에만 서므로 다른 유형에 주면 거부한다(변형하지 않는다).
+        if (input.MemoryMaxDistance is { } memoryDistance)
+        {
+            if (!double.IsFinite(memoryDistance) || memoryDistance < 0 || memoryDistance > 2)
+                return "memory_max_distance 는 0 초과 2 이하의 코사인 거리(0 은 지움)";
+            if (memoryDistance > 0 && type != ScenarioVocabulary.Inspection)
+                return $"memory_max_distance 는 type 이 inspection 일 때만 줄 수 있다: {type}";
+        }
 
         return ValidateCounting(input, existing, type, typeChanged);
     }

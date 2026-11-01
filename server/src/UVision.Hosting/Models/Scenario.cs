@@ -96,11 +96,20 @@ public sealed record Scenario
     /// <summary>
     /// 이 시나리오의 패치 기억이 쓰는 인코더 id — MLoop 에 등록한 인코더(중간 층 출력 · 층 연결 포함). 없으면 설정의 인코더
     /// (<c>UVision:Memory:Encoder</c>). 특징 층의 우열이 대상마다 갈려(기판은 중간 층, 입체 물체는 마지막 층) 시나리오가 고른다.
-    /// 패치 점수에만 쓰인다 — 확정 사례 기억(전역 벡터)의 인코더와 거리 문턱은 설치의 것 그대로다.
+    /// 패치 점수에만 쓰인다 — 확정 사례 기억(전역 벡터)의 인코더는 설치의 것 그대로다(거리 문턱은 <c>memory_max_distance</c>).
     /// </summary>
     [JsonPropertyName("patch_encoder")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PatchEncoder { get; init; }
+
+    /// <summary>
+    /// 이 시나리오의 확정 사례 기억이 답하는 최근접 코사인 거리 상한(0 초과 2 이하) — 없으면 설치 옵션
+    /// (<c>UVision:Memory:MaxDistance</c>). 거리 척도는 대상마다 다르고(기판 · 입체 물체) 문턱은 재생 표
+    /// (<c>GET /memory</c> 의 <c>recommendation</c>)로 고르므로 시나리오가 갖는다. 검사(<c>inspection</c>)에만 뜻이 있다.
+    /// </summary>
+    [JsonPropertyName("memory_max_distance")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? MemoryMaxDistance { get; init; }
 
     // --- 계수(type: counting)에서만 뜻이 있다. 다른 유형이면 쓰지 않는다.
 
@@ -199,6 +208,9 @@ public sealed record ScenarioInput
     /// <summary>패치 인코더 id — 생략하면 수정 시 기존 값을 보존하고, 빈 문자열은 지운다(설정의 인코더로 돌아간다).</summary>
     [JsonPropertyName("patch_encoder")] public string? PatchEncoder { get; init; }
 
+    /// <summary>기억 단 거리 문턱 — 생략하면 수정 시 기존 값을 보존하고, 0 은 지운다(설치 옵션으로 돌아간다). 0 은 문턱이 될 수 없는 값이라 지움 표시로 쓴다.</summary>
+    [JsonPropertyName("memory_max_distance")] public double? MemoryMaxDistance { get; init; }
+
     // 계수 — 생략하면 수정 시 기존 값을 보존한다(유형이 바뀌면 옮기지 않는다). 계수가 아닌 시나리오에는 줄 수 없다.
     // 기대의 두 모양(총 개수 expected_count · 종류별 expected_by_class)은 서로 바꿔 줄 수 있다 — 한쪽을 주면 다른 쪽(과 그에 묶인
     // count_tolerance · extra_policy)은 보존하지 않고 지운다. 같은 요청에 둘을 함께 주면 400.
@@ -235,6 +247,7 @@ public sealed record ScenarioInput
         Judges = Judges,
         Trust = Trust,
         PatchEncoder = string.IsNullOrEmpty(PatchEncoder) ? null : PatchEncoder,
+        MemoryMaxDistance = MemoryMaxDistance is > 0 ? MemoryMaxDistance : null,
         ExpectedCount = ExpectedCount,
         CountTolerance = CountTolerance,
         ExpectedByClass = ExpectedByClass,

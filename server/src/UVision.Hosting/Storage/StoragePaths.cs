@@ -123,6 +123,14 @@ public sealed partial class StoragePaths
     public string RetentionJsonl(string scenarioId) =>
         Path.Combine(ScenarioDir(scenarioId), "retention.jsonl");
 
+    // --- 옵션 조정 기록 (시나리오 레버를 바꾼 사실) -----------------------------------
+    // 레버(기억 단 거리 문턱)가 바뀔 때마다 한 줄 append — 바꾼 값을 되돌릴 근거라 지우지 않는다. 시나리오 디렉터리 직속 파일이라
+    // 날짜 목록에 들지 않는다.
+
+    /// <summary>옵션 조정 기록 <c>{scenario}/tuning.jsonl</c>(append-only, 지우지 않음).</summary>
+    public string TuningJsonl(string scenarioId) =>
+        Path.Combine(ScenarioDir(scenarioId), "tuning.jsonl");
+
     /// <summary>시나리오의 날짜 폴더 이름(<c>yyyy-MM-dd</c>)과 그 경로 — 지울 날짜를 찾는 열거. 날짜가 아닌 폴더(references 등)는 빠진다.</summary>
     public IEnumerable<(string Date, string Dir)> DateDirs(string scenarioId)
     {

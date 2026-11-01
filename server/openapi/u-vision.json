@@ -4795,6 +4795,10 @@
           "patch_encoder": {
             "type": "string"
           },
+          "memory_max_distance": {
+            "type": "number",
+            "format": "double"
+          },
           "expected_count": {
             "type": "integer",
             "format": "int32"
@@ -4937,6 +4941,13 @@
               "null",
               "string"
             ]
+          },
+          "memory_max_distance": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
           },
           "expected_count": {
             "type": [

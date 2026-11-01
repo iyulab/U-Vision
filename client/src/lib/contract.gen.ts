@@ -789,6 +789,7 @@ export interface Scenario {
   judges?: ScenarioJudge[]
   trust?: ScenarioTrust
   patch_encoder?: string
+  memory_max_distance?: number
   expected_count?: number
   count_tolerance?: number
   expected_by_class?: {
@@ -866,6 +867,7 @@ export interface ScenarioInput {
   judges?: null | ScenarioJudge[]
   trust?: null | ScenarioTrust
   patch_encoder?: null | string
+  memory_max_distance?: null | number
   expected_count?: null | number
   count_tolerance?: null | number
   expected_by_class?: null | {

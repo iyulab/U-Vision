@@ -64,7 +64,7 @@ public static class MemoryEndpoints
                 }
             }
 
-            var replay = cases.Count == 0 ? [] : MemoryReplay.Run(cases, effective, options.MaxDistance);
+            var replay = cases.Count == 0 ? [] : MemoryReplay.Run(cases, effective, effective.MemoryMaxDistance ?? options.MaxDistance);
             // 목표 놓침률 0 은 어떤 증거로도 주장할 수 없다 — 시나리오가 0 을 골랐으면 기본 목표로 센다.
             var target = effective.Targets.MaxMissRate > 0 ? effective.Targets.MaxMissRate : ScenarioTargets.Default.MaxMissRate;
 

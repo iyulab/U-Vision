@@ -70,6 +70,8 @@ namespace UVision.Client.Models
 #endif
         /// <summary>The max_image_dimension property</summary>
         public int? MaxImageDimension { get; set; }
+        /// <summary>The memory_max_distance property</summary>
+        public double? MemoryMaxDistance { get; set; }
         /// <summary>The min_confidence property</summary>
         public double? MinConfidence { get; set; }
         /// <summary>The min_sharpness property</summary>
@@ -179,6 +181,7 @@ namespace UVision.Client.Models
                 { "extra_policy", n => { ExtraPolicy = n.GetStringValue(); } },
                 { "judges", n => { Judges = n.GetCollectionOfObjectValues<global::UVision.Client.Models.ScenarioJudge>(global::UVision.Client.Models.ScenarioJudge.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "max_image_dimension", n => { MaxImageDimension = n.GetIntValue(); } },
+                { "memory_max_distance", n => { MemoryMaxDistance = n.GetDoubleValue(); } },
                 { "min_confidence", n => { MinConfidence = n.GetDoubleValue(); } },
                 { "min_sharpness", n => { MinSharpness = n.GetIntValue(); } },
                 { "motion_threshold", n => { MotionThreshold = n.GetIntValue(); } },
@@ -211,6 +214,7 @@ namespace UVision.Client.Models
             writer.WriteStringValue("extra_policy", ExtraPolicy);
             writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.ScenarioJudge>("judges", Judges);
             writer.WriteIntValue("max_image_dimension", MaxImageDimension);
+            writer.WriteDoubleValue("memory_max_distance", MemoryMaxDistance);
             writer.WriteDoubleValue("min_confidence", MinConfidence);
             writer.WriteIntValue("min_sharpness", MinSharpness);
             writer.WriteIntValue("motion_threshold", MotionThreshold);

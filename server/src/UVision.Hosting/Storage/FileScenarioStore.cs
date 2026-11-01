@@ -10,6 +10,9 @@ namespace UVision.Api.Storage;
 /// </summary>
 public sealed partial class FileScenarioStore : IScenarioStore
 {
+    // JSONL 은 한 줄이 한 레코드다 — 디스크 정본의 들여쓰기 옵션을 줄 추가에는 쓰지 않는다.
+    private static readonly JsonSerializerOptions LineJson = new(StoragePaths.Json) { WriteIndented = false };
+
     private readonly StoragePaths _paths;
 
     public FileScenarioStore(StoragePaths paths) => _paths = paths;
@@ -64,6 +67,7 @@ public sealed partial class FileScenarioStore : IScenarioStore
         var scenario = input.ToScenario(scenarioId);
         await StoragePaths.AtomicWriteJsonAsync(
             _paths.ScenarioJson(scenarioId), scenario, cancellationToken);
+        await RecordTuningAsync(scenarioId, null, scenario.MemoryMaxDistance, cancellationToken);
         return scenario;
     }
 
@@ -89,6 +93,8 @@ public sealed partial class FileScenarioStore : IScenarioStore
             Trust = input.Trust ?? existing?.Trust,
             // 생략 = 보존, 빈 문자열 = 지움(전역 설정으로).
             PatchEncoder = input.PatchEncoder is { } encoder ? (encoder.Length == 0 ? null : encoder) : existing?.PatchEncoder,
+            // 생략 = 보존, 0 = 지움. 유형이 바뀌면 옮기지 않는다(검사에서 다른 유형으로 바꿨는데 문턱이 남지 않게).
+            MemoryMaxDistance = input.MemoryMaxDistance is { } distance ? (distance == 0 ? null : distance) : (typeChanged ? null : existing?.MemoryMaxDistance),
             // 계수 필드도 같다 — 유형이 바뀌면 옮기지 않는다(계수에서 검사로 바꿨는데 기대 개수가 남지 않게).
             ExpectedCount = counting.ExpectedCount,
             CountTolerance = counting.CountTolerance,
@@ -98,7 +104,34 @@ public sealed partial class FileScenarioStore : IScenarioStore
             CountClasses = counting.CountClasses,
         };
         await StoragePaths.AtomicWriteJsonAsync(path, scenario, cancellationToken);
+        await RecordTuningAsync(scenarioId, existing?.MemoryMaxDistance, scenario.MemoryMaxDistance, cancellationToken);
         return scenario;
+    }
+
+    /// <summary>
+    /// 옵션 레버가 실제로 바뀌었을 때만 한 줄 남긴다(<c>{scenario}/tuning.jsonl</c>, append-only) — 바꾼 값을 되돌릴 근거다.
+    /// 값이 같은 저장(다른 필드만 고친 수정)은 남기지 않는다. 기록이 실패해도 시나리오 저장은 이미 끝났으므로 던지지 않는다.
+    /// </summary>
+    private async Task RecordTuningAsync(string scenarioId, double? from, double? to, CancellationToken cancellationToken)
+    {
+        if (from == to)
+            return;
+        try
+        {
+            var line = JsonSerializer.Serialize(new
+            {
+                at = DateTimeOffset.UtcNow.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
+                option = "memory_max_distance",
+                from,
+                to,
+            }, LineJson);
+            var logPath = _paths.TuningJsonl(scenarioId);
+            await File.AppendAllTextAsync(logPath, line + "\n", System.Text.Encoding.UTF8, cancellationToken);
+        }
+        catch (IOException)
+        {
+            // degrade — 이력 한 줄을 못 남겨도 저장된 시나리오는 그대로 유효하다.
+        }
     }
 
     public Task<bool> DeleteAsync(string scenarioId, CancellationToken cancellationToken = default)

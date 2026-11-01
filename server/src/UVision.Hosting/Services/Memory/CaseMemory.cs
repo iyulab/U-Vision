@@ -192,7 +192,7 @@ public sealed class CaseMemory(
 
         try
         {
-            var answer = MemoryJudge.Decide(embedded.Vectors[0], snapshot.Cases, options.Neighbors, options.MaxDistance);
+            var answer = MemoryJudge.Decide(embedded.Vectors[0], snapshot.Cases, options.Neighbors, scenario.MemoryMaxDistance ?? options.MaxDistance);
             var decideMs = clock.ElapsedMilliseconds - embedMs;
             var scores = features is not null && patchSpace is not null && snapshot.Bank is { } bank
                 ? await ScoreAsync(scenario.ScenarioId, key, patchSpace.Key, bank, embedded.Vectors[0], features, grid, cancellationToken)
