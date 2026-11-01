@@ -76,6 +76,40 @@ public class FlywheelCurveTests
     }
 
     [Fact]
+    public void MlTier_CountsOnlyJudgmentsThatCarryAnMlLabel()
+    {
+        var cases = new[]
+        {
+            new CurveCase("OK", null, null, "OK", MlLabel: "OK"),    // ML 일치
+            new CurveCase("OK", null, null, "OK", MlLabel: "NG"),    // ML 불일치(정상을 불량으로 — 놓침은 아님)
+            new CurveCase("OK", null, null, "NG", MlLabel: "OK"),    // ML 이 불량을 OK 로 — 놓침
+            new CurveCase("OK", null, null, "OK", MlLabel: null),    // ML 을 묻지 않았거나 분류 실패 — 세지 않는다
+        };
+
+        var p = Assert.Single(FlywheelCurve.Build(cases, Inspection, bucketSize: 4, memoryMaxDistance: 0.15));
+
+        Assert.Equal((3, 1), (p.MlChecked, p.MlMissed));
+        Assert.Equal(Math.Round(1.0 / 3, 4), p.MlAgreement);
+    }
+
+    [Fact]
+    public void MlTier_IsEmptyNotZero_WhenNoJudgmentWasAskedOfMl()
+    {
+        var p = Assert.Single(FlywheelCurve.Build([Case("OK", null, null, "OK")], Inspection, bucketSize: 5, memoryMaxDistance: 0.15));
+
+        Assert.Equal(0, p.MlChecked);
+        Assert.Null(p.MlAgreement);
+    }
+
+    [Fact]
+    public void FromAnnotations_CarriesTheMlLabelFromTheMetricsRow()
+    {
+        var c = FlywheelCurve.FromAnnotations(new Dictionary<string, string> { ["operative:class"] = "OK" }, Inspection, "OK", mlLabel: "NG");
+
+        Assert.Equal(new CurveCase("OK", null, null, "OK", "NG"), c);
+    }
+
+    [Fact]
     public void EmptyInput_GivesNoPoints_AndABucketSizeBelowOneIsRejected()
     {
         Assert.Empty(FlywheelCurve.Build([], Inspection, bucketSize: 10, memoryMaxDistance: 0.15));

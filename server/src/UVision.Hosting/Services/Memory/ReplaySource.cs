@@ -4,8 +4,8 @@ using UVision.Api.Storage;
 
 namespace UVision.Api.Services.Memory;
 
-/// <summary>재생 · 곡선이 읽는 판정 한 건 — 장부 annotation 과 그 판정에 붙은 사람 라벨(없으면 null).</summary>
-public sealed record LedgerEntry(IReadOnlyDictionary<string, string>? Annotations, string? HumanLabel);
+/// <summary>재생 · 곡선이 읽는 판정 한 건 — 판정 id(= 기록 id), 장부 annotation, 그 판정에 붙은 사람 라벨(없으면 null).</summary>
+public sealed record LedgerEntry(string SubjectId, IReadOnlyDictionary<string, string>? Annotations, string? HumanLabel);
 
 /// <summary>
 /// 결정 장부를 날짜 순으로 읽어 사람 라벨과 잇는다 — 문턱 재생(<see cref="MemoryReplay"/>)과 플라이휠 곡선(<see cref="FlywheelCurve"/>)이
@@ -29,7 +29,7 @@ public static class ReplaySource
             await foreach (var record in new JsonlProvenanceSink(ledger).ReadAsync(cancellationToken: cancellationToken))
             {
                 labels.TryGetValue(record.SubjectId, out var label);
-                yield return new LedgerEntry(record.Provenance.Annotations, label);
+                yield return new LedgerEntry(record.SubjectId, record.Provenance.Annotations, label);
             }
         }
     }

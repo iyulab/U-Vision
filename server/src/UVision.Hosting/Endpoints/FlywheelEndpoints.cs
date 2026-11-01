@@ -31,6 +31,7 @@ public static class FlywheelEndpoints
         [FromQuery(Name = "scenario_id")] string scenarioId,
         IScenarioStore scenarioStore,
         ILabelStore labelStore,
+        IMetricsStore metricsStore,
         StoragePaths paths,
         MemoryOptions options,
         CancellationToken cancellationToken,
@@ -51,10 +52,19 @@ public static class FlywheelEndpoints
             var effective = EffectiveScenario.Resolve(scenario, mlEnabled: false);
             var threshold = effective.MemoryMaxDistance ?? options.MaxDistance;
 
+            var window = ReplayWindow.Dates(date, days);
+            // 전용 ML 의 답은 장부 annotation 이 아니라 판정마다 한 줄 남는 메트릭 행에 있다 — 날마다 한 파일을 읽어 이미지 id 로 잇는다.
+            var mlLabels = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var day in window)
+                foreach (var row in await metricsStore.ReadAsync(scenarioId, day, cancellationToken))
+                    if (row.MlLabel is not null)
+                        mlLabels[row.ImageId] = row.MlLabel;
+
             var cases = new List<CurveCase>();
-            await foreach (var entry in ReplaySource.ReadAsync(scenarioId, ReplayWindow.Dates(date, days), labelStore, paths, cancellationToken))
+            await foreach (var entry in ReplaySource.ReadAsync(scenarioId, window, labelStore, paths, cancellationToken))
             {
-                if (FlywheelCurve.FromAnnotations(entry.Annotations, effective, entry.HumanLabel) is { } c)
+                mlLabels.TryGetValue(entry.SubjectId, out var ml);
+                if (FlywheelCurve.FromAnnotations(entry.Annotations, effective, entry.HumanLabel, ml) is { } c)
                     cases.Add(c);
             }
 
@@ -87,5 +97,8 @@ public static class FlywheelEndpoints
         MemoryAnsweredRate = p.MemoryAnsweredRate,
         MemoryAgreement = p.MemoryAgreement,
         MemoryMissed = p.MemoryMissed,
+        MlChecked = p.MlChecked,
+        MlAgreement = p.MlAgreement,
+        MlMissed = p.MlMissed,
     };
 }

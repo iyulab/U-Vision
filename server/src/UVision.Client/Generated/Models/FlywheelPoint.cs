@@ -28,6 +28,12 @@ namespace UVision.Client.Models
         public double? MemoryAnsweredRate { get; set; }
         /// <summary>The memory_missed property</summary>
         public int? MemoryMissed { get; set; }
+        /// <summary>The ml_agreement property</summary>
+        public double? MlAgreement { get; set; }
+        /// <summary>The ml_checked property</summary>
+        public int? MlChecked { get; set; }
+        /// <summary>The ml_missed property</summary>
+        public int? MlMissed { get; set; }
         /// <summary>The operative_agreement property</summary>
         public double? OperativeAgreement { get; set; }
         /// <summary>The operative_defect_pass property</summary>
@@ -66,6 +72,9 @@ namespace UVision.Client.Models
                 { "memory_answered", n => { MemoryAnswered = n.GetIntValue(); } },
                 { "memory_answered_rate", n => { MemoryAnsweredRate = n.GetDoubleValue(); } },
                 { "memory_missed", n => { MemoryMissed = n.GetIntValue(); } },
+                { "ml_agreement", n => { MlAgreement = n.GetDoubleValue(); } },
+                { "ml_checked", n => { MlChecked = n.GetIntValue(); } },
+                { "ml_missed", n => { MlMissed = n.GetIntValue(); } },
                 { "operative_agreement", n => { OperativeAgreement = n.GetDoubleValue(); } },
                 { "operative_defect_pass", n => { OperativeDefectPass = n.GetDoubleValue(); } },
                 { "operative_missed", n => { OperativeMissed = n.GetIntValue(); } },
@@ -85,6 +94,9 @@ namespace UVision.Client.Models
             writer.WriteIntValue("memory_answered", MemoryAnswered);
             writer.WriteDoubleValue("memory_answered_rate", MemoryAnsweredRate);
             writer.WriteIntValue("memory_missed", MemoryMissed);
+            writer.WriteDoubleValue("ml_agreement", MlAgreement);
+            writer.WriteIntValue("ml_checked", MlChecked);
+            writer.WriteIntValue("ml_missed", MlMissed);
             writer.WriteDoubleValue("operative_agreement", OperativeAgreement);
             writer.WriteDoubleValue("operative_defect_pass", OperativeDefectPass);
             writer.WriteIntValue("operative_missed", OperativeMissed);

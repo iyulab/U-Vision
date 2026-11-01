@@ -3637,7 +3637,9 @@
           "operative_missed",
           "memory_answered",
           "memory_answered_rate",
-          "memory_missed"
+          "memory_missed",
+          "ml_checked",
+          "ml_missed"
         ],
         "type": "object",
         "properties": {
@@ -3678,6 +3680,18 @@
             "format": "double"
           },
           "memory_missed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ml_checked": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ml_agreement": {
+            "type": "number",
+            "format": "double"
+          },
+          "ml_missed": {
             "type": "integer",
             "format": "int32"
           }

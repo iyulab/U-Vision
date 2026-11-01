@@ -201,6 +201,46 @@ public class CaseMemoryTests
         Assert.False(points[0].TryGetProperty("operative_defect_pass", out _)); // 사람 라벨 불량이 없다
     }
 
+    private sealed class MemoryAndMlFactory : UVisionApiFactory
+    {
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            base.ConfigureWebHost(builder);
+            builder.UseSetting($"{UVisionOptions.SectionName}:Memory:Provider", "mock");
+            builder.UseSetting($"{UVisionOptions.SectionName}:Memory:Neighbors", "1");
+            builder.UseSetting($"{UVisionOptions.SectionName}:Memory:SyncIntervalSeconds", "3600");
+            builder.UseSetting($"{UVisionOptions.SectionName}:Ml:Provider", "mock");
+        }
+    }
+
+    [Fact]
+    public async Task Flywheel_AddsTheMlLineFromTheMetricsRows_OnlyWhenMlWasAsked()
+    {
+        using var noMl = new MemoryEnabledFactory();
+        var plain = noMl.CreateClient();
+        await SeedTwoLabeledOkAsync(noMl, plain);
+        var without = await (await plain.GetAsync("/api/u-vision/flywheel?scenario_id=demo&bucket=2")).Content.ReadFromJsonAsync<JsonElement>();
+        var p0 = without.GetProperty("points").EnumerateArray().Single();
+        Assert.Equal(0, p0.GetProperty("ml_checked").GetInt32());
+        Assert.False(p0.TryGetProperty("ml_agreement", out _));          // ML 을 묻지 않았다 — 비율을 지어내지 않는다
+
+        using var withMl = new MemoryAndMlFactory();
+        var client = withMl.CreateClient();
+        var image = Jpeg(11);
+        var first = (await (await client.PostAsync("/api/u-vision/inspect", Form(image))).Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("image_id").GetString()!;
+        await client.PutAsJsonAsync("/api/u-vision/results/label", new LabelInput { ScenarioId = "demo", Date = Today, ImageId = first, Label = "OK" });
+        var second = (await (await client.PostAsync("/api/u-vision/inspect", Form(Jpeg(12)))).Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("image_id").GetString()!;
+        await client.PutAsJsonAsync("/api/u-vision/results/label", new LabelInput { ScenarioId = "demo", Date = Today, ImageId = second, Label = "OK" });
+
+        var with = await (await client.GetAsync("/api/u-vision/flywheel?scenario_id=demo&bucket=2")).Content.ReadFromJsonAsync<JsonElement>();
+        var p = with.GetProperty("points").EnumerateArray().Single();
+        Assert.Equal(2, p.GetProperty("ml_checked").GetInt32());          // 두 판정 모두 ML 이 라벨을 냈다(메트릭 행의 ml_label)
+        var agreement = p.GetProperty("ml_agreement").GetDouble();
+        Assert.InRange(agreement, 0.0, 1.0);
+    }
+
     [Fact]
     public async Task Flywheel_RejectsBadInput_AndUnknownScenarios()
     {

@@ -412,6 +412,9 @@ export interface FlywheelPoint {
   memory_answered_rate: number
   memory_agreement?: number
   memory_missed: number
+  ml_checked: number
+  ml_agreement?: number
+  ml_missed: number
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

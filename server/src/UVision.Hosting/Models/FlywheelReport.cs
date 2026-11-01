@@ -66,4 +66,15 @@ public sealed record FlywheelPoint
 
     /// <summary>기억이 OK 로 답했는데 사람 라벨이 불량인 수 — 기억이 확정했다면 통과시켰을 오답.</summary>
     [JsonPropertyName("memory_missed")] public required int MemoryMissed { get; init; }
+
+    /// <summary>전용 ML 이 라벨을 낸 판정 수 — ML 을 켜지 않았거나 분류가 실패한 건은 빠진다.</summary>
+    [JsonPropertyName("ml_checked")] public required int MlChecked { get; init; }
+
+    /// <summary>ML 라벨이 사람 라벨과 같았던 비율(ML 이 답한 건이 없으면 생략).</summary>
+    [JsonPropertyName("ml_agreement")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? MlAgreement { get; init; }
+
+    /// <summary>ML 이 OK 로 답했는데 사람 라벨이 불량인 수.</summary>
+    [JsonPropertyName("ml_missed")] public required int MlMissed { get; init; }
 }
