@@ -236,11 +236,41 @@ public class ScenarioV2Tests : IClassFixture<PinFactory>
         await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "dist log", memory_max_distance = 0 }));
         var lines = Lines().Select(l => JsonSerializer.Deserialize<JsonElement>(l)).ToList();
 
+        // BOM 이 첫 줄을 깨지 않는다 — 줄 단위 도구(JSONL 읽기)가 파일 맨 앞 바이트를 JSON 으로 읽는다.
+        Assert.NotEqual(0xEF, File.ReadAllBytes(Path.Combine(_factory.DataPath, id, "tuning.jsonl"))[0]);
         Assert.Equal(3, lines.Count);
         Assert.Equal((0.08, 0.12), (lines[1].GetProperty("from").GetDouble(), lines[1].GetProperty("to").GetDouble()));
         Assert.Equal(JsonValueKind.Null, lines[2].GetProperty("to").ValueKind);                         // 0 = 지움 — 이전 값 0.12 가 from 에 남는다
         Assert.Equal(0.12, lines[2].GetProperty("from").GetDouble());
         Assert.All(lines, l => Assert.Equal("memory_max_distance", l.GetProperty("option").GetString()));
+    }
+
+    [Fact]
+    public async Task Update_WithoutNgLabels_KeepsTheReferenceImagesDefectDescriptions()
+    {
+        // 기준 이미지의 NG 유형 설명(ng_labels)은 수정 요청이 생략하면 그대로여야 한다 — 관리 화면이 이름 · 기준만 고쳐 보내도
+        // 기준 이미지의 유형 설명(프롬프트의 [NG 기준 — 유형] 표지가 읽는다)이 사라지지 않는다.
+        var create = await Admin().PostAsync("/api/u-vision/scenarios", JsonContent.Create(new
+        {
+            name = "keep ng labels",
+            ng_labels = new Dictionary<string, string> { ["ref1"] = "솔더 브릿지" },
+        }));
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var id = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("scenario_id").GetString();
+        async Task<JsonElement> GetAsync() => await _factory.CreateClient().GetFromJsonAsync<JsonElement>($"/api/u-vision/scenarios/{id}");
+        Assert.Equal("솔더 브릿지", (await GetAsync()).GetProperty("ng_labels").GetProperty("ref1").GetString());   // 만들 때는 남는다
+
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new { name = "keep ng labels", criteria = "기준만 고침" }));
+        Assert.Equal("솔더 브릿지", (await GetAsync()).GetProperty("ng_labels").GetProperty("ref1").GetString());   // 생략 = 보존
+
+        await Admin().PutAsync($"/api/u-vision/scenarios/{id}", JsonContent.Create(new
+        {
+            name = "keep ng labels",
+            ng_labels = new Dictionary<string, string> { ["ref2"] = "스크래치" },
+        }));
+        var replaced = (await GetAsync()).GetProperty("ng_labels");
+        Assert.Equal("스크래치", replaced.GetProperty("ref2").GetString());                                          // 값 = 교체
+        Assert.False(replaced.TryGetProperty("ref1", out _));
     }
 
     [Fact]

@@ -161,6 +161,8 @@ public class RetentionEndpointTests : IClassFixture<PinFactory>
         // 삭제 사실이 남는다 — 한 줄, 끝까지 마쳤다고.
         var lines = File.ReadAllLines(Path.Combine(_factory.DataPath, "demo", "retention.jsonl"));
         Assert.Equal(linesBefore + 1, lines.Length);
+        // BOM 없이 쓴다 — 줄 단위 도구가 첫 줄을 JSON 으로 읽는다.
+        Assert.NotEqual(0xEF, File.ReadAllBytes(Path.Combine(_factory.DataPath, "demo", "retention.jsonl"))[0]);
         var rec = JsonDocument.Parse(lines[^1]).RootElement;
         Assert.True(rec.GetProperty("completed").GetBoolean());
         Assert.Equal("2021-02-01", rec.GetProperty("from").GetString());

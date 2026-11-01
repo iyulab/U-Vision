@@ -281,9 +281,11 @@ export async function getMetrics(scenarioId: string, date: string): Promise<Metr
 }
 
 /** 확정 사례 기억의 상태와 그날의 문턱 재생(무인증 읽기). 꺼져 있으면 `enabled: false`. */
-export async function getMemory(scenarioId: string, date: string): Promise<MemoryReport> {
+export async function getMemory(scenarioId: string, date: string, days = 1): Promise<MemoryReport> {
+  // 하루(기본)는 `days` 를 싣지 않는다 — 서버의 기본과 같고, 옛 서버(창 파라미터가 없던 판)에도 그대로 통한다.
+  const window = days > 1 ? `&days=${days}` : ''
   const res = await fetch(
-    `${API_BASE}/memory?scenario_id=${encodeURIComponent(scenarioId)}&date=${encodeURIComponent(date)}`,
+    `${API_BASE}/memory?scenario_id=${encodeURIComponent(scenarioId)}&date=${encodeURIComponent(date)}${window}`,
   )
   await ensureOk(res, '기억 조회')
   return (await res.json()) as MemoryReport

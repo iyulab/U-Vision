@@ -1,16 +1,17 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { CountingMetrics, MetricsSummary, Scenario } from '../lib/types'
+import type { CountingMetrics, MemoryReport, MetricsSummary, Scenario } from '../lib/types'
 
 const listMetricsDates = vi.fn<(id: string) => Promise<string[]>>()
 const getMetrics = vi.fn<(id: string, date: string) => Promise<MetricsSummary>>()
+const getMemory = vi.fn<(id: string, date: string, days?: number) => Promise<MemoryReport>>()
 
 // 검사 날짜 목록(listResultDates)은 일부러 내보내지 않는다 — 대시보드가 그것을 다시 부르면 시험이 깨져 되돌림을 알린다.
 vi.mock('../lib/api', () => ({
   listMetricsDates: (id: string) => listMetricsDates(id),
   getMetrics: (id: string, date: string) => getMetrics(id, date),
-  getMemory: () => Promise.reject(new Error('기억 꺼짐')),
+  getMemory: (id: string, date: string, days?: number) => getMemory(id, date, days),
   getTrainingReadiness: () => Promise.reject(new Error('준비 없음')),
   getSolverTrust: () => Promise.reject(new Error('심은 문제 없음')),
   getAmbiguity: () => Promise.reject(new Error('닫힌 문제 없음')),
@@ -41,6 +42,8 @@ const DOWN_ALL_DAY: CountingMetrics = {
 beforeEach(() => {
   listMetricsDates.mockReset()
   getMetrics.mockReset()
+  getMemory.mockReset()
+  getMemory.mockRejectedValue(new Error('기억 꺼짐'))
 })
 afterEach(cleanup)
 
@@ -64,5 +67,80 @@ describe('MetricsDashboard', () => {
     await waitFor(() => expect(listMetricsDates).toHaveBeenCalled())
     expect((screen.getByLabelText('날짜') as HTMLSelectElement).disabled).toBe(true)
     expect(getMetrics).not.toHaveBeenCalled()
+  })
+
+  describe('기억 문턱 추천', () => {
+    const inspection = [{ scenario_id: 's1', name: '검사', type: 'inspection' }] as unknown as Scenario[]
+    const report = (over: Partial<MemoryReport> = {}): MemoryReport => ({
+      scenario_id: 's1',
+      date: '2026-11-01',
+      enabled: true,
+      replayed: 12,
+      replay: [
+        { max_distance: 0.1, configured: false, answered: 8, teacher_checked: 8, teacher_agreement: 1, labeled: 8, label_agreement: 1, missed: 0, miss_rate: 0, labeled_defects: 6, defect_pass_rate: 0 },
+        { max_distance: 0.15, configured: true, answered: 10, teacher_checked: 10, teacher_agreement: 1, labeled: 10, label_agreement: 0.9, missed: 1, miss_rate: 0.1, labeled_defects: 6, defect_pass_rate: 0.17 },
+      ],
+      recommendation: {
+        max_distance: 0.1,
+        answered: 8,
+        labeled_defects: 6,
+        missed: 0,
+        defect_pass_upper_95: 0.393,
+        sufficient: false,
+        target_miss_rate: 0.02,
+        defects_needed: 149,
+        reason: '문턱 0.1 까지 불량 6장 중 OK 로 지나간 것이 없다.',
+      },
+      ...over,
+    })
+    const open = async (onApply?: React.ComponentProps<typeof MetricsDashboard>['onApplyMemoryDistance']) => {
+      listMetricsDates.mockResolvedValue(['2026-11-01'])
+      getMetrics.mockResolvedValue({ scenario_id: 's1', date: '2026-11-01' } as unknown as MetricsSummary)
+      getMemory.mockResolvedValue(report())
+      render(<MetricsDashboard scenarios={inspection} initialScenarioId="s1" onApplyMemoryDistance={onApply} />)
+      return await screen.findByTestId('memory-recommendation')
+    }
+
+    it('증거가 모자라면 «후보» 로 보이고, 적용은 «증거 부족 — 그래도 적용» 으로만 한다', async () => {
+      const apply = vi.fn().mockResolvedValue('ok')
+      const card = await open(apply)
+
+      expect(card.textContent).toContain('후보 문턱 0.10')
+      expect(card.textContent).toContain('불량 라벨 149장')
+      fireEvent.click(screen.getByRole('button', { name: '증거 부족 — 그래도 적용' }))
+
+      await waitFor(() => expect(apply).toHaveBeenCalledWith(inspection[0], 0.1))
+      expect(await screen.findByText('문턱 0.10 를 이 시나리오에 적용했습니다.')).toBeTruthy()
+      expect(getMemory).toHaveBeenCalledTimes(2) // 적용 뒤 기억 칸을 다시 읽는다
+    })
+
+    it('적용 핸들러가 없으면 추천만 보이고 단추는 없다', async () => {
+      await open(undefined)
+      expect(screen.queryByRole('button', { name: /적용/ })).toBeNull()
+    })
+
+    it('PIN 이 틀리면 알리고 다시 읽지 않는다', async () => {
+      const card = await open(vi.fn().mockResolvedValue('unauthorized'))
+      fireEvent.click(screen.getByRole('button', { name: '증거 부족 — 그래도 적용' }))
+      expect(await screen.findByText('PIN 이 올바르지 않습니다. 다시 시도하세요.')).toBeTruthy()
+      expect(card.isConnected).toBe(true)
+      expect(getMemory).toHaveBeenCalledTimes(1)
+    })
+
+    it('추천 문턱이 지금 설정값과 같으면 적용 단추가 없다', async () => {
+      listMetricsDates.mockResolvedValue(['2026-11-01'])
+      getMetrics.mockResolvedValue({ scenario_id: 's1', date: '2026-11-01' } as unknown as MetricsSummary)
+      getMemory.mockResolvedValue(report({ recommendation: { ...report().recommendation!, max_distance: 0.15, sufficient: true } }))
+      render(<MetricsDashboard scenarios={inspection} initialScenarioId="s1" onApplyMemoryDistance={vi.fn()} />)
+
+      await screen.findByTestId('memory-recommendation')
+      expect(screen.queryByRole('button', { name: /적용/ })).toBeNull()
+    })
+
+    it('재생 기간을 바꾸면 그 기간으로 다시 읽는다', async () => {
+      await open(undefined)
+      fireEvent.change(screen.getByLabelText('재생 기간'), { target: { value: '7' } })
+      await waitFor(() => expect(getMemory).toHaveBeenLastCalledWith('s1', '2026-11-01', 7))
+    })
   })
 })

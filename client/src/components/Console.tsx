@@ -8,6 +8,7 @@ import { useResource } from '../hooks/useResource'
 import { AdminSetup } from './AdminSetup'
 import { countDraftOf, countLine, EMPTY_COUNT_DRAFT, EXTRA_POLICIES, parseCountDraft, type CountDraft } from '../lib/counting'
 import { classesFor, defectsOf, formatDefects, parseDefects, type Defect } from '../lib/defectClasses'
+import { distanceUpdateInput } from '../lib/memory'
 import { DEFAULT_MOTION_CONFIG } from '../lib/motion'
 import { DEFAULT_ROI, fromScenarioRoi, toScenarioRoi, type Roi } from '../lib/roi'
 import type { Scenario } from '../lib/types'
@@ -164,7 +165,17 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
           <>
             <DataVolumePanel />
             <EventsStatusPanel />
-            <MetricsDashboard scenarios={scenarios} initialScenarioId={activeScenarioId} />
+            <MetricsDashboard
+              scenarios={scenarios}
+              initialScenarioId={activeScenarioId}
+              onApplyMemoryDistance={async (scenario, distance) => {
+                const result = await runWithPin(async (pin) => {
+                  await updateScenario(scenario.scenario_id, distanceUpdateInput(scenario, distance), pin)
+                })
+                if (result === 'ok') await reload()
+                return result
+              }}
+            />
           </>
         ) : tab === 'audit' ? (
           <LabelAudit scenarios={scenarios} initialScenarioId={activeScenarioId} />

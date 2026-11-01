@@ -261,7 +261,8 @@ public sealed class RetentionService
         }, LineJson);
         var path = _paths.RetentionJsonl(scenarioId);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        await File.AppendAllTextAsync(path, line + "\n", Encoding.UTF8, ct);
+        // BOM 없이 — 줄 단위로 읽는 도구가 첫 줄에서 깨지지 않게(`Encoding.UTF8` 는 새 파일 맨 앞에 BOM 을 쓴다).
+        await File.AppendAllTextAsync(path, line + "\n", new UTF8Encoding(false), ct);
     }
 
     private sealed record Plan(

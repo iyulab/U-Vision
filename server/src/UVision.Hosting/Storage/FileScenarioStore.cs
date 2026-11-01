@@ -91,6 +91,9 @@ public sealed partial class FileScenarioStore : IScenarioStore
             Classes = input.Classes ?? (typeChanged ? null : existing?.Classes),
             Judges = input.Judges ?? (typeChanged ? null : existing?.Judges),
             Trust = input.Trust ?? existing?.Trust,
+            // 기준 이미지의 NG 유형 설명은 생략(비어 있음) = 보존 — 이름 · 기준만 고친 수정이 기준 이미지의 설명을 지우지 않는다.
+            // 한 장의 설명은 기준 이미지 쪽(SetNgLabelAsync)에서 고치고 지운다.
+            NgLabels = input.NgLabels.Count > 0 ? input.NgLabels : existing?.NgLabels ?? new Dictionary<string, string>(),
             // 생략 = 보존, 빈 문자열 = 지움(전역 설정으로).
             PatchEncoder = input.PatchEncoder is { } encoder ? (encoder.Length == 0 ? null : encoder) : existing?.PatchEncoder,
             // 생략 = 보존, 0 = 지움. 유형이 바뀌면 옮기지 않는다(검사에서 다른 유형으로 바꿨는데 문턱이 남지 않게).
@@ -126,7 +129,8 @@ public sealed partial class FileScenarioStore : IScenarioStore
                 to,
             }, LineJson);
             var logPath = _paths.TuningJsonl(scenarioId);
-            await File.AppendAllTextAsync(logPath, line + "\n", System.Text.Encoding.UTF8, cancellationToken);
+            // BOM 없이 — 줄 단위로 읽는 도구가 첫 줄에서 깨지지 않게(`Encoding.UTF8` 는 새 파일 맨 앞에 BOM 을 쓴다).
+            await File.AppendAllTextAsync(logPath, line + "\n", new System.Text.UTF8Encoding(false), cancellationToken);
         }
         catch (IOException)
         {

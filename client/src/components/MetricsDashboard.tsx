@@ -4,7 +4,7 @@ import { useResource } from '../hooks/useResource'
 
 import { getAmbiguity, getMemory, getMetrics, getSolverTrust, getTrainingReadiness, listMetricsDates } from '../lib/api'
 import { classNameOf } from '../lib/labels'
-import { formatDistance, hasMiss, memoryStatusLine } from '../lib/memory'
+import { canApplyRecommendation, formatDistance, hasMiss, MEMORY_WINDOWS, memoryStatusLine, recommendationView } from '../lib/memory'
 import { auditAgreementLine, datasetNotice, emptyMetricsNotice, falseAlarmLead, formatPercent, fraction, hasNoMetricData, hasVlmMlMetrics, recallLead } from '../lib/metrics'
 import { hasClosedQuestions } from '../lib/ambiguity'
 import { hasPlants } from '../lib/solverTrust'
@@ -19,12 +19,18 @@ import { SolverTrustPanel } from './SolverTrustPanel'
  * agreement·검토·ML degrade 율 + **VLM↔ML NG recall 비교**(전용 ML 이 VLM 보다 NG 를 잘 잡는지 운영
  * 데이터로 확인 — ML 권한 단계를 올릴 근거). 날짜 목록은 메트릭 파일이 있는 날(`GET /metrics/dates`)이다.
  */
+/** 기억 문턱 적용 결과 — 관리 PIN 흐름(`usePin`)의 결과와 같다. */
+export type ApplyDistanceResult = 'ok' | 'cancelled' | 'unauthorized'
+
 export function MetricsDashboard({
   scenarios,
   initialScenarioId,
+  onApplyMemoryDistance,
 }: {
   scenarios: Scenario[]
   initialScenarioId: string | null
+  /** 추천 문턱을 시나리오에 적용한다(관리 PIN 필요). 없으면 추천만 보이고 적용 단추는 없다. */
+  onApplyMemoryDistance?: (scenario: Scenario, distance: number) => Promise<ApplyDistanceResult>
 }) {
   const [scenarioId, setScenarioId] = useState(
     () => initialScenarioId ?? scenarios[0]?.scenario_id ?? '',
@@ -50,11 +56,21 @@ export function MetricsDashboard({
     '학습 준비 조회 실패',
   )
   // 확정 사례 기억 — 꺼져 있으면 칸이 없다. 실패해도 대시보드는 그대로 보인다.
+  // 재생 기간(하루 · 7일 · 30일)은 기억 칸의 것이다 — 길수록 불량 라벨이 모여 추천의 증거가 단단해진다.
+  const [memoryDays, setMemoryDays] = useState(1)
   const memory = useResource(
-    scenarioId && date ? `${scenarioId}|${date}` : null,
-    () => getMemory(scenarioId, date),
+    scenarioId && date ? `${scenarioId}|${date}|${memoryDays}` : null,
+    () => getMemory(scenarioId, date, memoryDays),
     '기억 조회 실패',
   )
+  const activeScenario = scenarios.find((s) => s.scenario_id === scenarioId)
+  const applyDistance = onApplyMemoryDistance && activeScenario
+    ? async (distance: number): Promise<ApplyDistanceResult> => {
+        const result = await onApplyMemoryDistance(activeScenario, distance)
+        if (result === 'ok') await memory.reload()
+        return result
+      }
+    : undefined
   // 풀이자 신뢰 — 날짜와 무관(시나리오 전체). 심은 문제가 없으면(기본) 칸이 없고, 실패해도 대시보드는 그대로 보인다.
   const solverTrust = useResource(scenarioId || null, () => getSolverTrust(scenarioId), '풀이자 신뢰 조회 실패')
   // «모르겠음» 비율 — 날짜와 무관(시나리오 전체). 닫힌 문제가 없으면 칸이 없고, 실패해도 대시보드는 그대로 보인다.
@@ -107,7 +123,9 @@ export function MetricsDashboard({
           line={readinessLine(readiness.data, classNameOf(scenarios.find((s) => s.scenario_id === scenarioId)))}
         />}
 
-      {memory.data?.enabled && <MemoryPanel report={memory.data} />}
+      {memory.data?.enabled && (
+        <MemoryPanel report={memory.data} days={memoryDays} onDaysChange={setMemoryDays} onApply={applyDistance} />
+      )}
 
       {hasPlants(solverTrust.data) && <SolverTrustPanel trust={solverTrust.data} />}
 
@@ -135,14 +153,93 @@ export function MetricsDashboard({
  * 확정 사례 기억 — 상태와 문턱 재생 표. 기억은 아직 판정을 바꾸지 않으므로, 이 표는 «이 문턱이었다면 무엇을 답했고 얼마나
  * 맞았나»를 보여 문턱을 사람이 고르게 한다. 놓침(OK 로 답했는데 사람이 불량)이 있는 문턱은 눈에 띄게.
  */
-function MemoryPanel({ report }: { report: MemoryReport }) {
+function MemoryPanel({
+  report,
+  days,
+  onDaysChange,
+  onApply,
+}: {
+  report: MemoryReport
+  days: number
+  onDaysChange: (days: number) => void
+  onApply?: (distance: number) => Promise<ApplyDistanceResult>
+}) {
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const configured = report.replay.find((r) => r.configured)?.max_distance
+  const rec = report.recommendation
+  const view = rec ? recommendationView(rec) : null
+
+  async function apply(distance: number) {
+    if (!onApply) return
+    setBusy(true)
+    setMessage(null)
+    try {
+      const result = await onApply(distance)
+      if (result === 'ok') setMessage(`문턱 ${formatDistance(distance)} 를 이 시나리오에 적용했습니다.`)
+      else if (result === 'unauthorized') setMessage('PIN 이 올바르지 않습니다. 다시 시도하세요.')
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : '적용 실패')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-slate-700 bg-slate-800/50 p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-slate-200">확정 사례 기억</h2>
-        <span className="text-xs text-slate-500">관찰만 합니다 — 판정은 바뀌지 않습니다</span>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1 text-xs text-slate-400">
+            재생 기간
+            <select
+              aria-label="재생 기간"
+              value={days}
+              onChange={(e) => onDaysChange(Number(e.target.value))}
+              className="rounded-md border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-200"
+            >
+              {MEMORY_WINDOWS.map((w) => (
+                <option key={w.days} value={w.days}>
+                  {w.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <span className="text-xs text-slate-500">관찰만 합니다 — 판정은 바뀌지 않습니다</span>
+        </div>
       </div>
       <p className="text-sm text-slate-300">{memoryStatusLine(report)}</p>
+      {rec && view && (
+        <div
+          data-testid="memory-recommendation"
+          className={`mt-3 rounded-lg border px-4 py-3 text-sm ${
+            view.tone === 'sufficient'
+              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+              : view.tone === 'candidate'
+                ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
+                : 'border-slate-600 bg-slate-800/60 text-slate-300'
+          }`}
+        >
+          <p className="font-semibold">{view.headline}</p>
+          <p className="mt-1 text-xs opacity-90">{view.detail}</p>
+          {onApply && rec.max_distance !== undefined && canApplyRecommendation(rec, configured) && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void apply(rec.max_distance!)}
+              className="mt-2 rounded-md bg-slate-700 px-3 py-1 text-xs font-semibold text-white hover:bg-slate-600 disabled:opacity-50"
+            >
+              {view.tone === 'sufficient' ? '이 값으로 적용' : '증거 부족 — 그래도 적용'}
+            </button>
+          )}
+          {rec.max_distance !== undefined && (
+            <p className="mt-2 text-xs opacity-70">
+              기억은 아직 판정을 바꾸지 않습니다 — 적용해도 판정은 그대로이고, 이 값은 기억이 판정을 맡을 때 쓰입니다. 적용한 값은 이력에 남습니다.
+            </p>
+          )}
+          {message && <p className="mt-2 text-xs">{message}</p>}
+        </div>
+      )}
       {report.replay.length === 0 ? (
         <p className="mt-3 text-xs text-slate-500">이 날짜에 기억이 비교한 검사가 없습니다.</p>
       ) : (
