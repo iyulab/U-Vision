@@ -4,6 +4,8 @@ Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-01
+
 ### Added
 - `GET /flywheel?scenario_id=&date=&days=&bucket=` returns a flywheel curve: the human-confirmed labels in the order they accumulated, split into buckets, with per bucket the agreement of the decision actually taken with the human label, the share of defects it passed as OK, how often the confirmed-case memory would have answered (within the scenario's distance threshold), how often that answer matched, and how many defects it would have passed, and for the dedicated ML tier (read from the per-judgment metrics rows; `ml_checked` is 0 when ML is off) how often its label matched and how many defects it would have passed. Ratios with an empty denominator are omitted. The console's metrics tab shows it as a card (a one-line trend that stays silent until at least two buckets have 10 judgments, a line chart and a table).
 - Threshold recommendation for the confirmed-case memory: `GET /memory` takes `days` (1 to 90, default 1) to replay a window of days ending at `date`, and returns a `recommendation` when there is anything to replay: the largest distance threshold at which no photo that a person confirmed as defective would have passed as OK, with the evidence behind the claim (defect count, one-sided 95 % exact-binomial upper bound on the defect pass rate, whether that bound meets the scenario's miss-rate target, and how many defect labels the target would need). With no defect labels, or a miss at every threshold, there is no threshold and `reason` says why. The recommendation is a suggestion; applying it is a person's decision.
