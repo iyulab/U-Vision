@@ -55,6 +55,8 @@ export interface Contract {
   DemoteAuthorityInput?: DemoteAuthorityInput
   DetectionUnavailableResponse?: DetectionUnavailableResponse
   EventsStatusResponse?: EventsStatusResponse
+  FlywheelPoint?: FlywheelPoint
+  FlywheelReport?: FlywheelReport
   HealthResponse?: HealthResponse
   IFormFile?: IFormFile
   InspectResponse?: InspectResponse
@@ -394,6 +396,35 @@ export interface WebhookStatus {
   dead: number
   oldest_pending_at?: string
   last_error?: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "FlywheelPoint".
+ */
+export interface FlywheelPoint {
+  labeled_through: number
+  judged: number
+  operative_agreement?: number
+  labeled_defects: number
+  operative_missed: number
+  operative_defect_pass?: number
+  memory_answered: number
+  memory_answered_rate: number
+  memory_agreement?: number
+  memory_missed: number
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "FlywheelReport".
+ */
+export interface FlywheelReport {
+  scenario_id: string
+  date: string
+  days: number
+  bucket_size: number
+  memory_max_distance: number
+  labeled: number
+  points: FlywheelPoint[]
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

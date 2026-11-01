@@ -48,20 +48,11 @@ public static class MemoryEndpoints
 
             var cases = new List<ReplayCase>();
             // 하루면 지금 동작 그대로 — 여러 날이면 마지막 날(date)부터 거슬러 같은 읽기를 날마다 한다(라벨은 그날의 기록에 붙는다).
-            foreach (var day in days == 1 ? new[] { date } : ReplayWindow.Dates(date, days))
+            await foreach (var entry in ReplaySource.ReadAsync(
+                scenarioId, days == 1 ? new[] { date } : ReplayWindow.Dates(date, days), labelStore, paths, cancellationToken))
             {
-                var labels = (await labelStore.ListAsync(scenarioId, day, cancellationToken))
-                    .Where(l => l.OperativeLabel is not null)
-                    .ToDictionary(l => l.ImageId, l => l.OperativeLabel!, StringComparer.Ordinal);
-                var ledger = paths.LedgerJsonl(scenarioId, day);
-                if (!File.Exists(ledger))
-                    continue;
-                await foreach (var record in new JsonlProvenanceSink(ledger).ReadAsync(cancellationToken: cancellationToken))
-                {
-                    labels.TryGetValue(record.SubjectId, out var label);
-                    if (MemoryReplay.FromAnnotations(record.Provenance.Annotations, effective, label) is { } c)
-                        cases.Add(c);
-                }
+                if (MemoryReplay.FromAnnotations(entry.Annotations, effective, entry.HumanLabel) is { } c)
+                    cases.Add(c);
             }
 
             var replay = cases.Count == 0 ? [] : MemoryReplay.Run(cases, effective, effective.MemoryMaxDistance ?? options.MaxDistance);

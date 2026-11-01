@@ -13,6 +13,7 @@ using System;
 using UVision.Client.Admin;
 using UVision.Client.Datasets;
 using UVision.Client.Events;
+using UVision.Client.Flywheel;
 using UVision.Client.Health;
 using UVision.Client.Inspect;
 using UVision.Client.Memory;
@@ -43,6 +44,11 @@ namespace UVision.Client
         public global::UVision.Client.Events.EventsRequestBuilder Events
         {
             get => new global::UVision.Client.Events.EventsRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The flywheel property</summary>
+        public global::UVision.Client.Flywheel.FlywheelRequestBuilder Flywheel
+        {
+            get => new global::UVision.Client.Flywheel.FlywheelRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The health property</summary>
         public global::UVision.Client.Health.HealthRequestBuilder Health

@@ -1372,6 +1372,81 @@
         }
       }
     },
+    "/api/u-vision/flywheel": {
+      "get": {
+        "tags": [
+          "U-Vision"
+        ],
+        "operationId": "GetFlywheel",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 30
+            }
+          },
+          {
+            "name": "bucket",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlywheelReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/u-vision/scenarios/{id}/retention/purge": {
       "post": {
         "tags": [
@@ -3550,6 +3625,102 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WebhookStatus"
+            }
+          }
+        }
+      },
+      "FlywheelPoint": {
+        "required": [
+          "labeled_through",
+          "judged",
+          "labeled_defects",
+          "operative_missed",
+          "memory_answered",
+          "memory_answered_rate",
+          "memory_missed"
+        ],
+        "type": "object",
+        "properties": {
+          "labeled_through": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "judged": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "operative_agreement": {
+            "type": "number",
+            "format": "double"
+          },
+          "labeled_defects": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "operative_missed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "operative_defect_pass": {
+            "type": "number",
+            "format": "double"
+          },
+          "memory_answered": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "memory_answered_rate": {
+            "type": "number",
+            "format": "double"
+          },
+          "memory_agreement": {
+            "type": "number",
+            "format": "double"
+          },
+          "memory_missed": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "FlywheelReport": {
+        "required": [
+          "scenario_id",
+          "date",
+          "days",
+          "bucket_size",
+          "memory_max_distance",
+          "labeled",
+          "points"
+        ],
+        "type": "object",
+        "properties": {
+          "scenario_id": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "days": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "bucket_size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "memory_max_distance": {
+            "type": "number",
+            "format": "double"
+          },
+          "labeled": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FlywheelPoint"
             }
           }
         }

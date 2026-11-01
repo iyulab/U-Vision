@@ -15,6 +15,7 @@ public static class UVisionEndpoints
         group.MapDatasetEndpoints();
         group.MapMetricsEndpoints();
         group.MapMemoryEndpoints();
+        group.MapFlywheelEndpoints();
         group.MapModelEndpoints();
         group.MapAuthorityEndpoints();
         group.MapRetentionEndpoints();

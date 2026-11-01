@@ -181,6 +181,41 @@ public class CaseMemoryTests
     }
 
     [Fact]
+    public async Task Flywheel_BucketsLabeledJudgmentsInOrder_AndTheMemoryLineStartsWhenMemoryExists()
+    {
+        using var factory = new MemoryEnabledFactory();
+        var client = factory.CreateClient();
+        await SeedTwoLabeledOkAsync(factory, client);
+
+        var report = await (await client.GetAsync("/api/u-vision/flywheel?scenario_id=demo&bucket=1")).Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(2, report.GetProperty("labeled").GetInt32());
+        Assert.Equal(0.15, report.GetProperty("memory_max_distance").GetDouble());
+        Assert.Equal(30, report.GetProperty("days").GetInt32());
+        var points = report.GetProperty("points").EnumerateArray().ToList();
+        Assert.Equal([1, 2], points.Select(p => p.GetProperty("labeled_through").GetInt32()));
+        // 첫 판정은 기억이 비어 답하지 못했고, 같은 사진을 다시 본 둘째는 기억이 답했다.
+        Assert.Equal([0, 1], points.Select(p => p.GetProperty("memory_answered").GetInt32()));
+        Assert.Equal(1.0, points[1].GetProperty("memory_agreement").GetDouble());
+        Assert.False(points[0].TryGetProperty("memory_agreement", out _));     // 답한 건이 없으면 비율을 생략한다(0 으로 꾸미지 않는다)
+        Assert.False(points[0].TryGetProperty("operative_defect_pass", out _)); // 사람 라벨 불량이 없다
+    }
+
+    [Fact]
+    public async Task Flywheel_RejectsBadInput_AndUnknownScenarios()
+    {
+        using var factory = new MemoryEnabledFactory();
+        var client = factory.CreateClient();
+
+        foreach (var bad in new[] { "bucket=0", "bucket=501", "days=0", "days=91", "date=garbage" })
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync($"/api/u-vision/flywheel?scenario_id=demo&{bad}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/u-vision/flywheel?scenario_id=nope")).StatusCode);
+        var empty = await (await client.GetAsync("/api/u-vision/flywheel?scenario_id=demo")).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(0, empty.GetProperty("labeled").GetInt32());
+        Assert.Empty(empty.GetProperty("points").EnumerateArray());
+    }
+
+    [Fact]
     public async Task ScenarioMemoryMaxDistance_OverridesTheInstallationThreshold_InTheJudgeAndInTheReplay()
     {
         using var factory = new MemoryEnabledFactory();
