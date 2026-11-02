@@ -6,6 +6,7 @@ Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0
 
 ### Changed
 - `PUT /scenarios/{id}`: `allow_cloud_egress` is now optional on update. Leaving it out keeps the stored value (before, an update that did not send it silently turned the permission off); `true` / `false` replace it. Creating a scenario without it still means deny. A change is recorded in the scenario's tuning history (`option: allow_cloud_egress`). The console's scenario form shows the permission as a visible toggle that starts from the stored value, and the threshold "apply" no longer sends the field.
+- Upgraded `HoneAI.Core` to 0.16.0 (the packages now ship their XML documentation; no code change was needed here and the full test suite passes).
 
 ## [0.6.0] - 2026-11-01
 
