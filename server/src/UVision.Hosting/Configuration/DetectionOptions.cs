@@ -30,6 +30,7 @@ public sealed class DetectionOptions
     /// <summary>
     /// 계수가 세는 상자의 신뢰도 문턱(0 초과 1 이하)의 설치 기본 — 시나리오의 <c>min_confidence</c> 가 있으면 그것이 이긴다.
     /// 기본 0.5. 문턱 근처(± 0.1)의 상자가 개수를 바꾸면 판정은 NG 이고 사람 확인을 요구한다.
+    /// <c>mloop</c> 검출 서버는 점수 0.5 미만 상자를 보내지 않으므로(호출자가 서버 문턱을 낮추는 길이 아직 없다) 0.5 미만 값은 효력이 없다.
     /// </summary>
     public double MinConfidence { get; set; } = 0.5;
 }
