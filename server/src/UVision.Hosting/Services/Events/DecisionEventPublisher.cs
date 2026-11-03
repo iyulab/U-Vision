@@ -7,14 +7,14 @@ using UVision.Api.Storage;
 namespace UVision.Api.Services.Events;
 
 /// <summary>
-/// 판정 사건을 받는 곳마다 outbox 파일로 남긴다(파일 정본 — DB 없음). 보내기는 <see cref="WebhookDispatcher"/> 가
+/// 판정 사건을 받는 곳(웹훅 · MQTT)마다 outbox 파일로 남긴다(파일 정본 — DB 없음). 보내기는 <see cref="EventDispatcher"/> 가
 /// 따로 한다 — 판정 응답이 받는 쪽의 느림 · 장애를 기다리지 않게. 받는 곳이 없으면 아무것도 쓰지 않는다.
 /// </summary>
-public sealed class DecisionEventPublisher(StoragePaths paths, EventsOptions options, WebhookDeliverySignal signal)
+public sealed class DecisionEventPublisher(StoragePaths paths, EventsOptions options, EventDeliverySignal signal)
 {
     private static readonly JsonSerializerOptions Compact = new();
 
-    public bool IsEnabled => options.Webhooks.Count > 0;
+    public bool IsEnabled => options.Webhooks.Count + options.Mqtt.Count > 0;
 
     public async Task PublishAsync(InspectResultV2 decision, CancellationToken cancellationToken)
     {
@@ -25,15 +25,15 @@ public sealed class DecisionEventPublisher(StoragePaths paths, EventsOptions opt
         // 파일 이름이 시각 순이 되게 — 받는 곳마다 먼저 생긴 사건부터 보낸다.
         var name = DateTime.UtcNow.ToString("yyyyMMddHHmmssfffffff", CultureInfo.InvariantCulture)
             + "_" + evt.Id + ".json";
-        foreach (var hook in options.Webhooks)
+        foreach (var destination in options.Webhooks.Select(h => h.Name).Concat(options.Mqtt.Select(m => m.Name)))
             await StoragePaths.AtomicWriteJsonAsync(
-                Path.Combine(paths.EventOutboxDir(decision.ScenarioId, hook.Name), name), entry, cancellationToken);
+                Path.Combine(paths.EventOutboxDir(decision.ScenarioId, destination), name), entry, cancellationToken);
         signal.Notify();
     }
 }
 
 /// <summary>새 사건이 생겼다고 보내기 서비스를 깨운다(주기를 기다리지 않게).</summary>
-public sealed class WebhookDeliverySignal
+public sealed class EventDeliverySignal
 {
     private readonly SemaphoreSlim _signal = new(0, 1);
 

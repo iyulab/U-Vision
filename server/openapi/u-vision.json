@@ -3626,6 +3626,12 @@
             "items": {
               "$ref": "#/components/schemas/WebhookStatus"
             }
+          },
+          "mqtt": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MqttStatus"
+            }
           }
         }
       },
@@ -4518,6 +4524,33 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "MqttStatus": {
+        "required": [
+          "name",
+          "pending",
+          "dead"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "pending": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dead": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "oldest_pending_at": {
+            "type": "string"
+          },
+          "last_error": {
+            "type": "string"
           }
         }
       },

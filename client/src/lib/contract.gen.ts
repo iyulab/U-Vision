@@ -73,6 +73,7 @@ export interface Contract {
   ModelPointerResponse?: ModelPointerResponse
   ModelRegisteredResponse?: ModelRegisteredResponse
   ModelVersionManifest?: ModelVersionManifest
+  MqttStatus?: MqttStatus
   PathStepV2?: PathStepV2
   ProblemDetails?: ProblemDetails
   PromoteAuthorityInput?: PromoteAuthorityInput
@@ -385,12 +386,24 @@ export interface MlResult {
 export interface EventsStatusResponse {
   enabled: boolean
   webhooks: WebhookStatus[]
+  mqtt?: MqttStatus[]
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
  * via the `definition` "WebhookStatus".
  */
 export interface WebhookStatus {
+  name: string
+  pending: number
+  dead: number
+  oldest_pending_at?: string
+  last_error?: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "MqttStatus".
+ */
+export interface MqttStatus {
   name: string
   pending: number
   dead: number

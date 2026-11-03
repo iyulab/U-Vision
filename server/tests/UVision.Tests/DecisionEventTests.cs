@@ -50,11 +50,11 @@ public class DecisionEventTests : IDisposable
     [Fact]
     public async Task Publisher_Writes_CloudEvent_Per_Webhook_And_Nothing_When_Disabled()
     {
-        await new DecisionEventPublisher(Paths, new EventsOptions(), new WebhookDeliverySignal())
+        await new DecisionEventPublisher(Paths, new EventsOptions(), new EventDeliverySignal())
             .PublishAsync(Decision("img_a"), CancellationToken.None);
         Assert.False(Directory.Exists(Path.Combine(_root, "demo", "events")));
 
-        await new DecisionEventPublisher(Paths, Options(), new WebhookDeliverySignal())
+        await new DecisionEventPublisher(Paths, Options(), new EventDeliverySignal())
             .PublishAsync(Decision("img_b"), CancellationToken.None);
         var file = Assert.Single(Directory.GetFiles(Paths.EventOutboxDir("demo", "mes"), "*.json"));
         var entry = JsonSerializer.Deserialize<OutboxEntry>(await File.ReadAllTextAsync(file))!;
@@ -70,7 +70,7 @@ public class DecisionEventTests : IDisposable
     {
         var handler = new RecordingHandler(HttpStatusCode.OK);
         var options = Options(secret: "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
-        await new DecisionEventPublisher(Paths, options, new WebhookDeliverySignal())
+        await new DecisionEventPublisher(Paths, options, new EventDeliverySignal())
             .PublishAsync(Decision("img_a"), CancellationToken.None);
 
         var sent = await Dispatcher(options, handler).DeliverDueAsync(_now, CancellationToken.None);
@@ -89,7 +89,7 @@ public class DecisionEventTests : IDisposable
     {
         var handler = new RecordingHandler(HttpStatusCode.ServiceUnavailable);
         var options = Options(maxAttempts: 2);
-        var publisher = new DecisionEventPublisher(Paths, options, new WebhookDeliverySignal());
+        var publisher = new DecisionEventPublisher(Paths, options, new EventDeliverySignal());
         await publisher.PublishAsync(Decision("img_a"), CancellationToken.None);
         await publisher.PublishAsync(Decision("img_b"), CancellationToken.None);
         var dispatcher = Dispatcher(options, handler);
@@ -113,10 +113,10 @@ public class DecisionEventTests : IDisposable
     public async Task Status_Counts_Pending_And_Dead_Without_Leaking_Error_Text()
     {
         var options = Options(maxAttempts: 2);
-        var publisher = new DecisionEventPublisher(Paths, options, new WebhookDeliverySignal());
+        var publisher = new DecisionEventPublisher(Paths, options, new EventDeliverySignal());
         await publisher.PublishAsync(Decision("img_a"), CancellationToken.None);
         await publisher.PublishAsync(Decision("img_b"), CancellationToken.None);
-        var reader = new WebhookStatusReader(Paths, options);
+        var reader = new EventStatusReader(Paths, options);
         var before = Assert.Single(reader.Read().Webhooks);
         Assert.Equal(2, before.Pending);
         Assert.Null(before.LastError);
@@ -131,7 +131,7 @@ public class DecisionEventTests : IDisposable
         Assert.Equal(1, afterDead.Pending);
         Assert.Equal(1, afterDead.Dead);
 
-        Assert.False(new WebhookStatusReader(Paths, new EventsOptions()).Read().Enabled);
+        Assert.False(new EventStatusReader(Paths, new EventsOptions()).Read().Enabled);
     }
 
     [Fact]
@@ -184,8 +184,8 @@ public class DecisionEventTests : IDisposable
         Assert.False(Directory.Exists(Path.Combine(factory.DataPath, "demo", "events")));
     }
 
-    private WebhookDispatcher Dispatcher(EventsOptions options, HttpMessageHandler handler) =>
-        new(Paths, options, new StubFactory(handler), NullLogger<WebhookDispatcher>.Instance);
+    private EventDispatcher Dispatcher(EventsOptions options, HttpMessageHandler handler) =>
+        new(Paths, options, new EventTransports(options, new StubFactory(handler)), NullLogger<EventDispatcher>.Instance);
 
     private sealed class StubFactory(HttpMessageHandler handler) : IHttpClientFactory
     {

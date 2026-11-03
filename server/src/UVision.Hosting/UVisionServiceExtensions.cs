@@ -99,13 +99,14 @@ public static class UVisionServiceExtensions
         // 판정 사건 내보내기(P4) — 받는 곳(웹훅)이 없으면 사건을 쓰지도 보내지도 않는다.
         ValidateEvents(options.Events);
         services.AddSingleton(options.Events);
-        services.AddSingleton<Services.Events.WebhookDeliverySignal>();
+        services.AddSingleton<Services.Events.EventDeliverySignal>();
         services.AddSingleton<Services.Events.DecisionEventPublisher>();
-        services.AddHttpClient(Services.Events.WebhookDispatcher.HttpClientName,
+        services.AddHttpClient(Services.Events.WebhookTransport.HttpClientName,
             c => c.Timeout = TimeSpan.FromSeconds(10));
-        services.AddSingleton<Services.Events.WebhookDispatcher>();
-        services.AddSingleton<Services.Events.WebhookStatusReader>();
-        services.AddHostedService<Services.Events.WebhookDeliveryService>();
+        services.AddSingleton<Services.Events.EventTransports>();
+        services.AddSingleton<Services.Events.EventDispatcher>();
+        services.AddSingleton<Services.Events.EventStatusReader>();
+        services.AddHostedService<Services.Events.EventDeliveryService>();
 
         // 데이터셋 export(신뢰성 플라이휠 ② — 전용 ML 빌드 데이터 준비).
         services.AddSingleton<Services.Dataset.IDatasetExporter, Services.Dataset.FileDatasetExporter>();
@@ -141,6 +142,24 @@ public static class UVisionServiceExtensions
                 throw new InvalidOperationException($"UVision:Events:Webhooks[{hook.Name}].Url 은 http(s) 절대 주소여야 한다");
             if (hook.Secret.StartsWith("whsec_", StringComparison.Ordinal))
                 _ = Services.Events.WebhookSignature.SecretBytes(hook.Secret); // base64 형식 검사(FormatException)
+        }
+        foreach (var mqtt in events.Mqtt)
+        {
+            StoragePaths.Id(mqtt.Name); // outbox 디렉터리 이름
+            if (!names.Add(mqtt.Name))
+                throw new InvalidOperationException($"UVision:Events 받는 곳 이름 중복(웹훅 · MQTT 통틀어): {mqtt.Name}");
+            if (string.IsNullOrWhiteSpace(mqtt.Host))
+                throw new InvalidOperationException($"UVision:Events:Mqtt[{mqtt.Name}].Host 가 비어 있다");
+            if (mqtt.Port is < 0 or > 65535)
+                throw new InvalidOperationException($"UVision:Events:Mqtt[{mqtt.Name}].Port 는 0(기본) 또는 1~65535 여야 한다");
+            if (mqtt.QualityOfService is not (1 or 2))
+                throw new InvalidOperationException(
+                    $"UVision:Events:Mqtt[{mqtt.Name}].QualityOfService 는 1(최소 한 번) 또는 2(정확히 한 번) 여야 한다");
+            if (string.IsNullOrWhiteSpace(mqtt.TopicPrefix) || mqtt.TopicPrefix.StartsWith('$')
+                || mqtt.TopicPrefix.AsSpan().IndexOfAny('+', '#') >= 0
+                || mqtt.TopicPrefix.Contains("//", StringComparison.Ordinal))
+                throw new InvalidOperationException(
+                    $"UVision:Events:Mqtt[{mqtt.Name}].TopicPrefix 는 비어 있지 않고 와일드카드(+ #) · 선행 $ · 빈 수준(//)이 없어야 한다");
         }
     }
 }

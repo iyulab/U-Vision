@@ -16,6 +16,14 @@ namespace UVision.Client.Models
         public IDictionary<string, object> AdditionalData { get; set; }
         /// <summary>The enabled property</summary>
         public bool? Enabled { get; set; }
+        /// <summary>The mqtt property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::UVision.Client.Models.MqttStatus>? Mqtt { get; set; }
+#nullable restore
+#else
+        public List<global::UVision.Client.Models.MqttStatus> Mqtt { get; set; }
+#endif
         /// <summary>The webhooks property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -50,6 +58,7 @@ namespace UVision.Client.Models
             return new Dictionary<string, Action<IParseNode>>
             {
                 { "enabled", n => { Enabled = n.GetBoolValue(); } },
+                { "mqtt", n => { Mqtt = n.GetCollectionOfObjectValues<global::UVision.Client.Models.MqttStatus>(global::UVision.Client.Models.MqttStatus.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "webhooks", n => { Webhooks = n.GetCollectionOfObjectValues<global::UVision.Client.Models.WebhookStatus>(global::UVision.Client.Models.WebhookStatus.CreateFromDiscriminatorValue)?.AsList(); } },
             };
         }
@@ -61,6 +70,7 @@ namespace UVision.Client.Models
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteBoolValue("enabled", Enabled);
+            writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.MqttStatus>("mqtt", Mqtt);
             writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.WebhookStatus>("webhooks", Webhooks);
             writer.WriteAdditionalData(AdditionalData);
         }

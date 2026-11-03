@@ -4,7 +4,11 @@ Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0
 
 ## [Unreleased]
 
+### Added
+- Judgment events can also be published over MQTT 5: `UVision:Events:Mqtt` lists brokers (`Name`, `Host`, `Port`, `UseTls`, `Username`, `Password`, `ClientId`, `TopicPrefix`, `QualityOfService`). The same CloudEvents envelope is sent in structured mode (`application/cloudevents+json`) to `{TopicPrefix}/{scenario_id}`, through the same per-destination outbox as webhooks, so retries with back-off, ordering, the give-up limit and `dead/` behave identically; the broker's acknowledgement is what deletes an event (QoS 1, at-least-once; QoS 2 is selectable). A broker that is down never delays a judgment. Brokers and webhooks share one name space, and a misconfigured broker stops the host at start. `GET /events/status` gains an optional `mqtt` list of the same per-destination counters (absent when no broker is configured, so existing responses are unchanged), and the console's events panel shows the brokers beside the webhooks. Adds the `MQTTnet` dependency (MIT) to `UVision.Hosting`.
+
 ### Changed
+- Internal rename with the event transports made pluggable: the event dispatcher, delivery service, signal and status reader no longer carry "Webhook" in their names (`EventDispatcher`, `EventDeliveryService`, `EventDeliverySignal`, `EventStatusReader`); the webhook sending itself moved into `WebhookTransport`. No change to the webhook wire.
 - `PUT /scenarios/{id}`: `allow_cloud_egress` is now optional on update. Leaving it out keeps the stored value (before, an update that did not send it silently turned the permission off); `true` / `false` replace it. Creating a scenario without it still means deny. A change is recorded in the scenario's tuning history (`option: allow_cloud_egress`). The console's scenario form shows the permission as a visible toggle that starts from the stored value, and the threshold "apply" no longer sends the field.
 - Upgraded `HoneAI.Core` to 0.16.0 (the packages now ship their XML documentation; no code change was needed here and the full test suite passes).
 
