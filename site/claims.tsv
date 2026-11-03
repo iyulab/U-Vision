@@ -25,7 +25,7 @@ edge	vision	README.md	Edge device processing video, sending events and crops, bu
 scenario-counting	vision	README.md	Line-crossing counting against the work order plan (roadmap)
 scenario-safety	vision	README.md	Hard-hat watch with duration-based alerts, no face judgment (roadmap)
 scenario-anomaly	vision	README.md	Anomaly detection from normal images only, explained by the VLM (roadmap)
-integrate	works	server/openapi/u-vision.json · server/src/UVision.Hosting/Services/Events/WebhookDispatcher.cs	OpenAPI document, signed CloudEvents webhooks
+integrate	works	server/openapi/u-vision.json · server/src/UVision.Hosting/Services/Events/EventDispatcher.cs	OpenAPI document, signed CloudEvents webhooks
 mes-in	vision	README.md	Work orders, lots and expected part numbers taken in from the MES (roadmap)
 industrial-protocols	vision	README.md	MQTT and OPC UA output (roadmap)
 models	works	server/src/UVision.Hosting/Services/Vlm/VlmProviderFactory.cs	Self-hosted OpenAI-compatible model server (GPUStack provider)
