@@ -3,6 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Opc.Ua;
 using Opc.Ua.Server.Hosting;
 using UVision.Api.Configuration;
+using UVision.Api.OpcUa;
+using UVision.Api.Services.Events;
 using UVision.Api.Storage;
 
 namespace UVision.Api;
@@ -13,7 +15,11 @@ namespace UVision.Api;
 /// </summary>
 public static class OpcUaServiceExtensions
 {
-    /// <summary>PKI 폴더(상대) — 데이터 루트 아래. 서버 인스턴스 인증서는 <c>own</c>, 클라이언트 신뢰는 <c>trusted</c>.</summary>
+    /// <summary>
+    /// PKI 폴더(상대) — 데이터 루트 아래. 관찰한 배치: 서버 인스턴스 인증서는 <c>certs</c>(공개) · <c>private</c>(개인 키),
+    /// 신뢰 목록에 없는 클라이언트의 인증서는 첫 접속 시도에서 스택이 <c>rejected/certs</c> 에 두며, 관리자가 그것을
+    /// <c>trusted/certs</c>(없으면 만든다)로 복사하면 그 클라이언트가 접속된다.
+    /// </summary>
     public const string PkiFolder = "opcua/pki";
 
     public static IServiceCollection AddUVisionOpcUa(
@@ -25,8 +31,16 @@ public static class OpcUaServiceExtensions
         if (!opc.Enabled)
             return services;
 
-        var pkiRoot = Path.Combine(new StoragePaths(options.Storage, contentRoot).Root, PkiFolder);
+        var paths = new StoragePaths(options.Storage, contentRoot);
+        var pkiRoot = Path.Combine(paths.Root, PkiFolder);
         var host = string.IsNullOrWhiteSpace(opc.Host) ? Dns.GetHostName() : opc.Host.Trim();
+
+        // 결과 보관소(최근 결과 창 + 서 있는 노드 관리자) — 사건 전송과 서버 스택이 이것을 거쳐 닿는다.
+        var hub = new OpcUaResultHub(opc.ResultWindow);
+        services.AddSingleton(hub);
+        // 사건의 받는 곳으로 더한다 — 꺼져 있으면 여기까지 오지 않아 아무것도 등록되지 않는다(기존 동작 byte 동일).
+        services.AddSingleton<IEventDestinationSource>(
+            new OpcUaDestinationSource(hub, new ScenarioFactsReader(paths)));
 
         services
             .AddOpcUa()
@@ -54,7 +68,8 @@ public static class OpcUaServiceExtensions
                 a.EnableUserNamePassword = false;
                 a.EnableX509 = false;
                 a.EnableJwt = false;
-            });
+            })
+            .AddNodeManager(new ResultsNodeManagerFactory(hub));
         return services;
     }
 

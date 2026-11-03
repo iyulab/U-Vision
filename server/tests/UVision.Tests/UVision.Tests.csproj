@@ -17,6 +17,8 @@
     <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.14" />
     <!-- 사건의 MQTT 전송 시험이 프로세스 안 브로커(실제 MQTT 5 프로토콜)로 받는다. -->
     <PackageReference Include="MQTTnet.Server" Version="5.2.0.1603" />
+    <!-- OPC UA 결과 노드 시험이 실제 OPC UA 프로토콜(클라이언트 스택)로 서버에 닿는다. 시험 전용 — 서버 패키지에는 들지 않는다. -->
+    <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Client" Version="2.0.1" />
     <PackageReference Include="xunit.v3" Version="4.0.2" />
   </ItemGroup>
 

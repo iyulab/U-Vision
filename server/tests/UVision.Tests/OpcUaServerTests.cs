@@ -10,7 +10,7 @@ namespace UVision.Tests;
 
 /// <summary>
 /// OPC UA 서버 기동(P4 사건 전송 ①) — 기본 꺼짐, 켜면 서버가 서고 인증서 폴더가 데이터 루트 아래 생긴다.
-/// 이 시험은 «서버가 서고 TCP 로 닿는다» 까지다 — 프로토콜 왕복(구독 · 메서드)은 결과 노드가 서는 다음 단계의 시험이 한다.
+/// 이 시험은 «서버가 서고 TCP 로 닿는다» 까지다 — 프로토콜 왕복(인증서 신뢰 · 구독 · 메서드)은 <c>OpcUaResultTests</c> 가 한다.
 /// </summary>
 public class OpcUaServerTests : IDisposable
 {

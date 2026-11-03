@@ -86,8 +86,9 @@ public sealed class OpcUaOptions
     public string Host { get; set; } = "";
 
     /// <summary>
-    /// 최근 결과 창의 크기(개) — 구독자가 놓친 결과를 <c>GetResultListFiltered</c> 로 따라잡는 범위. 창 밖의 과거
-    /// 결과는 판정 id 로 <c>GetResultById</c> 가 레코드 저장소에서 읽는다.
+    /// 최근 결과 창의 크기(개) — 구독자가 놓친 결과를 <c>GetResultListFiltered</c> / <c>GetResultById</c> 로 따라잡는 범위.
+    /// 창은 메모리에만 있고 가득 차면 가장 오래된 것부터 밀려난다 — 창 밖(또는 재시작 전)의 결과는 <c>GetResultById</c> 가
+    /// «없음» 으로 답한다(레코드 저장소에서 읽지 않는다: 저장된 레코드는 사건의 <c>json</c> 과 같은 바이트를 만들 수 없다).
     /// </summary>
     public int ResultWindow { get; set; } = 500;
 
