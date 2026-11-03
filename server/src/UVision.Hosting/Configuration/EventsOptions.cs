@@ -11,6 +11,12 @@ public sealed class EventsOptions
     /// <summary>MQTT 브로커 — 같은 사건(CloudEvents 구조적 모드)을 주제로 낸다.</summary>
     public List<MqttOptions> Mqtt { get; set; } = [];
 
+    /// <summary>
+    /// OPC UA 서버 — 판정 사건을 OPC 40100-1 결과 관리 모양으로 노출한다(엔진 호스트가 서버가 된다). 기본 꺼짐 =
+    /// 포트도 열지 않는다. 서버 스택은 엔진 호스트(<c>UVision.Api</c>)에만 있고, 이 옵션은 그 호스트가 읽는다.
+    /// </summary>
+    public OpcUaOptions OpcUa { get; set; } = new();
+
     /// <summary>보내기 주기(초) — 새 사건은 이 주기를 기다리지 않고 바로 보낸다.</summary>
     public int DeliveryIntervalSeconds { get; set; } = 15;
 
@@ -62,4 +68,32 @@ public sealed class MqttOptions
 
     /// <summary>서비스 품질 — 1(최소 한 번, 기본) 또는 2(정확히 한 번). 0 은 outbox 의 최소 한 번과 맞지 않아 받지 않는다.</summary>
     public int QualityOfService { get; set; } = 1;
+}
+
+/// <summary>OPC UA 서버 — <c>UVision:Events:OpcUa</c>. 신뢰는 클라이언트 인증서 신뢰 목록이다(계정 시스템 없음).</summary>
+public sealed class OpcUaOptions
+{
+    /// <summary>서버를 세운다. 기본 꺼짐 — 꺼져 있으면 포트도 인증서 폴더도 만들지 않는다.</summary>
+    public bool Enabled { get; set; }
+
+    /// <summary>듣는 TCP 포트(OPC UA 관례 4840).</summary>
+    public int Port { get; set; } = 4840;
+
+    /// <summary>
+    /// 종단 주소에 적는 호스트 이름 — 비우면 이 기계의 호스트 이름. 클라이언트가 이 이름으로 접속하므로(인증서의
+    /// 애플리케이션 URI 와도 맞물린다) 이름 해석이 되는 값이어야 한다.
+    /// </summary>
+    public string Host { get; set; } = "";
+
+    /// <summary>
+    /// 최근 결과 창의 크기(개) — 구독자가 놓친 결과를 <c>GetResultListFiltered</c> 로 따라잡는 범위. 창 밖의 과거
+    /// 결과는 판정 id 로 <c>GetResultById</c> 가 레코드 저장소에서 읽는다.
+    /// </summary>
+    public int ResultWindow { get; set; } = 500;
+
+    /// <summary>
+    /// 보안 없음(SecurityPolicy None) 종단을 함께 연다 — 인증서 신뢰 없이 누구나 접속하므로 실험실 전용이다.
+    /// 기본 아니오: 서명 + 암호화 종단만, 신뢰 목록에 든 클라이언트 인증서만 접속된다.
+    /// </summary>
+    public bool AllowInsecure { get; set; }
 }

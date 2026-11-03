@@ -11,6 +11,9 @@ builder.Configuration.AddInMemoryCollection(StandaloneEnv.ToConfig());
 
 builder.Services.AddUVision(builder.Configuration, builder.Environment.ContentRootPath);
 
+// OPC UA 서버(P4 사건 전송) — 기본 꺼짐. 서버 스택은 엔진 호스트에만 있다.
+builder.Services.AddUVisionOpcUa(builder.Configuration, builder.Environment.ContentRootPath);
+
 // 주의: 전역 ConfigureHttpJsonOptions 를 추가하지 않는다. wire snake_case 는 DTO [JsonPropertyName]
 // 이 보유(Task 4B) — standalone/임베드 모두 동일하게 동작. 재추가 금지(임베드 시 호스트 오염원).
 
