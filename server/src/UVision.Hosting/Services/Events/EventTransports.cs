@@ -21,6 +21,8 @@ public sealed record EventDestination(string Name, string Kind, IEventTransport 
 {
     public const string WebhookKind = "webhook";
     public const string MqttKind = "mqtt";
+    /// <summary>호스트(엔진)가 공급자로 더하는 OPC UA 전송의 종류 이름 — 상태 보기가 이 종류만 <c>opcua</c> 목록에 싣는다.</summary>
+    public const string OpcUaKind = "opcua";
 }
 
 /// <summary>

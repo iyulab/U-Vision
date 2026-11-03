@@ -45,7 +45,7 @@ public sealed class OpcUaDestinationSource : IEventDestinationSource
     /// <summary>받는 곳 이름 — outbox 디렉터리 이름이라 설정된 웹훅 · MQTT 이름과 겹치면 기동에서 멈춘다.</summary>
     public const string DestinationName = "opcua";
 
-    public const string Kind = "opcua";
+    public const string Kind = EventDestination.OpcUaKind;
 
     public OpcUaDestinationSource(OpcUaResultHub hub, ScenarioFactsReader scenarios)
     {

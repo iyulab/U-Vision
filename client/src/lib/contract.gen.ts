@@ -74,6 +74,7 @@ export interface Contract {
   ModelRegisteredResponse?: ModelRegisteredResponse
   ModelVersionManifest?: ModelVersionManifest
   MqttStatus?: MqttStatus
+  OpcUaStatus?: OpcUaStatus
   PathStepV2?: PathStepV2
   ProblemDetails?: ProblemDetails
   PromoteAuthorityInput?: PromoteAuthorityInput
@@ -387,6 +388,7 @@ export interface EventsStatusResponse {
   enabled: boolean
   webhooks: WebhookStatus[]
   mqtt?: MqttStatus[]
+  opcua?: OpcUaStatus[]
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
@@ -404,6 +406,17 @@ export interface WebhookStatus {
  * via the `definition` "MqttStatus".
  */
 export interface MqttStatus {
+  name: string
+  pending: number
+  dead: number
+  oldest_pending_at?: string
+  last_error?: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "OpcUaStatus".
+ */
+export interface OpcUaStatus {
   name: string
   pending: number
   dead: number

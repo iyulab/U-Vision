@@ -24,6 +24,14 @@ namespace UVision.Client.Models
 #else
         public List<global::UVision.Client.Models.MqttStatus> Mqtt { get; set; }
 #endif
+        /// <summary>The opcua property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::UVision.Client.Models.OpcUaStatus>? Opcua { get; set; }
+#nullable restore
+#else
+        public List<global::UVision.Client.Models.OpcUaStatus> Opcua { get; set; }
+#endif
         /// <summary>The webhooks property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -59,6 +67,7 @@ namespace UVision.Client.Models
             {
                 { "enabled", n => { Enabled = n.GetBoolValue(); } },
                 { "mqtt", n => { Mqtt = n.GetCollectionOfObjectValues<global::UVision.Client.Models.MqttStatus>(global::UVision.Client.Models.MqttStatus.CreateFromDiscriminatorValue)?.AsList(); } },
+                { "opcua", n => { Opcua = n.GetCollectionOfObjectValues<global::UVision.Client.Models.OpcUaStatus>(global::UVision.Client.Models.OpcUaStatus.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "webhooks", n => { Webhooks = n.GetCollectionOfObjectValues<global::UVision.Client.Models.WebhookStatus>(global::UVision.Client.Models.WebhookStatus.CreateFromDiscriminatorValue)?.AsList(); } },
             };
         }
@@ -71,6 +80,7 @@ namespace UVision.Client.Models
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteBoolValue("enabled", Enabled);
             writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.MqttStatus>("mqtt", Mqtt);
+            writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.OpcUaStatus>("opcua", Opcua);
             writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.WebhookStatus>("webhooks", Webhooks);
             writer.WriteAdditionalData(AdditionalData);
         }

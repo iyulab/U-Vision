@@ -4,7 +4,7 @@ import { getEventsStatus } from '../lib/api'
 import type { EventsStatus } from '../lib/types'
 
 /**
- * 판정 사건 내보내기(웹훅 · MQTT) 상태 — 받는 곳마다 보내기를 기다리는 · 포기한 사건 수. 받는 곳이 설정되지 않았으면
+ * 판정 사건 내보내기(웹훅 · MQTT · OPC UA) 상태 — 받는 곳마다 보내기를 기다리는 · 포기한 사건 수. 받는 곳이 설정되지 않았으면
  * 아무것도 그리지 않는다. 사건이 쌓이고 있다는 것을 서버 파일을 뒤지지 않고 알게 한다.
  */
 export function EventsStatusPanel() {
@@ -44,6 +44,7 @@ export function EventsStatusPanel() {
           {[
             ...status.webhooks.map((w) => ({ ...w, kind: '웹훅' })),
             ...(status.mqtt ?? []).map((m) => ({ ...m, kind: 'MQTT' })),
+            ...(status.opcua ?? []).map((o) => ({ ...o, kind: 'OPC UA' })),
           ].map((w) => (
             <tr key={`${w.kind}:${w.name}`} className="border-t border-slate-800">
               <td className="py-1">{w.name}</td>

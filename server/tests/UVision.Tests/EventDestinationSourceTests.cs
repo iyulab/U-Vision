@@ -83,6 +83,29 @@ public class EventDestinationSourceTests : IDisposable
     }
 
     [Fact]
+    public async Task Status_Lists_Only_OpcUa_Kind_Sources_Under_OpcUa_With_Pending_Count()
+    {
+        var options = new EventsOptions();
+        var opc = new FixedSource(new EventDestination(EventDestination.OpcUaKind, EventDestination.OpcUaKind, new Recorder()));
+        var other = new FixedSource(new EventDestination("fake", "fake", new Recorder()));
+        var publisher = new DecisionEventPublisher(Paths, options, new EventDeliverySignal(), [opc, other]);
+        await publisher.PublishAsync(Decision("img_a"), CancellationToken.None);
+        await publisher.PublishAsync(Decision("img_b"), CancellationToken.None);
+
+        var status = new EventStatusReader(Paths, options, [opc, other]).Read();
+        var item = Assert.Single(status.OpcUa!);
+        Assert.Equal("opcua", item.Name);
+        Assert.Equal(2, item.Pending);
+        Assert.Equal(0, item.Dead);
+        Assert.NotNull(item.OldestPendingAt);
+        Assert.True(status.Enabled);
+        // 다른 종류의 공급자는 opcua 목록에 싣지 않는다 · 공급자가 없으면 필드가 생략된다(기존 응답 byte 동일).
+        Assert.Null(new EventStatusReader(Paths, options, [other]).Read().OpcUa);
+        Assert.Null(new EventStatusReader(Paths, new EventsOptions()).Read().OpcUa);
+        Assert.DoesNotContain("opcua", System.Text.Json.JsonSerializer.Serialize(new EventStatusReader(Paths, new EventsOptions()).Read()));
+    }
+
+    [Fact]
     public void Source_Name_Clashing_With_A_Configured_Destination_Is_Rejected()
     {
         var options = new EventsOptions
