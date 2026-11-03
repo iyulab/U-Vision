@@ -60,7 +60,8 @@ public sealed record MqttStatus
 }
 
 /// <summary>outbox 디렉터리를 세어 받는 곳별 상태를 만든다(파일 정본 — 따로 저장하는 상태 없음).</summary>
-public sealed class EventStatusReader(StoragePaths paths, EventsOptions options)
+public sealed class EventStatusReader(
+    StoragePaths paths, EventsOptions options, IEnumerable<IEventDestinationSource>? extra = null)
 {
     public EventsStatusResponse Read()
     {
@@ -74,7 +75,8 @@ public sealed class EventStatusReader(StoragePaths paths, EventsOptions options)
         }).ToList();
         return new EventsStatusResponse
         {
-            Enabled = webhooks.Count + mqtt.Count > 0,
+            // 공급자가 더한 받는 곳(예: OPC UA)도 «받는 곳이 있다» 에 든다 — 그곳의 상세 상태는 공급자 몫(후속).
+            Enabled = webhooks.Count + mqtt.Count > 0 || (extra?.Any(s => s.Destinations.Count > 0) ?? false),
             Webhooks = webhooks,
             Mqtt = mqtt.Count == 0 ? null : mqtt,
         };

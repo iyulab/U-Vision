@@ -23,16 +23,35 @@ public sealed record EventDestination(string Name, string Kind, IEventTransport 
     public const string MqttKind = "mqtt";
 }
 
-/// <summary>설정된 받는 곳마다 전송을 만들어 쥔다. 받는 곳이 없으면 비어 있다(부수효과 0).</summary>
+/// <summary>
+/// 설정 파일에 적히지 않는 받는 곳을 호스트가 DI 로 더하는 이음새 — 엔진 호스트(<c>UVision.Api</c>)만 쓰는 무거운
+/// 전송(OPC UA 서버 등)을 게시 패키지에 싣지 않으려는 길이다. 등록된 공급자가 없으면(기본) 동작은 이음새가 없던 때와
+/// 같다. 공급자가 만든 전송의 수명은 공급자(DI 싱글턴)가 쥐므로 <see cref="EventTransports"/> 는 그것을 해제하지 않는다.
+/// </summary>
+public interface IEventDestinationSource
+{
+    /// <summary>더할 받는 곳 — 이름은 outbox 디렉터리라서 설정된 웹훅 · MQTT 와, 다른 공급자와 겹치면 안 된다.</summary>
+    IReadOnlyList<EventDestination> Destinations { get; }
+}
+
+/// <summary>설정된 받는 곳마다 전송을 만들어 쥔다(+ 공급자가 더한 곳). 받는 곳이 없으면 비어 있다(부수효과 0).</summary>
 public sealed class EventTransports : IAsyncDisposable
 {
-    public EventTransports(EventsOptions options, IHttpClientFactory httpClients)
+    private readonly List<EventDestination> _owned = [];
+
+    public EventTransports(
+        EventsOptions options, IHttpClientFactory httpClients, IEnumerable<IEventDestinationSource>? extra = null)
     {
-        var all = new List<EventDestination>();
         foreach (var hook in options.Webhooks)
-            all.Add(new EventDestination(hook.Name, EventDestination.WebhookKind, new WebhookTransport(hook, httpClients)));
+            _owned.Add(new EventDestination(hook.Name, EventDestination.WebhookKind, new WebhookTransport(hook, httpClients)));
         foreach (var mqtt in options.Mqtt)
-            all.Add(new EventDestination(mqtt.Name, EventDestination.MqttKind, new MqttTransport(mqtt)));
+            _owned.Add(new EventDestination(mqtt.Name, EventDestination.MqttKind, new MqttTransport(mqtt)));
+        var all = new List<EventDestination>(_owned);
+        all.AddRange(extra?.SelectMany(s => s.Destinations) ?? []);
+        var clash = all.GroupBy(d => d.Name, StringComparer.Ordinal).FirstOrDefault(g => g.Count() > 1);
+        if (clash is not null)
+            throw new InvalidOperationException(
+                $"받는 곳 이름이 겹친다: '{clash.Key}' — 이름이 outbox 디렉터리라서 웹훅 · MQTT · 공급자를 통틀어 하나여야 한다.");
         Destinations = all;
     }
 
@@ -40,7 +59,7 @@ public sealed class EventTransports : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        foreach (var destination in Destinations)
+        foreach (var destination in _owned)
             if (destination.Transport is IAsyncDisposable disposable)
                 await disposable.DisposeAsync();
     }
