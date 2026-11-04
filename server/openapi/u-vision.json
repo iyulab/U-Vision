@@ -4488,6 +4488,9 @@
           },
           "agent_version": {
             "type": "string"
+          },
+          "worker": {
+            "$ref": "#/components/schemas/EdgeWorkerStatus"
           }
         }
       },
@@ -4635,6 +4638,9 @@
           },
           "agent_version": {
             "type": "string"
+          },
+          "worker": {
+            "$ref": "#/components/schemas/EdgeWorkerStatus"
           }
         }
       },
@@ -4662,6 +4668,49 @@
           },
           "expires_at": {
             "type": "string"
+          }
+        }
+      },
+      "EdgeWorkerStatus": {
+        "required": [
+          "connected",
+          "frames",
+          "dropped",
+          "rules",
+          "skipped_rules"
+        ],
+        "type": "object",
+        "properties": {
+          "connected": {
+            "type": "boolean"
+          },
+          "last_message_at": {
+            "type": "string"
+          },
+          "frames": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dropped": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_drop_reason": {
+            "type": "string"
+          },
+          "rules": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "skipped_rules": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

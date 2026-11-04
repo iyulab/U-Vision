@@ -5,6 +5,8 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using UVision.Edge.Agent.Worker;
+
 namespace UVision.Edge.Agent;
 
 // --- 엔진과 주고받는 wire (docs/api.md «엣지 노드 신원»). 엔진 어셈블리를 참조하지 않는다 — 에이전트는 별개 이미지다. ---
@@ -119,13 +121,14 @@ public sealed class EngineClient(HttpClient http, string apiBase, TimeProvider? 
     /// 자기 상태(outbox 깊이 · 버린 크롭 …)를 엔진에 알린다 — 운영자의 노드 목록용이다. 엔진이 이 경로를 모르면(옛 판)
     /// <see cref="PermanentRejectionException"/> 이다.
     /// </summary>
-    public async Task PostStatusAsync(string credential, OutboxStats stats, string? agentVersion, CancellationToken ct)
+    public async Task PostStatusAsync(
+        string credential, OutboxStats stats, string? agentVersion, CancellationToken ct, WorkerStatusReport? worker = null)
     {
         using var req = Authorized(HttpMethod.Post, "/edge/v1/status", credential);
         req.Content = JsonContent.Create(new
         {
             outbox_depth = stats.Depth, outbox_bytes = stats.Bytes, dropped_crops = stats.DroppedCrops, parked = stats.Parked,
-            agent_version = agentVersion,
+            agent_version = agentVersion, worker,
         });
         using var resp = await http.SendAsync(req, ct);
         if (resp.StatusCode == HttpStatusCode.Unauthorized) throw new CredentialsRejectedException();

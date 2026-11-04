@@ -74,6 +74,7 @@ export interface Contract {
   EdgeStatusReport?: EdgeStatusReport
   EdgeTokenRequest?: EdgeTokenRequest
   EdgeTokenResponse?: EdgeTokenResponse
+  EdgeWorkerStatus?: EdgeWorkerStatus
   EventsStatusResponse?: EventsStatusResponse
   EvidenceStep?: EvidenceStep
   FlywheelPoint?: FlywheelPoint
@@ -664,6 +665,21 @@ export interface EdgeNodeStatus {
   dropped_crops: number
   parked: number
   agent_version?: string
+  worker?: EdgeWorkerStatus
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeWorkerStatus".
+ */
+export interface EdgeWorkerStatus {
+  connected: boolean
+  last_message_at?: string
+  frames: number
+  dropped: number
+  last_drop_reason?: string
+  rules: number
+  skipped_rules: number
+  skipped?: string[]
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
@@ -698,6 +714,7 @@ export interface EdgeStatusReport {
   dropped_crops: number
   parked: number
   agent_version?: string
+  worker?: EdgeWorkerStatus
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

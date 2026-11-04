@@ -38,6 +38,14 @@ namespace UVision.Client.Models
 #else
         public string ReportedAt { get; set; }
 #endif
+        /// <summary>The worker property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::UVision.Client.Models.EdgeWorkerStatus? Worker { get; set; }
+#nullable restore
+#else
+        public global::UVision.Client.Models.EdgeWorkerStatus Worker { get; set; }
+#endif
         /// <summary>
         /// Instantiates a new <see cref="global::UVision.Client.Models.EdgeNodeStatus"/> and sets the default values.
         /// </summary>
@@ -69,6 +77,7 @@ namespace UVision.Client.Models
                 { "outbox_depth", n => { OutboxDepth = n.GetIntValue(); } },
                 { "parked", n => { Parked = n.GetIntValue(); } },
                 { "reported_at", n => { ReportedAt = n.GetStringValue(); } },
+                { "worker", n => { Worker = n.GetObjectValue<global::UVision.Client.Models.EdgeWorkerStatus>(global::UVision.Client.Models.EdgeWorkerStatus.CreateFromDiscriminatorValue); } },
             };
         }
         /// <summary>
@@ -84,6 +93,7 @@ namespace UVision.Client.Models
             writer.WriteIntValue("outbox_depth", OutboxDepth);
             writer.WriteIntValue("parked", Parked);
             writer.WriteStringValue("reported_at", ReportedAt);
+            writer.WriteObjectValue<global::UVision.Client.Models.EdgeWorkerStatus>("worker", Worker);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

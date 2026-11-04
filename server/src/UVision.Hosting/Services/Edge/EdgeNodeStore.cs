@@ -242,6 +242,7 @@ public sealed class EdgeNodeStore(StoragePaths paths, TimeProvider clock)
         if (version is { Length: > MaxAgentVersionLength } || version?.Any(char.IsControl) == true)
             throw new ArgumentException($"agent_version 은 제어 문자 없는 {MaxAgentVersionLength}자 이하");
         if (string.IsNullOrEmpty(version)) version = null;
+        var worker = CleanWorker(report.Worker);
 
         var path = paths.EdgeNodeFile(nodeId);
         var now = clock.GetUtcNow();
@@ -255,7 +256,8 @@ public sealed class EdgeNodeStore(StoragePaths paths, TimeProvider clock)
             var same = previous is not null
                 && previous.OutboxDepth == report.OutboxDepth && previous.OutboxBytes == report.OutboxBytes
                 && previous.DroppedCrops == report.DroppedCrops && previous.Parked == report.Parked
-                && previous.AgentVersion == version;
+                && previous.AgentVersion == version
+                && SameWorker(previous.Worker, worker);
             if (same && now - DateTimeOffset.Parse(previous!.ReportedAt, CultureInfo.InvariantCulture) < TouchInterval)
                 return;
             await StoragePaths.AtomicWriteJsonAsync(path, node with
@@ -264,12 +266,54 @@ public sealed class EdgeNodeStore(StoragePaths paths, TimeProvider clock)
                 {
                     ReportedAt = now.ToString("o", CultureInfo.InvariantCulture),
                     OutboxDepth = report.OutboxDepth, OutboxBytes = report.OutboxBytes,
-                    DroppedCrops = report.DroppedCrops, Parked = report.Parked, AgentVersion = version,
+                    DroppedCrops = report.DroppedCrops, Parked = report.Parked, AgentVersion = version, Worker = worker,
                 },
             }, ct);
         }
         finally { _gate.Release(); }
     }
+
+    private const int MaxReasonLength = 200;
+    private const int MaxSkippedListed = 10;
+
+    /// <summary>워커 수신 상태를 검증하고 다듬는다 — 범위 밖은 <see cref="ArgumentException"/>.</summary>
+    private static EdgeWorkerStatus? CleanWorker(EdgeWorkerStatus? worker)
+    {
+        if (worker is null) return null;
+        if (worker.Frames < 0 || worker.Dropped < 0 || worker.Rules < 0 || worker.SkippedRules < 0)
+            throw new ArgumentException("worker 의 수는 0 이상이어야 한다");
+        string? Text(string? value, string field)
+        {
+            var t = value?.Trim();
+            if (string.IsNullOrEmpty(t)) return null;
+            if (t.Length > MaxReasonLength || t.Any(char.IsControl))
+                throw new ArgumentException($"{field} 는 제어 문자 없는 {MaxReasonLength}자 이하");
+            return t;
+        }
+        string? lastMessage = null;
+        if (worker.LastMessageAt is { } at)
+        {
+            if (!DateTimeOffset.TryParse(at, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed)
+                || !(at.EndsWith('Z') || at.Length > 6 && (at[^6] is '+' or '-')))
+                throw new ArgumentException("worker.last_message_at 은 시간대가 있는 ISO 8601 시각");
+            lastMessage = parsed.ToString("o", CultureInfo.InvariantCulture);
+        }
+        if (worker.Skipped is { Count: > MaxSkippedListed })
+            throw new ArgumentException($"worker.skipped 는 {MaxSkippedListed}개 이하");
+        return worker with
+        {
+            LastMessageAt = lastMessage,
+            LastDropReason = Text(worker.LastDropReason, "worker.last_drop_reason"),
+            Skipped = worker.Skipped is { Count: > 0 } list ? [.. list.Select(s => Text(s, "worker.skipped[]") ?? "")] : null,
+        };
+    }
+
+    // 프레임 수 · 마지막 메시지 시각은 보고마다 달라지므로 «같은 상태» 판정에서 뺀다 — 안 그러면 30 초 폴링마다 노드 파일을 다시 쓴다.
+    private static bool SameWorker(EdgeWorkerStatus? a, EdgeWorkerStatus? b) =>
+        a is null || b is null
+            ? a is null && b is null
+            : a.Connected == b.Connected && a.Dropped == b.Dropped && a.LastDropReason == b.LastDropReason
+              && a.Rules == b.Rules && a.SkippedRules == b.SkippedRules && (a.Skipped ?? []).SequenceEqual(b.Skipped ?? []);
 
     private static string? CleanName(string? name)
     {

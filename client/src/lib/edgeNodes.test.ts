@@ -31,6 +31,48 @@ describe('formatAge', () => {
   ])('%d ms → %s', (ms, text) => expect(formatAge(ms)).toBe(text))
 })
 
+function workerNode(worker: Partial<NonNullable<NonNullable<EdgeNode['status']>['worker']>>, over: Partial<EdgeNode> = {}): EdgeNode {
+  return node({
+    status: {
+      reported_at: ago(20_000), outbox_depth: 0, outbox_bytes: 0, dropped_crops: 0, parked: 0,
+      worker: { connected: true, frames: 100, dropped: 0, rules: 2, skipped_rules: 0, ...worker },
+    },
+    ...over,
+  })
+}
+
+describe('describeNode — inference worker', () => {
+  it('a connected worker with working rules adds no flags', () => {
+    expect(describeNode(workerNode({}), NOW).flags).toEqual([])
+  })
+
+  it('flags a worker that is not connected while rules are waiting for its video', () => {
+    const row = describeNode(workerNode({ connected: false, rules: 3 }), NOW)
+    expect(row.flags).toEqual([{ severity: 'bad', text: '추론 워커가 연결돼 있지 않습니다 — 규칙 3개가 영상을 받지 못합니다' }])
+    expect(row.worst).toBe('bad')
+  })
+
+  it('does not flag a missing worker when there are no rules to feed', () => {
+    expect(describeNode(workerNode({ connected: false, rules: 0 }), NOW).flags).toEqual([])
+  })
+
+  it('names the skipped rules and the dropped lines with their reason', () => {
+    const row = describeNode(
+      workerNode({ skipped_rules: 1, skipped: ['wh/ghost: 소스 nope 가 없다'], dropped: 4, last_drop_reason: 'JSON 이 아니다' }),
+      NOW,
+    )
+    expect(row.flags.map((f) => f.text)).toEqual([
+      '건너뛴 규칙 1개 — wh/ghost: 소스 nope 가 없다',
+      '워커가 보낸 줄 4개를 버렸습니다 — 마지막 사유: JSON 이 아니다',
+    ])
+    expect(row.flags.map((f) => f.severity)).toEqual(['bad', 'warn'])
+  })
+
+  it('a node that reports no worker at all (no socket configured) is unchanged', () => {
+    expect(describeNode(node(), NOW).flags).toEqual([])
+  })
+})
+
 describe('describeNode', () => {
   it('a healthy connected node has no flags and shows the backlog line', () => {
     const row = describeNode(node(), NOW)

@@ -288,4 +288,85 @@ public class EdgeNodeTests
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await AsNode(f, nodeId, secret).PostAsJsonAsync($"{Base}/v1/status", Report())).StatusCode);
     }
+
+    // --- 추론 워커 수신 상태(상태 보고의 worker) ---
+
+    private static object WorkerReport(
+        bool connected = true, long frames = 120, long dropped = 0, string? reason = null, int rules = 2, int skippedRules = 0,
+        string? lastMessageAt = "2026-11-04T09:00:00.000+00:00", string[]? skipped = null) =>
+        new
+        {
+            outbox_depth = 0, outbox_bytes = 0L, dropped_crops = 0L, parked = 0, agent_version = "0.7.0",
+            worker = new { connected, last_message_at = lastMessageAt, frames, dropped, last_drop_reason = reason, rules, skipped_rules = skippedRules, skipped },
+        };
+
+    [Fact]
+    public async Task StatusReport_WorkerState_IsShownInTheNodeList()
+    {
+        using var f = new PinFactory();
+        var admin = Admin(f);
+        var (nodeId, secret) = await RegisterAsync(f.CreateClient(), await IssueAsync(admin));
+        var node = AsNode(f, nodeId, secret);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await node.PostAsJsonAsync($"{Base}/v1/status",
+            WorkerReport(dropped: 3, reason: "JSON 이 아니거나 모양이 맞지 않는다", skippedRules: 1, skipped: ["wh/ghost: 소스 nope 가 없다"]))).StatusCode);
+
+        var w = (await admin.GetFromJsonAsync<JsonElement>($"{Base}/nodes")).EnumerateArray().Single().GetProperty("status").GetProperty("worker");
+        Assert.True(w.GetProperty("connected").GetBoolean());
+        Assert.Equal((120L, 3L, 2, 1), (w.GetProperty("frames").GetInt64(), w.GetProperty("dropped").GetInt64(), w.GetProperty("rules").GetInt32(), w.GetProperty("skipped_rules").GetInt32()));
+        Assert.Equal("JSON 이 아니거나 모양이 맞지 않는다", w.GetProperty("last_drop_reason").GetString());
+        Assert.Equal("wh/ghost: 소스 nope 가 없다", w.GetProperty("skipped")[0].GetString());
+        Assert.StartsWith("2026-11-04T09:00:00", w.GetProperty("last_message_at").GetString());
+    }
+
+    [Fact]
+    public async Task StatusReport_WithoutAWorker_HasNoWorkerObject()
+    {
+        using var f = new PinFactory();
+        var admin = Admin(f);
+        var (nodeId, secret) = await RegisterAsync(f.CreateClient(), await IssueAsync(admin));
+        await AsNode(f, nodeId, secret).PostAsJsonAsync($"{Base}/v1/status", Report());
+
+        var status = (await admin.GetFromJsonAsync<JsonElement>($"{Base}/nodes")).EnumerateArray().Single().GetProperty("status");
+
+        Assert.False(status.TryGetProperty("worker", out _));
+    }
+
+    [Fact]
+    public async Task StatusReport_OnlyTheCountersAndTheLastMessageChange_IsNotRewrittenWithinTheTouchInterval()
+    {
+        using var f = new PinFactory();
+        var (nodeId, secret) = await RegisterAsync(f.CreateClient(), await IssueAsync(Admin(f)));
+        var node = AsNode(f, nodeId, secret);
+        await node.PostAsJsonAsync($"{Base}/v1/status", WorkerReport(frames: 100, lastMessageAt: "2026-11-04T09:00:00+00:00"));
+        var path = Path.Combine(f.DataPath, "edge", "nodes", nodeId, "node.json");
+        var content = File.ReadAllText(path);
+
+        // 프레임 수와 마지막 메시지 시각은 보고마다 달라진다 — 그것만 다르면 30 초 폴링마다 노드 파일을 다시 쓰지 않는다.
+        await node.PostAsJsonAsync($"{Base}/v1/status", WorkerReport(frames: 400, lastMessageAt: "2026-11-04T09:00:30+00:00"));
+        Assert.Equal(content, File.ReadAllText(path));
+
+        // 운영자가 봐야 하는 것(연결 · 버린 줄)이 바뀌면 곧바로 쓴다.
+        await node.PostAsJsonAsync($"{Base}/v1/status", WorkerReport(connected: false, frames: 400));
+        Assert.NotEqual(content, File.ReadAllText(path));
+    }
+
+    [Fact]
+    public async Task StatusReport_BadWorkerValues_Are400()
+    {
+        using var f = new PinFactory();
+        var (nodeId, secret) = await RegisterAsync(f.CreateClient(), await IssueAsync(Admin(f)));
+        var node = AsNode(f, nodeId, secret);
+        async Task<HttpStatusCode> Post(object body) => (await node.PostAsJsonAsync($"{Base}/v1/status", body)).StatusCode;
+
+        Assert.Equal(HttpStatusCode.BadRequest, await Post(WorkerReport(frames: -1)));
+        Assert.Equal(HttpStatusCode.BadRequest, await Post(WorkerReport(dropped: -1)));
+        Assert.Equal(HttpStatusCode.BadRequest, await Post(WorkerReport(rules: -1)));
+        Assert.Equal(HttpStatusCode.BadRequest, await Post(WorkerReport(reason: new string('r', 201))));
+        Assert.Equal(HttpStatusCode.BadRequest, await Post(WorkerReport(reason: "a\nb")));
+        Assert.Equal(HttpStatusCode.BadRequest, await Post(WorkerReport(lastMessageAt: "2026-11-04T09:00:00")));    // 시간대 없음
+        Assert.Equal(HttpStatusCode.BadRequest, await Post(WorkerReport(lastMessageAt: "yesterday")));
+        Assert.Equal(HttpStatusCode.BadRequest, await Post(WorkerReport(skipped: [.. Enumerable.Range(0, 11).Select(i => $"r{i}")])));
+        Assert.Equal(HttpStatusCode.NoContent, await Post(WorkerReport(lastMessageAt: null)));                       // 한 번도 메시지가 없었다
+    }
 }

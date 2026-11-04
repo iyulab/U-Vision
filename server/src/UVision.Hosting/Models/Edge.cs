@@ -105,6 +105,48 @@ public sealed record EdgeStatusReport
     [JsonPropertyName("agent_version")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? AgentVersion { get; init; }
+
+    /// <summary>추론 워커 수신 상태 — 워커 소켓을 켠 에이전트만 보낸다(없으면 이 노드는 워커를 받지 않는다).</summary>
+    [JsonPropertyName("worker")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public EdgeWorkerStatus? Worker { get; init; }
+}
+
+/// <summary>
+/// 에이전트가 본 추론 워커 수신 상태 — 운영자가 «워커가 안 붙었다 · 깨진 줄을 보낸다 · 규칙이 건너뛰어졌다» 를 콘솔에서 보게 한다.
+/// 모든 수는 0 이상이다.
+/// </summary>
+public sealed record EdgeWorkerStatus
+{
+    /// <summary>워커가 지금 소켓에 붙어 있는가.</summary>
+    [JsonPropertyName("connected")] public required bool Connected { get; init; }
+
+    /// <summary>워커의 마지막 정상 메시지 시각(노드 시계, 시간대가 있는 ISO 8601) — 한 번도 없으면 생략.</summary>
+    [JsonPropertyName("last_message_at")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LastMessageAt { get; init; }
+
+    /// <summary>에이전트가 시작한 뒤 받은 프레임 수.</summary>
+    [JsonPropertyName("frames")] public required long Frames { get; init; }
+
+    /// <summary>버린 줄 수(깨진 JSON · 모르는 판/종류 · 한도 초과 · 값 종류 오류).</summary>
+    [JsonPropertyName("dropped")] public required long Dropped { get; init; }
+
+    /// <summary>마지막으로 버린 사유(200자 이하).</summary>
+    [JsonPropertyName("last_drop_reason")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LastDropReason { get; init; }
+
+    /// <summary>돌고 있는 규칙 수.</summary>
+    [JsonPropertyName("rules")] public required int Rules { get; init; }
+
+    /// <summary>구성이 가리키는 것이 없어 건너뛴 규칙 수.</summary>
+    [JsonPropertyName("skipped_rules")] public required int SkippedRules { get; init; }
+
+    /// <summary>건너뛴 규칙과 사유(처음 10개, 각 200자 이하).</summary>
+    [JsonPropertyName("skipped")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Skipped { get; init; }
 }
 
 /// <summary>엔진이 기록한 노드의 마지막 자기 보고 — 보고 내용과 받은 시각.</summary>
@@ -124,4 +166,8 @@ public sealed record EdgeNodeStatus
     [JsonPropertyName("agent_version")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? AgentVersion { get; init; }
+
+    [JsonPropertyName("worker")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public EdgeWorkerStatus? Worker { get; init; }
 }

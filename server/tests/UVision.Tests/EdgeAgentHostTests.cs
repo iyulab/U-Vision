@@ -400,6 +400,15 @@ public sealed class EdgeAgentHostTests : IDisposable
             Assert.Equal(1, stored.GetProperty("data").GetProperty("count").GetInt32());
             Assert.Equal("stock", stored.GetProperty("data").GetProperty("rule").GetString());
             Assert.True(JsonDocument.Parse(lines[0]).RootElement.TryGetProperty("received_at", out _));
+
+            // 운영자가 콘솔에서 볼 워커 수신 상태도 엔진에 닿는다: 연결됨 · 프레임 3 · 버린 줄 1(깨진 줄) · 규칙 1.
+            var status = await UntilAsync(engine.OnlyNodeAsync,
+                n => n is { } x && x.TryGetProperty("status", out var st) && st.TryGetProperty("worker", out var w) && w.GetProperty("frames").GetInt64() >= 3);
+            var reported = status!.Value.GetProperty("status").GetProperty("worker");
+            Assert.True(reported.GetProperty("connected").GetBoolean());
+            Assert.Equal((3L, 1L, 1, 0), (reported.GetProperty("frames").GetInt64(), reported.GetProperty("dropped").GetInt64(), reported.GetProperty("rules").GetInt32(), reported.GetProperty("skipped_rules").GetInt32()));
+            Assert.True(reported.TryGetProperty("last_message_at", out _));
+            Assert.Contains("JSON", reported.GetProperty("last_drop_reason").GetString());
         }
         finally
         {

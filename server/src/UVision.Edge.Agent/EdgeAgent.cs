@@ -3,6 +3,8 @@ using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using UVision.Edge.Agent.Worker;
+
 namespace UVision.Edge.Agent;
 
 /// <summary>에이전트 동작 조정값 — 기본값은 현장에서 흔한 값이고, 시험은 짧게 줄여 쓴다.</summary>
@@ -58,6 +60,11 @@ public sealed class EdgeAgent
     private readonly ClockOffsetEstimator _offset = new();
     private int _failures;
     private bool _statusUnsupported;
+
+    /// <summary>
+    /// 상태 보고에 싣는 추론 워커 수신 상태를 만드는 함수 — 워커 소켓을 켠 호스트가 정한다. 없으면(또는 null 을 돌려주면) 보고에 <c>worker</c> 가 없다.
+    /// </summary>
+    public Func<WorkerStatusReport?>? WorkerStatus { get; set; }
 
     public EdgeAgent(EngineClient engine, AgentOutbox outbox, string stateDir, AgentOptions? options = null, TimeProvider? clock = null, Random? random = null)
     {
@@ -173,7 +180,7 @@ public sealed class EdgeAgent
     private async Task ReportStatusAsync(CancellationToken ct)
     {
         if (_statusUnsupported) return;
-        try { await _engine.PostStatusAsync(Credentials!.Bearer, _outbox.Stats(), AgentVersion, ct); }
+        try { await _engine.PostStatusAsync(Credentials!.Bearer, _outbox.Stats(), AgentVersion, ct, WorkerStatus?.Invoke()); }
         catch (PermanentRejectionException ex) when (ex.Status is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed)
         {
             _statusUnsupported = true;

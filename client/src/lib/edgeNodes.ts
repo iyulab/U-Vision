@@ -69,6 +69,22 @@ export function describeNode(node: EdgeNode, now: number): NodeRow {
       flags.push({ severity: 'bad', text: `따로 둔 항목 ${status.parked}건 — 엔진이 영구 거절한 사건·크롭이라 사람이 봐야 합니다` })
     if (status.dropped_crops > 0)
       flags.push({ severity: 'warn', text: `버린 크롭 ${status.dropped_crops}건 — 노드 디스크 상한 때문(사건은 버리지 않습니다)` })
+    const worker = status.worker
+    if (worker) {
+      // 규칙이 서 있는데 워커가 안 붙어 있으면 규칙은 영상을 받지 못한다 — 침묵이 아니라 운영자가 볼 깃발이다.
+      if (!worker.connected && worker.rules > 0)
+        flags.push({ severity: 'bad', text: `추론 워커가 연결돼 있지 않습니다 — 규칙 ${worker.rules}개가 영상을 받지 못합니다` })
+      if (worker.skipped_rules > 0)
+        flags.push({
+          severity: 'bad',
+          text: `건너뛴 규칙 ${worker.skipped_rules}개 — ${worker.skipped?.[0] ?? '구성이 가리키는 소스·구역·선이 없습니다'}`,
+        })
+      if (worker.dropped > 0)
+        flags.push({
+          severity: 'warn',
+          text: `워커가 보낸 줄 ${worker.dropped}개를 버렸습니다${worker.last_drop_reason ? ` — 마지막 사유: ${worker.last_drop_reason}` : ''}`,
+        })
+    }
     const reportAge = ageMs(status.reported_at, now)
     // 연락은 있는데 보고만 낡았다면 옛 에이전트이거나 보고만 실패하는 것이다 — 연락이 끊긴 노드의 낡은 보고는 위 깃발이 이미 말한다.
     if (seenAge !== null && seenAge <= STALE_AFTER_MS && reportAge !== null && reportAge > STALE_AFTER_MS)

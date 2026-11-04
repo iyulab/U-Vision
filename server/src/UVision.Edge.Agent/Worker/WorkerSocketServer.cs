@@ -16,7 +16,7 @@ public interface IWorkerSink
 
 /// <summary>수신 통계 — 진단용이고 상태 보고에 실을 수 있다.</summary>
 public sealed record WorkerSocketStats(
-    long Connections, long Frames, long States, long Dropped, string? LastDropReason, bool Connected);
+    long Connections, long Frames, long States, long Dropped, string? LastDropReason, bool Connected, DateTimeOffset? LastMessageAt = null);
 
 public sealed class WorkerSocketOptions
 {
@@ -46,12 +46,14 @@ public sealed class WorkerSocketServer(string path, IWorkerSink sink, WorkerSock
     private long _connections, _frames, _states, _dropped;
     private volatile string? _lastDrop;
     private volatile bool _connected;
+    private long _lastMessageTicks;   // UTC ticks, 0 = 아직 없음
 
     public string Path { get; } = System.IO.Path.GetFullPath(path);
 
     public WorkerSocketStats Stats =>
         new(Interlocked.Read(ref _connections), Interlocked.Read(ref _frames), Interlocked.Read(ref _states),
-            Interlocked.Read(ref _dropped), _lastDrop, _connected);
+            Interlocked.Read(ref _dropped), _lastDrop, _connected,
+            Interlocked.Read(ref _lastMessageTicks) is var ticks and > 0 ? new DateTimeOffset(ticks, TimeSpan.Zero) : null);
 
     /// <summary>소켓을 열고 받는다 — <paramref name="ct"/> 가 취소될 때까지. 취소로 끝나면 소켓 파일을 지운다.</summary>
     public async Task RunAsync(CancellationToken ct)
@@ -119,10 +121,12 @@ public sealed class WorkerSocketServer(string path, IWorkerSink sink, WorkerSock
                         {
                             case TrackFrame frame:
                                 Interlocked.Increment(ref _frames);
+                                Interlocked.Exchange(ref _lastMessageTicks, _clock.GetUtcNow().UtcTicks);
                                 sink.OnFrame(frame);
                                 break;
                             case SourceStateMessage state:
                                 Interlocked.Increment(ref _states);
+                                Interlocked.Exchange(ref _lastMessageTicks, _clock.GetUtcNow().UtcTicks);
                                 sink.OnSourceState(state);
                                 break;
                         }

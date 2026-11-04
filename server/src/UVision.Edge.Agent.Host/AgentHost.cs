@@ -74,7 +74,9 @@ public static class AgentHost
         {
             runner = new RuleRunner(outbox);
             ConfigureRules(runner, agent.Config, Log);
-            receive = new WorkerSocketServer(socketPath, runner, clock: clock).RunAsync(receiveCts.Token);
+            var socketServer = new WorkerSocketServer(socketPath, runner, clock: clock);
+            agent.WorkerStatus = () => WorkerStatusReport.From(socketServer.Stats, runner);
+            receive = socketServer.RunAsync(receiveCts.Token);
             if (receive.IsFaulted)   // 바인딩 실패(경로 · 권한)는 첫 await 전에 난다 — 다시 띄워도 같다
             {
                 Log($"워커 소켓을 열지 못했습니다({receive.Exception?.GetBaseException().Message}) — UVISION_WORKER_SOCKET 경로와 권한을 확인하세요");
