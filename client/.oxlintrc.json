@@ -9,7 +9,8 @@
     "react/exhaustive-deps": "error",
     "react/purity": "error",
     "react/refs": "error",
-    "react/set-state-in-effect": "error"
+    "react/set-state-in-effect": "error",
+    "react/immutability": "off"
   },
   "env": {
     "builtin": true,
