@@ -8,5 +8,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/UVision.Tests/UVision.Tests.csproj" />
+    <Project Path="tests/UVision.Edge.Harness/UVision.Edge.Harness.csproj" />
   </Folder>
 </Solution>
