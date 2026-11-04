@@ -39,6 +39,14 @@ export function clearStoredScenarioId(): void {
  *
  * 반환된 id 가 저장값과 다르면 호출부가 저장소를 갱신해야 한다(이 함수는 부수효과 없음).
  */
+/**
+ * 작업자 화면에서 고를 수 있는 시나리오 — 스트림 감시(`monitoring`)는 사진 한 장을 판정하지 않고 엣지 노드가 규칙으로 사건을 내므로
+ * 촬영 화면의 선택지가 아니다(`/inspect` 도 400). 관리 콘솔의 시나리오 목록에는 그대로 보인다.
+ */
+export function operableScenarios(scenarios: Scenario[]): Scenario[] {
+  return scenarios.filter((s) => s.type !== 'monitoring')
+}
+
 export function resolveActiveScenario(
   scenarios: Scenario[],
   storedId: string | null,

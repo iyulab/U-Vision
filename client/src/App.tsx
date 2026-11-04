@@ -9,6 +9,7 @@ import { useUtcToday } from './hooks/useUtcToday'
 import {
   clearStoredScenarioId,
   getStoredScenarioId,
+  operableScenarios,
   resolveActiveScenario,
   setStoredScenarioId,
 } from './lib/activeScenario'
@@ -34,7 +35,7 @@ export default function App() {
   // 목록 로드에 실패해도 화면은 뜬다(서버 미가동 등) — 안내는 zero-scenario 경로가 처리.
   const scenarioList = useResource('scenarios', listScenarios, '목록 로드 실패')
   const loaded = !scenarioList.loading
-  const scenarios = useMemo(() => scenarioList.data ?? [], [scenarioList.data])
+  const scenarios = useMemo(() => operableScenarios(scenarioList.data ?? []), [scenarioList.data])
   // 작업자가 고른 시나리오 id — 실제 활성 시나리오는 live 목록에서 해석한다(삭제 · 최초 실행 · 전체 삭제 흡수).
   const [activeId, setActiveId] = useState<string | null>(() => getStoredScenarioId())
   const [showAdmin, setShowAdmin] = useState(false)
