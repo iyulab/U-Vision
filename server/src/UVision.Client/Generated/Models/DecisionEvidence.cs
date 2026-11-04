@@ -58,6 +58,14 @@ namespace UVision.Client.Models
 #else
         public string Findings { get; set; }
 #endif
+        /// <summary>The human_label property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? HumanLabel { get; set; }
+#nullable restore
+#else
+        public string HumanLabel { get; set; }
+#endif
         /// <summary>The image_id property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -76,6 +84,14 @@ namespace UVision.Client.Models
 #else
         public global::UVision.Client.Models.MlResult Ml { get; set; }
 #endif
+        /// <summary>The oracle_opinion property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? OracleOpinion { get; set; }
+#nullable restore
+#else
+        public string OracleOpinion { get; set; }
+#endif
         /// <summary>The path property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -91,6 +107,14 @@ namespace UVision.Client.Models
 #nullable restore
 #else
         public string Posture { get; set; }
+#endif
+        /// <summary>The rejudges property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::UVision.Client.Models.RejudgeResponse>? Rejudges { get; set; }
+#nullable restore
+#else
+        public List<global::UVision.Client.Models.RejudgeResponse> Rejudges { get; set; }
 #endif
         /// <summary>The requires_review property</summary>
         public bool? RequiresReview { get; set; }
@@ -150,11 +174,14 @@ namespace UVision.Client.Models
                 { "count", n => { Count = n.GetObjectValue<global::UVision.Client.Models.CountInfo>(global::UVision.Client.Models.CountInfo.CreateFromDiscriminatorValue); } },
                 { "date", n => { Date = n.GetStringValue(); } },
                 { "findings", n => { Findings = n.GetStringValue(); } },
+                { "human_label", n => { HumanLabel = n.GetStringValue(); } },
                 { "image_id", n => { ImageId = n.GetStringValue(); } },
                 { "ledger_recorded", n => { LedgerRecorded = n.GetBoolValue(); } },
                 { "ml", n => { Ml = n.GetObjectValue<global::UVision.Client.Models.MlResult>(global::UVision.Client.Models.MlResult.CreateFromDiscriminatorValue); } },
+                { "oracle_opinion", n => { OracleOpinion = n.GetStringValue(); } },
                 { "path", n => { Path = n.GetCollectionOfObjectValues<global::UVision.Client.Models.EvidenceStep>(global::UVision.Client.Models.EvidenceStep.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "posture", n => { Posture = n.GetStringValue(); } },
+                { "rejudges", n => { Rejudges = n.GetCollectionOfObjectValues<global::UVision.Client.Models.RejudgeResponse>(global::UVision.Client.Models.RejudgeResponse.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "requires_review", n => { RequiresReview = n.GetBoolValue(); } },
                 { "scenario_id", n => { ScenarioId = n.GetStringValue(); } },
                 { "settled_by", n => { SettledBy = n.GetObjectValue<global::UVision.Client.Models.SettledBy>(global::UVision.Client.Models.SettledBy.CreateFromDiscriminatorValue); } },
@@ -175,11 +202,14 @@ namespace UVision.Client.Models
             writer.WriteObjectValue<global::UVision.Client.Models.CountInfo>("count", Count);
             writer.WriteStringValue("date", Date);
             writer.WriteStringValue("findings", Findings);
+            writer.WriteStringValue("human_label", HumanLabel);
             writer.WriteStringValue("image_id", ImageId);
             writer.WriteBoolValue("ledger_recorded", LedgerRecorded);
             writer.WriteObjectValue<global::UVision.Client.Models.MlResult>("ml", Ml);
+            writer.WriteStringValue("oracle_opinion", OracleOpinion);
             writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.EvidenceStep>("path", Path);
             writer.WriteStringValue("posture", Posture);
+            writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.RejudgeResponse>("rejudges", Rejudges);
             writer.WriteBoolValue("requires_review", RequiresReview);
             writer.WriteStringValue("scenario_id", ScenarioId);
             writer.WriteObjectValue<global::UVision.Client.Models.SettledBy>("settled_by", SettledBy);

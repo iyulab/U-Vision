@@ -225,4 +225,36 @@ public class RejudgeTests
         var reasons = body.GetProperty("opinions").EnumerateArray().Select(o => o.GetProperty("reason").GetString()).ToList();
         Assert.Equal(["ml disabled", "memory disabled"], reasons);
     }
+
+    [Fact]
+    public async Task Evidence_ListsPastRejudges_HumanLabel_AndOracleOpinion()
+    {
+        using var factory = new RejudgeFactory(new FakeOracle(true, false, Verdict.NG));
+        var client = factory.CreateClient();
+        var (id, _) = await InspectAsync(client);
+
+        Task<JsonElement> EvidenceAsync() => client
+            .GetFromJsonAsync<JsonElement>($"/api/u-vision/results/decision?scenario_id=demo&date={Today()}&image_id={id}");
+
+        // 아무것도 안 했을 때는 세 필드 모두 없다(기존 응답과 같은 모양).
+        var plain = await EvidenceAsync();
+        Assert.False(plain.TryGetProperty("rejudges", out _));
+        Assert.False(plain.TryGetProperty("human_label", out _));
+        Assert.False(plain.TryGetProperty("oracle_opinion", out _));
+
+        Assert.Equal(HttpStatusCode.OK, (await RejudgeAsync(client, id, ["vlm"])).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await RejudgeAsync(client, id, ["oracle"])).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync("/api/u-vision/results/label",
+            new LabelInput { ScenarioId = "demo", Date = Today(), ImageId = id, Label = "NG", By = "tester" })).StatusCode);
+        var labels = factory.Services.GetRequiredService<UVision.Api.Storage.ILabelStore>();
+        await labels.AppendOracleAsync("demo", Today(), id, "OK", "oracle", CancellationToken.None);
+
+        var body = await EvidenceAsync();
+        var rejudges = body.GetProperty("rejudges").EnumerateArray().ToList();
+        Assert.Equal(2, rejudges.Count);
+        Assert.Equal("vlm", rejudges[0].GetProperty("opinions")[0].GetProperty("tier").GetString());
+        Assert.Equal("oracle", rejudges[1].GetProperty("opinions")[0].GetProperty("tier").GetString());
+        Assert.Equal("NG", body.GetProperty("human_label").GetString());
+        Assert.Equal("OK", body.GetProperty("oracle_opinion").GetString());
+    }
 }

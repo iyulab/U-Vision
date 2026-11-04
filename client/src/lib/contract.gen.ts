@@ -380,6 +380,9 @@ export interface DecisionEvidence {
   settled_by?: SettledBy
   tier_version?: string
   path?: EvidenceStep[]
+  human_label?: string
+  oracle_opinion?: string
+  rejudges?: RejudgeResponse[]
   annotations?: {
     [k: string]: string
   }
@@ -410,6 +413,47 @@ export interface EvidenceStep {
   kind: string
   outcome: string
   detail?: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "RejudgeResponse".
+ */
+export interface RejudgeResponse {
+  image_id: string
+  scenario_id: string
+  date: string
+  requested_at: string
+  original_class: string
+  original_version?: string
+  opinions: RejudgeOpinion[]
+  synthesis: RejudgeSynthesis
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "RejudgeOpinion".
+ */
+export interface RejudgeOpinion {
+  tier: string
+  kind: string
+  status: string
+  class?: string
+  confidence?: number
+  findings?: string
+  version?: string
+  reason?: string
+  differs_from_original?: boolean
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "RejudgeSynthesis".
+ */
+export interface RejudgeSynthesis {
+  agreement: string
+  differing_tiers: string[]
+  answered: number
+  votes: {
+    [k: string]: number
+  }
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
@@ -809,21 +853,6 @@ export interface RegisterModelInput {
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
- * via the `definition` "RejudgeOpinion".
- */
-export interface RejudgeOpinion {
-  tier: string
-  kind: string
-  status: string
-  class?: string
-  confidence?: number
-  findings?: string
-  version?: string
-  reason?: string
-  differs_from_original?: boolean
-}
-/**
- * This interface was referenced by `Contract`'s JSON-Schema
  * via the `definition` "RejudgeRequest".
  */
 export interface RejudgeRequest {
@@ -831,32 +860,6 @@ export interface RejudgeRequest {
   date: string
   image_id: string
   tiers: string[]
-}
-/**
- * This interface was referenced by `Contract`'s JSON-Schema
- * via the `definition` "RejudgeResponse".
- */
-export interface RejudgeResponse {
-  image_id: string
-  scenario_id: string
-  date: string
-  requested_at: string
-  original_class: string
-  original_version?: string
-  opinions: RejudgeOpinion[]
-  synthesis: RejudgeSynthesis
-}
-/**
- * This interface was referenced by `Contract`'s JSON-Schema
- * via the `definition` "RejudgeSynthesis".
- */
-export interface RejudgeSynthesis {
-  agreement: string
-  differing_tiers: string[]
-  answered: number
-  votes: {
-    [k: string]: number
-  }
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

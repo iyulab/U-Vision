@@ -69,6 +69,21 @@ public sealed record DecisionEvidence
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<EvidenceStep>? Path { get; init; }
 
+    /// <summary>사람이 정한 라벨(현재 효력이 있는 것) — 라벨이 없으면 생략. 이 판정을 바로잡는 유일한 길이다.</summary>
+    [JsonPropertyName("human_label")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? HumanLabel { get; init; }
+
+    /// <summary>오라클(더 센 VLM)의 가장 최근 2차 소견 — 스윕이 남긴 것. 판정을 바꾸지 않는 비operative 소견이다.</summary>
+    [JsonPropertyName("oracle_opinion")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OracleOpinion { get; init; }
+
+    /// <summary>사용자가 요청한 재판정들(요청 시각 순) — 없으면 생략. 별도 기록에서 읽으며 판정에는 쓰이지 않았다.</summary>
+    [JsonPropertyName("rejudges")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<RejudgeResponse>? Rejudges { get; init; }
+
     /// <summary>
     /// 장부 annotation 전부(이름순) — 실제로 쓴 결정(<c>operative:*</c>), 기억 단의 거리 · 이웃(<c>memory:*</c>),
     /// 계수 근거(<c>count:*</c>) 등. 어휘는 처리 코드와 같은 판에서 늘어난다.

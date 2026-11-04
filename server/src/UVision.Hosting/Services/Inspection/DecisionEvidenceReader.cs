@@ -10,7 +10,8 @@ namespace UVision.Api.Services.Inspection;
 /// 레코드가 없으면 null(404). 장부 줄이 없으면(옛 기록 · 장부 쓰기 실패) 레코드에서 나온 것만 담고
 /// <see cref="DecisionEvidence.LedgerRecorded"/> 를 false 로 둔다.
 /// </summary>
-public sealed class DecisionEvidenceReader(IInspectionStore inspections, StoragePaths paths)
+public sealed class DecisionEvidenceReader(
+    IInspectionStore inspections, ILabelStore labels, RejudgeLog rejudgeLog, StoragePaths paths)
 {
     /// <exception cref="ArgumentException">scenario_id · date · image_id 형식 위반 — 엔드포인트에서 400.</exception>
     public async Task<DecisionEvidence?> ReadAsync(
@@ -21,6 +22,8 @@ public sealed class DecisionEvidenceReader(IInspectionStore inspections, Storage
             return null;
 
         var line = await FindLedgerLineAsync(scenarioId, date, imageId, cancellationToken);
+        var sidecar = await labels.ReadAsync(scenarioId, date, imageId, cancellationToken);
+        var rejudges = await rejudgeLog.ReadAsync(scenarioId, date, imageId, cancellationToken);
         var provenance = line?.Provenance;
         return new DecisionEvidence
         {
@@ -35,6 +38,9 @@ public sealed class DecisionEvidenceReader(IInspectionStore inspections, Storage
             Agreement = record.Agreement,
             Ml = record.Ml,
             Count = record.Count,
+            HumanLabel = sidecar?.OperativeLabel,
+            OracleOpinion = sidecar?.LatestOracleOpinion,
+            Rejudges = rejudges.Count > 0 ? rejudges : null,
             LedgerRecorded = provenance is not null,
             SettledBy = provenance?.TierId is { } tierId
                 ? new SettledBy { Tier = tierId, Kind = provenance.Kind.ToString().ToLowerInvariant() }
