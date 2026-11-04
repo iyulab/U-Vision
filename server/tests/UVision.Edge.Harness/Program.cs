@@ -7,6 +7,7 @@ using UVision.Edge.Agent;
 
 // 엣지 에이전트 하니스 — 원장 D-102 · edge.md §5 의 «하드웨어 없이» 완료 증거 다섯을 실행 출력으로 남긴다.
 //   evidence [--scale N] [--engine-dll PATH] [--work DIR]   증거 1~5 를 차례로 (실패가 하나라도 있으면 종료 코드 1)
+//   (증거 7 은 실제 «에이전트 호스트» 프로세스를 띄우므로 UVision.Edge.Agent.Host 도 빌드돼 있어야 한다 — 솔루션을 먼저 Release 로 빌드한다)
 //   agent    --engine URL --state DIR --outbox DIR --replay FILE [--start N] [--delay-ms N] [--clock-skew-seconds S]
 //            파일 재생 가짜 워커 + 에이전트 루프 (증거 1 · 3 이 자식 프로세스로 띄우고 죽인다)
 
@@ -141,6 +142,7 @@ static class Evidence
             await E4_Scale(engine, admin, data, work, scale);
             await E5_TokenAndRevoke(engine, admin, work, node2);
             await E6_StatusReport(engine, admin, data, work);
+            await E7_WorkerSocket(engine, admin, data, work);
         }
         finally
         {
@@ -218,6 +220,184 @@ static class Evidence
         p.OutputDataReceived += (_, _) => { }; p.ErrorDataReceived += (_, _) => { };
         p.BeginOutputReadLine(); p.BeginErrorReadLine();
         return p;
+    }
+
+    private static string FindHostDll()
+    {
+        for (var d = new DirectoryInfo(AppContext.BaseDirectory); d is not null; d = d.Parent)
+            foreach (var cfg in new[] { "Release", "Debug" })
+            {
+                var candidate = Path.Combine(d.FullName, "src", "UVision.Edge.Agent.Host", "bin", cfg, "net10.0", "uvision-edge-agent.dll");
+                if (File.Exists(candidate)) return candidate;
+            }
+        throw new FileNotFoundException("uvision-edge-agent.dll(에이전트 호스트)을 찾지 못했다 — 솔루션을 먼저 빌드한다");
+    }
+
+    /// <summary>실제 에이전트 호스트 프로세스 — 환경 변수로만 설정한다(컨테이너와 같은 길). 표준 출력은 줄 목록으로 모은다.</summary>
+    private sealed class HostProcess : IDisposable
+    {
+        private readonly Process _p;
+        private readonly List<string> _lines = [];
+
+        public HostProcess(string engineUrl, string? token, string state, string outbox, string socket)
+        {
+            var psi = new ProcessStartInfo("dotnet", $"\"{FindHostDll()}\"")
+            {
+                RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false,
+            };
+            psi.Environment["UVISION_ENGINE_URL"] = engineUrl;
+            if (token is not null) psi.Environment["UVISION_REGISTRATION_TOKEN"] = token;
+            psi.Environment["UVISION_NODE_NAME"] = "e7-host";
+            psi.Environment["UVISION_STATE_DIR"] = state;
+            psi.Environment["UVISION_OUTBOX_DIR"] = outbox;
+            psi.Environment["UVISION_POLL_SECONDS"] = "5";   // 하한
+            psi.Environment["UVISION_WORKER_SOCKET"] = socket;
+            _p = Process.Start(psi)!;
+            _p.OutputDataReceived += (_, e) => { if (e.Data is not null) lock (_lines) _lines.Add(e.Data); };
+            _p.ErrorDataReceived += (_, e) => { if (e.Data is not null) lock (_lines) _lines.Add("[stderr] " + e.Data); };
+            _p.BeginOutputReadLine(); _p.BeginErrorReadLine();
+        }
+
+        public bool HasExited => _p.HasExited;
+        public bool LogContains(string text) { lock (_lines) return _lines.Any(l => l.Contains(text, StringComparison.Ordinal)); }
+        public string Tail() { lock (_lines) return string.Join(" | ", _lines.TakeLast(4)); }
+        public void Kill() { try { _p.Kill(entireProcessTree: true); _p.WaitForExit(5000); } catch (InvalidOperationException) { } }
+        public void Dispose() { Kill(); _p.Dispose(); }
+    }
+
+    /// <summary>가짜 워커 — 호스트가 듣는 유닉스 소켓에 NDJSON 줄을 흘린다.</summary>
+    private sealed class FakeWorker : IDisposable
+    {
+        private readonly System.Net.Sockets.Socket _s = new(System.Net.Sockets.AddressFamily.Unix, System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Unspecified);
+
+        public static async Task<FakeWorker> ConnectAsync(string path)
+        {
+            var w = new FakeWorker();
+            await w._s.ConnectAsync(new System.Net.Sockets.UnixDomainSocketEndPoint(path));
+            return w;
+        }
+
+        public Task SendAsync(string text) => _s.SendAsync(System.Text.Encoding.UTF8.GetBytes(text));
+
+        /// <summary>선반 구역 안(0.3, 0.5)의 상자 <paramref name="boxes"/>개와 사람 <paramref name="people"/>명이 있는 프레임.</summary>
+        public static string Frame(DateTimeOffset t, int seq, int boxes, int people)
+        {
+            var tracks = Enumerable.Range(0, boxes).Select(i => new { id = $"b{i}", @class = "box", score = 0.9, box = new[] { 0.2 + i * 0.01, 0.4, 0.1, 0.1 } })
+                .Concat(Enumerable.Range(0, people).Select(i => new { id = $"p{i}", @class = "person", score = 0.9, box = new[] { 0.25, 0.3, 0.1, 0.2 } }));
+            return JsonSerializer.Serialize(new { v = 1, type = "tracks", source_id = "dock-1", seq, t = t.ToString("o"), tracks }) + "\n";
+        }
+
+        public void Dispose() => _s.Dispose();
+    }
+
+    // --- 증거 7: 호스트 프로세스 + 가짜 워커 소켓 → 엔진 프로세스 (프로세스 경계) -------------------------------
+
+    private static async Task E7_WorkerSocket(EngineProcess engine, HttpClient admin, string data, string work)
+    {
+        // 스트림 감시 시나리오: 선반 구역의 상자 개수(3프레임 안정이면 사건) + 사람이 2초 있으면 경보.
+        var created = await admin.PostAsJsonAsync("/api/u-vision/scenarios", new
+        {
+            scenario_id = "watch", name = "watch", type = "monitoring",
+            sources = new[] { new { id = "cam1", camera_ref = "dock-1", zones = new[] { new { id = "shelf", polygon = new[] { new[] { 0.1, 0.1 }, new[] { 0.5, 0.1 }, new[] { 0.5, 0.9 }, new[] { 0.1, 0.9 } } } } } },
+            rules = new object[]
+            {
+                new { id = "stock", kind = "count", source = "cam1", zone = "shelf", @class = "box", stable_frames = 3 },
+                new { id = "intruder", kind = "alarm", source = "cam1", zone = "shelf", @class = "person", min_count = 1, for_seconds = 2 },
+            },
+        });
+        var token = (await (await admin.PostAsJsonAsync("/api/u-vision/edge/tokens", new { })).Content.ReadFromJsonAsync<JsonElement>()).GetProperty("token").GetString()!;
+        var state = Path.Combine(work, "e7", "state");
+        var outbox = Path.Combine(work, "e7", "outbox");
+        var socketDir = Path.Combine(Path.GetTempPath(), "uvh7-" + Guid.NewGuid().ToString("N")[..6]);
+        var socket = Path.Combine(socketDir, "w.sock");
+
+        var host = new HostProcess(engine.Url, token, state, outbox, socket);
+        try
+        {
+            // 호스트가 스스로 등록한다 → 노드가 목록에 나타나면 시나리오를 배정하고, 다음 폴링(5초 이내)에 규칙이 선다.
+            string? nodeId = null;
+            await WaitAsync(() =>
+            {
+                var nodes = admin.GetFromJsonAsync<JsonElement>("/api/u-vision/edge/nodes").GetAwaiter().GetResult();
+                nodeId = nodes.EnumerateArray().Where(n => n.GetProperty("name").GetString() == "e7-host").Select(n => n.GetProperty("node_id").GetString()).FirstOrDefault();
+                return nodeId is not null;
+            }, TimeSpan.FromSeconds(30));
+            if (nodeId is not null)
+                await admin.PutAsJsonAsync($"/api/u-vision/edge/nodes/{nodeId}/scenarios", new { scenarios = new[] { "watch" } });
+            var ruled = await WaitAsync(() => host.LogContains("규칙 2개 · 카메라 dock-1") || host.HasExited, TimeSpan.FromSeconds(30));
+            Check("E7a", created.StatusCode == HttpStatusCode.Created && nodeId is not null && ruled && !host.HasExited,
+                $"호스트 프로세스가 스스로 등록하고 구성을 받아 규칙 2개를 세움 — {(host.HasExited ? "호스트 종료: " + host.Tail() : "로그: 규칙 2개 · 카메라 dock-1")}");
+            if (nodeId is null || !ruled) return;
+
+            var t0 = DateTimeOffset.UtcNow;
+            // 상자 1개 3프레임(안정 → 기준선 사건) + 사람이 3초(경보).
+            await WaitAsync(() => File.Exists(socket), TimeSpan.FromSeconds(10));
+            using (var worker = await FakeWorker.ConnectAsync(socket))
+            {
+                var sb = new System.Text.StringBuilder();
+                for (var i = 0; i < 4; i++) sb.Append(FakeWorker.Frame(t0.AddSeconds(i), i, boxes: 1, people: i >= 1 ? 1 : 0));
+                sb.Append("this is not json\n");   // 깨진 줄은 수신을 막지 않는다
+                await worker.SendAsync(sb.ToString());
+                var arrived = await WaitAsync(() =>
+                {
+                    var kinds = EngineEvents(data, nodeId).Select(e => e.GetProperty("kind").GetString()).ToList();
+                    return kinds.Contains("count_changed") && kinds.Contains("alarm_raised");
+                }, TimeSpan.FromSeconds(30));
+                var first = EngineEvents(data, nodeId);
+                var count = first.FirstOrDefault(e => e.GetProperty("kind").GetString() == "count_changed");
+                Check("E7b", arrived && count.ValueKind == JsonValueKind.Object && count.GetProperty("data").GetProperty("count").GetInt32() == 1,
+                    $"가짜 워커의 프레임이 호스트 프로세스의 규칙을 거쳐 엔진 프로세스에 도착: {string.Join(", ", first.Select(e => e.GetProperty("kind").GetString()))}");
+            }
+
+            // 워커가 연결을 끊으면(소켓 닫힘) 소실이 사건이 된다.
+            var lost = await WaitAsync(() => EngineEvents(data, nodeId).Any(e => e.GetProperty("kind").GetString() == "source_state"
+                && e.GetProperty("data").GetProperty("state").GetString() == "no_signal"), TimeSpan.FromSeconds(30));
+            Check("E7c", lost, "워커 연결을 끊자 source_state(no_signal) 사건이 엔진에 도착");
+
+            // 호스트를 강제 종료했다 같은 상태 폴더로 다시 띄운다 — 등록·구성·outbox 가 디스크에서 돌아오고 사건이 중복 · 유실 없이 이어진다.
+            var beforeKill = EngineEvents(data, nodeId).Select(e => e.GetProperty("event_id").GetString()).ToList();
+            host.Kill();
+            host.Dispose();
+            host = new HostProcess(engine.Url, token: null, state, outbox, socket);
+            var revived = await WaitAsync(() => host.LogContains("규칙 2개 · 카메라 dock-1") || host.HasExited, TimeSpan.FromSeconds(30));
+            await WaitAsync(() => File.Exists(socket), TimeSpan.FromSeconds(10));
+            var t1 = DateTimeOffset.UtcNow;
+            using (var worker = await FakeWorker.ConnectAsync(socket))
+            {
+                var sb = new System.Text.StringBuilder();
+                for (var i = 0; i < 4; i++) sb.Append(FakeWorker.Frame(t1.AddSeconds(i), 100 + i, boxes: 2, people: 0));   // 상자가 2개로 안정 → 변화 사건
+                await worker.SendAsync(sb.ToString());
+                await WaitAsync(() => EngineEvents(data, nodeId).Any(e => e.GetProperty("kind").GetString() == "count_changed"
+                    && e.GetProperty("data").GetProperty("count").GetInt32() == 2), TimeSpan.FromSeconds(30));
+            }
+            var all = EngineEvents(data, nodeId);
+            var ids = all.Select(e => e.GetProperty("event_id").GetString()).ToList();
+            var kept = beforeKill.All(ids.Contains);
+            var change = all.FirstOrDefault(e => e.GetProperty("kind").GetString() == "count_changed" && e.GetProperty("data").GetProperty("count").GetInt32() == 2);
+            Check("E7d", revived && kept && ids.Distinct().Count() == ids.Count && change.ValueKind == JsonValueKind.Object,
+                $"호스트를 강제 종료했다 다시 띄운 뒤에도 이어짐 — 먼저 도착한 사건 {beforeKill.Count}건 유지 · 전체 {ids.Count}건 · 중복 id {ids.Count - ids.Distinct().Count()}건 · 새 변화 사건(상자 2) {(change.ValueKind == JsonValueKind.Object ? "도착" : "없음")}");
+
+            // 운영자가 보는 상태 보고에 워커 수신 상태가 닿는다.
+            JsonElement? worker2 = null;
+            await WaitAsync(() =>
+            {
+                var nodes = admin.GetFromJsonAsync<JsonElement>("/api/u-vision/edge/nodes").GetAwaiter().GetResult();
+                var mine = nodes.EnumerateArray().FirstOrDefault(n => n.GetProperty("node_id").GetString() == nodeId);
+                if (mine.ValueKind == JsonValueKind.Object && mine.TryGetProperty("status", out var st) && st.TryGetProperty("worker", out var w) && w.GetProperty("rules").GetInt32() == 2)
+                {
+                    worker2 = w.Clone();
+                    return true;
+                }
+                return false;
+            }, TimeSpan.FromSeconds(30));
+            Check("E7e", worker2 is { } w2 && w2.GetProperty("rules").GetInt32() == 2,
+                worker2 is { } w3 ? $"노드 목록의 상태 보고에 워커 수신 상태가 보임: 규칙 {w3.GetProperty("rules").GetInt32()} · 프레임 {w3.GetProperty("frames").GetInt64()} · 버린 줄 {w3.GetProperty("dropped").GetInt64()}" : "워커 수신 상태가 노드 목록에 나타나지 않음");
+        }
+        finally
+        {
+            host.Dispose();
+            try { Directory.Delete(socketDir, recursive: true); } catch (IOException) { }
+        }
     }
 
     private static async Task<bool> WaitAsync(Func<bool> cond, TimeSpan timeout)

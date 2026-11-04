@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
-    <!-- 엣지 에이전트 하니스(원장 D-102, edge.md §5): 파일 재생 가짜 워커와 실제 엔진 프로세스로 완료 증거 다섯을 실행 출력으로 남긴다. CI 시험이 아니다(시간이 걸리고 프로세스를 죽인다). 실행: 프로젝트 tests/UVision.Edge.Harness 를 Release 로 dotnet run 하고 첫 인자로 evidence 를 준다 -->
+    <!-- 엣지 에이전트 하니스(원장 D-102, edge.md §5): 파일 재생 가짜 워커와 실제 엔진 프로세스로 완료 증거를 실행 출력으로 남긴다(E1~E6 은 파일 재생 가짜 워커, E7 은 실제 에이전트 호스트 프로세스 + 유닉스 소켓 가짜 워커 — 솔루션을 먼저 Release 로 빌드해 호스트 dll 이 있어야 한다). CI 시험이 아니다(시간이 걸리고 프로세스를 죽인다). 실행: 프로젝트 tests/UVision.Edge.Harness 를 Release 로 dotnet run 하고 첫 인자로 evidence 를 준다 -->
   </PropertyGroup>
 
   <ItemGroup>

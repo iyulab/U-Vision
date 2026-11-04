@@ -287,6 +287,28 @@ public sealed class WorkerSocketTests : IDisposable
         await run;
     }
 
+    [Fact]
+    public async Task Server_ClientsThatConnectAndVanish_DoNotKillTheAcceptLoop()
+    {
+        var path = Path.Combine(_dir, "w.sock");
+        var sink = new RecordingSink();
+        var server = new WorkerSocketServer(path, sink);
+        using var cts = new CancellationTokenSource();
+        var run = server.RunAsync(cts.Token);
+
+        for (var i = 0; i < 20; i++)
+        {
+            using var flash = await ConnectAsync(path);   // 접속하자마자 닫는다
+        }
+        using var worker = await ConnectAsync(path);
+        await SendAsync(worker, FrameLine(3));
+        await UntilAsync(() => sink.Snapshot().Contains("frame:dock-1:3"), "스쳐 간 연결들 뒤의 진짜 워커가 처리되지 않았다");
+
+        Assert.False(run.IsCompleted);   // 수락 루프가 살아 있다
+        await cts.CancelAsync();
+        await run;                        // 종료 신호와 겹쳐도 던지지 않는다
+    }
+
     private sealed class ThrowingOnceSink : IWorkerSink
     {
         public List<long> Seen { get; } = [];
