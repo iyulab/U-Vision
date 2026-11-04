@@ -16,6 +16,9 @@ Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0
 - Upgraded `HoneAI.Core` to 0.16.0 (the packages now ship their XML documentation; no code change was needed here and the full test suite passes).
 - Upgraded `Microsoft.Kiota.Bundle` (the `UVision.Client` runtime dependency) from 2.1.2 to 2.1.6, and refreshed the client and site npm lock files within their declared ranges. The generated client is unchanged.
 
+### Fixed
+- The standalone host now writes its console output as UTF-8. On a machine whose console code page is not UTF-8 (English Windows uses 437, for example), the Korean text of startup configuration errors and of the event-delivery retry log was written as `?` once the output was redirected to a file or a service log, so the reason could not be read. A console that cannot be switched keeps its default encoding.
+
 ## [0.6.0] - 2026-11-01
 
 ### Added

@@ -1,5 +1,12 @@
+using System.Text;
 using UVision.Api;
 using UVision.Api.Endpoints;
+
+// 이 프로세스의 출력은 파일 리다이렉트 · 서비스 관리자 · 로그 수집기가 읽는다. 콘솔 코드 페이지(영어 Windows 의 437 등)로 두면
+// 한글 진단 문구(설정 검증 예외 · 재시도 로그)가 전부 '?' 로 쓰여 사유를 읽을 수 없으므로 UTF-8 로 고정한다.
+// 콘솔 핸들이 없거나 바꿀 수 없는 환경에서는 기본 인코딩을 그대로 둔다.
+try { Console.OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false); }
+catch (IOException) { }
 
 // 개발 편의: server/.env 로딩(존재 시). NoClobber — 이미 설정된 실제 환경변수가 .env 보다 우선.
 DotNetEnv.Env.TraversePath().NoClobber().Load();
