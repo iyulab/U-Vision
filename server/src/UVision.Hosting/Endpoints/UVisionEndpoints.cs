@@ -20,5 +20,6 @@ public static class UVisionEndpoints
         group.MapAuthorityEndpoints();
         group.MapRetentionEndpoints();
         group.MapEventEndpoints();
+        group.MapEdgeEndpoints();
     }
 }

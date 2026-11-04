@@ -31,8 +31,31 @@ public sealed partial class StoragePaths
     /// <summary>데이터 루트(절대경로).</summary>
     public string Root => _root;
 
-    public string ScenarioDir(string scenarioId) =>
-        Path.Combine(_root, Id(scenarioId));
+    /// <summary>
+    /// 데이터 루트 직속의 예약 이름 — 엣지 노드 신원 저장소(<c>{DataPath}/edge</c>)가 쓴다. 시나리오 id 로는 쓸 수 없다
+    /// (대소문자 무시: Windows 폴더는 대소문자를 구분하지 않는다).
+    /// </summary>
+    public const string EdgeSegment = "edge";
+
+    public string ScenarioDir(string scenarioId)
+    {
+        if (string.Equals(scenarioId, EdgeSegment, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException($"예약된 식별자: '{scenarioId}'", nameof(scenarioId));
+        return Path.Combine(_root, Id(scenarioId));
+    }
+
+    // --- 엣지 노드 신원 (원장 D-102 E-1) -------------------------------------------------
+    // 일회용 등록 토큰(해시)과 노드 레코드(비밀의 해시) — 데이터 루트 직속 <c>edge/</c>. 시나리오 디렉터리가 아니다.
+
+    /// <summary>등록 토큰 하나 <c>{DataPath}/edge/tokens/{tokenId}.json</c>.</summary>
+    public string EdgeTokenFile(string tokenId) =>
+        Path.Combine(_root, EdgeSegment, "tokens", Id(tokenId) + ".json");
+
+    /// <summary>노드 레코드 디렉터리들의 부모 <c>{DataPath}/edge/nodes</c>.</summary>
+    public string EdgeNodesDir() => Path.Combine(_root, EdgeSegment, "nodes");
+
+    /// <summary>노드 레코드 <c>{DataPath}/edge/nodes/{nodeId}/node.json</c>.</summary>
+    public string EdgeNodeFile(string nodeId) => Path.Combine(EdgeNodesDir(), Id(nodeId), "node.json");
 
     public string ScenarioJson(string scenarioId) =>
         Path.Combine(ScenarioDir(scenarioId), "scenario.json");
@@ -229,6 +252,7 @@ public sealed partial class StoragePaths
     public IEnumerable<string> ScenarioIds() =>
         Directory.Exists(_root)
             ? Directory.EnumerateDirectories(_root).Select(Path.GetFileName).OfType<string>()
+                .Where(name => !string.Equals(name, EdgeSegment, StringComparison.OrdinalIgnoreCase))
             : [];
 
     // --- 모델 버저닝 (신뢰성 플라이휠 B1) ----------------------------------

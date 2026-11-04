@@ -55,6 +55,11 @@ export interface Contract {
   DecisionEvidence?: DecisionEvidence
   DemoteAuthorityInput?: DemoteAuthorityInput
   DetectionUnavailableResponse?: DetectionUnavailableResponse
+  EdgeNode?: EdgeNode
+  EdgeRegisterRequest?: EdgeRegisterRequest
+  EdgeRegisterResponse?: EdgeRegisterResponse
+  EdgeTokenRequest?: EdgeTokenRequest
+  EdgeTokenResponse?: EdgeTokenResponse
   EventsStatusResponse?: EventsStatusResponse
   EvidenceStep?: EvidenceStep
   FlywheelPoint?: FlywheelPoint
@@ -471,6 +476,49 @@ export interface DetectionUnavailableResponse {
   detection_unavailable: boolean
   reason: string
   ml_hint?: MlResult
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeNode".
+ */
+export interface EdgeNode {
+  node_id: string
+  name: string
+  registered_at: string
+  last_seen?: string
+  revoked_at?: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeRegisterRequest".
+ */
+export interface EdgeRegisterRequest {
+  token: string
+  name?: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeRegisterResponse".
+ */
+export interface EdgeRegisterResponse {
+  node_id: string
+  secret: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeTokenRequest".
+ */
+export interface EdgeTokenRequest {
+  name?: string
+  ttl_minutes?: number
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeTokenResponse".
+ */
+export interface EdgeTokenResponse {
+  token: string
+  expires_at: string
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

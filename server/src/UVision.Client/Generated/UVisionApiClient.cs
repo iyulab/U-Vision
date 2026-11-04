@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using System;
 using UVision.Client.Admin;
 using UVision.Client.Datasets;
+using UVision.Client.Edge;
 using UVision.Client.Events;
 using UVision.Client.Flywheel;
 using UVision.Client.Health;
@@ -39,6 +40,11 @@ namespace UVision.Client
         public global::UVision.Client.Datasets.DatasetsRequestBuilder Datasets
         {
             get => new global::UVision.Client.Datasets.DatasetsRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The edge property</summary>
+        public global::UVision.Client.Edge.EdgeRequestBuilder Edge
+        {
+            get => new global::UVision.Client.Edge.EdgeRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The events property</summary>
         public global::UVision.Client.Events.EventsRequestBuilder Events

@@ -1,0 +1,217 @@
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using UVision.Api.Models;
+using UVision.Api.Storage;
+
+namespace UVision.Api.Services.Edge;
+
+/// <summary>
+/// 엣지 노드 신원(원장 D-102 E-1) — 관리자가 <b>일회용 등록 토큰</b>을 발급하고, 에이전트가 그 토큰으로 등록해 <b>노드별 비밀</b>을
+/// 받는다. 사용자 계정은 만들지 않는다(노드는 서비스 신원).
+/// <list type="bullet">
+/// <item>토큰 · 비밀은 높은 엔트로피(256 비트)의 무작위 값이라 <b>SHA-256 해시만</b> 둔다(PIN 처럼 느린 해시가 필요한 낮은 엔트로피가 아니다).
+/// 평문은 발급·등록 응답에서만 나간다. 비교는 상수 시간.</item>
+/// <item>토큰은 한 번만 쓴다 — 소비와 노드 생성은 한 잠금 안에서 일어나 같은 토큰으로 두 노드가 생기지 않는다(단일 호스트 전제).</item>
+/// <item>노드는 하나씩 회수한다(<see cref="RevokeAsync"/>) — 회수된 노드의 자격은 곧바로 통하지 않는다. 기록은 남긴다.</item>
+/// </list>
+/// 저장: <c>{DataPath}/edge/tokens/{tokenId}.json</c> · <c>{DataPath}/edge/nodes/{nodeId}/node.json</c>(모두 atomic 쓰기).
+/// </summary>
+public sealed class EdgeNodeStore(StoragePaths paths, TimeProvider clock)
+{
+    public const int DefaultTtlMinutes = 60;
+    public const int MaxTtlMinutes = 1440;
+    public const int MaxNameLength = 80;
+
+    /// <summary>마지막 접속 시각을 디스크에 다시 쓰는 최소 간격 — 폴링마다 쓰지 않는다.</summary>
+    private static readonly TimeSpan TouchInterval = TimeSpan.FromMinutes(1);
+
+    private readonly SemaphoreSlim _gate = new(1, 1);
+
+    private sealed record TokenFile
+    {
+        [JsonPropertyName("token_hash")] public required string TokenHash { get; init; }
+        [JsonPropertyName("name")] public string? Name { get; init; }
+        [JsonPropertyName("created_at")] public required string CreatedAt { get; init; }
+        [JsonPropertyName("expires_at")] public required string ExpiresAt { get; init; }
+        [JsonPropertyName("used_at")] public string? UsedAt { get; init; }
+        [JsonPropertyName("node_id")] public string? NodeId { get; init; }
+    }
+
+    private sealed record NodeFile
+    {
+        [JsonPropertyName("node_id")] public required string NodeId { get; init; }
+        [JsonPropertyName("name")] public required string Name { get; init; }
+        [JsonPropertyName("registered_at")] public required string RegisteredAt { get; init; }
+        [JsonPropertyName("secret_hash")] public required string SecretHash { get; init; }
+        [JsonPropertyName("last_seen")] public string? LastSeen { get; init; }
+        [JsonPropertyName("revoked_at")] public string? RevokedAt { get; init; }
+
+        public EdgeNode ToNode() => new()
+        {
+            NodeId = NodeId, Name = Name, RegisteredAt = RegisteredAt, LastSeen = LastSeen, RevokedAt = RevokedAt,
+        };
+    }
+
+    /// <summary>일회용 등록 토큰을 발급한다. <paramref name="name"/> 은 등록되는 노드의 기본 표시 이름.</summary>
+    /// <exception cref="ArgumentException">이름·유효 시간이 범위를 벗어남.</exception>
+    public async Task<EdgeTokenResponse> IssueTokenAsync(string? name, int? ttlMinutes, CancellationToken ct)
+    {
+        var cleanName = CleanName(name);
+        var ttl = ttlMinutes ?? DefaultTtlMinutes;
+        if (ttl < 1 || ttl > MaxTtlMinutes)
+            throw new ArgumentException($"ttl_minutes 는 1~{MaxTtlMinutes}");
+
+        var tokenId = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(8));
+        var secret = Base64Url(RandomNumberGenerator.GetBytes(32));
+        var now = clock.GetUtcNow();
+        var file = new TokenFile
+        {
+            TokenHash = Hash(secret), Name = cleanName,
+            CreatedAt = now.ToString("o", CultureInfo.InvariantCulture),
+            ExpiresAt = now.AddMinutes(ttl).ToString("o", CultureInfo.InvariantCulture),
+        };
+        await _gate.WaitAsync(ct);
+        try { await StoragePaths.AtomicWriteJsonAsync(paths.EdgeTokenFile(tokenId), file, ct); }
+        finally { _gate.Release(); }
+        return new EdgeTokenResponse { Token = $"{tokenId}.{secret}", ExpiresAt = file.ExpiresAt };
+    }
+
+    /// <summary>
+    /// 토큰으로 노드를 등록한다. 틀린 · 이미 쓴 · 만료된 토큰은 모두 null(구분해 알려 주지 않는다 — 토큰 존재 탐색을 막는다).
+    /// </summary>
+    public async Task<EdgeRegisterResponse?> RegisterAsync(string token, string? name, CancellationToken ct)
+    {
+        var parts = token.Split('.', 2);
+        if (parts.Length != 2 || !IsHex(parts[0]) || parts[0].Length != 16 || parts[1].Length is < 20 or > 100)
+            return null;
+        var cleanName = CleanName(name);
+
+        await _gate.WaitAsync(ct);
+        try
+        {
+            var path = paths.EdgeTokenFile(parts[0]);
+            var file = await ReadAsync<TokenFile>(path, ct);
+            if (file is null || file.UsedAt is not null
+                || !SameHash(file.TokenHash, parts[1])
+                || clock.GetUtcNow() >= DateTimeOffset.Parse(file.ExpiresAt, CultureInfo.InvariantCulture))
+                return null;
+
+            var nodeId = "node_" + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(8));
+            var secret = Base64Url(RandomNumberGenerator.GetBytes(32));
+            var now = clock.GetUtcNow().ToString("o", CultureInfo.InvariantCulture);
+            // 노드를 먼저 쓰고 토큰을 소비한다 — 사이에서 멈추면 토큰이 남아(재시도 가능) 비밀을 모르는 고아 노드만 생긴다.
+            await StoragePaths.AtomicWriteJsonAsync(paths.EdgeNodeFile(nodeId), new NodeFile
+            {
+                NodeId = nodeId, Name = cleanName ?? file.Name ?? nodeId, RegisteredAt = now, SecretHash = Hash(secret),
+            }, ct);
+            await StoragePaths.AtomicWriteJsonAsync(path, file with { UsedAt = now, NodeId = nodeId }, ct);
+            return new EdgeRegisterResponse { NodeId = nodeId, Secret = secret };
+        }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>
+    /// Bearer 자격(<c>{node_id}.{secret}</c>)을 확인한다. 틀린 · 모르는 · 회수된 노드는 null. 통과하면 마지막 접속 시각을
+    /// (최대 1분에 한 번) 갱신한다.
+    /// </summary>
+    public async Task<EdgeNode?> AuthenticateAsync(string credential, CancellationToken ct)
+    {
+        var parts = credential.Split('.', 2);
+        if (parts.Length != 2 || !parts[0].StartsWith("node_", StringComparison.Ordinal) || parts[0].Length > 64)
+            return null;
+        string path;
+        try { path = paths.EdgeNodeFile(parts[0]); }
+        catch (ArgumentException) { return null; }
+
+        var node = await ReadAsync<NodeFile>(path, ct);
+        if (node is null || node.RevokedAt is not null || !SameHash(node.SecretHash, parts[1]))
+            return null;
+
+        var now = clock.GetUtcNow();
+        if (node.LastSeen is null || now - DateTimeOffset.Parse(node.LastSeen, CultureInfo.InvariantCulture) >= TouchInterval)
+        {
+            node = node with { LastSeen = now.ToString("o", CultureInfo.InvariantCulture) };
+            await _gate.WaitAsync(ct);
+            try
+            {
+                // 잠금 안에서 다시 읽어 그 사이의 회수를 덮어쓰지 않는다.
+                var current = await ReadAsync<NodeFile>(path, ct);
+                if (current is null || current.RevokedAt is not null)
+                    return null;
+                await StoragePaths.AtomicWriteJsonAsync(path, current with { LastSeen = node.LastSeen }, ct);
+            }
+            finally { _gate.Release(); }
+        }
+        return node.ToNode();
+    }
+
+    /// <summary>등록된 노드 전부(등록 순). 비밀은 없다.</summary>
+    public async Task<IReadOnlyList<EdgeNode>> ListAsync(CancellationToken ct)
+    {
+        var dir = paths.EdgeNodesDir();
+        if (!Directory.Exists(dir))
+            return [];
+        var nodes = new List<EdgeNode>();
+        foreach (var nodeDir in Directory.EnumerateDirectories(dir))
+            if (await ReadAsync<NodeFile>(Path.Combine(nodeDir, "node.json"), ct) is { } node)
+                nodes.Add(node.ToNode());
+        return [.. nodes.OrderBy(n => n.RegisteredAt, StringComparer.Ordinal).ThenBy(n => n.NodeId, StringComparer.Ordinal)];
+    }
+
+    /// <summary>노드를 회수한다 — 이미 회수한 노드는 그대로(멱등). 모르는 노드는 null.</summary>
+    /// <exception cref="ArgumentException">node_id 형식 위반.</exception>
+    public async Task<EdgeNode?> RevokeAsync(string nodeId, CancellationToken ct)
+    {
+        var path = paths.EdgeNodeFile(nodeId);
+        await _gate.WaitAsync(ct);
+        try
+        {
+            var node = await ReadAsync<NodeFile>(path, ct);
+            if (node is null)
+                return null;
+            if (node.RevokedAt is null)
+            {
+                node = node with { RevokedAt = clock.GetUtcNow().ToString("o", CultureInfo.InvariantCulture) };
+                await StoragePaths.AtomicWriteJsonAsync(path, node, ct);
+            }
+            return node.ToNode();
+        }
+        finally { _gate.Release(); }
+    }
+
+    private static string? CleanName(string? name)
+    {
+        if (name is null) return null;
+        var trimmed = name.Trim();
+        if (trimmed.Length == 0) return null;
+        if (trimmed.Length > MaxNameLength || trimmed.Any(char.IsControl))
+            throw new ArgumentException($"name 은 제어 문자 없는 {MaxNameLength}자 이하");
+        return trimmed;
+    }
+
+    private static async Task<T?> ReadAsync<T>(string path, CancellationToken ct) where T : class
+    {
+        if (!File.Exists(path))
+            return null;
+        try
+        {
+            await using var stream = File.OpenRead(path);
+            return await JsonSerializer.DeserializeAsync<T>(stream, StoragePaths.Json, ct);
+        }
+        catch (JsonException) { return null; } // 잘린 파일은 없는 것으로 — 인증은 닫힌 쪽으로 실패한다.
+    }
+
+    private static string Hash(string secret) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(secret)));
+
+    private static bool SameHash(string storedHash, string presentedSecret) =>
+        CryptographicOperations.FixedTimeEquals(
+            Encoding.ASCII.GetBytes(storedHash), Encoding.ASCII.GetBytes(Hash(presentedSecret)));
+
+    private static string Base64Url(byte[] bytes) =>
+        Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+    private static bool IsHex(string s) => s.All(Uri.IsHexDigit);
+}

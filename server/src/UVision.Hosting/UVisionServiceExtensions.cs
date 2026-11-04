@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using UVision.Api.Auth;
 using UVision.Api.Configuration;
 using UVision.Api.Services.Vlm;
@@ -93,6 +94,9 @@ public static class UVisionServiceExtensions
         services.AddSingleton<Services.Inspection.DecisionLedger>();
         services.AddSingleton<Services.Inspection.DecisionEvidenceReader>();
         services.AddSingleton<Storage.RejudgeLog>();
+        // 엣지 노드 신원(D-102 E-1) — 호스트가 TimeProvider 를 이미 등록했으면 그것을 쓴다.
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<Services.Edge.EdgeNodeStore>();
         services.AddSingleton<Services.Inspection.RejudgeService>();
         services.AddSingleton<Services.Inspection.InspectionPipeline>();
         services.AddSingleton(options.Storage);

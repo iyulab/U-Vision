@@ -1,0 +1,209 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
+using Xunit;
+
+namespace UVision.Tests;
+
+/// <summary>
+/// 엣지 노드 신원(D-102 E-1) — 일회용 등록 토큰 → 노드별 비밀(Bearer). 토큰 · 비밀은 해시로만 저장하고, 한 번 쓴 · 만료된 · 틀린
+/// 토큰은 구분 없이 거절하며, 회수한 노드는 곧바로 닫히고, 노드 자격으로는 관리 경로를 열 수 없다.
+/// </summary>
+public class EdgeNodeTests
+{
+    private const string Base = "/api/u-vision/edge";
+
+    private static HttpClient Admin(PinFactory f)
+    {
+        var c = f.CreateClient();
+        c.DefaultRequestHeaders.Add("X-Admin-Pin", PinFactory.Pin);
+        return c;
+    }
+
+    private static async Task<string> IssueAsync(HttpClient admin, object? body = null)
+    {
+        var resp = await admin.PostAsJsonAsync($"{Base}/tokens", body ?? new { });
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        return (await resp.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("token").GetString()!;
+    }
+
+    private static async Task<(string NodeId, string Secret)> RegisterAsync(HttpClient c, string token, string? name = null)
+    {
+        var resp = await c.PostAsJsonAsync($"{Base}/v1/register", new { token, name });
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
+        return (body.GetProperty("node_id").GetString()!, body.GetProperty("secret").GetString()!);
+    }
+
+    private static Task<HttpResponseMessage> WhoAmIAsync(HttpClient c, string credential)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Get, $"{Base}/v1/whoami");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", credential);
+        return c.SendAsync(req);
+    }
+
+    [Fact]
+    public async Task AdminEndpoints_NeedThePin()
+    {
+        using var f = new PinFactory();
+        var anon = f.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anon.PostAsJsonAsync($"{Base}/tokens", new { })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anon.GetAsync($"{Base}/nodes")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anon.DeleteAsync($"{Base}/nodes/node_x")).StatusCode);
+    }
+
+    [Fact]
+    public async Task RegisterWithToken_GivesAnIdentity_ThatAuthenticates()
+    {
+        using var f = new PinFactory();
+        var admin = Admin(f);
+        var token = await IssueAsync(admin, new { name = "line-3 jetson" });
+
+        var (nodeId, secret) = await RegisterAsync(f.CreateClient(), token);
+
+        var who = await WhoAmIAsync(f.CreateClient(), $"{nodeId}.{secret}");
+        Assert.Equal(HttpStatusCode.OK, who.StatusCode);
+        var node = await who.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(nodeId, node.GetProperty("node_id").GetString());
+        // 토큰 발급 때의 이름이 기본 표시 이름이다.
+        Assert.Equal("line-3 jetson", node.GetProperty("name").GetString());
+        Assert.False(node.TryGetProperty("secret", out _));
+        Assert.False(node.TryGetProperty("secret_hash", out _));
+    }
+
+    [Fact]
+    public async Task ATokenWorksOnce_AndTheRejectionDoesNotSaySwhy()
+    {
+        using var f = new PinFactory();
+        var token = await IssueAsync(Admin(f));
+        await RegisterAsync(f.CreateClient(), token);
+
+        var again = await f.CreateClient().PostAsJsonAsync($"{Base}/v1/register", new { token });
+        var wrong = await f.CreateClient().PostAsJsonAsync($"{Base}/v1/register", new { token = "0123456789abcdef.not-a-real-secret-at-all-xx" });
+        Assert.Equal(HttpStatusCode.Unauthorized, again.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
+        // 이미 쓴 토큰과 틀린 토큰의 응답이 같다 — 존재를 탐색하게 두지 않는다.
+        Assert.Equal(await again.Content.ReadAsStringAsync(), await wrong.Content.ReadAsStringAsync());
+    }
+
+    /// <summary>토큰 파일의 만료 시각만 바꿔 쓴다(나머지 필드는 그대로).</summary>
+    private static void SetExpiry(PinFactory f, string token, string expiresAt)
+    {
+        var tokenFile = Path.Combine(f.DataPath, "edge", "tokens", token.Split('.')[0] + ".json");
+        var doc = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(File.ReadAllText(tokenFile))!;
+        var changed = doc.ToDictionary(kv => kv.Key, kv => kv.Key == "expires_at" ? (object)expiresAt : kv.Value);
+        File.WriteAllText(tokenFile, JsonSerializer.Serialize(changed));
+    }
+
+    [Fact]
+    public async Task AnExpiredToken_IsRefused_ButTheSameEditWithAFutureExpiryWorks()
+    {
+        using var f = new PinFactory();
+        var admin = Admin(f);
+        var expired = await IssueAsync(admin, new { ttl_minutes = 1 });
+        var control = await IssueAsync(admin, new { ttl_minutes = 1 });
+        SetExpiry(f, expired, "2000-01-01T00:00:00.0000000+00:00");
+        // 대조군: 같은 방식으로 파일을 다시 썼지만 만료가 미래 — 재작성이 파일을 깨뜨렸다면 이쪽도 거절돼 시험이 틀렸음을 드러낸다.
+        SetExpiry(f, control, "2999-01-01T00:00:00.0000000+00:00");
+
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await f.CreateClient().PostAsJsonAsync($"{Base}/v1/register", new { token = expired })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK,
+            (await f.CreateClient().PostAsJsonAsync($"{Base}/v1/register", new { token = control })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Secrets_AreNeverStoredInPlainText_NorListed()
+    {
+        using var f = new PinFactory();
+        var admin = Admin(f);
+        var token = await IssueAsync(admin);
+        var (nodeId, secret) = await RegisterAsync(f.CreateClient(), token, "n1");
+
+        // 디스크의 어떤 파일에도 평문 비밀 · 평문 토큰이 없다.
+        var plainParts = new[] { secret, token.Split('.')[1] };
+        foreach (var file in Directory.GetFiles(Path.Combine(f.DataPath, "edge"), "*", SearchOption.AllDirectories))
+        {
+            var text = File.ReadAllText(file);
+            Assert.All(plainParts, p => Assert.DoesNotContain(p, text));
+        }
+        var list = await (await admin.GetAsync($"{Base}/nodes")).Content.ReadAsStringAsync();
+        Assert.DoesNotContain(secret, list);
+        Assert.DoesNotContain("hash", list);
+        Assert.Contains(nodeId, list);
+    }
+
+    [Fact]
+    public async Task WrongSecret_UnknownNode_AndMissingHeader_Are401()
+    {
+        using var f = new PinFactory();
+        var (nodeId, secret) = await RegisterAsync(f.CreateClient(), await IssueAsync(Admin(f)));
+        var c = f.CreateClient();
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await WhoAmIAsync(c, $"{nodeId}.{secret}x")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await WhoAmIAsync(c, $"node_0000000000000000.{secret}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await WhoAmIAsync(c, "garbage")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await c.GetAsync($"{Base}/v1/whoami")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Revoking_ClosesThatNodeAtOnce_AndLeavesOthersAlone()
+    {
+        using var f = new PinFactory();
+        var admin = Admin(f);
+        var a = await RegisterAsync(f.CreateClient(), await IssueAsync(admin), "a");
+        var b = await RegisterAsync(f.CreateClient(), await IssueAsync(admin), "b");
+
+        var revoked = await admin.DeleteAsync($"{Base}/nodes/{a.NodeId}");
+        Assert.Equal(HttpStatusCode.OK, revoked.StatusCode);
+        Assert.True((await revoked.Content.ReadFromJsonAsync<JsonElement>()).TryGetProperty("revoked_at", out _));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await WhoAmIAsync(f.CreateClient(), $"{a.NodeId}.{a.Secret}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await WhoAmIAsync(f.CreateClient(), $"{b.NodeId}.{b.Secret}")).StatusCode);
+        // 기록은 남는다 — 목록에 회수 표시와 함께.
+        var nodes = (await admin.GetFromJsonAsync<JsonElement>($"{Base}/nodes")).EnumerateArray().ToList();
+        Assert.Equal(2, nodes.Count);
+        Assert.True(nodes.Single(n => n.GetProperty("node_id").GetString() == a.NodeId).TryGetProperty("revoked_at", out _));
+        // 두 번 회수해도 같다 · 모르는 노드는 404 · 형식 위반은 400.
+        Assert.Equal(HttpStatusCode.OK, (await admin.DeleteAsync($"{Base}/nodes/{a.NodeId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.DeleteAsync($"{Base}/nodes/node_ffffffffffffffff")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.DeleteAsync($"{Base}/nodes/bad%20id")).StatusCode);
+    }
+
+    [Fact]
+    public async Task ANodeCredential_DoesNotOpenAdminEndpoints()
+    {
+        using var f = new PinFactory();
+        var (nodeId, secret) = await RegisterAsync(f.CreateClient(), await IssueAsync(Admin(f)));
+        var c = f.CreateClient();
+        c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", $"{nodeId}.{secret}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await c.GetAsync($"{Base}/nodes")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await c.PostAsJsonAsync($"{Base}/tokens", new { })).StatusCode);
+    }
+
+    [Fact]
+    public async Task BadInput_Is400()
+    {
+        using var f = new PinFactory();
+        var admin = Admin(f);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync($"{Base}/tokens", new { ttl_minutes = 0 })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync($"{Base}/tokens", new { ttl_minutes = 99999 })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync($"{Base}/tokens", new { name = new string('x', 81) })).StatusCode);
+    }
+
+    [Fact]
+    public async Task EdgeIsAReservedName_NotUsableAsAScenarioId()
+    {
+        using var f = new PinFactory();
+        var admin = Admin(f);
+        var resp = await admin.PostAsJsonAsync("/api/u-vision/scenarios",
+            new { scenario_id = "Edge", name = "x", criteria = "x" });
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+        // 노드 저장소가 만들어졌어도 시나리오 목록에는 시나리오로 보이지 않는다.
+        await IssueAsync(admin);
+        var scenarios = await f.CreateClient().GetFromJsonAsync<JsonElement>("/api/u-vision/scenarios");
+        Assert.DoesNotContain(scenarios.EnumerateArray(), s => s.GetProperty("scenario_id").GetString() == "edge");
+    }
+}
