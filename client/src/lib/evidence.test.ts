@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { DecisionEvidence } from './types'
-import { outcomeText, kindText, evidenceSummary, notableAnnotations } from './evidence'
+import { outcomeText, kindText, evidenceSummary, notableAnnotations, tierText, agreementText, opinionText, votesText } from './evidence'
 
 const BASE: DecisionEvidence = {
   image_id: 'img_1',
@@ -77,5 +77,45 @@ describe('notableAnnotations', () => {
 
   it('없으면 빈 목록', () => {
     expect(notableAnnotations(undefined)).toEqual([])
+  })
+})
+
+describe('tierText', () => {
+  it('재판정으로 물을 수 있는 판정원 이름', () => {
+    expect(tierText('vlm')).toBe('VLM 다시')
+    expect(tierText('oracle')).toBe('더 센 판정자(오라클)')
+    expect(tierText('ml')).toBe('전용 ML')
+    expect(tierText('memory')).toBe('기억(system 1)')
+    expect(tierText('x')).toBe('x')
+  })
+})
+
+describe('agreementText', () => {
+  const base = { answered: 2, differing_tiers: [] as string[], votes: { OK: 3 } }
+  it('만장일치', () => {
+    expect(agreementText({ ...base, agreement: 'unanimous' })).toBe('답한 2곳 모두 원 판정과 같습니다')
+  })
+  it('갈림은 다른 판정원을 이름으로', () => {
+    expect(
+      agreementText({ agreement: 'split', answered: 2, differing_tiers: ['oracle', 'ml'], votes: { OK: 1, NG: 2 } }),
+    ).toBe('더 센 판정자(오라클) · 전용 ML 이(가) 원 판정과 다릅니다')
+  })
+  it('아무도 답하지 못함', () => {
+    expect(agreementText({ agreement: 'none_answered', answered: 0, differing_tiers: [], votes: { OK: 1 } })).toBe(
+      '답한 판정원이 없습니다',
+    )
+  })
+})
+
+describe('opinionText', () => {
+  it('답은 클래스와 신뢰도, 기권은 사유', () => {
+    expect(opinionText({ tier: 'vlm', kind: 'vlm', status: 'answered', class: 'NG', confidence: 0.912 })).toBe('NG (91%)')
+    expect(opinionText({ tier: 'ml', kind: 'ml', status: 'abstained', reason: 'ml disabled' })).toBe('기권 — ml disabled')
+  })
+})
+
+describe('votesText', () => {
+  it('클래스별 표를 이름순으로', () => {
+    expect(votesText({ OK: 1, NG: 2 })).toBe('NG 2 · OK 1')
   })
 })

@@ -1,4 +1,4 @@
-import type { DecisionEvidence } from './types'
+import type { DecisionEvidence, RejudgeOpinion, RejudgeSynthesis } from './types'
 
 /** 경로 단의 결과(서버 어휘, 결과 v2 와 같다)를 사람이 읽는 말로 — 모르는 값은 그대로 보여 준다. */
 export function outcomeText(outcome: string): string {
@@ -57,4 +57,49 @@ export function notableAnnotations(
       const bo = b.key.startsWith('operative:') ? 0 : 1
       return ao - bo || a.key.localeCompare(b.key, 'en')
     })
+}
+
+/** 재판정으로 물을 수 있는 판정원의 이름. */
+export function tierText(tier: string): string {
+  switch (tier) {
+    case 'vlm':
+      return 'VLM 다시'
+    case 'oracle':
+      return '더 센 판정자(오라클)'
+    case 'ml':
+      return '전용 ML'
+    case 'memory':
+      return '기억(system 1)'
+    default:
+      return tier
+  }
+}
+
+/** 재판정의 결정적 요약(서버가 코드로 준 것)을 한 줄 문장으로 — 문장은 보는 쪽이 정한다. */
+export function agreementText(s: RejudgeSynthesis): string {
+  switch (s.agreement) {
+    case 'unanimous':
+      return `답한 ${s.answered}곳 모두 원 판정과 같습니다`
+    case 'split':
+      return `${s.differing_tiers.map(tierText).join(' · ')} 이(가) 원 판정과 다릅니다`
+    case 'none_answered':
+      return '답한 판정원이 없습니다'
+    default:
+      return s.agreement
+  }
+}
+
+/** 판정원 하나의 소견 — 답은 «클래스 (신뢰도)», 기권은 사유. */
+export function opinionText(o: RejudgeOpinion): string {
+  if (o.status !== 'answered') return `기권 — ${o.reason ?? '사유 없음'}`
+  const pct = o.confidence === undefined ? '' : ` (${(o.confidence * 100).toFixed(0)}%)`
+  return `${o.class ?? '?'}${pct}`
+}
+
+/** 클래스별 표 수를 «NG 2 · OK 1» 로 — 이름순. */
+export function votesText(votes: Readonly<Record<string, number>>): string {
+  return Object.entries(votes)
+    .sort(([a], [b]) => a.localeCompare(b, 'en'))
+    .map(([cls, n]) => `${cls} ${n}`)
+    .join(' · ')
 }

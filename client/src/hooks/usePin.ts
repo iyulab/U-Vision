@@ -5,6 +5,9 @@ import { ApiError } from '../lib/api'
 /** 변경 요청 1회의 결과 — 호출부가 busy/error/reload 처리를 분기한다. */
 export type PinRunResult = 'ok' | 'cancelled' | 'unauthorized'
 
+/** 변경 액션을 PIN 과 함께 실행하는 러너 — 콘솔이 소유하고 변경하는 화면들이 받아 쓴다. */
+export type RunWithPin = (action: (pin: string) => Promise<void>) => Promise<PinRunResult>
+
 interface Resolver {
   resolve: (pin: string) => void
   reject: () => void

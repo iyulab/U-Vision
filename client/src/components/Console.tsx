@@ -162,7 +162,7 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
         {tab === 'scenarios' ? (
           <ScenarioManager scenarios={scenarios} reload={reload} runWithPin={runWithPin} />
         ) : tab === 'results' ? (
-          <ResultsBrowser scenarios={scenarios} initialScenarioId={activeScenarioId} />
+          <ResultsBrowser scenarios={scenarios} initialScenarioId={activeScenarioId} runWithPin={runWithPin} />
         ) : tab === 'metrics' ? (
           <>
             <DataVolumePanel />

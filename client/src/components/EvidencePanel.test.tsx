@@ -1,11 +1,14 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { DecisionEvidence } from '../lib/types'
+import type { DecisionEvidence, RejudgeResponse } from '../lib/types'
+import type { RunWithPin } from '../hooks/usePin'
 
 const getDecisionEvidence = vi.fn<(s: string, d: string, i: string) => Promise<DecisionEvidence | null>>()
+const rejudgeResult = vi.fn<(s: string, d: string, i: string, t: string[], pin: string) => Promise<RejudgeResponse>>()
 vi.mock('../lib/api', () => ({
   getDecisionEvidence: (s: string, d: string, i: string) => getDecisionEvidence(s, d, i),
+  rejudgeResult: (s: string, d: string, i: string, t: string[], pin: string) => rejudgeResult(s, d, i, t, pin),
 }))
 
 import { EvidencePanel } from './EvidencePanel'
@@ -13,6 +16,7 @@ import { EvidencePanel } from './EvidencePanel'
 afterEach(() => {
   cleanup()
   getDecisionEvidence.mockReset()
+  rejudgeResult.mockReset()
 })
 
 const BASE: DecisionEvidence = {
@@ -74,5 +78,84 @@ describe('EvidencePanel', () => {
     getDecisionEvidence.mockRejectedValue(new Error('판정 근거: 500'))
     open()
     await waitFor(() => expect(screen.getByText('판정 근거: 500')).toBeTruthy())
+  })
+
+  describe('사람 라벨 · 오라클 · 지난 재판정', () => {
+    it('있으면 보인다', async () => {
+      getDecisionEvidence.mockResolvedValue({
+        ...BASE,
+        human_label: 'NG',
+        oracle_opinion: 'OK',
+        rejudges: [
+          {
+            image_id: 'img_1', scenario_id: 'demo', date: '2026-11-04', requested_at: '2026-11-04T05:00:00Z',
+            original_class: 'OK',
+            opinions: [{ tier: 'oracle', kind: 'vlm', status: 'answered', class: 'NG', confidence: 0.77, differs_from_original: true }],
+            synthesis: { agreement: 'split', answered: 1, differing_tiers: ['oracle'], votes: { OK: 1, NG: 1 } },
+          },
+        ],
+      })
+      open()
+      await waitFor(() => expect(screen.getByText(/사람이 정한 라벨/)).toBeTruthy())
+      expect(screen.getByText(/오라클의 2차 소견/)).toBeTruthy()
+      expect(screen.getByText(/더 센 판정자\(오라클\) 이\(가\) 원 판정과 다릅니다/)).toBeTruthy()
+    })
+  })
+
+  describe('다시 판정', () => {
+    const runWithPin: RunWithPin = async (action) => {
+      await action('1234')
+      return 'ok'
+    }
+    const RESPONSE: RejudgeResponse = {
+      image_id: 'img_1', scenario_id: 'demo', date: '2026-11-04', requested_at: '2026-11-04T05:00:00Z',
+      original_class: 'OK',
+      opinions: [
+        { tier: 'vlm', kind: 'vlm', status: 'answered', class: 'OK', confidence: 0.9, differs_from_original: false },
+        { tier: 'ml', kind: 'ml', status: 'abstained', reason: 'ml disabled' },
+      ],
+      synthesis: { agreement: 'unanimous', answered: 1, differing_tiers: [], votes: { OK: 2 } },
+    }
+
+    function openWithPin() {
+      render(<EvidencePanel scenarioId="demo" date="2026-11-04" imageId="img_1" runWithPin={runWithPin} />)
+      fireEvent.click(screen.getByRole('button', { name: /판정 근거/ }))
+    }
+
+    it('PIN 러너가 없으면(작업자 화면) 조작이 없다', async () => {
+      getDecisionEvidence.mockResolvedValue(BASE)
+      open()
+      await waitFor(() => expect(screen.getByText(/VLM\(vlm 단\)이 확정/)).toBeTruthy())
+      expect(screen.queryByRole('button', { name: '다시 판정' })).toBeNull()
+    })
+
+    it('단을 고르지 않으면 단추가 눌리지 않는다', async () => {
+      getDecisionEvidence.mockResolvedValue(BASE)
+      openWithPin()
+      const button = await screen.findByRole('button', { name: '다시 판정' })
+      expect((button as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('고른 단을 PIN 으로 물어 결과와 요약을 나란히 보인다', async () => {
+      getDecisionEvidence.mockResolvedValue(BASE)
+      rejudgeResult.mockResolvedValue(RESPONSE)
+      openWithPin()
+      fireEvent.click(await screen.findByLabelText('VLM 다시'))
+      fireEvent.click(screen.getByLabelText('전용 ML'))
+      fireEvent.click(screen.getByRole('button', { name: '다시 판정' }))
+      await waitFor(() => expect(screen.getByText('답한 1곳 모두 원 판정과 같습니다')).toBeTruthy())
+      expect(rejudgeResult).toHaveBeenCalledWith('demo', '2026-11-04', 'img_1', ['vlm', 'ml'], '1234')
+      expect(screen.getByText('기권 — ml disabled')).toBeTruthy()
+      expect(screen.getByText('OK 2')).toBeTruthy()
+    })
+
+    it('서버가 거절하면 그 사유를 보인다', async () => {
+      getDecisionEvidence.mockResolvedValue(BASE)
+      rejudgeResult.mockRejectedValue(new Error('오라클이 꺼져 있다(UVision:Oracle:Provider)'))
+      openWithPin()
+      fireEvent.click(await screen.findByLabelText('더 센 판정자(오라클)'))
+      fireEvent.click(screen.getByRole('button', { name: '다시 판정' }))
+      await waitFor(() => expect(screen.getByText(/오라클이 꺼져 있다/)).toBeTruthy())
+    })
   })
 })

@@ -10,6 +10,7 @@ import { percent, summarizeResults } from '../lib/resultSummary'
 import { AnomalyImage } from './AnomalyImage'
 import { CountImage } from './CountImage'
 import { EvidencePanel } from './EvidencePanel'
+import type { RunWithPin } from '../hooks/usePin'
 import { ResultsTable } from './ResultsTable'
 import type { Scenario, StoredLabel, StoredResult } from '../lib/types'
 import { termOf } from '../lib/verification'
@@ -24,7 +25,10 @@ export function ResultsBrowser({
   initialScenarioId,
   lockedScenarioId,
   lockedDate,
+  runWithPin,
 }: {
+  /** 관리자 PIN 러너 — 있으면(관리 콘솔) 판정 근거에 «다시 판정» 조작이 더해진다. 작업자 화면은 넘기지 않는다. */
+  runWithPin?: RunWithPin
   scenarios: Scenario[]
   initialScenarioId: string | null
   /** 지정 시 시나리오를 이것으로 고정하고 시나리오 select 를 숨긴다(운영 당일 목록). */
@@ -223,6 +227,7 @@ export function ResultsBrowser({
           nameOf={nameOf}
           result={selected}
           date={date}
+          runWithPin={runWithPin}
           onClose={() => setSelected(null)}
         />
       )}
@@ -287,11 +292,13 @@ function ResultDetail({
   onClose,
   scenarioType,
   nameOf,
+  runWithPin,
 }: {
   scenarioType?: Scenario['type']
   nameOf: (value: string) => string
   result: StoredResult
   date: string
+  runWithPin?: RunWithPin
   onClose: () => void
 }) {
   const ng = result.verdict === 'NG'
@@ -331,7 +338,7 @@ function ResultDetail({
           </div>
         )}
 
-        <EvidencePanel scenarioId={result.scenario_id} date={date} imageId={result.image_id} />
+        <EvidencePanel scenarioId={result.scenario_id} date={date} imageId={result.image_id} runWithPin={runWithPin} />
 
         <dl className="grid grid-cols-2 gap-2 text-sm">
           <dt className="text-slate-400">신뢰도</dt>

@@ -1,4 +1,4 @@
-import type { AdminStatus, Ambiguity, AnomalyMap, AuthorityState, DecisionEvidence, DetectionUnavailable, EventsStatus, FlywheelReport, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Question, QuestionAnswer, Reference, RetentionPurgeInput, RetentionPurgeResponse, Scenario, SolverTrust, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
+import type { AdminStatus, Ambiguity, AnomalyMap, AuthorityState, DecisionEvidence, DetectionUnavailable, RejudgeResponse, EventsStatus, FlywheelReport, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Question, QuestionAnswer, Reference, RetentionPurgeInput, RetentionPurgeResponse, Scenario, SolverTrust, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
 import type { QuestionAnswerInput } from './contract.gen'
 import type { AuthorityStage } from './authority'
 import { resolveApiBase } from './runtimeConfig'
@@ -189,6 +189,29 @@ export async function getDecisionEvidence(scenarioId: string, date: string, imag
   if (res.status === 404) return null
   await ensureOk(res, '판정 근거')
   return (await res.json()) as DecisionEvidence
+}
+
+/**
+ * 저장된 판정 한 건에 고른 판정원을 지금 물어 원 판정과 나란히 받는다(관리자 PIN). 판정을 바꾸지 않는다 — 서버가 별도 기록에만
+ * 남긴다. 400(오라클 꺼짐 · 송출 불허 · 계수 시나리오 …)은 서버가 준 사유를 그대로 메시지로 던진다.
+ */
+export async function rejudgeResult(
+  scenarioId: string,
+  date: string,
+  imageId: string,
+  tiers: string[],
+  pin: string,
+): Promise<RejudgeResponse> {
+  const res = await fetch(`${API_BASE}/results/rejudge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', [PIN_HEADER]: pin },
+    body: JSON.stringify({ scenario_id: scenarioId, date, image_id: imageId, tiers }),
+  })
+  if (!res.ok) {
+    const problem = (await res.json().catch(() => null)) as { detail?: string } | null
+    throw new ApiError(res.status, problem?.detail ?? `다시 판정 실패 (${res.status})`)
+  }
+  return (await res.json()) as RejudgeResponse
 }
 
 // --- 사람 라벨 (무인증 운영 데이터 — 서버 /results/label[s] 계약) -----------
