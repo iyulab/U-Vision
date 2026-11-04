@@ -3,6 +3,7 @@ using UVision.Api.Auth;
 using UVision.Api.Configuration;
 using UVision.Api.Imaging;
 using UVision.Api.Models;
+using UVision.Api.Services.Scenarios;
 using UVision.Api.Storage;
 
 namespace UVision.Api.Endpoints;
@@ -32,7 +33,8 @@ public static class ReferenceEndpoints
             .WithName("UploadReference")
             .Produces<ReferenceInfo>(201)
             .ProducesUploadProblems()
-            .ProducesProblem(404);
+            .ProducesProblem(404)
+            .ProducesProblem(409);
         group.MapDelete("/{label}/{refId}", DeleteAsync).RequireAdminPin()
             .WithName("DeleteReference")
             .Produces(204)
@@ -108,6 +110,8 @@ public static class ReferenceEndpoints
             var scenario = await scenarioStore.GetAsync(id, ct);
             if (scenario is null)
                 return Results.Problem(statusCode: 404, detail: $"시나리오 없음: {id}");
+            if (PhotoSurface.RejectMonitoring(scenario, "기준 이미지") is { } monitoring)
+                return monitoring;
 
             var data = await ImageUpload.ReadBytesAsync(image, ct);
             if (data is null)

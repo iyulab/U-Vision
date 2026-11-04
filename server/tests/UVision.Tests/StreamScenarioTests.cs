@@ -269,4 +269,58 @@ public class StreamScenarioTests : IClassFixture<PinFactory>
         var error = EffectiveScenario.Validate(bad);
         Assert.True(error is not null && error.Contains(expectedFragment), $"기대 조각 «{expectedFragment}» — 실제: {error ?? "(통과)"}");
     }
+
+    [Fact]
+    public async Task Endpoint_Monitoring_ClosesThePhotoOnlyWrites_AndKeepsTheReadsEmpty()
+    {
+        var admin = Admin();
+        const string id = "watch-closed";
+        Assert.Equal(HttpStatusCode.Created, (await admin.PostAsJsonAsync("/api/u-vision/scenarios", Valid() with { ScenarioId = id })).StatusCode);
+
+        // 읽기는 «아직 없음» — 시나리오를 한꺼번에 도는 대시보드가 오류를 만나지 않게 빈 결과로 답한다.
+        foreach (var path in new[]
+                 {
+                     $"/api/u-vision/results?scenario_id={id}", $"/api/u-vision/datasets?scenario_id={id}", $"/api/u-vision/metrics?scenario_id={id}",
+                     $"/api/u-vision/scenarios/{id}/references", $"/api/u-vision/scenarios/{id}/models", $"/api/u-vision/scenarios/{id}/authority",
+                 })
+            Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync(path)).StatusCode);
+
+        // 사진 판정 시나리오에만 있는 표면에 쓰면 409 — 비어 있는 시나리오에 의미 없는 상태가 쌓이지 않는다.
+        using var referenceForm = new MultipartFormDataContent
+        {
+            { new ByteArrayContent([0xFF, 0xD8, 0xFF, 0xD9]) { Headers = { ContentType = new("image/jpeg") } }, "image", "a.jpg" },
+            { new StringContent("ok"), "label" },
+        };
+        var attempts = new (string What, HttpResponseMessage Response)[]
+        {
+            ("datasets/export", await admin.PostAsync($"/api/u-vision/datasets/export?scenario_id={id}", null)),
+            ("datasets/readiness", await admin.GetAsync($"/api/u-vision/datasets/readiness?scenario_id={id}")),
+            ("references", await admin.PostAsync($"/api/u-vision/scenarios/{id}/references", referenceForm)),
+            ("models register", await admin.PostAsJsonAsync($"/api/u-vision/scenarios/{id}/models", new { model_name = "m" })),
+            ("models promote", await admin.PostAsync($"/api/u-vision/scenarios/{id}/models/v1/promote", null)),
+            ("models rollback", await admin.PostAsync($"/api/u-vision/scenarios/{id}/models/rollback", null)),
+            ("authority promote", await admin.PostAsJsonAsync($"/api/u-vision/scenarios/{id}/authority/promote", new { stage = "co_primary" })),
+            ("authority demote", await admin.PostAsJsonAsync($"/api/u-vision/scenarios/{id}/authority/demote", new { })),
+            ("label", await admin.PutAsJsonAsync("/api/u-vision/results/label", new { scenario_id = id, date = "2026-11-04", image_id = "x", label = "OK" })),
+            ("audit", await admin.PostAsJsonAsync("/api/u-vision/results/audit", new { scenario_id = id, date = "2026-11-04", image_id = "x", label = "OK" })),
+        };
+        foreach (var (what, response) in attempts)
+        {
+            Assert.True(response.StatusCode == HttpStatusCode.Conflict, $"{what}: 기대 409 — 실제 {(int)response.StatusCode}");
+            Assert.Contains("monitoring", await response.Content.ReadAsStringAsync());
+        }
+
+        // 아무것도 남지 않았다 — 권한 사다리 이력 · 모델 목록 · 기준 이미지 · 데이터셋이 그대로 비어 있다.
+        var authority = await (await admin.GetAsync($"/api/u-vision/scenarios/{id}/authority")).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(0, authority.GetProperty("history").GetArrayLength());
+        Assert.Equal("[]", (await (await admin.GetAsync($"/api/u-vision/datasets?scenario_id={id}")).Content.ReadAsStringAsync()).Trim());
+        Assert.Equal("[]", (await (await admin.GetAsync($"/api/u-vision/scenarios/{id}/references")).Content.ReadAsStringAsync()).Trim());
+        Assert.Equal("[]", (await (await admin.GetAsync($"/api/u-vision/results/labels?scenario_id={id}&date=2026-11-04")).Content.ReadAsStringAsync()).Trim());
+
+        // 사진 판정 시나리오는 그대로 받는다(가드가 넓지 않다).
+        Assert.Equal(HttpStatusCode.Created, (await admin.PostAsJsonAsync("/api/u-vision/scenarios", new { scenario_id = "photo-open", name = "사진", criteria = "긁힘 없음" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await admin.PostAsync("/api/u-vision/datasets/export?scenario_id=photo-open", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.PostAsJsonAsync("/api/u-vision/scenarios/photo-open/authority/demote", new { })).StatusCode);
+    }
+
 }

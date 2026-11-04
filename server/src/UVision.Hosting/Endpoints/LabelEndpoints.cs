@@ -22,7 +22,8 @@ public static class LabelEndpoints
         group.MapPut("/results/label", PutLabelAsync)
             .WithName("PutLabel")
             .Produces(200)
-            .ProducesProblem(400);
+            .ProducesProblem(400)
+            .ProducesProblem(409);
         group.MapDelete("/results/label", DeleteLabelAsync)
             .WithName("DeleteLabel")
             .Produces(200)
@@ -38,7 +39,8 @@ public static class LabelEndpoints
         group.MapPost("/results/audit", PostAuditAsync)
             .WithName("PostAudit")
             .Produces<AuditResponse>()
-            .ProducesProblem(400);
+            .ProducesProblem(400)
+            .ProducesProblem(409);
     }
 
     /// <summary>
@@ -56,6 +58,8 @@ public static class LabelEndpoints
     private static async Task<IResult> PutLabelAsync(
         LabelInput input, ILabelStore labelStore, IScenarioStore scenarioStore, CancellationToken cancellationToken)
     {
+        if (await PhotoSurface.RejectMonitoringAsync(scenarioStore, input.ScenarioId, "사람 라벨", cancellationToken) is { } monitoring)
+            return monitoring;
         if (!LabelSet.IsValid(input.Label, await AllowedLabelsAsync(input.ScenarioId, scenarioStore, cancellationToken)))
             return Results.Problem(statusCode: 400, detail: $"허용되지 않은 라벨: '{input.Label}'");
 
@@ -137,6 +141,8 @@ public static class LabelEndpoints
     private static async Task<IResult> PostAuditAsync(
         AuditInput input, ILabelStore labelStore, IScenarioStore scenarioStore, CancellationToken cancellationToken)
     {
+        if (await PhotoSurface.RejectMonitoringAsync(scenarioStore, input.ScenarioId, "사람 라벨 감사", cancellationToken) is { } monitoring)
+            return monitoring;
         if (!LabelSet.IsValid(input.Label, await AllowedLabelsAsync(input.ScenarioId, scenarioStore, cancellationToken)))
             return Results.Problem(statusCode: 400, detail: $"허용되지 않은 라벨: '{input.Label}'");
         try

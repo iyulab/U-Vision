@@ -1,5 +1,6 @@
 using UVision.Api.Auth;
 using UVision.Api.Models;
+using UVision.Api.Services.Scenarios;
 using UVision.Api.Storage;
 
 namespace UVision.Api.Endpoints;
@@ -20,7 +21,8 @@ public static class AuthorityEndpoints
         group.MapPost("/promote", PromoteAsync).RequireAdminPin()
             .WithName("PromoteAuthority")
             .Produces<AuthorityTransitionResponse>()
-            .ProducesProblem(400);
+            .ProducesProblem(400)
+            .ProducesProblem(409);
         group.MapPost("/demote", DemoteAsync).RequireAdminPin()
             .WithName("DemoteAuthority")
             .Produces<AuthorityTransitionResponse>()
@@ -46,8 +48,10 @@ public static class AuthorityEndpoints
     }
 
     private static async Task<IResult> PromoteAsync(
-        string id, PromoteAuthorityInput input, IAuthorityStore store, CancellationToken ct)
+        string id, PromoteAuthorityInput input, IAuthorityStore store, IScenarioStore scenarioStore, CancellationToken ct)
     {
+        if (await PhotoSurface.RejectMonitoringAsync(scenarioStore, id, "권한 사다리", ct) is { } monitoring)
+            return monitoring;
         try
         {
             var current = (await store.ReadAsync(id, ct))?.Stage ?? AuthorityStage.Advisory;
@@ -64,8 +68,10 @@ public static class AuthorityEndpoints
     }
 
     private static async Task<IResult> DemoteAsync(
-        string id, DemoteAuthorityInput input, IAuthorityStore store, CancellationToken ct)
+        string id, DemoteAuthorityInput input, IAuthorityStore store, IScenarioStore scenarioStore, CancellationToken ct)
     {
+        if (await PhotoSurface.RejectMonitoringAsync(scenarioStore, id, "권한 사다리", ct) is { } monitoring)
+            return monitoring;
         try
         {
             var current = (await store.ReadAsync(id, ct))?.Stage ?? AuthorityStage.Advisory;

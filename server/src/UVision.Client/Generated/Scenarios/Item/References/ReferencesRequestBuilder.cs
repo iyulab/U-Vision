@@ -76,6 +76,7 @@ namespace UVision.Client.Scenarios.Item.References
         /// <exception cref="global::UVision.Client.Models.ProblemDetails">When receiving a 400 status code</exception>
         /// <exception cref="global::UVision.Client.Models.ProblemDetails">When receiving a 401 status code</exception>
         /// <exception cref="global::UVision.Client.Models.ProblemDetails">When receiving a 404 status code</exception>
+        /// <exception cref="global::UVision.Client.Models.ProblemDetails">When receiving a 409 status code</exception>
         /// <exception cref="global::UVision.Client.Models.ProblemDetails">When receiving a 413 status code</exception>
         /// <exception cref="global::UVision.Client.Models.ProblemDetails">When receiving a 415 status code</exception>
         /// <exception cref="global::UVision.Client.Models.AdminSetupRequiredResponse">When receiving a 503 status code</exception>
@@ -95,6 +96,7 @@ namespace UVision.Client.Scenarios.Item.References
                 { "400", global::UVision.Client.Models.ProblemDetails.CreateFromDiscriminatorValue },
                 { "401", global::UVision.Client.Models.ProblemDetails.CreateFromDiscriminatorValue },
                 { "404", global::UVision.Client.Models.ProblemDetails.CreateFromDiscriminatorValue },
+                { "409", global::UVision.Client.Models.ProblemDetails.CreateFromDiscriminatorValue },
                 { "413", global::UVision.Client.Models.ProblemDetails.CreateFromDiscriminatorValue },
                 { "415", global::UVision.Client.Models.ProblemDetails.CreateFromDiscriminatorValue },
                 { "503", global::UVision.Client.Models.AdminSetupRequiredResponse.CreateFromDiscriminatorValue },

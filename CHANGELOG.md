@@ -7,6 +7,9 @@ Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0
 ### Added
 - `UVISION_WORKER_SOCKET_MODE` for the edge agent image: the Unix permission of the worker socket file as an octal value (default `0600`, owner only). A worker in another container that runs as a different user could not connect to a `0600` socket, and the host had no setting to change it; with `0660` and the agent's group on the worker the socket opens for that group only. A value that is not octal, that does not leave the owner able to read and write, or that is given without `UVISION_WORKER_SOCKET` stops the agent at start with exit code 2.
 
+### Changed
+- A scenario of the type `monitoring` no longer accepts writes to the surfaces that only exist for scenarios that judge photos: exporting or checking the readiness of a classification dataset, uploading a reference image, registering, promoting or rolling back a model version, promoting or demoting the authority ladder, and storing a human label or an audit of one now answer `409` (the same answer a counting scenario already gets for its dataset). Before, they were accepted and left meaningless state behind (an empty dataset export, a reference image nothing reads, a ladder history entry). Reads of those surfaces still answer with an empty result, so a dashboard that walks every scenario meets no error.
+
 ## [0.7.0] - 2026-11-04
 
 ### Added

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using UVision.Api.Auth;
 using UVision.Api.Models;
+using UVision.Api.Services.Scenarios;
 using UVision.Api.Storage;
 
 namespace UVision.Api.Endpoints;
@@ -22,12 +23,14 @@ public static class ModelEndpoints
         group.MapPost("", RegisterAsync).RequireAdminPin()
             .WithName("RegisterModel")
             .Produces<ModelRegisteredResponse>(201)
-            .ProducesProblem(400);
+            .ProducesProblem(400)
+            .ProducesProblem(409);
         group.MapPost("/{version}/promote", PromoteAsync).RequireAdminPin()
             .WithName("PromoteModel")
             .Produces<ModelPointerResponse>()
             .ProducesProblem(400)
-            .ProducesProblem(404);
+            .ProducesProblem(404)
+            .ProducesProblem(409);
         group.MapPost("/rollback", RollbackAsync).RequireAdminPin()
             .WithName("RollbackModel")
             .Produces<ModelPointerResponse>()
@@ -56,9 +59,11 @@ public static class ModelEndpoints
     }
 
     private static async Task<IResult> RegisterAsync(
-        string id, RegisterModelInput input, IModelRegistry registry,
+        string id, RegisterModelInput input, IModelRegistry registry, IScenarioStore scenarioStore,
         HttpRequest request, UVisionOptions options, CancellationToken ct)
     {
+        if (await PhotoSurface.RejectMonitoringAsync(scenarioStore, id, "모델 버전", ct) is { } monitoring)
+            return monitoring;
         if (string.IsNullOrWhiteSpace(input.ModelName))
             return Results.Problem(statusCode: 400, detail: "model_name 필수");
         try
@@ -81,9 +86,11 @@ public static class ModelEndpoints
     }
 
     private static async Task<IResult> PromoteAsync(
-        string id, string version, IModelRegistry registry, CancellationToken ct,
+        string id, string version, IModelRegistry registry, IScenarioStore scenarioStore, CancellationToken ct,
         [FromQuery(Name = "by")] string? by = null)
     {
+        if (await PhotoSurface.RejectMonitoringAsync(scenarioStore, id, "모델 버전", ct) is { } monitoring)
+            return monitoring;
         try
         {
             await registry.PromoteAsync(id, version, by ?? "", ct);
@@ -101,9 +108,11 @@ public static class ModelEndpoints
     }
 
     private static async Task<IResult> RollbackAsync(
-        string id, IModelRegistry registry, CancellationToken ct,
+        string id, IModelRegistry registry, IScenarioStore scenarioStore, CancellationToken ct,
         [FromQuery(Name = "by")] string? by = null)
     {
+        if (await PhotoSurface.RejectMonitoringAsync(scenarioStore, id, "모델 버전", ct) is { } monitoring)
+            return monitoring;
         bool ok;
         try
         {

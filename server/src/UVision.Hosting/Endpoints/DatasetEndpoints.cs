@@ -95,6 +95,8 @@ public static class DatasetEndpoints
             if (scenario is null)
                 return Results.Problem(statusCode: 404, detail: $"시나리오 없음: {scenarioId}");
 
+            if (PhotoSurface.RejectMonitoring(scenario, "분류 학습 데이터셋") is { } monitoring)
+                return monitoring;
             if (scenario.Type == ScenarioVocabulary.Counting)
                 return Results.Problem(statusCode: 409, detail: NotTrainable);
 
@@ -130,6 +132,8 @@ public static class DatasetEndpoints
             if (scenario is null)
                 return Results.Problem(statusCode: 404, detail: $"시나리오 없음: {scenarioId}");
 
+            if (PhotoSurface.RejectMonitoring(scenario, "분류 학습 데이터셋") is { } monitoring)
+                return monitoring;
             if (scenario.Type == ScenarioVocabulary.Counting)
                 return Results.Problem(statusCode: 409, detail: NotTrainable);
 
