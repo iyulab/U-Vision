@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using UVision.Api;
 using Xunit;
 
@@ -40,6 +41,10 @@ public class OpcUaServerTests : IDisposable
     private IHost Build(Dictionary<string, string?> settings)
     {
         var builder = Host.CreateApplicationBuilder();
+        // 기본 로깅 제공자(Windows 는 이벤트 로그 포함)를 비운다 — 호스트를 해제하는 순간에도 OPC UA 수신 스레드가 로그를 남기는데, 이미 해제된
+        // 이벤트 로그 제공자에 쓰면 `Logger.Log` 가 AggregateException 을 던지고 입출력 완료 스레드에서 처리되지 않아 시험 프로세스가 통째로 죽는다
+        // (스위트 중간에 «534 건에서 멈춘 채 FAIL» 로 보이던 플레이크의 원인). 같은 파일의 다른 OPC UA 호스트도 이미 비운다.
+        builder.Logging.ClearProviders();
         settings["UVision:Storage:DataPath"] = _root;
         builder.Configuration.AddInMemoryCollection(settings);
         builder.Services.AddUVisionOpcUa(builder.Configuration, _root);

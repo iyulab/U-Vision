@@ -178,7 +178,8 @@ public sealed class EdgeAgentHostTests : IDisposable
         var status = await UntilAsync(engine.OnlyNodeAsync, n => n is { } x && x.TryGetProperty("status", out _));
         Assert.True(status!.Value.TryGetProperty("status", out var s));
         Assert.Equal(EdgeAgent.AgentVersion, s.GetProperty("agent_version").GetString());
-        Assert.True(AgentHost.IsHealthy(options.StateDir, TimeSpan.FromSeconds(5)));
+        // 상태 보고는 사이클 중간에, 건강 표지는 사이클 끝에 쓰인다 — 보고가 보인 바로 그 순간에는 표지가 아직 없을 수 있다(전체 스위트에서 가끔 걸린 경합).
+        Assert.True(await UntilAsync(() => Task.FromResult(AgentHost.IsHealthy(options.StateDir, TimeSpan.FromSeconds(5))), healthy => healthy));
 
         cts.Cancel();
         Assert.Equal(ExitCodes.Ok, await run);
