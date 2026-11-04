@@ -287,10 +287,12 @@ public sealed class EdgeNodeStore(StoragePaths paths, TimeProvider clock)
             return null;
         try
         {
-            await using var stream = File.OpenRead(path);
+            // 에이전트의 상태 보고 · 구성 폴링이 같은 파일을 계속 교체하고 콘솔 목록이 읽는다 — 교체 순간의 거절은 다시 시도한다.
+            await using var stream = await StoragePaths.OpenReadResilientAsync(path, ct);
             return await JsonSerializer.DeserializeAsync<T>(stream, StoragePaths.Json, ct);
         }
         catch (JsonException) { return null; } // 잘린 파일은 없는 것으로 — 인증은 닫힌 쪽으로 실패한다.
+        catch (FileNotFoundException) { return null; } // Exists 확인과 열기 사이에 지워졌다(노드 삭제).
     }
 
     private static string Hash(string secret) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(secret)));

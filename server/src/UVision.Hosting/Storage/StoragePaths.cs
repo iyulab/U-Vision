@@ -365,6 +365,11 @@ public sealed partial class StoragePaths
     /// <summary>
     /// atomic 쓰기: 같은 디렉토리에 temp 작성 후 rename. 동시 읽기가 반쪽 파일을 보지 않는다.
     /// Windows 에서 기존 파일 위로의 <c>File.Move</c> 는 throw 하므로 overwrite 모드를 쓴다.
+    /// <para>
+    /// Windows 는 누가 그 파일을 열고 있는 동안의 덮어쓰기 이동을 <see cref="UnauthorizedAccessException"/>(또는 <see cref="IOException"/>)으로
+    /// 거절한다 — 읽는 쪽이 <c>FileShare.Delete</c> 를 줘도 같다(실측: 8 초 동안 읽기와 겹친 쓰기 대부분이 거절). 읽기는 몇 밀리초면 끝나므로
+    /// 짧게 다시 시도한다(<see cref="ReplaceRetries"/>); 그래도 안 되면 던진다. 다른 OS 에는 이 경합이 없어 첫 시도에 성공한다.
+    /// </para>
     /// </summary>
     public static async Task AtomicWriteAsync(
         string path, ReadOnlyMemory<byte> bytes, CancellationToken ct = default)
@@ -375,12 +380,47 @@ public sealed partial class StoragePaths
         try
         {
             await File.WriteAllBytesAsync(tmp, bytes, ct);
-            File.Move(tmp, path, overwrite: true);
+            for (var attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    File.Move(tmp, path, overwrite: true);
+                    break;
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException && attempt < ReplaceRetries)
+                {
+                    await Task.Delay(attempt < 5 ? 1 : 10, ct);
+                }
+            }
         }
         catch
         {
             if (File.Exists(tmp)) File.Delete(tmp);
             throw;
+        }
+    }
+
+    /// <summary>덮어쓰기 이동과 읽기가 겹칠 때 다시 시도하는 횟수 — 최대 약 0.4 초(앞 5 번은 1 ms, 그 뒤는 10 ms).</summary>
+    public const int ReplaceRetries = 40;
+
+    /// <summary>
+    /// 다른 쪽이 같은 파일을 교체하는 순간(<see cref="AtomicWriteAsync"/>)에 열기가 <see cref="IOException"/> 으로 거절될 수 있다 — Windows 에서만.
+    /// 교체는 몇 밀리초라 짧게 다시 시도한 뒤 스트림을 돌려준다. 파일이 없으면 <see cref="FileNotFoundException"/> 그대로.
+    /// </summary>
+    public static async Task<FileStream> OpenReadResilientAsync(string path, CancellationToken ct = default)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            }
+            catch (Exception e) when (e is IOException and not FileNotFoundException and not DirectoryNotFoundException
+                                          || e is UnauthorizedAccessException)
+            {
+                if (attempt >= ReplaceRetries) throw;
+                await Task.Delay(attempt < 5 ? 1 : 10, ct);
+            }
         }
     }
 
