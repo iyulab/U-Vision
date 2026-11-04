@@ -15,10 +15,12 @@ public sealed record TrackSample(string TrackId, string Class, double Score, dou
 }
 
 /// <summary>
-/// 한 소스의 프레임 하나 — <see cref="Time"/> 은 프레임이 찍힌 벽시계 시각이다. 규칙의 «T 초 동안 안정» · «지속» 은 시계가 아니라
+/// 한 카메라의 프레임 하나 — <see cref="CameraRef"/> 는 노드 로컬 <b>카메라 별칭</b>이다(시나리오 <c>sources[].camera_ref</c> 와 같은 이름 —
+/// 워커가 아는 이름이고 노드 안에서 유일하다; 시나리오 안의 소스 id 는 워커가 모른다). 같은 카메라를 보는 소스는 시나리오마다 있을 수 있고
+/// 프레임은 그 모두에게 간다. <see cref="Time"/> 은 프레임이 찍힌 벽시계 시각이다. 규칙의 «T 초 동안 안정» · «지속» 은 시계가 아니라
 /// <b>이 시각</b>으로 잰다(파일 재생 · 가짜 워커로 시간을 마음대로 흘릴 수 있고, 처리가 늦어도 판정이 바뀌지 않는다).
 /// </summary>
-public sealed record TrackFrame(string SourceId, long Seq, DateTimeOffset Time, IReadOnlyList<TrackSample> Tracks);
+public sealed record TrackFrame(string CameraRef, long Seq, DateTimeOffset Time, IReadOnlyList<TrackSample> Tracks);
 
 /// <summary>규칙이 낸 사건 — 에이전트가 outbox 에 넣으면(<c>EnqueueEvent</c>) 엔진으로 간다. <see cref="Time"/> 은 사건을 일으킨 프레임의 시각.</summary>
 public sealed record RuleEvent(string ScenarioId, string Kind, DateTimeOffset Time, JsonElement Data);

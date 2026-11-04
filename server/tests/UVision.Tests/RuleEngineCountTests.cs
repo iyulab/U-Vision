@@ -43,7 +43,7 @@ public class RuleEngineCountTests
         new(id, cls, 0.9, gx - 0.05, gy - 0.1, 0.1, 0.1);
 
     private static TrackFrame Frame(int n, double seconds, params TrackSample[] tracks) =>
-        new("cam1", n, T0.AddSeconds(seconds), tracks);
+        new("dock-1", n, T0.AddSeconds(seconds), tracks);   // 프레임은 카메라 별칭으로 온다(소스 id 가 아니라)
 
     private static T Get<T>(RuleEvent e, string key) => e.Data.GetProperty(key).Deserialize<T>()!;
 

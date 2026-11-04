@@ -7,7 +7,8 @@ internal interface IRuleState
 {
     string RuleId { get; }
 
-    string SourceId { get; }
+    /// <summary>규칙이 보는 카메라의 별칭 — 이 별칭의 프레임만 먹는다.</summary>
+    string CameraRef { get; }
 
     /// <summary>프레임 하나를 먹이고 난 사건을 돌려준다(없으면 빈 열거).</summary>
     IEnumerable<RuleEvent> OnFrame(TrackFrame frame);
@@ -38,8 +39,9 @@ internal sealed class CountZoneState : IRuleState
     private DateTimeOffset _candidateSince;
     private int _candidateFrames;
 
-    public CountZoneState(string scenarioId, StreamRule rule, StreamZone? zone)
+    public CountZoneState(string scenarioId, StreamRule rule, string cameraRef, StreamZone? zone)
     {
+        CameraRef = cameraRef;
         _scenarioId = scenarioId;
         _rule = rule;
         _zoneId = zone?.Id ?? "";
@@ -48,14 +50,11 @@ internal sealed class CountZoneState : IRuleState
 
     public string RuleId => _rule.Id;
 
-    public string SourceId => _rule.Source;
+    public string CameraRef { get; }
 
     public IEnumerable<RuleEvent> OnFrame(TrackFrame frame)
     {
-        var count = 0;
-        foreach (var t in frame.Tracks)
-            if (t.Class == _rule.Class && (_polygon is null || Geometry.PointInPolygon(t.GroundX, t.GroundY, _polygon)))
-                count++;
+        var count = ZoneCounter.CountInside(frame, _rule.Class, _polygon);
 
         if (_candidate != count)
         {
@@ -117,8 +116,9 @@ internal sealed class CountLineState : IRuleState
     private long _in;
     private long _out;
 
-    public CountLineState(string scenarioId, StreamRule rule, StreamLine line)
+    public CountLineState(string scenarioId, StreamRule rule, string cameraRef, StreamLine line)
     {
+        CameraRef = cameraRef;
         _scenarioId = scenarioId;
         _rule = rule;
         (_ax, _ay, _bx, _by) = (line.A[0], line.A[1], line.B[0], line.B[1]);
@@ -126,7 +126,7 @@ internal sealed class CountLineState : IRuleState
 
     public string RuleId => _rule.Id;
 
-    public string SourceId => _rule.Source;
+    public string CameraRef { get; }
 
     public IEnumerable<RuleEvent> OnFrame(TrackFrame frame)
     {
