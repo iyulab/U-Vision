@@ -1,4 +1,4 @@
-import type { AdminStatus, Ambiguity, AnomalyMap, AuthorityState, DecisionEvidence, DetectionUnavailable, RejudgeResponse, EventsStatus, FlywheelReport, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Question, QuestionAnswer, Reference, RetentionPurgeInput, RetentionPurgeResponse, Scenario, SolverTrust, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
+import type { AdminStatus, Ambiguity, AnomalyMap, AuthorityState, DecisionEvidence, DetectionUnavailable, EdgeNode, EdgeTokenInput, EdgeTokenIssued, RejudgeResponse, EventsStatus, FlywheelReport, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Question, QuestionAnswer, Reference, RetentionPurgeInput, RetentionPurgeResponse, Scenario, SolverTrust, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
 import type { QuestionAnswerInput } from './contract.gen'
 import type { AuthorityStage } from './authority'
 import { resolveApiBase } from './runtimeConfig'
@@ -452,6 +452,47 @@ export async function runRetention(scenarioId: string, input: RetentionPurgeInpu
   })
   await ensureOk(res, input.dry_run === false ? '보존 삭제' : '보존 삭제 계획')
   return (await res.json()) as RetentionPurgeResponse
+}
+
+// --- 엣지 노드 (PIN — 읽기도 관리자만) ---------------------------------------
+
+/** 등록된 노드 목록(등록 순). 비밀은 어떤 응답에도 없다. */
+export async function listEdgeNodes(pin: string): Promise<EdgeNode[]> {
+  const res = await fetch(`${API_BASE}/edge/nodes`, { headers: { [PIN_HEADER]: pin } })
+  await ensureOk(res, '엣지 노드 목록')
+  return (await res.json()) as EdgeNode[]
+}
+
+/** 일회용 등록 토큰 발급 — 평문은 이 응답에서만 보인다. */
+export async function issueEdgeToken(input: EdgeTokenInput, pin: string): Promise<EdgeTokenIssued> {
+  const res = await fetch(`${API_BASE}/edge/tokens`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', [PIN_HEADER]: pin },
+    body: JSON.stringify(input),
+  })
+  await ensureOk(res, '등록 토큰 발급')
+  return (await res.json()) as EdgeTokenIssued
+}
+
+/** 노드에 시나리오를 배정한다(전체 교체 — 빈 목록이면 배정을 모두 거둔다). */
+export async function setEdgeNodeScenarios(nodeId: string, scenarios: string[], pin: string): Promise<EdgeNode> {
+  const res = await fetch(`${API_BASE}/edge/nodes/${encodeURIComponent(nodeId)}/scenarios`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', [PIN_HEADER]: pin },
+    body: JSON.stringify({ scenarios }),
+  })
+  await ensureOk(res, '시나리오 배정')
+  return (await res.json()) as EdgeNode
+}
+
+/** 노드를 회수한다 — 되돌릴 수 없다(기록은 남는다). */
+export async function revokeEdgeNode(nodeId: string, pin: string): Promise<EdgeNode> {
+  const res = await fetch(`${API_BASE}/edge/nodes/${encodeURIComponent(nodeId)}`, {
+    method: 'DELETE',
+    headers: { [PIN_HEADER]: pin },
+  })
+  await ensureOk(res, '노드 회수')
+  return (await res.json()) as EdgeNode
 }
 
 // --- 시나리오 CRUD (S-B 서버 계약) ---------------------------------------

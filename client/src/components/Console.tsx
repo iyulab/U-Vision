@@ -15,6 +15,7 @@ import type { Scenario } from '../lib/types'
 import { AuthorityPanel } from './AuthorityPanel'
 import { LabelAudit } from './LabelAudit'
 import { DataVolumePanel } from './DataVolumePanel'
+import { EdgeNodesPanel } from './EdgeNodesPanel'
 import { EventsStatusPanel } from './EventsStatusPanel'
 import { MetricsDashboard } from './MetricsDashboard'
 import { ReferenceGallery } from './ReferenceGallery'
@@ -36,7 +37,7 @@ const RESOLUTION_PRESETS: { value: number; label: string }[] = [
   { value: 128, label: '128' },
 ]
 
-type Tab = 'scenarios' | 'results' | 'metrics' | 'audit' | 'authority' | 'retention'
+type Tab = 'scenarios' | 'results' | 'metrics' | 'audit' | 'authority' | 'retention' | 'nodes'
 
 interface ConsoleProps {
   /** 운영 화면으로 복귀. */
@@ -147,6 +148,9 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
           <TabButton active={tab === 'retention'} onClick={() => setTab('retention')}>
             보존
           </TabButton>
+          <TabButton active={tab === 'nodes'} onClick={() => setTab('nodes')}>
+            노드
+          </TabButton>
         </div>
         <button
           onClick={onClose}
@@ -187,8 +191,10 @@ export function Console({ onClose, onChanged, activeScenarioId }: ConsoleProps) 
             initialScenarioId={activeScenarioId}
             runWithPin={runWithPin}
           />
-        ) : (
+        ) : tab === 'retention' ? (
           <RetentionPanel scenarios={scenarios} initialScenarioId={activeScenarioId} runWithPin={runWithPin} />
+        ) : (
+          <EdgeNodesPanel scenarios={scenarios} runWithPin={runWithPin} />
         )}
       </main>
 

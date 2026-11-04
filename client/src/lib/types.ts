@@ -47,6 +47,10 @@ export type Ambiguity = Wire.AmbiguityResponse
 export type AmbiguityGroup = Wire.AmbiguityGroup
 export type RetentionPurgeInput = Wire.RetentionPurgeInput
 export type RetentionPurgeResponse = Wire.RetentionPurgeResponse
+export type EdgeNode = Wire.EdgeNode
+export type EdgeNodeStatus = Wire.EdgeNodeStatus
+export type EdgeTokenInput = Wire.EdgeTokenRequest
+export type EdgeTokenIssued = Wire.EdgeTokenResponse
 
 /**
  * 시나리오 ROI — 서버 wire 형식(**픽셀** 좌표 `w`/`h`). 계약의 `Roi` 는 요청 본문(`ScenarioInput.roi`)과 같은 스키마라 네 값이
