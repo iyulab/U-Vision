@@ -91,6 +91,7 @@ docker run -d -p 8080:8080 -v u-vision-data:/data   -e VLM_PROVIDER=openai-compa
 - 서버는 비루트 사용자로 돈다. 카메라(`getUserMedia`)는 secure context 가 필요하므로 태블릿에서 쓰려면 앞에 HTTPS 리버스 프록시를 둔다.
 - 업무 앱과 같은 주소 아래에 화면을 싣는 리버스 프록시 설정은 [`samples/SameOriginMount`](./samples/SameOriginMount) 에 있다.
 - 다른 앱에서 `UVision.Client` 로 엔진을 부르는 예제는 [`samples/ClientIntegration`](./samples/ClientIntegration) 에 있다.
+- 현장 장비 한 대에 엔진 · 엣지 에이전트 · 추론 워커 자리를 함께 띄우는 `docker compose` 예제는 [`samples/EdgeNode`](./samples/EdgeNode) 에 있다.
 
 ### 핵심 환경 변수
 

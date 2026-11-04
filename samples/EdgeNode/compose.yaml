@@ -1,0 +1,68 @@
+# Edge node: an engine, an edge agent that only connects out to it, and the place where an inference worker goes.
+#
+# Needs a release that has UVISION_WORKER_SOCKET_MODE (added after 0.7.0). Pin UVISION_VERSION to a release tag for a real deployment;
+# the default `latest` follows the newest release.
+#
+#   1. docker compose up -d engine                 # the engine first
+#   2. issue a registration token (console -> Nodes tab, or POST /api/u-vision/edge/tokens with the admin PIN)
+#   3. put it in .env as UVISION_REGISTRATION_TOKEN=...
+#   4. docker compose up -d                        # the agent registers once and then keeps its own credentials
+#
+# The agent listens on a Unix socket inside the shared volume `worker-socket`; a worker container writes its frames there
+# (newline-delimited JSON; the format is summarised in README.md). The socket is owner-only by default. A worker that
+# runs as another user in its own container cannot open it, so the agent is told to widen it to its group (0660) and the worker
+# is given that group. 1654 is the user and group of the agent image (the APP_UID of the .NET base images).
+services:
+  engine:
+    image: ghcr.io/iyulab/u-vision:${UVISION_VERSION:-latest}
+    environment:
+      ADMIN_PIN: ${ADMIN_PIN:?set ADMIN_PIN in .env (it protects the console's management actions)}
+      VLM_PROVIDER: ${VLM_PROVIDER:-mock}
+    ports:
+      - "8080:8080"
+    volumes:
+      - engine-data:/data
+
+  # A fresh named volume is owned by root, so the non-root agent could not create its socket file in it. This one-off step hands
+  # the directory to the agent's group (setgid, so the socket file keeps that group).
+  socket-dir:
+    image: busybox:1.37
+    command: ["sh", "-c", "chown 1654:1654 /worker && chmod 2770 /worker"]
+    volumes:
+      - worker-socket:/worker
+    restart: "no"
+
+  edge-agent:
+    image: ghcr.io/iyulab/u-vision-edge-agent:${UVISION_VERSION:-latest}
+    depends_on:
+      engine:
+        condition: service_started
+      socket-dir:
+        condition: service_completed_successfully
+    restart: on-failure
+    environment:
+      UVISION_ENGINE_URL: http://engine:8080
+      UVISION_REGISTRATION_TOKEN: ${UVISION_REGISTRATION_TOKEN:-}   # only needed the first time; the stored credentials are used afterwards
+      UVISION_NODE_NAME: ${UVISION_NODE_NAME:-edge-node}
+      UVISION_POLL_SECONDS: ${UVISION_POLL_SECONDS:-30}
+      UVISION_WORKER_SOCKET: /worker/worker.sock
+      UVISION_WORKER_SOCKET_MODE: "0660"
+    volumes:
+      - edge-data:/data          # credentials, last configuration and the outbox of events not yet delivered: keep this volume
+      - worker-socket:/worker
+
+  # Your inference worker goes here (decode, detect, track; it only reports what it sees). It needs the socket volume and the
+  # agent's group, nothing else from this node.
+  #
+  # worker:
+  #   image: <your inference worker image>
+  #   user: "2000:1654"          # any user id, but group 1654 so that it can open the 0660 socket
+  #   depends_on:
+  #     - edge-agent
+  #   volumes:
+  #     - worker-socket:/worker
+
+volumes:
+  engine-data:
+  edge-data:
+  worker-socket:
