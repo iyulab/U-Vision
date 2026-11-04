@@ -27,6 +27,7 @@ Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0
 - Upgraded `Microsoft.Kiota.Bundle` (the `UVision.Client` runtime dependency) from 2.1.2 to 2.1.6, and refreshed the client and site npm lock files within their declared ranges. The generated client is unchanged.
 
 ### Fixed
+- A misconfigured engine (an unknown `VLM_PROVIDER`, an unusable `Storage__DataPath`, clashing event destination names, ...) now stops at start with a one-line reason and exit code 2. It used to let the validation exception go unhandled, so the runtime aborted the process: a stack trace on stderr and an exit code of 139 in a container, which looked like a crash of the image rather than a wrong setting.
 - The standalone host now writes its console output as UTF-8. On a machine whose console code page is not UTF-8 (English Windows uses 437, for example), the Korean text of startup configuration errors and of the event-delivery retry log was written as `?` once the output was redirected to a file or a service log, so the reason could not be read. A console that cannot be switched keeps its default encoding.
 
 ## [0.6.0] - 2026-11-01

@@ -16,10 +16,20 @@ var builder = WebApplication.CreateBuilder(args);
 // .env/환경변수 → UVision 섹션 매핑(standalone dev 의 평면 키 UX 보존).
 builder.Configuration.AddInMemoryCollection(StandaloneEnv.ToConfig());
 
-builder.Services.AddUVision(builder.Configuration, builder.Environment.ContentRootPath);
+// 설정 검증은 서비스 등록에서 기동을 거부한다(모르는 provider · 잘못된 경로 · 겹치는 목적지 이름 …). 처리하지 않은 예외로 두면 .NET 이
+// 프로세스를 abort 시켜 컨테이너의 종료 코드가 139 로 보이고 사유는 스택 트레이스 속에 묻힌다 — 사유 한 줄과 구별되는 종료 코드 2 로 끝낸다.
+try
+{
+    builder.Services.AddUVision(builder.Configuration, builder.Environment.ContentRootPath);
 
-// OPC UA 서버(P4 사건 전송) — 기본 꺼짐. 서버 스택은 엔진 호스트에만 있다.
-builder.Services.AddUVisionOpcUa(builder.Configuration, builder.Environment.ContentRootPath);
+    // OPC UA 서버(P4 사건 전송) — 기본 꺼짐. 서버 스택은 엔진 호스트에만 있다.
+    builder.Services.AddUVisionOpcUa(builder.Configuration, builder.Environment.ContentRootPath);
+}
+catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+{
+    Console.Error.WriteLine($"설정이 잘못되어 시작하지 않습니다: {ex.Message}");
+    return 2;
+}
 
 // 주의: 전역 ConfigureHttpJsonOptions 를 추가하지 않는다. wire snake_case 는 DTO [JsonPropertyName]
 // 이 보유(Task 4B) — standalone/임베드 모두 동일하게 동작. 재추가 금지(임베드 시 호스트 오염원).
@@ -40,6 +50,7 @@ app.MapUVisionEndpoints(
     app.Services.GetRequiredService<UVisionOptions>().ApiBasePath);
 
 app.Run();
+return 0;
 
 // WebApplicationFactory(통합 테스트)용 진입점 노출.
 public partial class Program;
