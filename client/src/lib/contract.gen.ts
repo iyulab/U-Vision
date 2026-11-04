@@ -60,6 +60,7 @@ export interface Contract {
   DecisionEvidence?: DecisionEvidence
   DemoteAuthorityInput?: DemoteAuthorityInput
   DetectionUnavailableResponse?: DetectionUnavailableResponse
+  EdgeConfig?: EdgeConfig
   EdgeEventInput?: EdgeEventInput
   EdgeEventResult?: EdgeEventResult
   EdgeEventsRequest?: EdgeEventsRequest
@@ -67,6 +68,7 @@ export interface Contract {
   EdgeNode?: EdgeNode
   EdgeRegisterRequest?: EdgeRegisterRequest
   EdgeRegisterResponse?: EdgeRegisterResponse
+  EdgeScenarioConfig?: EdgeScenarioConfig
   EdgeScenariosInput?: EdgeScenariosInput
   EdgeTokenRequest?: EdgeTokenRequest
   EdgeTokenResponse?: EdgeTokenResponse
@@ -488,6 +490,45 @@ export interface DetectionUnavailableResponse {
   detection_unavailable: boolean
   reason: string
   ml_hint?: MlResult
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeConfig".
+ */
+export interface EdgeConfig {
+  node_id: string
+  version: string
+  scenarios: EdgeScenarioConfig[]
+  missing_scenarios?: string[]
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeScenarioConfig".
+ */
+export interface EdgeScenarioConfig {
+  scenario_id: string
+  name: string
+  type: string
+  trigger?: string
+  classes?: ScenarioClass[]
+  expected_count?: number
+  count_tolerance?: number
+  expected_by_class?: {
+    [k: string]: number
+  }
+  extra_policy?: string
+  min_confidence?: number
+  count_classes?: string[]
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "ScenarioClass".
+ */
+export interface ScenarioClass {
+  id: string
+  label?: string
+  settleable?: boolean
+  must_catch?: boolean
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
@@ -1068,16 +1109,6 @@ export interface Scenario {
   extra_policy?: string
   min_confidence?: number
   count_classes?: string[]
-}
-/**
- * This interface was referenced by `Contract`'s JSON-Schema
- * via the `definition` "ScenarioClass".
- */
-export interface ScenarioClass {
-  id: string
-  label?: string
-  settleable?: boolean
-  must_catch?: boolean
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

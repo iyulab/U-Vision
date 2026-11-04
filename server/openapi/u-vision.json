@@ -2052,6 +2052,39 @@
         }
       }
     },
+    "/api/u-vision/edge/v1/config": {
+      "get": {
+        "tags": [
+          "U-Vision"
+        ],
+        "operationId": "GetEdgeConfig",
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeConfig"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          }
+        }
+      }
+    },
     "/api/u-vision/edge/v1/whoami": {
       "get": {
         "tags": [
@@ -4216,6 +4249,34 @@
           }
         }
       },
+      "EdgeConfig": {
+        "required": [
+          "node_id",
+          "version",
+          "scenarios"
+        ],
+        "type": "object",
+        "properties": {
+          "node_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EdgeScenarioConfig"
+            }
+          },
+          "missing_scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "EdgeEventInput": {
         "type": "object",
         "properties": {
@@ -4376,6 +4437,62 @@
           },
           "secret": {
             "type": "string"
+          }
+        }
+      },
+      "EdgeScenarioConfig": {
+        "required": [
+          "scenario_id",
+          "name",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "scenario_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string"
+          },
+          "classes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScenarioClass"
+            }
+          },
+          "expected_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "count_tolerance": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "expected_by_class": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "extra_policy": {
+            "type": "string"
+          },
+          "min_confidence": {
+            "type": "number",
+            "format": "double"
+          },
+          "count_classes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

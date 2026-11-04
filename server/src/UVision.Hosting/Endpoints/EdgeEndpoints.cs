@@ -42,6 +42,10 @@ public static class EdgeEndpoints
             .WithName("PostEdgeEvents")
             .Produces<EdgeEventsResponse>()
             .ProducesProblem(400);
+        parent.MapGet("/edge/v1/config", GetConfigAsync).RequireEdgeNode()
+            .WithName("GetEdgeConfig")
+            .Produces<EdgeConfig>()
+            .Produces(StatusCodes.Status304NotModified);
         parent.MapGet("/edge/v1/whoami", (HttpContext http) => Results.Ok(http.CurrentNode())).RequireEdgeNode()
             .WithName("EdgeWhoAmI")
             .Produces<EdgeNode>();
@@ -87,6 +91,23 @@ public static class EdgeEndpoints
     {
         try { return Results.Ok(await events.IngestAsync(http.CurrentNode(), request, ct)); }
         catch (ArgumentException ex) { return Results.Problem(statusCode: 400, detail: ex.Message); }
+    }
+
+    /// <summary>
+    /// 구성 폴링 — 배정된 시나리오의 투영을 <c>ETag</c>(내용 지문) 조건부로 준다. 구성이 그대로면 <c>304</c>. 어느 쪽이든 <c>Date</c>(서버 시계)를
+    /// 싣는다 — 에이전트가 이 응답으로 «서버 시각 − 노드 시각» 을 재서 사건 배치의 <c>clock_offset_ms</c> 로 보낸다.
+    /// </summary>
+    private static async Task<IResult> GetConfigAsync(
+        HttpContext http, EdgeConfigBuilder builder, TimeProvider clock, CancellationToken ct)
+    {
+        var config = await builder.BuildAsync(http.CurrentNode(), ct);
+        var etag = $"\"{config.Version}\"";
+        http.Response.Headers.Date = clock.GetUtcNow().ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+        http.Response.Headers.ETag = etag;
+        var ifNoneMatch = http.Request.Headers.IfNoneMatch.ToString();
+        if (ifNoneMatch.Split(',').Select(t => t.Trim()).Any(t => t == "*" || t == etag || t == "W/" + etag))
+            return Results.StatusCode(StatusCodes.Status304NotModified);
+        return Results.Ok(config);
     }
 
     private static async Task<IResult> RegisterAsync(EdgeRegisterRequest request, EdgeNodeStore nodes, CancellationToken ct)
