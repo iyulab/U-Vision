@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- 엣지 에이전트 코어(원장 D-102 · edge.md) — 엔진과 같은 리포 · 같은 판 · AGPL. 별개 컨테이너 이미지로 나갈 것이라 NuGet 패키지는 아니다.
+         외부 의존성이 없다(HttpClient · System.Text.Json) — Jetson 이미지가 작게 남는다. -->
+    <IsPackable>false</IsPackable>
+    <RootNamespace>UVision.Edge.Agent</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="UVision.Tests" />
+  </ItemGroup>
+
+</Project>
