@@ -25,6 +25,9 @@ public sealed class EdgeNodeStore(StoragePaths paths, TimeProvider clock)
     public const int MaxTtlMinutes = 1440;
     public const int MaxNameLength = 80;
 
+    /// <summary>노드 시계 오프셋이 이만큼(밀리초)을 넘으면 «시계 어긋남» 으로 표시한다 — 표시일 뿐 거절도 경보도 아니다.</summary>
+    public const long ClockSkewThresholdMs = 60_000;
+
     /// <summary>마지막 접속 시각을 디스크에 다시 쓰는 최소 간격 — 폴링마다 쓰지 않는다.</summary>
     private static readonly TimeSpan TouchInterval = TimeSpan.FromMinutes(1);
 
@@ -47,11 +50,15 @@ public sealed class EdgeNodeStore(StoragePaths paths, TimeProvider clock)
         [JsonPropertyName("registered_at")] public required string RegisteredAt { get; init; }
         [JsonPropertyName("secret_hash")] public required string SecretHash { get; init; }
         [JsonPropertyName("last_seen")] public string? LastSeen { get; init; }
+        [JsonPropertyName("scenarios")] public IReadOnlyList<string> Scenarios { get; init; } = [];
+        [JsonPropertyName("clock_offset_ms")] public long? ClockOffsetMs { get; init; }
         [JsonPropertyName("revoked_at")] public string? RevokedAt { get; init; }
 
         public EdgeNode ToNode() => new()
         {
             NodeId = NodeId, Name = Name, RegisteredAt = RegisteredAt, LastSeen = LastSeen, RevokedAt = RevokedAt,
+            Scenarios = Scenarios, ClockOffsetMs = ClockOffsetMs,
+            ClockSkewed = ClockOffsetMs is { } offset ? Math.Abs(offset) > ClockSkewThresholdMs : null,
         };
     }
 
@@ -178,6 +185,44 @@ public sealed class EdgeNodeStore(StoragePaths paths, TimeProvider clock)
                 await StoragePaths.AtomicWriteJsonAsync(path, node, ct);
             }
             return node.ToNode();
+        }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>
+    /// 노드에 시나리오를 배정한다(전체 교체, 중복 제거 · 정렬). 모르는 노드는 null. 시나리오가 실제로 있는지는 호출부가 확인한다.
+    /// </summary>
+    /// <exception cref="ArgumentException">시나리오 id 형식 위반 · 회수된 노드.</exception>
+    public async Task<EdgeNode?> SetScenariosAsync(string nodeId, IEnumerable<string> scenarioIds, CancellationToken ct)
+    {
+        var ids = scenarioIds.Select(StoragePaths.Id).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+        var path = paths.EdgeNodeFile(nodeId);
+        await _gate.WaitAsync(ct);
+        try
+        {
+            var node = await ReadAsync<NodeFile>(path, ct);
+            if (node is null)
+                return null;
+            if (node.RevokedAt is not null)
+                throw new ArgumentException("회수된 노드에는 시나리오를 배정하지 않는다");
+            node = node with { Scenarios = ids };
+            await StoragePaths.AtomicWriteJsonAsync(path, node, ct);
+            return node.ToNode();
+        }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>에이전트가 보고한 시계 오프셋을 노드 레코드에 남긴다(원본 사건 시각은 건드리지 않는다). 같은 값이면 쓰지 않는다.</summary>
+    public async Task RecordClockOffsetAsync(string nodeId, long offsetMs, CancellationToken ct)
+    {
+        var path = paths.EdgeNodeFile(nodeId);
+        await _gate.WaitAsync(ct);
+        try
+        {
+            var node = await ReadAsync<NodeFile>(path, ct);
+            if (node is null || node.RevokedAt is not null || node.ClockOffsetMs == offsetMs)
+                return;
+            await StoragePaths.AtomicWriteJsonAsync(path, node with { ClockOffsetMs = offsetMs }, ct);
         }
         finally { _gate.Release(); }
     }

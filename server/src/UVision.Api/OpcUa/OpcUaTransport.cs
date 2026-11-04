@@ -16,6 +16,10 @@ public sealed class OpcUaTransport(OpcUaResultHub hub, ScenarioFactsReader scena
     {
         if (!hub.IsRunning)
             return Task.FromResult<string?>("OPC UA server not running");
+        // 엣지 노드의 규칙 사건은 «결과 관리» 에 싣지 않는다 — OPC 40100-1 의 모양은 판정 결과이고, 이 종류는 웹훅 · MQTT 로만 나간다.
+        // 실패가 아니라 «이 받는 곳이 다루지 않는 종류» 라서 전달된 것으로 센다(재시도 · 포기 대상이 아니다).
+        if (ResultMapper.IsEdgeEvent(entry.Body))
+            return Task.FromResult<string?>(null);
         if (!ResultMapper.TryMap(entry.Body, scenarios.Read(scenarioId), out var result, out var error))
             return Task.FromResult<string?>(error);
         return Task.FromResult(hub.Publish(result!));

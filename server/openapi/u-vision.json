@@ -1802,6 +1802,86 @@
         }
       }
     },
+    "/api/u-vision/edge/nodes/{node_id}/scenarios": {
+      "put": {
+        "tags": [
+          "U-Vision"
+        ],
+        "operationId": "SetEdgeNodeScenarios",
+        "parameters": [
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EdgeScenariosInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSetupRequiredResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeNode"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/u-vision/edge/nodes/{node_id}": {
       "delete": {
         "tags": [
@@ -1911,6 +1991,56 @@
           },
           "401": {
             "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/u-vision/edge/v1/events": {
+      "post": {
+        "tags": [
+          "U-Vision"
+        ],
+        "operationId": "PostEdgeEvents",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EdgeEventsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeEventsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -4086,11 +4216,107 @@
           }
         }
       },
+      "EdgeEventInput": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "seq": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          },
+          "scenario_id": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "kind": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "device_time": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/JsonElement"
+          }
+        }
+      },
+      "EdgeEventResult": {
+        "required": [
+          "event_id",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "EdgeEventsRequest": {
+        "required": [
+          "events"
+        ],
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EdgeEventInput"
+            }
+          },
+          "clock_offset_ms": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "EdgeEventsResponse": {
+        "required": [
+          "results"
+        ],
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EdgeEventResult"
+            }
+          },
+          "missing_seq": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SeqRange"
+            }
+          }
+        }
+      },
       "EdgeNode": {
         "required": [
           "node_id",
           "name",
-          "registered_at"
+          "registered_at",
+          "scenarios"
         ],
         "type": "object",
         "properties": {
@@ -4105,6 +4331,19 @@
           },
           "last_seen": {
             "type": "string"
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "clock_offset_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "clock_skewed": {
+            "type": "boolean"
           },
           "revoked_at": {
             "type": "string"
@@ -4137,6 +4376,20 @@
           },
           "secret": {
             "type": "string"
+          }
+        }
+      },
+      "EdgeScenariosInput": {
+        "required": [
+          "scenarios"
+        ],
+        "type": "object",
+        "properties": {
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -4465,6 +4718,7 @@
           }
         }
       },
+      "JsonElement": {},
       "LabelAudit": {
         "required": [
           "status"
@@ -6023,6 +6277,23 @@
           },
           "training": {
             "$ref": "#/components/schemas/ScenarioTraining"
+          }
+        }
+      },
+      "SeqRange": {
+        "required": [
+          "from",
+          "to"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "to": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },

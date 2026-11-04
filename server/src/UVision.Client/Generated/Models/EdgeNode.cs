@@ -14,6 +14,10 @@ namespace UVision.Client.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
+        /// <summary>The clock_offset_ms property</summary>
+        public long? ClockOffsetMs { get; set; }
+        /// <summary>The clock_skewed property</summary>
+        public bool? ClockSkewed { get; set; }
         /// <summary>The last_seen property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -54,6 +58,14 @@ namespace UVision.Client.Models
 #else
         public string RevokedAt { get; set; }
 #endif
+        /// <summary>The scenarios property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<string>? Scenarios { get; set; }
+#nullable restore
+#else
+        public List<string> Scenarios { get; set; }
+#endif
         /// <summary>
         /// Instantiates a new <see cref="global::UVision.Client.Models.EdgeNode"/> and sets the default values.
         /// </summary>
@@ -79,11 +91,14 @@ namespace UVision.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "clock_offset_ms", n => { ClockOffsetMs = n.GetLongValue(); } },
+                { "clock_skewed", n => { ClockSkewed = n.GetBoolValue(); } },
                 { "last_seen", n => { LastSeen = n.GetStringValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
                 { "node_id", n => { NodeId = n.GetStringValue(); } },
                 { "registered_at", n => { RegisteredAt = n.GetStringValue(); } },
                 { "revoked_at", n => { RevokedAt = n.GetStringValue(); } },
+                { "scenarios", n => { Scenarios = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
             };
         }
         /// <summary>
@@ -93,11 +108,14 @@ namespace UVision.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteLongValue("clock_offset_ms", ClockOffsetMs);
+            writer.WriteBoolValue("clock_skewed", ClockSkewed);
             writer.WriteStringValue("last_seen", LastSeen);
             writer.WriteStringValue("name", Name);
             writer.WriteStringValue("node_id", NodeId);
             writer.WriteStringValue("registered_at", RegisteredAt);
             writer.WriteStringValue("revoked_at", RevokedAt);
+            writer.WriteCollectionOfPrimitiveValues<string>("scenarios", Scenarios);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

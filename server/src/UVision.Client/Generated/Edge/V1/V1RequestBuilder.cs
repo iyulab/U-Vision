@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System;
+using UVision.Client.Edge.V1.Events;
 using UVision.Client.Edge.V1.Register;
 using UVision.Client.Edge.V1.Whoami;
 namespace UVision.Client.Edge.V1
@@ -16,6 +17,11 @@ namespace UVision.Client.Edge.V1
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class V1RequestBuilder : BaseRequestBuilder
     {
+        /// <summary>The events property</summary>
+        public global::UVision.Client.Edge.V1.Events.EventsRequestBuilder Events
+        {
+            get => new global::UVision.Client.Edge.V1.Events.EventsRequestBuilder(PathParameters, RequestAdapter);
+        }
         /// <summary>The register property</summary>
         public global::UVision.Client.Edge.V1.Register.RegisterRequestBuilder Register
         {

@@ -1,6 +1,7 @@
 using UVision.Api.Auth;
 using UVision.Api.Models;
 using UVision.Api.Services.Edge;
+using UVision.Api.Storage;
 
 namespace UVision.Api.Endpoints;
 
@@ -20,6 +21,11 @@ public static class EdgeEndpoints
         parent.MapGet("/edge/nodes", ListNodesAsync).RequireAdminPin()
             .WithName("ListEdgeNodes")
             .Produces<IReadOnlyList<EdgeNode>>();
+        parent.MapPut("/edge/nodes/{node_id}/scenarios", SetScenariosAsync).RequireAdminPin()
+            .WithName("SetEdgeNodeScenarios")
+            .Produces<EdgeNode>()
+            .ProducesProblem(400)
+            .ProducesProblem(404);
         parent.MapDelete("/edge/nodes/{node_id}", RevokeNodeAsync).RequireAdminPin()
             .WithName("RevokeEdgeNode")
             .Produces<EdgeNode>()
@@ -32,6 +38,10 @@ public static class EdgeEndpoints
             .Produces<EdgeRegisterResponse>()
             .ProducesProblem(400)
             .ProducesProblem(401);
+        parent.MapPost("/edge/v1/events", PostEventsAsync).RequireEdgeNode()
+            .WithName("PostEdgeEvents")
+            .Produces<EdgeEventsResponse>()
+            .ProducesProblem(400);
         parent.MapGet("/edge/v1/whoami", (HttpContext http) => Results.Ok(http.CurrentNode())).RequireEdgeNode()
             .WithName("EdgeWhoAmI")
             .Produces<EdgeNode>();
@@ -55,6 +65,28 @@ public static class EdgeEndpoints
                 : Results.Problem(statusCode: 404, detail: $"노드 없음: {node_id}");
         }
         catch (ArgumentException) { return Results.Problem(statusCode: 400, detail: "node_id 형식 위반"); }
+    }
+
+    private static async Task<IResult> SetScenariosAsync(
+        string node_id, EdgeScenariosInput input, EdgeNodeStore nodes, IScenarioStore scenarios, CancellationToken ct)
+    {
+        try
+        {
+            foreach (var id in input.Scenarios.Distinct(StringComparer.Ordinal))
+                if (await scenarios.GetAsync(id, ct) is null)
+                    return Results.Problem(statusCode: 400, detail: $"시나리오 없음: {id}");
+            return await nodes.SetScenariosAsync(node_id, input.Scenarios, ct) is { } node
+                ? Results.Ok(node)
+                : Results.Problem(statusCode: 404, detail: $"노드 없음: {node_id}");
+        }
+        catch (ArgumentException ex) { return Results.Problem(statusCode: 400, detail: ex.Message); }
+    }
+
+    private static async Task<IResult> PostEventsAsync(
+        EdgeEventsRequest request, HttpContext http, EdgeEventStore events, CancellationToken ct)
+    {
+        try { return Results.Ok(await events.IngestAsync(http.CurrentNode(), request, ct)); }
+        catch (ArgumentException ex) { return Results.Problem(statusCode: 400, detail: ex.Message); }
     }
 
     private static async Task<IResult> RegisterAsync(EdgeRegisterRequest request, EdgeNodeStore nodes, CancellationToken ct)

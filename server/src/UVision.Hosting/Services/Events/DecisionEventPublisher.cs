@@ -26,16 +26,25 @@ public sealed class DecisionEventPublisher(
 
     public async Task PublishAsync(InspectResultV2 decision, CancellationToken cancellationToken)
     {
+        var evt = DecisionEvent.From(decision);
+        await PublishBodyAsync(decision.ScenarioId, evt.Id, JsonSerializer.Serialize(evt, Compact), cancellationToken);
+    }
+
+    /// <summary>
+    /// 이미 만든 봉투 본문(CloudEvents JSON)을 시나리오의 받는 곳 outbox 마다 남긴다 — 판정 사건이 아닌 사건(엣지 노드의 규칙 사건)이
+    /// 같은 outbox · 같은 재시도 · 같은 순서 보장을 쓰게 한다. 받는 곳이 없으면 아무것도 쓰지 않는다.
+    /// </summary>
+    public async Task PublishBodyAsync(string scenarioId, string eventId, string body, CancellationToken cancellationToken)
+    {
         if (!IsEnabled)
             return;
-        var evt = DecisionEvent.From(decision);
-        var entry = new OutboxEntry { EventId = evt.Id, Body = JsonSerializer.Serialize(evt, Compact) };
+        var entry = new OutboxEntry { EventId = eventId, Body = body };
         // 파일 이름이 시각 순이 되게 — 받는 곳마다 먼저 생긴 사건부터 보낸다.
         var name = DateTime.UtcNow.ToString("yyyyMMddHHmmssfffffff", CultureInfo.InvariantCulture)
-            + "_" + evt.Id + ".json";
+            + "_" + eventId + ".json";
         foreach (var destination in DestinationNames())
             await StoragePaths.AtomicWriteJsonAsync(
-                Path.Combine(paths.EventOutboxDir(decision.ScenarioId, destination), name), entry, cancellationToken);
+                Path.Combine(paths.EventOutboxDir(scenarioId, destination), name), entry, cancellationToken);
         signal.Notify();
     }
 }

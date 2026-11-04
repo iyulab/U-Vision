@@ -59,6 +59,19 @@ public sealed record EdgeNode
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? LastSeen { get; init; }
 
+    /// <summary>이 노드에 배정된 시나리오 — 사건을 쓸 수 있고 구성을 받을 범위. 배정 전에는 빈 목록.</summary>
+    [JsonPropertyName("scenarios")] public IReadOnlyList<string> Scenarios { get; init; } = [];
+
+    /// <summary>마지막으로 받은 «서버 시각 − 노드 시각»(밀리초) — 에이전트가 사건 배치에 실어 보낸다.</summary>
+    [JsonPropertyName("clock_offset_ms")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? ClockOffsetMs { get; init; }
+
+    /// <summary>오프셋의 크기가 임계(60초)를 넘으면 true — «시계 어긋남» 표시일 뿐 경보도 거절도 아니다.</summary>
+    [JsonPropertyName("clock_skewed")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ClockSkewed { get; init; }
+
     /// <summary>회수된 시각 — 있으면 이 노드의 자격은 더는 통하지 않는다.</summary>
     [JsonPropertyName("revoked_at")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

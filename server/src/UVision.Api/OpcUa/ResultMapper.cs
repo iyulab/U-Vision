@@ -94,6 +94,23 @@ public sealed record ScenarioFacts(string ConfigurationId, string? Type)
 /// </summary>
 public static class ResultMapper
 {
+    /// <summary>봉투의 <c>type</c> 이 엣지 노드 사건인가 — 못 읽는 본문은 false(그러면 <see cref="TryMap"/> 이 오류로 다룬다).</summary>
+    public static bool IsEdgeEvent(string envelopeBody)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(envelopeBody);
+            return doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("type", out var type)
+                && type.ValueKind == JsonValueKind.String
+                && type.GetString() == UVision.Api.Services.Events.EdgeEventEnvelope.EventType;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>
     /// 매핑한다. 못 읽는 본문이면 사유(오류 문구)를 돌려준다 — 던지지 않는다(전송이 오류 문구로 바꿔 outbox 재시도 · 포기에 맡긴다).
     /// </summary>

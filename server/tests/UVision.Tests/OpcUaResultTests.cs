@@ -567,6 +567,17 @@ public sealed class OpcUaResultTests(OpcUaServerFixture server, ITestOutputHelpe
     }
 
     [Fact]
+    public async Task An_Edge_Node_Event_Is_Not_A_Result_And_Is_Skipped_Without_An_Error()
+    {
+        // 결과 관리(OPC 40100-1)는 판정 결과의 모양이다. 엣지 규칙 사건은 웹훅 · MQTT 로만 나가고, OPC UA 는 «malformed» 로 재시도하다
+        // 포기하지 않고 전달된 것으로 센다.
+        var body = """{"specversion":"1.0","id":"018f0000-0000-7000-8000-000000000001","type":"u-vision.edge.event","time":"2026-11-04T12:00:00Z","data":{"node_id":"node_a"}}""";
+        var error = await server.Transport.SendAsync("line-a",
+            new OutboxEntry { EventId = "018f0000-0000-7000-8000-000000000001", Body = body }, DateTimeOffset.UtcNow, CancellationToken.None);
+        Assert.Null(error);
+    }
+
+    [Fact]
     public async Task Malformed_Body_Returns_An_Error_Without_Throwing()
     {
         var error = await server.Transport.SendAsync("line-a",

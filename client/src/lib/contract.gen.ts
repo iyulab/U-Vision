@@ -7,6 +7,11 @@
 export type AuthorityStage = 'shadow' | 'advisory' | 'co_primary' | 'ml_primary'
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "JsonElement".
+ */
+export type JsonElement = unknown
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
  * via the `definition` "IFormFile".
  */
 export type IFormFile = string
@@ -55,9 +60,14 @@ export interface Contract {
   DecisionEvidence?: DecisionEvidence
   DemoteAuthorityInput?: DemoteAuthorityInput
   DetectionUnavailableResponse?: DetectionUnavailableResponse
+  EdgeEventInput?: EdgeEventInput
+  EdgeEventResult?: EdgeEventResult
+  EdgeEventsRequest?: EdgeEventsRequest
+  EdgeEventsResponse?: EdgeEventsResponse
   EdgeNode?: EdgeNode
   EdgeRegisterRequest?: EdgeRegisterRequest
   EdgeRegisterResponse?: EdgeRegisterResponse
+  EdgeScenariosInput?: EdgeScenariosInput
   EdgeTokenRequest?: EdgeTokenRequest
   EdgeTokenResponse?: EdgeTokenResponse
   EventsStatusResponse?: EventsStatusResponse
@@ -68,6 +78,7 @@ export interface Contract {
   IFormFile?: IFormFile
   InspectResponse?: InspectResponse
   InspectResultV2?: InspectResultV2
+  JsonElement?: JsonElement
   LabelAudit?: LabelAudit
   LabelEvent?: LabelEvent
   LabelInput?: LabelInput
@@ -107,6 +118,7 @@ export interface Contract {
   ScenarioTargets?: ScenarioTargets
   ScenarioTraining?: ScenarioTraining
   ScenarioTrust?: ScenarioTrust
+  SeqRange?: SeqRange
   SettledBy?: SettledBy
   SolverTrustDevice?: SolverTrustDevice
   SolverTrustResponse?: SolverTrustResponse
@@ -479,6 +491,51 @@ export interface DetectionUnavailableResponse {
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeEventInput".
+ */
+export interface EdgeEventInput {
+  event_id?: null | string
+  seq?: null | number
+  scenario_id?: null | string
+  kind?: null | string
+  device_time?: null | string
+  data?: JsonElement
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeEventResult".
+ */
+export interface EdgeEventResult {
+  event_id: string
+  status: string
+  code?: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeEventsRequest".
+ */
+export interface EdgeEventsRequest {
+  events: EdgeEventInput[]
+  clock_offset_ms?: number
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeEventsResponse".
+ */
+export interface EdgeEventsResponse {
+  results: EdgeEventResult[]
+  missing_seq?: SeqRange[]
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "SeqRange".
+ */
+export interface SeqRange {
+  from: number
+  to: number
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
  * via the `definition` "EdgeNode".
  */
 export interface EdgeNode {
@@ -486,6 +543,9 @@ export interface EdgeNode {
   name: string
   registered_at: string
   last_seen?: string
+  scenarios: string[]
+  clock_offset_ms?: number
+  clock_skewed?: boolean
   revoked_at?: string
 }
 /**
@@ -503,6 +563,13 @@ export interface EdgeRegisterRequest {
 export interface EdgeRegisterResponse {
   node_id: string
   secret: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeScenariosInput".
+ */
+export interface EdgeScenariosInput {
+  scenarios: string[]
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

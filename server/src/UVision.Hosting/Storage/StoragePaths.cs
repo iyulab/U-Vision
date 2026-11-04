@@ -57,6 +57,20 @@ public sealed partial class StoragePaths
     /// <summary>노드 레코드 <c>{DataPath}/edge/nodes/{nodeId}/node.json</c>.</summary>
     public string EdgeNodeFile(string nodeId) => Path.Combine(EdgeNodesDir(), Id(nodeId), "node.json");
 
+    /// <summary>노드가 보낸 사건의 append-only 장부 <c>{DataPath}/edge/nodes/{nodeId}/events/{date}.jsonl</c>(날짜 = 서버가 받은 날, UTC).</summary>
+    public string EdgeEventsFile(string nodeId, string date) =>
+        Path.Combine(EdgeNodesDir(), Id(nodeId), "events", Date(date) + ".jsonl");
+
+    /// <summary>사건 하나의 «받았다» 표지 <c>{DataPath}/edge/nodes/{nodeId}/seen/{앞 두 글자}/{eventId}.json</c> — 중복 제거 키 <c>(node_id, event_id)</c>.</summary>
+    public string EdgeSeenFile(string nodeId, string eventId) =>
+        Path.Combine(EdgeSeenDir(nodeId), Id(eventId)[..2], Id(eventId) + ".json");
+
+    /// <summary>중복 표지 디렉터리 <c>{DataPath}/edge/nodes/{nodeId}/seen</c>.</summary>
+    public string EdgeSeenDir(string nodeId) => Path.Combine(EdgeNodesDir(), Id(nodeId), "seen");
+
+    /// <summary>받은 <c>seq</c> 구간 집합 <c>{DataPath}/edge/nodes/{nodeId}/seq.json</c>.</summary>
+    public string EdgeSeqFile(string nodeId) => Path.Combine(EdgeNodesDir(), Id(nodeId), "seq.json");
+
     public string ScenarioJson(string scenarioId) =>
         Path.Combine(ScenarioDir(scenarioId), "scenario.json");
 
