@@ -28,7 +28,7 @@ namespace UVision.Api.Services.Inspection;
 /// <para>실패 등급: 기준이미지 로드·ML·메트릭·자동격하는 degrade, VLM 은 fail-closed(503), 레코드 저장은
 /// must-succeed(500 — 200 위장 금지).</para>
 /// </summary>
-public sealed class InspectionPipeline(
+public sealed partial class InspectionPipeline(
     IVlmProvider provider,
     IMlClassifier classifier,
     IObjectDetector detector,
@@ -494,6 +494,38 @@ public sealed class InspectionPipeline(
         CancellationToken cancellationToken)
     {
         var image = capture.Image;
+        var (vlmImage, context, loadedReferences) = await PrepareVlmInputAsync(scenario, effective, image, capture.Context, cancellationToken);
+
+        // ML 은 원본으로 분류한다(MLoop 자체 전처리; VLM 다운스케일 사본 아님).
+        var vlmTask = InspectSafelyAsync(vlmImage, context, cancellationToken);
+        Task<MlOutcome>? classifyTask = mlActive
+            ? ClassifySafelyAsync(image, scenario.ScenarioId, cancellationToken)
+            : null;
+        // 기억도 원본으로 — 기억에 든 확정 사례도 원본에서 임베딩했다.
+        Task<MemoryOutcome>? recallTask = memoryActive
+            ? memory.RecallAsync(effective, image, cancellationToken)
+            : null;
+        await Task.WhenAll(
+            [vlmTask, .. (classifyTask is not null ? [classifyTask] : Array.Empty<Task>()),
+                .. (recallTask is not null ? [recallTask] : Array.Empty<Task>())]);
+
+        return new JudgeEvidence(
+            AcceptVlm(await vlmTask, effective),
+            classifyTask is not null ? AcceptMl(await classifyTask, effective) : null,
+            recallTask is not null ? await recallTask : null,
+            TeacherEdition.Of(
+                $"{provider.Name}:{vlmOptions.Model}", vlmOptions, context, scenario.MaxImageDimension, loadedReferences));
+    }
+
+    /// <summary>
+    /// VLM 에 보낼 입력을 만든다 — few-shot 기준 이미지 로드(실패는 zero-shot 으로 degrade) · 다운스케일 레버 · 시나리오 맥락.
+    /// 판정(<see cref="GatherAsync"/>)과 재판정(<see cref="AskTierAsync"/>)이 같은 방식으로 묻도록 한 곳에 둔다.
+    /// <c>LoadedReferences</c> 는 교사 판을 세는 디스크의 기준 이미지 내용(다운스케일 사본이 아니다).
+    /// </summary>
+    private async Task<(ReadOnlyMemory<byte> VlmImage, ScenarioContext Context, IReadOnlyList<ReferenceImage> LoadedReferences)> PrepareVlmInputAsync(
+        Scenario scenario, EffectiveScenario effective, ReadOnlyMemory<byte> image, InspectionContext? inspectionContext,
+        CancellationToken cancellationToken)
+    {
         // few-shot 기준 이미지 로드 — 실패는 판정을 막지 않는다(degrade: zero-shot 으로 진행).
         // 라벨당 장수는 시나리오 ReferenceCap(레버, 0=zero-shot). 음수 방어 clamp(잘못된 scenario.json).
         IReadOnlyList<ReferenceImage> references = [];
@@ -533,29 +565,11 @@ public sealed class InspectionPipeline(
             Name = scenario.Name,
             Criteria = scenario.Criteria,
             References = references,
-            ExpectedPart = capture.Context?.ExpectedPart,
+            ExpectedPart = inspectionContext?.ExpectedPart,
             DefectClasses = effective.IsMultiClass ? effective.DefectTypes : null,
         };
 
-        // ML 은 원본으로 분류한다(MLoop 자체 전처리; VLM 다운스케일 사본 아님).
-        var vlmTask = InspectSafelyAsync(vlmImage, context, cancellationToken);
-        Task<MlOutcome>? classifyTask = mlActive
-            ? ClassifySafelyAsync(image, scenario.ScenarioId, cancellationToken)
-            : null;
-        // 기억도 원본으로 — 기억에 든 확정 사례도 원본에서 임베딩했다.
-        Task<MemoryOutcome>? recallTask = memoryActive
-            ? memory.RecallAsync(effective, image, cancellationToken)
-            : null;
-        await Task.WhenAll(
-            [vlmTask, .. (classifyTask is not null ? [classifyTask] : Array.Empty<Task>()),
-                .. (recallTask is not null ? [recallTask] : Array.Empty<Task>())]);
-
-        return new JudgeEvidence(
-            AcceptVlm(await vlmTask, effective),
-            classifyTask is not null ? AcceptMl(await classifyTask, effective) : null,
-            recallTask is not null ? await recallTask : null,
-            TeacherEdition.Of(
-                $"{provider.Name}:{vlmOptions.Model}", vlmOptions, context, scenario.MaxImageDimension, loadedReferences));
+        return (vlmImage, context, loadedReferences);
     }
 
     /// <summary>

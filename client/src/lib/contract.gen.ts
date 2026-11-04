@@ -86,6 +86,10 @@ export interface Contract {
   ReferenceInfo?: ReferenceInfo
   ReferenceLabel?: ReferenceLabel
   RegisterModelInput?: RegisterModelInput
+  RejudgeOpinion?: RejudgeOpinion
+  RejudgeRequest?: RejudgeRequest
+  RejudgeResponse?: RejudgeResponse
+  RejudgeSynthesis?: RejudgeSynthesis
   RetentionKindSummary?: RetentionKindSummary
   RetentionLoss?: RetentionLoss
   RetentionPurgeInput?: RetentionPurgeInput
@@ -802,6 +806,57 @@ export interface RegisterModelInput {
   }
   note?: null | string
   by?: null | string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "RejudgeOpinion".
+ */
+export interface RejudgeOpinion {
+  tier: string
+  kind: string
+  status: string
+  class?: string
+  confidence?: number
+  findings?: string
+  version?: string
+  reason?: string
+  differs_from_original?: boolean
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "RejudgeRequest".
+ */
+export interface RejudgeRequest {
+  scenario_id: string
+  date: string
+  image_id: string
+  tiers: string[]
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "RejudgeResponse".
+ */
+export interface RejudgeResponse {
+  image_id: string
+  scenario_id: string
+  date: string
+  requested_at: string
+  original_class: string
+  original_version?: string
+  opinions: RejudgeOpinion[]
+  synthesis: RejudgeSynthesis
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "RejudgeSynthesis".
+ */
+export interface RejudgeSynthesis {
+  agreement: string
+  differing_tiers: string[]
+  answered: number
+  votes: {
+    [k: string]: number
+  }
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

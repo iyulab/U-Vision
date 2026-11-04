@@ -706,6 +706,76 @@
         }
       }
     },
+    "/api/u-vision/results/rejudge": {
+      "post": {
+        "tags": [
+          "U-Vision"
+        ],
+        "operationId": "RejudgeResult",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejudgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSetupRequiredResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RejudgeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/u-vision/results/image": {
       "get": {
         "tags": [
@@ -4955,6 +5025,142 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "RejudgeOpinion": {
+        "required": [
+          "tier",
+          "kind",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "tier": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number",
+            "format": "double"
+          },
+          "findings": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "differs_from_original": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RejudgeRequest": {
+        "required": [
+          "scenario_id",
+          "date",
+          "image_id",
+          "tiers"
+        ],
+        "type": "object",
+        "properties": {
+          "scenario_id": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "image_id": {
+            "type": "string"
+          },
+          "tiers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "RejudgeResponse": {
+        "required": [
+          "image_id",
+          "scenario_id",
+          "date",
+          "requested_at",
+          "original_class",
+          "opinions",
+          "synthesis"
+        ],
+        "type": "object",
+        "properties": {
+          "image_id": {
+            "type": "string"
+          },
+          "scenario_id": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "requested_at": {
+            "type": "string"
+          },
+          "original_class": {
+            "type": "string"
+          },
+          "original_version": {
+            "type": "string"
+          },
+          "opinions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RejudgeOpinion"
+            }
+          },
+          "synthesis": {
+            "$ref": "#/components/schemas/RejudgeSynthesis"
+          }
+        }
+      },
+      "RejudgeSynthesis": {
+        "required": [
+          "agreement",
+          "differing_tiers",
+          "answered",
+          "votes"
+        ],
+        "type": "object",
+        "properties": {
+          "agreement": {
+            "type": "string"
+          },
+          "differing_tiers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "answered": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "votes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            }
           }
         }
       },

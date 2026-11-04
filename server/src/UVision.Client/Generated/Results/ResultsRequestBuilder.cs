@@ -17,6 +17,7 @@ using UVision.Client.Results.Decision;
 using UVision.Client.Results.Image;
 using UVision.Client.Results.Label;
 using UVision.Client.Results.Labels;
+using UVision.Client.Results.Rejudge;
 namespace UVision.Client.Results
 {
     /// <summary>
@@ -64,6 +65,11 @@ namespace UVision.Client.Results
         public global::UVision.Client.Results.Labels.LabelsRequestBuilder Labels
         {
             get => new global::UVision.Client.Results.Labels.LabelsRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The rejudge property</summary>
+        public global::UVision.Client.Results.Rejudge.RejudgeRequestBuilder Rejudge
+        {
+            get => new global::UVision.Client.Results.Rejudge.RejudgeRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::UVision.Client.Results.ResultsRequestBuilder"/> and sets the default values.

@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using UVision.Api.Configuration;
+using UVision.Api.Auth;
 using UVision.Api.Models;
 using UVision.Api.Services.Inspection;
 using UVision.Api.Services.Vlm;
@@ -61,6 +62,14 @@ public static class InspectEndpoints
         group.MapGet("/results/decision", GetDecisionEvidenceAsync)
             .WithName("GetResultDecision")
             .Produces<DecisionEvidence>()
+            .ProducesProblem(400)
+            .ProducesProblem(404);
+        // 상위 단 재판정 — 저장된 판정에 고른 판정원(다시 · 더 센 2차 의견)을 지금 물어 원 판정과 나란히. 판정을 바꾸지 않는다.
+        // 비용이 나가고 클라우드 송출이 걸릴 수 있어 관리자 PIN 이 필요하다.
+        group.MapPost("/results/rejudge", RejudgeAsync)
+            .RequireAdminPin()
+            .WithName("RejudgeResult")
+            .Produces<RejudgeResponse>()
             .ProducesProblem(400)
             .ProducesProblem(404);
         group.MapGet("/results/image", ServeResultImageAsync)
@@ -276,6 +285,27 @@ public static class InspectEndpoints
             return evidence is null
                 ? Results.Problem(statusCode: 404, detail: "판정 기록 없음")
                 : Results.Ok(evidence);
+        }
+        catch (ArgumentException) // 형식 위반 scenario_id/date/image_id → 400
+        {
+            return Results.Problem(statusCode: 400, detail: "scenario_id · date · image_id 형식 위반");
+        }
+    }
+
+    private static async Task<IResult> RejudgeAsync(
+        RejudgeRequest request,
+        RejudgeService service,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await service.RunAsync(request, cancellationToken) switch
+            {
+                RejudgeOutcome.Completed c => Results.Ok(c.Response),
+                RejudgeOutcome.NotFound n => Results.Problem(statusCode: 404, detail: n.Reason),
+                RejudgeOutcome.Rejected r => Results.Problem(statusCode: 400, detail: r.Reason),
+                var other => throw new InvalidOperationException($"처리하지 않은 재판정 결과: {other.GetType().Name}"),
+            };
         }
         catch (ArgumentException) // 형식 위반 scenario_id/date/image_id → 400
         {

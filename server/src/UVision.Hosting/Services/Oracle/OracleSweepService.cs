@@ -91,6 +91,21 @@ public sealed class OracleSweepService
 
     private async Task ProcessAsync(Scenario scenario, string date, string imageId, CancellationToken ct)
     {
+        var (opinion, label) = await OpineAsync(scenario, date, imageId, ct);
+        await _labels.AppendOracleAsync(scenario.ScenarioId, date, imageId, label, "oracle", ct);
+        _log.LogInformation("오라클 소견 기록 (sc={Sc}, img={Img}, verdict={V})",
+            scenario.ScenarioId, imageId, opinion.Verdict);
+    }
+
+    /// <summary>
+    /// 저장된 판정 한 건에 오라클의 2차 소견을 받는다 — <b>아무것도 쓰지 않는다</b>. 스윕은 이 소견을 사람 라벨 사이드카에
+    /// 남기고, 사용자가 부르는 재판정은 별도 기록에 남긴다. 오라클이 꺼져 있으면 호출부가 먼저 막는다.
+    /// </summary>
+    /// <returns>오라클의 답과, 사람 라벨과 같은 말(유형을 나누는 시나리오는 클래스 id, 그 밖은 OK/NG)로 옮긴 라벨.</returns>
+    /// <exception cref="InvalidOperationException">이미지 없음 · 선언하지 않은 불량 유형으로 답함(소견이 아니다).</exception>
+    public async Task<(InspectionResult Opinion, string Label)> OpineAsync(
+        Scenario scenario, string date, string imageId, CancellationToken ct)
+    {
         var img = await _inspections.ReadImageAsync(scenario.ScenarioId, date, imageId, ct)
             ?? throw new InvalidOperationException($"이미지 없음: {imageId}");
 
@@ -111,9 +126,7 @@ public sealed class OracleSweepService
             ? effective.ClassOf(opinion)
               ?? throw new InvalidOperationException($"오라클이 선언하지 않은 불량 유형으로 답함: {opinion.DefectClass}")
             : opinion.Verdict.ToString();
-        await _labels.AppendOracleAsync(scenario.ScenarioId, date, imageId, label, "oracle", ct);
-        _log.LogInformation("오라클 소견 기록 (sc={Sc}, img={Img}, verdict={V})",
-            scenario.ScenarioId, imageId, opinion.Verdict);
+        return (opinion, label);
     }
 
     private static IEnumerable<string> RecentDates(int lookbackDays)

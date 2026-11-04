@@ -115,6 +115,16 @@ public sealed partial class StoragePaths
     public string LedgerJsonl(string scenarioId, string date) =>
         Path.Combine(ScenarioDir(scenarioId), LedgerSegment, Date(date) + ".jsonl");
 
+    // --- 재판정 기록 (저장된 판정에 다시 물어본 소견) ------------------------------------
+    // 판정마다 «사용자가 요청한 재판정» 한 건 = 한 줄. 결정 장부와 **섞지 않는다** — 장부를 읽는 재생 · 곡선 · 문제 큐가 같은
+    // 판정을 두 번 세지 않게. append-only. <c>rejudge</c> 도 날짜로 파싱되지 않아 목록에서 빠진다.
+
+    private const string RejudgeSegment = "rejudge";
+
+    /// <summary>날짜 버킷 재판정 jsonl <c>{scenario}/rejudge/{yyyy-MM-dd}.jsonl</c>(append-only).</summary>
+    public string RejudgeJsonl(string scenarioId, string date) =>
+        Path.Combine(ScenarioDir(scenarioId), RejudgeSegment, Date(date) + ".jsonl");
+
     // --- 보존 삭제 기록 (설치자가 구간을 골라 지운 사실) -----------------------------
     // 지울 때마다 한 줄 append — «왜 이 날의 기록이 없는가» 에 답하는 근거라 이 파일은 지우지 않는다. 시나리오 디렉터리 직속 파일이라
     // 날짜 목록에 들지 않는다.
