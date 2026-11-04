@@ -187,6 +187,31 @@ public sealed class EdgeAgentHostTests : IDisposable
     }
 
     [Fact]
+    public async Task Host_HealthMarker_IsNeverUnreadableWhileTheLoopRewritesIt()
+    {
+        // 루프가 사이클마다 건강 표지를 다시 쓰는 동안 HEALTHCHECK 가 읽는다 — 빈 파일 · 공유 위반을 «건강하지 않음» 으로 읽으면 오탐이다.
+        using var engine = new Engine();
+        var options = Under(engine.Options("hh", await engine.IssueTokenAsync()), "hh") with { PollInterval = TimeSpan.FromMilliseconds(5) };
+        using var cts = new CancellationTokenSource();
+        var run = AgentHost.RunAsync(options, engine.Factory.CreateDefaultClient(), new StringWriter(), cts.Token);
+        try
+        {
+            await UntilAsync(() => Task.FromResult(AgentHost.IsHealthy(options.StateDir, TimeSpan.FromSeconds(30))), healthy => healthy);
+
+            var unhealthy = 0;
+            for (var i = 0; i < 3000; i++)
+                if (!AgentHost.IsHealthy(options.StateDir, TimeSpan.FromSeconds(30))) unhealthy++;
+
+            Assert.Equal(0, unhealthy);
+        }
+        finally
+        {
+            cts.Cancel();
+            await run;
+        }
+    }
+
+    [Fact]
     public async Task Host_NotRegistered_AndNoToken_ExitsWithConfigError_WithoutTouchingTheEngine()
     {
         using var engine = new Engine();

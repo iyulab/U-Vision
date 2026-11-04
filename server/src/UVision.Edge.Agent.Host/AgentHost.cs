@@ -184,8 +184,22 @@ public static class AgentHost
 
     private static void TouchHealth(string path, TimeProvider clock)
     {
-        try { File.WriteAllText(path, clock.GetUtcNow().ToString("o", CultureInfo.InvariantCulture)); }
-        catch (IOException) { /* 건강 표지를 못 쓰면 다음 사이클에 다시 — 전달이 이것 때문에 멈추지 않는다. */ }
+        // 임시 파일에 쓰고 교체한다 — 컨테이너 HEALTHCHECK 가 같은 순간 읽어도 빈 파일 · 반쪽 파일을 보지 않는다. Windows 는 읽는 쪽이 파일을 연 동안의
+        // 덮어쓰기 이동을 거절하므로 짧게 다시 시도한다(Linux 의 rename 은 원자적이라 첫 시도에 끝난다).
+        var tmp = path + ".tmp";
+        try
+        {
+            File.WriteAllText(tmp, clock.GetUtcNow().ToString("o", CultureInfo.InvariantCulture));
+            for (var attempt = 0; ; attempt++)
+            {
+                try { File.Move(tmp, path, overwrite: true); return; }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException && attempt < 20) { Thread.Sleep(attempt < 5 ? 1 : 10); }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            /* 건강 표지를 못 쓰면 다음 사이클에 다시 — 전달이 이것 때문에 멈추지 않는다. */
+        }
     }
 
     /// <summary>
@@ -194,12 +208,23 @@ public static class AgentHost
     public static bool IsHealthy(string stateDir, TimeSpan maxAge, TimeProvider? clock = null)
     {
         var path = Path.Combine(stateDir, HealthFileName);
-        try
+        // 교체되는 순간에 열기가 거절될 수 있다(Windows) — 몇 밀리초 안에 끝나므로 짧게 다시 읽는다. 파일이 없거나 낡거나 읽을 수 없는 것이
+        // 끝까지 이어질 때만 «건강하지 않다».
+        for (var attempt = 0; ; attempt++)
         {
-            if (!File.Exists(path)) return false;
-            var written = DateTimeOffset.Parse(File.ReadAllText(path), CultureInfo.InvariantCulture);
-            return (clock ?? TimeProvider.System).GetUtcNow() - written <= maxAge;
+            try
+            {
+                if (!File.Exists(path)) return false;
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                using var reader = new StreamReader(stream);
+                var written = DateTimeOffset.Parse(reader.ReadToEnd(), CultureInfo.InvariantCulture);
+                return (clock ?? TimeProvider.System).GetUtcNow() - written <= maxAge;
+            }
+            catch (Exception ex) when (ex is IOException or FormatException or UnauthorizedAccessException)
+            {
+                if (attempt >= 20) return false;
+                Thread.Sleep(attempt < 5 ? 1 : 10);
+            }
         }
-        catch (Exception ex) when (ex is IOException or FormatException) { return false; }
     }
 }
