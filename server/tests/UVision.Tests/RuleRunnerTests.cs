@@ -147,18 +147,43 @@ public sealed class RuleRunnerTests : IDisposable
     }
 
     [Fact]
-    public void CameraLossCarriesOverAConfigChange_WithoutBeingAnnouncedAgain()
+    public void ALostCamera_IsAnnouncedToANewScenario_ButNotAgainToAnUnchangedOne()
     {
-        var runner = new RuleRunner(_outbox);
+        var runner = new RuleRunner(_outbox, new FixedClock(T0.AddSeconds(30)));
         runner.Configure(Config("v1", Watch()));
         runner.OnWorkerLost(T0);
         Assert.Equal(["source_state"], Kinds());
 
-        runner.Configure(Config("v2", Watch(), Watch("other")));            // 판이 바뀌어도 이미 소실인 카메라를 다시 알리지 않는다
-        runner.OnWorkerLost(T0.AddSeconds(1));
+        // 워커가 내려가 있는 동안 시나리오가 하나 더 배정됐다 — 소실을 겪지 못했으므로 알려 준다. 이미 아는 "wh" 는 다시 알리지 않는다.
+        runner.Configure(Config("v2", Watch(), Watch("other")));
+        Assert.Equal(["wh", "other"], _outbox.Peek(10).Select(i => i.ScenarioId));
+        var announced = _outbox.Peek(10)[1];
+        Assert.Equal("no_signal", announced.Data!.Value.GetProperty("state").GetString());
+        Assert.Equal(T0.AddSeconds(30), DateTimeOffset.Parse(announced.DeviceTime));      // 구성을 교체한 순간(러너의 시계)
 
-        Assert.Equal(["source_state"], Kinds());
-        Assert.Equal(["wh"], _outbox.Peek(10).Select(i => i.ScenarioId));
+        // 같은 판을 다시 줘도, 이미 소실이라 워커 소실이 반복돼도 더 나가지 않는다.
+        runner.Configure(Config("v2", Watch(), Watch("other")));
+        runner.OnWorkerLost(T0.AddSeconds(31));
+        Assert.Equal(2, _outbox.Peek(10).Count);
+    }
+
+    [Fact]
+    public void ARecoveredCamera_IsNotAnnouncedToNewScenarios()
+    {
+        var runner = new RuleRunner(_outbox);
+        runner.Configure(Config("v1", Watch()));
+        runner.OnWorkerLost(T0);
+        runner.OnFrame(Frame(5, Box()));                    // 프레임이 돌아와 ok
+        var before = _outbox.Peek(100).Count;
+
+        runner.Configure(Config("v2", Watch(), Watch("other")));
+
+        Assert.Equal(before, _outbox.Peek(100).Count);       // 지금 정상인 카메라는 알릴 것이 없다
+    }
+
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
     }
 
     [Fact]

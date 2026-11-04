@@ -12,7 +12,7 @@ namespace UVision.Edge.Agent.Worker;
 /// </para>
 /// 평가기는 스레드 안전하지 않으므로 소켓 읽기 쪽 호출과 구성 교체를 한 자물쇠로 직렬화한다.
 /// </summary>
-public sealed class RuleRunner(AgentOutbox outbox) : IWorkerSink
+public sealed class RuleRunner(AgentOutbox outbox, TimeProvider? clock = null) : IWorkerSink
 {
     private readonly object _gate = new();
     private RuleEngine _engine = new([]);
@@ -55,6 +55,8 @@ public sealed class RuleRunner(AgentOutbox outbox) : IWorkerSink
             if (config is not null && config.Version == _configVersion) return;
             _configVersion = config?.Version;
             _engine = new RuleEngine(config?.Scenarios ?? [], carryOver: _engine);
+            // 카메라가 이미 소실인 동안 새로 서거나 바뀐 시나리오에게 그 사실을 알린다.
+            Enqueue(_engine.AnnounceInheritedSourceStates((clock ?? TimeProvider.System).GetUtcNow()));
         }
     }
 

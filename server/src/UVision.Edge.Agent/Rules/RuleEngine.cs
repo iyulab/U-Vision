@@ -36,6 +36,7 @@ public sealed class RuleEngine
     private readonly Dictionary<string, List<(string ScenarioId, string SourceId)>> _cameras = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _cameraState = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _scenarioKeys = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _fresh = new(StringComparer.Ordinal);   // 이 구성에서 새로 서거나 바뀌어 처음부터 시작한 시나리오
 
     private sealed record OutputFilter(string Event, string? Rule);
 
@@ -65,6 +66,7 @@ public sealed class RuleEngine
                 _skipped.AddRange(carryOver._skipped.Where(s => s.StartsWith(scenario.ScenarioId + "/", StringComparison.Ordinal)));
                 continue;
             }
+            _fresh.Add(scenario.ScenarioId);
             foreach (var rule in scenario.Rules ?? [])
                 if (Build(scenario, rule) is { } state)
                     _states.Add(state);
@@ -165,6 +167,33 @@ public sealed class RuleEngine
             }));
             if (Allowed(e, ruleId: ""))
                 events.Add(e);
+        }
+        return events;
+    }
+
+    /// <summary>
+    /// 이 구성에서 새로 서거나 바뀐 시나리오에게, 이미 <c>ok</c> 가 아닌 카메라의 상태를 알린다 — 카메라가 소실된 동안 시나리오가 새로 배정되면 그 시나리오는
+    /// 소실 순간을 겪지 않았으므로(평가기는 카메라 단위로 상태를 쥔다) 알려 주지 않으면 «소실은 침묵이 아니라 사건» 이라는 약속의 틈이 된다.
+    /// 구성을 교체한 직후 한 번 부른다(<see cref="at"/> 은 호출자의 시계).
+    /// </summary>
+    public IReadOnlyList<RuleEvent> AnnounceInheritedSourceStates(DateTimeOffset at)
+    {
+        var events = new List<RuleEvent>();
+        foreach (var (camera, users) in _cameras)
+        {
+            if (!_cameraState.TryGetValue(camera, out var state) || state == SourceStates.Ok) continue;
+            foreach (var (scenarioId, sourceId) in users)
+            {
+                if (!_fresh.Contains(scenarioId)) continue;
+                var e = new RuleEvent(scenarioId, "source_state", at, RuleData.Of(new Dictionary<string, object?>
+                {
+                    ["source"] = sourceId,
+                    ["camera"] = camera,
+                    ["state"] = state,
+                    ["previous"] = SourceStates.Ok,
+                }));
+                if (Allowed(e, ruleId: "")) events.Add(e);
+            }
         }
         return events;
     }
