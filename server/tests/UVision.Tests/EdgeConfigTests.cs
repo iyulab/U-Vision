@@ -171,6 +171,36 @@ public class EdgeConfigTests
     }
 
     [Fact]
+    public async Task AMonitoringScenario_ReachesTheNodeWithItsRules_AndOnlyACameraAlias()
+    {
+        using var f = new ConfigFactory();
+        var admin = Admin(f);
+        var created = await admin.PostAsJsonAsync("/api/u-vision/scenarios", new
+        {
+            scenario_id = "wh", name = "창고", type = "monitoring",
+            sources = new[]
+            {
+                new { id = "cam1", camera_ref = "dock-1", zones = new[] { new { id = "shelf", polygon = new[] { new[] { 0.1, 0.1 }, new[] { 0.9, 0.1 }, new[] { 0.5, 0.9 } } } } },
+            },
+            rules = new[] { new { id = "stock", kind = "count", source = "cam1", zone = "shelf", @class = "box", stable_frames = 8 } },
+            outputs = new[] { new { @event = "count_changed" } },
+        });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var (node, _) = await NodeAsync(f, "wh");
+
+        var resp = await node.GetAsync($"{Base}/v1/config");
+        var s = Assert.Single((await resp.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("scenarios").EnumerateArray());
+
+        Assert.Equal("monitoring", s.GetProperty("type").GetString());
+        Assert.Equal("stream", s.GetProperty("trigger").GetString()); // 저장된 값이 아니라 유형에서 파생된 값이 간다
+        Assert.Equal("dock-1", s.GetProperty("sources")[0].GetProperty("camera_ref").GetString());
+        var rule = s.GetProperty("rules")[0];
+        Assert.Equal(("count", "shelf", "box", 8), (rule.GetProperty("kind").GetString(), rule.GetProperty("zone").GetString(), rule.GetProperty("class").GetString(), rule.GetProperty("stable_frames").GetInt32()));
+        Assert.Equal("count_changed", s.GetProperty("outputs")[0].GetProperty("event").GetString());
+        Assert.False(s.TryGetProperty("expected_count", out _)); // 계수의 기대값 같은 사진 판정 설정은 없다
+    }
+
+    [Fact]
     public async Task ConfigNeedsANodeCredential()
     {
         using var f = new ConfigFactory();

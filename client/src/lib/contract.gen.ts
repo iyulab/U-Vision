@@ -119,9 +119,14 @@ export interface Contract {
   ScenarioClass?: ScenarioClass
   ScenarioInput?: ScenarioInput
   ScenarioJudge?: ScenarioJudge
+  ScenarioLine?: ScenarioLine
+  ScenarioOutput?: ScenarioOutput
+  ScenarioRule?: ScenarioRule
+  ScenarioSource?: ScenarioSource
   ScenarioTargets?: ScenarioTargets
   ScenarioTraining?: ScenarioTraining
   ScenarioTrust?: ScenarioTrust
+  ScenarioZone?: ScenarioZone
   SeqRange?: SeqRange
   SettledBy?: SettledBy
   SolverTrustDevice?: SolverTrustDevice
@@ -521,6 +526,9 @@ export interface EdgeScenarioConfig {
   extra_policy?: string
   min_confidence?: number
   count_classes?: string[]
+  sources?: ScenarioSource[]
+  rules?: ScenarioRule[]
+  outputs?: ScenarioOutput[]
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
@@ -531,6 +539,59 @@ export interface ScenarioClass {
   label?: string
   settleable?: boolean
   must_catch?: boolean
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "ScenarioSource".
+ */
+export interface ScenarioSource {
+  id: string
+  camera_ref: string
+  zones?: ScenarioZone[]
+  lines?: ScenarioLine[]
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "ScenarioZone".
+ */
+export interface ScenarioZone {
+  id: string
+  polygon: number[][]
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "ScenarioLine".
+ */
+export interface ScenarioLine {
+  id: string
+  a: number[]
+  b: number[]
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "ScenarioRule".
+ */
+export interface ScenarioRule {
+  id: string
+  kind: string
+  source: string
+  zone?: string
+  line?: string
+  class: string
+  stable_frames?: number
+  stable_seconds?: number
+  min_count?: number
+  max_count?: number
+  for_seconds?: number
+  clear_seconds?: number
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "ScenarioOutput".
+ */
+export interface ScenarioOutput {
+  event: string
+  rule?: string
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
@@ -1135,6 +1196,9 @@ export interface Scenario {
   extra_policy?: string
   min_confidence?: number
   count_classes?: string[]
+  sources?: ScenarioSource[]
+  rules?: ScenarioRule[]
+  outputs?: ScenarioOutput[]
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
@@ -1203,6 +1267,9 @@ export interface ScenarioInput {
   extra_policy?: null | string
   min_confidence?: null | number
   count_classes?: null | string[]
+  sources?: null | ScenarioSource[]
+  rules?: null | ScenarioRule[]
+  outputs?: null | ScenarioOutput[]
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

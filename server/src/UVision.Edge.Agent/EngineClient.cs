@@ -18,6 +18,10 @@ public sealed record EdgeScenarioConfig
     [JsonPropertyName("scenario_id")] public required string ScenarioId { get; init; }
     [JsonPropertyName("name")] public string? Name { get; init; }
     [JsonPropertyName("type")] public string? Type { get; init; }
+    [JsonPropertyName("trigger")] public string? Trigger { get; init; }
+    [JsonPropertyName("sources")] public List<StreamSource>? Sources { get; init; }
+    [JsonPropertyName("rules")] public List<StreamRule>? Rules { get; init; }
+    [JsonPropertyName("outputs")] public List<StreamOutput>? Outputs { get; init; }
     [JsonPropertyName("expected_count")] public int? ExpectedCount { get; init; }
     [JsonPropertyName("count_tolerance")] public int? CountTolerance { get; init; }
     [JsonPropertyName("min_confidence")] public double? MinConfidence { get; init; }

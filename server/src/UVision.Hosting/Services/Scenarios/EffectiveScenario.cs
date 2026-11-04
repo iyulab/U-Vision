@@ -49,6 +49,9 @@ public sealed record EffectiveScenario(
     /// </summary>
     public bool IsCounting => Type == ScenarioVocabulary.Counting;
 
+    /// <summary>스트림 감시 — 판정 라우터를 타지 않는다(사건은 엣지 규칙이 낸다). <c>/inspect</c> 로 부를 수 없다.</summary>
+    public bool IsMonitoring => Type == ScenarioVocabulary.Monitoring;
+
     /// <summary>
     /// 종류별 기대로 구성을 확인하는가 — 계수의 한 모양이다(같은 검출기 단 · OK/NG). 총 개수만 견주는 계수와 달리 기대가
     /// <see cref="ExpectedByClass"/> 에 있고 과잉은 <see cref="ExtraPolicy"/> 가 정한다.
@@ -118,12 +121,14 @@ public sealed record EffectiveScenario(
         var type = scenario.Type ?? ScenarioVocabulary.Inspection;
         var verification = type == ScenarioVocabulary.Verification;
         var counting = type == ScenarioVocabulary.Counting;
+        var monitoring = type == ScenarioVocabulary.Monitoring;
         return new(
             scenario.ScenarioId,
             type,
-            scenario.Trigger ?? ScenarioVocabulary.Still,
+            monitoring ? ScenarioVocabulary.Stream : scenario.Trigger ?? ScenarioVocabulary.Still,
             scenario.Classes is { Count: > 0 } classes ? classes : verification ? VerificationClasses : InspectionClasses,
-            scenario.Judges is { Count: > 0 } judges ? judges.Select(j => j.Tier).ToList()
+            monitoring ? []
+                : scenario.Judges is { Count: > 0 } judges ? judges.Select(j => j.Tier).ToList()
                 : verification ? [ScenarioVocabulary.MatchTier, ScenarioVocabulary.VlmTier]
                 : counting ? [ScenarioVocabulary.DetectorTier]
                 : [.. InspectionTiers(mlEnabled, memoryEnabled)],
@@ -154,6 +159,17 @@ public sealed record EffectiveScenario(
             return $"type 은 아직 {string.Join(", ", ScenarioVocabulary.Types)} 만 지원한다: {requested}";
         if (input.Trigger is { } trigger && !ScenarioVocabulary.Triggers.Contains(trigger))
             return $"trigger 는 아직 {string.Join(", ", ScenarioVocabulary.Triggers)} 만 지원한다: {trigger}";
+
+        // 스트림 감시: trigger 와 type 은 한 쌍이다. trigger 는 합친 값(수정이면 저장된 것)으로 본다.
+        var mergedTrigger = input.Trigger ?? (typeChanged ? null : existing?.Trigger);
+        if (type == ScenarioVocabulary.Monitoring && mergedTrigger is not null and not ScenarioVocabulary.Stream)
+            return $"monitoring 의 trigger 는 {ScenarioVocabulary.Stream} 이다: {mergedTrigger}";
+        if (type != ScenarioVocabulary.Monitoring && mergedTrigger == ScenarioVocabulary.Stream)
+            return $"trigger {ScenarioVocabulary.Stream} 은 type 이 monitoring 일 때만 줄 수 있다: {type}";
+        if (type == ScenarioVocabulary.Monitoring
+            && (input.Classes is not null || input.Judges is not null || input.Trust is not null
+                || input.PatchEncoder is not null || input.MemoryMaxDistance is not null))
+            return "monitoring 은 판정 라우터를 타지 않는다 — classes · judges · trust · patch_encoder · memory_max_distance 를 줄 수 없다";
 
         if (input.Classes is { } classes)
         {
@@ -233,7 +249,17 @@ public sealed record EffectiveScenario(
                 return $"memory_max_distance 는 type 이 inspection 일 때만 줄 수 있다: {type}";
         }
 
-        return ValidateCounting(input, existing, type, typeChanged);
+        return ValidateCounting(input, existing, type, typeChanged) ?? ValidateStream(input, existing, type, typeChanged);
+    }
+
+    // 스트림 감시 필드는 monitoring 에만 뜻이 있다 — 다른 유형에 주면 거부한다(변형하지 않는다). monitoring 은 합친 모양으로 검증한다.
+    private static string? ValidateStream(ScenarioInput input, Scenario? existing, string type, bool typeChanged)
+    {
+        if (type != ScenarioVocabulary.Monitoring)
+            return input.Sources is not null || input.Rules is not null || input.Outputs is not null
+                ? $"sources · rules · outputs 는 type 이 monitoring 일 때만 줄 수 있다: {type}"
+                : null;
+        return StreamValidator.Validate(StreamFields.Merge(input, existing, typeChanged));
     }
 
     // 계수 필드는 계수 시나리오에만 뜻이 있다 — 다른 유형에 주면 거부한다(변형하지 않는다). 기대는 필수이고 두 모양 중 정확히

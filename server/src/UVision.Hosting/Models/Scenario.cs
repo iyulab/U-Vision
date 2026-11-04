@@ -151,6 +151,20 @@ public sealed record Scenario
     [JsonPropertyName("count_classes")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? CountClasses { get; init; }
+
+    // 스트림 감시(type: monitoring · trigger: stream) — 엣지 노드가 규칙으로 사건을 낸다(ScenarioStream.cs · 원장 D-105). 다른 유형에는 없다.
+
+    [JsonPropertyName("sources")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ScenarioSource>? Sources { get; init; }
+
+    [JsonPropertyName("rules")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ScenarioRule>? Rules { get; init; }
+
+    [JsonPropertyName("outputs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ScenarioOutput>? Outputs { get; init; }
 }
 
 /// <summary>
@@ -230,6 +244,14 @@ public sealed record ScenarioInput
 
     [JsonPropertyName("count_classes")] public List<string>? CountClasses { get; init; }
 
+    // 스트림 감시 — 생략하면 수정 시 기존 값을 보존한다(유형이 바뀌면 옮기지 않는다). type 이 monitoring 일 때만 줄 수 있다.
+
+    [JsonPropertyName("sources")] public List<ScenarioSource>? Sources { get; init; }
+
+    [JsonPropertyName("rules")] public List<ScenarioRule>? Rules { get; init; }
+
+    [JsonPropertyName("outputs")] public List<ScenarioOutput>? Outputs { get; init; }
+
     /// <summary>입력 + 확정 id → 영속 시나리오.</summary>
     public Scenario ToScenario(string scenarioId) => new()
     {
@@ -257,5 +279,8 @@ public sealed record ScenarioInput
         ExtraPolicy = ExtraPolicy,
         MinConfidence = MinConfidence,
         CountClasses = CountClasses,
+        Sources = Sources,
+        Rules = Rules,
+        Outputs = Outputs,
     };
 }

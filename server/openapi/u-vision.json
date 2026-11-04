@@ -4573,6 +4573,24 @@
             "items": {
               "type": "string"
             }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScenarioSource"
+            }
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScenarioRule"
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScenarioOutput"
+            }
           }
         }
       },
@@ -6277,6 +6295,24 @@
             "items": {
               "type": "string"
             }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScenarioSource"
+            }
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScenarioRule"
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScenarioOutput"
+            }
           }
         }
       },
@@ -6445,6 +6481,33 @@
             "items": {
               "type": "string"
             }
+          },
+          "sources": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ScenarioSource"
+            }
+          },
+          "rules": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ScenarioRule"
+            }
+          },
+          "outputs": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ScenarioOutput"
+            }
           }
         }
       },
@@ -6456,6 +6519,127 @@
         "properties": {
           "tier": {
             "type": "string"
+          }
+        }
+      },
+      "ScenarioLine": {
+        "required": [
+          "id",
+          "a",
+          "b"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "a": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "b": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        }
+      },
+      "ScenarioOutput": {
+        "required": [
+          "event"
+        ],
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "string"
+          }
+        }
+      },
+      "ScenarioRule": {
+        "required": [
+          "id",
+          "kind",
+          "source",
+          "class"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "zone": {
+            "type": "string"
+          },
+          "line": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string"
+          },
+          "stable_frames": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "stable_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "min_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "max_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "for_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "clear_seconds": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "ScenarioSource": {
+        "required": [
+          "id",
+          "camera_ref"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "camera_ref": {
+            "type": "string"
+          },
+          "zones": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScenarioZone"
+            }
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScenarioLine"
+            }
           }
         }
       },
@@ -6504,6 +6688,28 @@
           },
           "training": {
             "$ref": "#/components/schemas/ScenarioTraining"
+          }
+        }
+      },
+      "ScenarioZone": {
+        "required": [
+          "id",
+          "polygon"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "polygon": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "format": "double"
+              }
+            }
           }
         }
       },

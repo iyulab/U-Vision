@@ -85,10 +85,11 @@ public sealed partial class FileScenarioStore : IScenarioStore
         var typeChanged = input.Type is not null
             && (input.Type ?? ScenarioVocabulary.Inspection) != (existing?.Type ?? ScenarioVocabulary.Inspection);
         var counting = CountingFields.Merge(input, existing, typeChanged);
+        var stream = StreamFields.Merge(input, existing, typeChanged);
         var scenario = input.ToScenario(scenarioId) with // id 불변
         {
             Type = input.Type ?? existing?.Type,
-            Trigger = input.Trigger ?? existing?.Trigger,
+            Trigger = input.Trigger ?? (typeChanged ? null : existing?.Trigger), // 유형에 묶인 trigger(stream)는 유형이 바뀌면 옮기지 않는다
             Classes = input.Classes ?? (typeChanged ? null : existing?.Classes),
             Judges = input.Judges ?? (typeChanged ? null : existing?.Judges),
             Trust = input.Trust ?? existing?.Trust,
@@ -108,6 +109,10 @@ public sealed partial class FileScenarioStore : IScenarioStore
             ExtraPolicy = counting.ExtraPolicy,
             MinConfidence = counting.MinConfidence,
             CountClasses = counting.CountClasses,
+            // 스트림 감시 필드도 같다 — 유형이 바뀌면 옮기지 않는다.
+            Sources = stream.Sources,
+            Rules = stream.Rules,
+            Outputs = stream.Outputs,
         };
         await StoragePaths.AtomicWriteJsonAsync(path, scenario, cancellationToken);
         await RecordTuningAsync<double>(scenarioId, "memory_max_distance", existing?.MemoryMaxDistance, scenario.MemoryMaxDistance, cancellationToken);

@@ -40,7 +40,7 @@ public sealed class EdgeConfigBuilder(IScenarioStore scenarios)
         ScenarioId = s.ScenarioId,
         Name = s.Name,
         Type = s.Type ?? ScenarioVocabulary.Inspection,
-        Trigger = s.Trigger,
+        Trigger = s.Type == ScenarioVocabulary.Monitoring ? ScenarioVocabulary.Stream : s.Trigger,
         Classes = s.Classes,
         ExpectedCount = s.ExpectedCount,
         CountTolerance = s.CountTolerance,
@@ -48,5 +48,8 @@ public sealed class EdgeConfigBuilder(IScenarioStore scenarios)
         ExtraPolicy = s.ExtraPolicy,
         MinConfidence = s.MinConfidence,
         CountClasses = s.CountClasses,
+        Sources = s.Sources,
+        Rules = s.Rules,
+        Outputs = s.Outputs,
     };
 }

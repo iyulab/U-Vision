@@ -98,7 +98,12 @@ public static class ScenarioVocabulary
     public const string Inspection = "inspection";
     public const string Verification = "verification";
     public const string Counting = "counting";
+
+    /// <summary>스트림 감시 — 판정(OK/NG)이 아니라 엣지 규칙이 내는 <b>사건</b>이 결과다. 항상 <c>trigger: stream</c>.</summary>
+    public const string Monitoring = "monitoring";
+
     public const string Still = "still";
+    public const string Stream = "stream";
     public const string MatchTier = "match";
     public const string MlTier = "ml";
     public const string MemoryTier = "memory";
@@ -113,8 +118,8 @@ public static class ScenarioVocabulary
     public const string Match = "MATCH";
     public const string Mismatch = "MISMATCH";
 
-    public static readonly IReadOnlySet<string> Types = new HashSet<string>(StringComparer.Ordinal) { Inspection, Verification, Counting };
-    public static readonly IReadOnlySet<string> Triggers = new HashSet<string>(StringComparer.Ordinal) { Still };
+    public static readonly IReadOnlySet<string> Types = new HashSet<string>(StringComparer.Ordinal) { Inspection, Verification, Counting, Monitoring };
+    public static readonly IReadOnlySet<string> Triggers = new HashSet<string>(StringComparer.Ordinal) { Still, Stream };
     public static readonly IReadOnlySet<string> Tiers = new HashSet<string>(StringComparer.Ordinal) { MatchTier, MemoryTier, MlTier, VlmTier, DetectorTier };
 
     /// <summary>
@@ -126,11 +131,43 @@ public static class ScenarioVocabulary
     {
         Verification => VerificationTiers,
         Counting => CountingTiers,
+        Monitoring => NoTiers, // 스트림 감시는 판정 라우터를 타지 않는다 — 사건은 엣지 규칙이 낸다
         _ => InspectionTiers,
     };
 
     private static readonly IReadOnlySet<string> InspectionTiers = new HashSet<string>(StringComparer.Ordinal) { MemoryTier, MlTier, VlmTier };
+    private static readonly IReadOnlySet<string> NoTiers = new HashSet<string>(StringComparer.Ordinal);
     private static readonly IReadOnlySet<string> CountingTiers = new HashSet<string>(StringComparer.Ordinal) { DetectorTier };
     private static readonly IReadOnlySet<string> VerificationTiers = new HashSet<string>(StringComparer.Ordinal) { MatchTier, VlmTier };
     public static readonly IReadOnlySet<string> SliceKeys = new HashSet<string>(StringComparer.Ordinal) { ScenarioSlice };
+
+    // --- 스트림 감시 규칙 어휘(원장 D-105 W-4) — 받는 값이 늘 때 이 목록이 처리 코드와 같은 커밋에서 함께 는다.
+
+    public const string CountRule = "count";
+    public const string AlarmRule = "alarm";
+
+    /// <summary>규칙 종류.</summary>
+    public static readonly IReadOnlySet<string> RuleKinds = new HashSet<string>(StringComparer.Ordinal) { CountRule, AlarmRule };
+
+    public const string CountChanged = "count_changed";
+    public const string AlarmRaised = "alarm_raised";
+    public const string AlarmCleared = "alarm_cleared";
+    public const string SourceState = "source_state";
+
+    /// <summary>규칙 종류마다 낼 수 있는 사건. <see cref="SourceState"/> 는 규칙이 아니라 소스가 낸다(규칙 없이 <c>outputs</c> 에 쓴다).</summary>
+    public static IReadOnlySet<string> EventsOf(string ruleKind) => ruleKind switch
+    {
+        CountRule => CountEvents,
+        AlarmRule => AlarmEvents,
+        _ => NoTiers,
+    };
+
+    private static readonly IReadOnlySet<string> CountEvents = new HashSet<string>(StringComparer.Ordinal) { CountChanged };
+    private static readonly IReadOnlySet<string> AlarmEvents = new HashSet<string>(StringComparer.Ordinal) { AlarmRaised, AlarmCleared };
+
+    /// <summary><c>outputs[].event</c> 로 쓸 수 있는 모든 사건.</summary>
+    public static readonly IReadOnlySet<string> Events = new HashSet<string>(StringComparer.Ordinal) { CountChanged, AlarmRaised, AlarmCleared, SourceState };
+
+    /// <summary>안정 구간을 안 줬을 때 개수가 이만큼의 프레임 동안 그대로여야 변화 사건이 된다.</summary>
+    public const int DefaultStableFrames = 5;
 }

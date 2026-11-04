@@ -172,6 +172,11 @@ public static class InspectEndpoints
         if (scenario is null)
             return Results.Problem(statusCode: 404, detail: $"시나리오 없음: {scenarioId}");
 
+        // 스트림 감시는 사진 한 장을 판정하지 않는다 — 사건은 엣지 노드의 규칙이 낸다(D-105). 판정 레코드를 만들 길이 없다.
+        if (scenario.Type == ScenarioVocabulary.Monitoring)
+            return Results.Problem(statusCode: 400,
+                detail: "monitoring 시나리오는 /inspect 로 판정하지 않는다 — 엣지 노드가 규칙으로 사건을 낸다");
+
         // 오투입 확인은 기대 품번 없이는 판정할 것이 없다 — v1 은 이 필드가 없으므로 v2 로만 부를 수 있다.
         if (scenario.Type == ScenarioVocabulary.Verification && string.IsNullOrWhiteSpace(context?.ExpectedPart))
             return Results.Problem(statusCode: 400,

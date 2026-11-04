@@ -94,6 +94,14 @@ namespace UVision.Client.Models
 #else
         public global::UVision.Client.Models.Scenario_ng_labels NgLabels { get; set; }
 #endif
+        /// <summary>The outputs property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::UVision.Client.Models.ScenarioOutput>? Outputs { get; set; }
+#nullable restore
+#else
+        public List<global::UVision.Client.Models.ScenarioOutput> Outputs { get; set; }
+#endif
         /// <summary>The patch_encoder property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -112,6 +120,14 @@ namespace UVision.Client.Models
 #else
         public global::UVision.Client.Models.Roi Roi { get; set; }
 #endif
+        /// <summary>The rules property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::UVision.Client.Models.ScenarioRule>? Rules { get; set; }
+#nullable restore
+#else
+        public List<global::UVision.Client.Models.ScenarioRule> Rules { get; set; }
+#endif
         /// <summary>The scenario_id property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -119,6 +135,14 @@ namespace UVision.Client.Models
 #nullable restore
 #else
         public string ScenarioId { get; set; }
+#endif
+        /// <summary>The sources property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::UVision.Client.Models.ScenarioSource>? Sources { get; set; }
+#nullable restore
+#else
+        public List<global::UVision.Client.Models.ScenarioSource> Sources { get; set; }
 #endif
         /// <summary>The still_frames property</summary>
         public int? StillFrames { get; set; }
@@ -187,10 +211,13 @@ namespace UVision.Client.Models
                 { "motion_threshold", n => { MotionThreshold = n.GetIntValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
                 { "ng_labels", n => { NgLabels = n.GetObjectValue<global::UVision.Client.Models.Scenario_ng_labels>(global::UVision.Client.Models.Scenario_ng_labels.CreateFromDiscriminatorValue); } },
+                { "outputs", n => { Outputs = n.GetCollectionOfObjectValues<global::UVision.Client.Models.ScenarioOutput>(global::UVision.Client.Models.ScenarioOutput.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "patch_encoder", n => { PatchEncoder = n.GetStringValue(); } },
                 { "reference_cap", n => { ReferenceCap = n.GetIntValue(); } },
                 { "roi", n => { Roi = n.GetObjectValue<global::UVision.Client.Models.Roi>(global::UVision.Client.Models.Roi.CreateFromDiscriminatorValue); } },
+                { "rules", n => { Rules = n.GetCollectionOfObjectValues<global::UVision.Client.Models.ScenarioRule>(global::UVision.Client.Models.ScenarioRule.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "scenario_id", n => { ScenarioId = n.GetStringValue(); } },
+                { "sources", n => { Sources = n.GetCollectionOfObjectValues<global::UVision.Client.Models.ScenarioSource>(global::UVision.Client.Models.ScenarioSource.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "still_frames", n => { StillFrames = n.GetIntValue(); } },
                 { "trigger", n => { Trigger = n.GetStringValue(); } },
                 { "trust", n => { Trust = n.GetObjectValue<global::UVision.Client.Models.ScenarioTrust>(global::UVision.Client.Models.ScenarioTrust.CreateFromDiscriminatorValue); } },
@@ -220,10 +247,13 @@ namespace UVision.Client.Models
             writer.WriteIntValue("motion_threshold", MotionThreshold);
             writer.WriteStringValue("name", Name);
             writer.WriteObjectValue<global::UVision.Client.Models.Scenario_ng_labels>("ng_labels", NgLabels);
+            writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.ScenarioOutput>("outputs", Outputs);
             writer.WriteStringValue("patch_encoder", PatchEncoder);
             writer.WriteIntValue("reference_cap", ReferenceCap);
             writer.WriteObjectValue<global::UVision.Client.Models.Roi>("roi", Roi);
+            writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.ScenarioRule>("rules", Rules);
             writer.WriteStringValue("scenario_id", ScenarioId);
+            writer.WriteCollectionOfObjectValues<global::UVision.Client.Models.ScenarioSource>("sources", Sources);
             writer.WriteIntValue("still_frames", StillFrames);
             writer.WriteStringValue("trigger", Trigger);
             writer.WriteObjectValue<global::UVision.Client.Models.ScenarioTrust>("trust", Trust);

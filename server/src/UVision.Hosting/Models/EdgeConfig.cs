@@ -23,8 +23,7 @@ public sealed record EdgeConfig
 }
 
 /// <summary>
-/// 시나리오 한 건의 엣지용 투영. <c>sources</c> · <c>rules</c> · <c>outputs</c> 는 시나리오 어휘에 아직 없다(지어진 값만 받는다 — 워커 계약과
-/// 함께 들어온다); 지금 담는 것은 시나리오가 실제로 가진 판정 설정이다.
+/// 시나리오 한 건의 엣지용 투영 — 시나리오가 실제로 가진 판정 설정과, 스트림 감시(<c>monitoring</c>)의 <c>sources</c> · <c>rules</c> · <c>outputs</c>.
 /// </summary>
 public sealed record EdgeScenarioConfig
 {
@@ -65,4 +64,19 @@ public sealed record EdgeScenarioConfig
     [JsonPropertyName("count_classes")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? CountClasses { get; init; }
+
+    // 스트림 감시(type: monitoring) — 노드의 에이전트가 이 규칙으로 사건을 낸다(원장 D-105). 카메라는 별칭(camera_ref)만 담는다 —
+    // 실제 주소 · 비밀번호는 노드 안에서만 풀린다.
+
+    [JsonPropertyName("sources")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ScenarioSource>? Sources { get; init; }
+
+    [JsonPropertyName("rules")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ScenarioRule>? Rules { get; init; }
+
+    [JsonPropertyName("outputs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ScenarioOutput>? Outputs { get; init; }
 }
