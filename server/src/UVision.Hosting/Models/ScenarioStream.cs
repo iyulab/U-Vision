@@ -26,7 +26,7 @@ public sealed record ScenarioSource
     public List<ScenarioLine>? Lines { get; init; }
 }
 
-/// <summary>구역 — 다각형 꼭짓점 <c>[x, y]</c> 3~64개(0~1). 트랙의 아래 중심점이 안에 있으면 «구역 안» 이다.</summary>
+/// <summary>구역 — 다각형 꼭짓점 <c>[x, y]</c> 3~64개(0~1, 왼쪽 위 원점 · y 는 아래로). 트랙 상자의 <b>아래 중심</b>(땅에 닿은 점)이 안에 있으면 «구역 안» 이다.</summary>
 public sealed record ScenarioZone
 {
     [JsonPropertyName("id")] public required string Id { get; init; }
@@ -34,7 +34,7 @@ public sealed record ScenarioZone
     [JsonPropertyName("polygon")] public required List<List<double>> Polygon { get; init; }
 }
 
-/// <summary>선 — 두 끝점 <c>[x, y]</c>(0~1). 트랙의 중심점이 선을 가로지르는 방향(<c>in</c> · <c>out</c>)은 a→b 의 왼쪽이 in 이다.</summary>
+/// <summary>선 — 두 끝점 <c>[x, y]</c>(0~1). 트랙 상자의 아래 중심이 선분을 가로지를 때, a 에서 b 를 화면에서 바라보아 <b>오른쪽</b>으로 넘어가면 <c>in</c>, 왼쪽으로 넘어가면 <c>out</c> 이다.</summary>
 public sealed record ScenarioLine
 {
     [JsonPropertyName("id")] public required string Id { get; init; }
