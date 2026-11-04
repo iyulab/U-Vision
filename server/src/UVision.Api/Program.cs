@@ -25,7 +25,7 @@ try
     // OPC UA 서버(P4 사건 전송) — 기본 꺼짐. 서버 스택은 엔진 호스트에만 있다.
     builder.Services.AddUVisionOpcUa(builder.Configuration, builder.Environment.ContentRootPath);
 }
-catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+catch (Exception ex) when (IsConfigurationError(ex))
 {
     Console.Error.WriteLine($"설정이 잘못되어 시작하지 않습니다: {ex.Message}");
     return 2;
@@ -49,8 +49,21 @@ app.UseUVision();
 app.MapUVisionEndpoints(
     app.Services.GetRequiredService<UVisionOptions>().ApiBasePath);
 
-app.Run();
+// app.Run() 은 시작 + 종료 대기다. 시작에서 던지는 설정 오류(호스티드 서비스 · 옵션 검증)도 같은 방식으로 끝내려고 둘로 나눈다 —
+// 실행 중에 던져진 예외는 설정 오류가 아니므로 그대로 둔다.
+try { await app.StartAsync(); }
+catch (Exception ex) when (IsConfigurationError(ex))
+{
+    Console.Error.WriteLine($"설정이 잘못되어 시작하지 않습니다: {ex.Message}");
+    return 2;
+}
+await app.WaitForShutdownAsync();
+await app.DisposeAsync();
 return 0;
+
+// 기동 검증이 던지는 종류: 모르는/겹치는/범위 밖 값(ArgumentException · InvalidOperationException — 설정 바인딩 실패 포함), 형식 오류(FormatException —
+// 예: base64 가 아닌 웹훅 비밀).
+static bool IsConfigurationError(Exception ex) => ex is ArgumentException or InvalidOperationException or FormatException;
 
 // WebApplicationFactory(통합 테스트)용 진입점 노출.
 public partial class Program;

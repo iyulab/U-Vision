@@ -58,4 +58,18 @@ public sealed class StartupFailureTests : IDisposable
         Assert.DoesNotContain("   at UVision", stderr);   // 스택 프레임이 아니다
         Assert.DoesNotContain("Unhandled exception", stderr);
     }
+
+    [Fact]
+    public async Task WebhookSecretThatIsNotBase64_ExitsWithCode2_TooEvenThoughItIsAFormatException()
+    {
+        // 받는 곳 검증은 base64 형식 오류를 FormatException 으로 던진다 — ArgumentException 만 잡으면 이 경로는 여전히 abort 다.
+        var (code, stderr) = await RunEngineAsync(
+            ("UVision__Events__Webhooks__0__Name", "erp"),
+            ("UVision__Events__Webhooks__0__Url", "http://127.0.0.1:9/hook"),
+            ("UVision__Events__Webhooks__0__Secret", "whsec_this is not base64!!"));
+
+        Assert.Equal(2, code);
+        Assert.Contains("설정이 잘못되어 시작하지 않습니다", stderr);
+        Assert.DoesNotContain("Unhandled exception", stderr);
+    }
 }
