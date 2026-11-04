@@ -64,7 +64,9 @@ public sealed class WorkerSocketServer(string path, IWorkerSink sink, WorkerSock
         using var listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
         listener.Bind(new UnixDomainSocketEndPoint(Path));
         if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(Path, _options.FileMode);
-        listener.Listen(4);
+        // 대기열은 넉넉히 — 새 연결은 옛 연결의 처리가 끝난 뒤에야 수락되므로(승계), 워커가 재시작을 되풀이하면 접속이 몰린다. 대기열이 차면
+        // Linux 의 connect 는 EAGAIN 으로 실패한다(Windows 는 기다린다); 워커가 재시도하더라도 일부러 좁힐 이유가 없다.
+        listener.Listen(128);
 
         CancellationTokenSource? currentCts = null;
         Task current = Task.CompletedTask;
