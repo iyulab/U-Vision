@@ -7,6 +7,9 @@
     <!-- 엣지 에이전트 코어(원장 D-102 · edge.md) — 엔진과 같은 리포 · 같은 판 · AGPL. 별개 컨테이너 이미지로 나갈 것이라 NuGet 패키지는 아니다.
          외부 의존성이 없다(HttpClient · System.Text.Json) — Jetson 이미지가 작게 남는다. -->
     <IsPackable>false</IsPackable>
+    <!-- 상태 보고(agent_version)로 엔진에 알려지는 판. 개발 빌드는 0.0.0-dev 로 «판이 찍히지 않음» 을 숨기지 않고, 이미지 빌드가
+         -p:Version=<태그 판> 으로 찍는다(1.0.0 은 SDK 기본값이라 현장에서 «1.0 이상» 으로 읽힌다). -->
+    <Version>0.0.0-dev</Version>
     <RootNamespace>UVision.Edge.Agent</RootNamespace>
   </PropertyGroup>
 

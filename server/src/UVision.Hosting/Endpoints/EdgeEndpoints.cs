@@ -46,6 +46,10 @@ public static class EdgeEndpoints
             .WithName("GetEdgeConfig")
             .Produces<EdgeConfig>()
             .Produces(StatusCodes.Status304NotModified);
+        parent.MapPost("/edge/v1/status", PostStatusAsync).RequireEdgeNode()
+            .WithName("PostEdgeStatus")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(400);
         parent.MapGet("/edge/v1/whoami", (HttpContext http) => Results.Ok(http.CurrentNode())).RequireEdgeNode()
             .WithName("EdgeWhoAmI")
             .Produces<EdgeNode>();
@@ -90,6 +94,21 @@ public static class EdgeEndpoints
         EdgeEventsRequest request, HttpContext http, EdgeEventStore events, CancellationToken ct)
     {
         try { return Results.Ok(await events.IngestAsync(http.CurrentNode(), request, ct)); }
+        catch (ArgumentException ex) { return Results.Problem(statusCode: 400, detail: ex.Message); }
+    }
+
+    /// <summary>
+    /// 에이전트의 자기 상태 보고 — outbox 깊이 · 버린 크롭 · 따로 둔 항목. 관리자가 보는 노드 목록에 그대로 나온다(마지막 하나만).
+    /// 판정 · 사건 경로에는 영향이 없고, 보고가 실패해도 에이전트는 사건 전달을 멈추지 않는다.
+    /// </summary>
+    private static async Task<IResult> PostStatusAsync(
+        EdgeStatusReport report, HttpContext http, EdgeNodeStore nodes, CancellationToken ct)
+    {
+        try
+        {
+            await nodes.RecordStatusAsync(http.CurrentNode().NodeId, report, ct);
+            return Results.NoContent();
+        }
         catch (ArgumentException ex) { return Results.Problem(statusCode: 400, detail: ex.Message); }
     }
 

@@ -206,4 +206,86 @@ public class EdgeNodeTests
         var scenarios = await f.CreateClient().GetFromJsonAsync<JsonElement>("/api/u-vision/scenarios");
         Assert.DoesNotContain(scenarios.EnumerateArray(), s => s.GetProperty("scenario_id").GetString() == "edge");
     }
+
+    // --- 에이전트 자기 상태 보고 ---------------------------------------------------------------
+
+    private static HttpClient AsNode(PinFactory f, string nodeId, string secret)
+    {
+        var c = f.CreateClient();
+        c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", $"{nodeId}.{secret}");
+        return c;
+    }
+
+    private static object Report(int depth = 3, long dropped = 2, int parked = 1, string? version = "0.7.0") =>
+        new { outbox_depth = depth, outbox_bytes = 4096L, dropped_crops = dropped, parked, agent_version = version };
+
+    [Fact]
+    public async Task StatusReport_NeedsANodeCredential_AdminPinIsNotEnough()
+    {
+        using var f = new PinFactory();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await f.CreateClient().PostAsJsonAsync($"{Base}/v1/status", Report())).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Admin(f).PostAsJsonAsync($"{Base}/v1/status", Report())).StatusCode);
+    }
+
+    [Fact]
+    public async Task StatusReport_IsShownInTheNodeList_AndWhoAmI_AsTheLatestOneOnly()
+    {
+        using var f = new PinFactory();
+        var admin = Admin(f);
+        var (nodeId, secret) = await RegisterAsync(f.CreateClient(), await IssueAsync(admin));
+        var node = AsNode(f, nodeId, secret);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await node.PostAsJsonAsync($"{Base}/v1/status", Report(depth: 3))).StatusCode);
+        var first = (await admin.GetFromJsonAsync<JsonElement>($"{Base}/nodes")).EnumerateArray().Single().GetProperty("status");
+        Assert.Equal(3, first.GetProperty("outbox_depth").GetInt32());
+        Assert.Equal(4096, first.GetProperty("outbox_bytes").GetInt64());
+        Assert.Equal(2, first.GetProperty("dropped_crops").GetInt64());
+        Assert.Equal(1, first.GetProperty("parked").GetInt32());
+        Assert.Equal("0.7.0", first.GetProperty("agent_version").GetString());
+
+        // 값이 바뀌면 곧바로 덮어쓴다(마지막 하나만).
+        Assert.Equal(HttpStatusCode.NoContent, (await node.PostAsJsonAsync($"{Base}/v1/status", Report(depth: 0, dropped: 9))).StatusCode);
+        var who = await (await WhoAmIAsync(node, $"{nodeId}.{secret}")).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(0, who.GetProperty("status").GetProperty("outbox_depth").GetInt32());
+        Assert.Equal(9, who.GetProperty("status").GetProperty("dropped_crops").GetInt64());
+    }
+
+    [Fact]
+    public async Task StatusReport_WithTheSameValues_IsNotRewrittenWithinTheTouchInterval()
+    {
+        using var f = new PinFactory();
+        var admin = Admin(f);
+        var (nodeId, secret) = await RegisterAsync(f.CreateClient(), await IssueAsync(admin));
+        var node = AsNode(f, nodeId, secret);
+        await node.PostAsJsonAsync($"{Base}/v1/status", Report());
+        var path = Path.Combine(f.DataPath, "edge", "nodes", nodeId, "node.json");
+        var content = File.ReadAllText(path);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await node.PostAsJsonAsync($"{Base}/v1/status", Report())).StatusCode);
+
+        Assert.Equal(content, File.ReadAllText(path));                                  // 같은 값 + 1분 안 → 디스크에 안 쓴다(보고 시각도 그대로)
+    }
+
+    [Fact]
+    public async Task StatusReport_BadValues_Are400()
+    {
+        using var f = new PinFactory();
+        var (nodeId, secret) = await RegisterAsync(f.CreateClient(), await IssueAsync(Admin(f)));
+        var node = AsNode(f, nodeId, secret);
+        Assert.Equal(HttpStatusCode.BadRequest, (await node.PostAsJsonAsync($"{Base}/v1/status", Report(depth: -1))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await node.PostAsJsonAsync($"{Base}/v1/status", Report(dropped: -5))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await node.PostAsJsonAsync($"{Base}/v1/status", Report(version: new string('v', 41)))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await node.PostAsJsonAsync($"{Base}/v1/status", Report(version: "a\nb"))).StatusCode);
+    }
+
+    [Fact]
+    public async Task StatusReport_AfterRevocation_IsRefused()
+    {
+        using var f = new PinFactory();
+        var admin = Admin(f);
+        var (nodeId, secret) = await RegisterAsync(f.CreateClient(), await IssueAsync(admin));
+        await admin.DeleteAsync($"{Base}/nodes/{nodeId}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await AsNode(f, nodeId, secret).PostAsJsonAsync($"{Base}/v1/status", Report())).StatusCode);
+    }
 }

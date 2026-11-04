@@ -112,6 +112,23 @@ public sealed class EngineClient(HttpClient http, string apiBase, TimeProvider? 
     }
 
     /// <summary>
+    /// 자기 상태(outbox 깊이 · 버린 크롭 …)를 엔진에 알린다 — 운영자의 노드 목록용이다. 엔진이 이 경로를 모르면(옛 판)
+    /// <see cref="PermanentRejectionException"/> 이다.
+    /// </summary>
+    public async Task PostStatusAsync(string credential, OutboxStats stats, string? agentVersion, CancellationToken ct)
+    {
+        using var req = Authorized(HttpMethod.Post, "/edge/v1/status", credential);
+        req.Content = JsonContent.Create(new
+        {
+            outbox_depth = stats.Depth, outbox_bytes = stats.Bytes, dropped_crops = stats.DroppedCrops, parked = stats.Parked,
+            agent_version = agentVersion,
+        });
+        using var resp = await http.SendAsync(req, ct);
+        if (resp.StatusCode == HttpStatusCode.Unauthorized) throw new CredentialsRejectedException();
+        await EnsureAsync(resp, ct);
+    }
+
+    /// <summary>
     /// 판정이 필요한 크롭을 엔진의 <c>/v2/inspect</c> 로 보낸다. <c>Idempotency-Key</c> = 항목 id 라 응답을 잃고 다시 보내도 판정은
     /// 한 번이다. 성공(200)과 «판정 불가(503)» 는 엔진이 답을 정한 것이라 둘 다 전달로 센다(503 은 fail-closed 가 정한 결과다).
     /// </summary>

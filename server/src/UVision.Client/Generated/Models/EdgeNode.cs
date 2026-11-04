@@ -66,6 +66,14 @@ namespace UVision.Client.Models
 #else
         public List<string> Scenarios { get; set; }
 #endif
+        /// <summary>The status property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::UVision.Client.Models.EdgeNodeStatus? Status { get; set; }
+#nullable restore
+#else
+        public global::UVision.Client.Models.EdgeNodeStatus Status { get; set; }
+#endif
         /// <summary>
         /// Instantiates a new <see cref="global::UVision.Client.Models.EdgeNode"/> and sets the default values.
         /// </summary>
@@ -99,6 +107,7 @@ namespace UVision.Client.Models
                 { "registered_at", n => { RegisteredAt = n.GetStringValue(); } },
                 { "revoked_at", n => { RevokedAt = n.GetStringValue(); } },
                 { "scenarios", n => { Scenarios = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
+                { "status", n => { Status = n.GetObjectValue<global::UVision.Client.Models.EdgeNodeStatus>(global::UVision.Client.Models.EdgeNodeStatus.CreateFromDiscriminatorValue); } },
             };
         }
         /// <summary>
@@ -116,6 +125,7 @@ namespace UVision.Client.Models
             writer.WriteStringValue("registered_at", RegisteredAt);
             writer.WriteStringValue("revoked_at", RevokedAt);
             writer.WriteCollectionOfPrimitiveValues<string>("scenarios", Scenarios);
+            writer.WriteObjectValue<global::UVision.Client.Models.EdgeNodeStatus>("status", Status);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

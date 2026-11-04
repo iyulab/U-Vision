@@ -24,6 +24,7 @@ public sealed class EdgeNodeStore(StoragePaths paths, TimeProvider clock)
     public const int DefaultTtlMinutes = 60;
     public const int MaxTtlMinutes = 1440;
     public const int MaxNameLength = 80;
+    public const int MaxAgentVersionLength = 40;
 
     /// <summary>노드 시계 오프셋이 이만큼(밀리초)을 넘으면 «시계 어긋남» 으로 표시한다 — 표시일 뿐 거절도 경보도 아니다.</summary>
     public const long ClockSkewThresholdMs = 60_000;
@@ -52,12 +53,13 @@ public sealed class EdgeNodeStore(StoragePaths paths, TimeProvider clock)
         [JsonPropertyName("last_seen")] public string? LastSeen { get; init; }
         [JsonPropertyName("scenarios")] public IReadOnlyList<string> Scenarios { get; init; } = [];
         [JsonPropertyName("clock_offset_ms")] public long? ClockOffsetMs { get; init; }
+        [JsonPropertyName("status")] public EdgeNodeStatus? Status { get; init; }
         [JsonPropertyName("revoked_at")] public string? RevokedAt { get; init; }
 
         public EdgeNode ToNode() => new()
         {
             NodeId = NodeId, Name = Name, RegisteredAt = RegisteredAt, LastSeen = LastSeen, RevokedAt = RevokedAt,
-            Scenarios = Scenarios, ClockOffsetMs = ClockOffsetMs,
+            Scenarios = Scenarios, ClockOffsetMs = ClockOffsetMs, Status = Status,
             ClockSkewed = ClockOffsetMs is { } offset ? Math.Abs(offset) > ClockSkewThresholdMs : null,
         };
     }
@@ -223,6 +225,48 @@ public sealed class EdgeNodeStore(StoragePaths paths, TimeProvider clock)
             if (node is null || node.RevokedAt is not null || node.ClockOffsetMs == offsetMs)
                 return;
             await StoragePaths.AtomicWriteJsonAsync(path, node with { ClockOffsetMs = offsetMs }, ct);
+        }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>
+    /// 에이전트의 자기 상태 보고를 노드 레코드에 남긴다(가장 최근 하나만). 같은 값이 <see cref="TouchInterval"/> 안에 다시 오면 디스크에
+    /// 쓰지 않는다 — 30 초 폴링마다 노드 파일을 다시 쓰지 않으려는 것이고, 값이 바뀌면 곧바로 쓴다. 회수된 노드 · 모르는 노드는 무시.
+    /// </summary>
+    /// <exception cref="ArgumentException">값이 범위를 벗어남(음수 · 판 문자열 길이/제어 문자).</exception>
+    public async Task RecordStatusAsync(string nodeId, EdgeStatusReport report, CancellationToken ct)
+    {
+        if (report.OutboxDepth < 0 || report.OutboxBytes < 0 || report.DroppedCrops < 0 || report.Parked < 0)
+            throw new ArgumentException("보고의 수는 0 이상이어야 한다");
+        var version = report.AgentVersion?.Trim();
+        if (version is { Length: > MaxAgentVersionLength } || version?.Any(char.IsControl) == true)
+            throw new ArgumentException($"agent_version 은 제어 문자 없는 {MaxAgentVersionLength}자 이하");
+        if (string.IsNullOrEmpty(version)) version = null;
+
+        var path = paths.EdgeNodeFile(nodeId);
+        var now = clock.GetUtcNow();
+        await _gate.WaitAsync(ct);
+        try
+        {
+            var node = await ReadAsync<NodeFile>(path, ct);
+            if (node is null || node.RevokedAt is not null)
+                return;
+            var previous = node.Status;
+            var same = previous is not null
+                && previous.OutboxDepth == report.OutboxDepth && previous.OutboxBytes == report.OutboxBytes
+                && previous.DroppedCrops == report.DroppedCrops && previous.Parked == report.Parked
+                && previous.AgentVersion == version;
+            if (same && now - DateTimeOffset.Parse(previous!.ReportedAt, CultureInfo.InvariantCulture) < TouchInterval)
+                return;
+            await StoragePaths.AtomicWriteJsonAsync(path, node with
+            {
+                Status = new EdgeNodeStatus
+                {
+                    ReportedAt = now.ToString("o", CultureInfo.InvariantCulture),
+                    OutboxDepth = report.OutboxDepth, OutboxBytes = report.OutboxBytes,
+                    DroppedCrops = report.DroppedCrops, Parked = report.Parked, AgentVersion = version,
+                },
+            }, ct);
         }
         finally { _gate.Release(); }
     }

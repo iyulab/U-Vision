@@ -2085,6 +2085,49 @@
         }
       }
     },
+    "/api/u-vision/edge/v1/status": {
+      "post": {
+        "tags": [
+          "U-Vision"
+        ],
+        "operationId": "PostEdgeStatus",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EdgeStatusReport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/u-vision/edge/v1/whoami": {
       "get": {
         "tags": [
@@ -4406,7 +4449,44 @@
           "clock_skewed": {
             "type": "boolean"
           },
+          "status": {
+            "$ref": "#/components/schemas/EdgeNodeStatus"
+          },
           "revoked_at": {
+            "type": "string"
+          }
+        }
+      },
+      "EdgeNodeStatus": {
+        "required": [
+          "reported_at",
+          "outbox_depth",
+          "outbox_bytes",
+          "dropped_crops",
+          "parked"
+        ],
+        "type": "object",
+        "properties": {
+          "reported_at": {
+            "type": "string"
+          },
+          "outbox_depth": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "outbox_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dropped_crops": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "parked": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "agent_version": {
             "type": "string"
           }
         }
@@ -4507,6 +4587,36 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "EdgeStatusReport": {
+        "required": [
+          "outbox_depth",
+          "outbox_bytes",
+          "dropped_crops",
+          "parked"
+        ],
+        "type": "object",
+        "properties": {
+          "outbox_depth": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "outbox_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dropped_crops": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "parked": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "agent_version": {
+            "type": "string"
           }
         }
       },

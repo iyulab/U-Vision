@@ -72,8 +72,56 @@ public sealed record EdgeNode
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ClockSkewed { get; init; }
 
+    /// <summary>에이전트가 마지막으로 보고한 자기 상태(outbox 깊이 · 버린 크롭) — 아직 한 번도 보고하지 않았으면 생략.</summary>
+    [JsonPropertyName("status")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public EdgeNodeStatus? Status { get; init; }
+
     /// <summary>회수된 시각 — 있으면 이 노드의 자격은 더는 통하지 않는다.</summary>
     [JsonPropertyName("revoked_at")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? RevokedAt { get; init; }
+}
+
+/// <summary>
+/// 에이전트 자기 상태 보고 — <c>POST /edge/v1/status</c>. 운영자가 «이 노드가 얼마나 밀려 있는가» 를 보게 하는 값이고, 판정에는
+/// 쓰이지 않는다. 모든 수는 0 이상이며 에이전트의 outbox 가 정본이다(엔진은 받은 값을 그대로 보여 줄 뿐 더하지 않는다).
+/// </summary>
+public sealed record EdgeStatusReport
+{
+    /// <summary>아직 엔진에 도착하지 못한 사건 · 크롭 항목 수.</summary>
+    [JsonPropertyName("outbox_depth")] public required int OutboxDepth { get; init; }
+
+    /// <summary>outbox 가 디스크에서 차지하는 바이트.</summary>
+    [JsonPropertyName("outbox_bytes")] public required long OutboxBytes { get; init; }
+
+    /// <summary>디스크 상한 때문에 지금까지 버린 크롭 수(사건은 버리지 않는다).</summary>
+    [JsonPropertyName("dropped_crops")] public required long DroppedCrops { get; init; }
+
+    /// <summary>엔진이 영구 거절해 따로 둔 항목 수 — 사람이 봐야 하는 것.</summary>
+    [JsonPropertyName("parked")] public required int Parked { get; init; }
+
+    /// <summary>에이전트 판(선택, 40자 이하) — 현장에 어느 판이 깔렸는지 보는 용도.</summary>
+    [JsonPropertyName("agent_version")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AgentVersion { get; init; }
+}
+
+/// <summary>엔진이 기록한 노드의 마지막 자기 보고 — 보고 내용과 받은 시각.</summary>
+public sealed record EdgeNodeStatus
+{
+    /// <summary>엔진이 이 보고를 받은 시각(UTC ISO 8601) — 노드 시계가 아니라 서버 시계.</summary>
+    [JsonPropertyName("reported_at")] public required string ReportedAt { get; init; }
+
+    [JsonPropertyName("outbox_depth")] public required int OutboxDepth { get; init; }
+
+    [JsonPropertyName("outbox_bytes")] public required long OutboxBytes { get; init; }
+
+    [JsonPropertyName("dropped_crops")] public required long DroppedCrops { get; init; }
+
+    [JsonPropertyName("parked")] public required int Parked { get; init; }
+
+    [JsonPropertyName("agent_version")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AgentVersion { get; init; }
 }

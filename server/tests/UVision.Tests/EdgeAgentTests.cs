@@ -140,12 +140,16 @@ public sealed class EdgeAgentTests : IDisposable
     {
         public volatile bool Down;
         public volatile bool LoseNextEventsResponse;
+        /// <summary>상태 보고 경로를 모르는 옛 엔진을 흉내 낸다(404).</summary>
+        public volatile bool StatusRouteMissing;
         public readonly List<string> Paths = [];
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             lock (Paths) Paths.Add(request.RequestUri!.AbsolutePath);
             if (Down) throw new HttpRequestException("network down");
+            if (StatusRouteMissing && request.RequestUri!.AbsolutePath.EndsWith("/edge/v1/status", StringComparison.Ordinal))
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
             var response = await base.SendAsync(request, ct);
             if (LoseNextEventsResponse && request.RequestUri!.AbsolutePath.EndsWith("/edge/v1/events", StringComparison.Ordinal))
             {
@@ -206,6 +210,80 @@ public sealed class EdgeAgentTests : IDisposable
     }
 
     private static JsonElement Count(int n) => JsonSerializer.SerializeToElement(new { count = n });
+
+    private static async Task<JsonElement> OnlyNodeAsync(Rig rig) =>
+        (await rig.Admin.GetFromJsonAsync<JsonElement>($"{Api}/edge/nodes")).EnumerateArray().Single();
+
+    [Fact]
+    public async Task Agent_ReportsItsOutboxState_AfterTheCycle_AndTheOperatorSeesIt()
+    {
+        using var rig = new Rig();
+        using var box = AgentOutbox.Open(Dir("s1/outbox"));
+        var agent = await rig.RegisteredAgentAsync(Dir("s1/state"), box);
+        Assert.False((await OnlyNodeAsync(rig)).TryGetProperty("status", out _));      // 보고 전에는 없다
+
+        box.EnqueueEvent("demo", "count_changed", DateTimeOffset.UtcNow, Count(1));
+        await agent.RunOnceAsync(CancellationToken.None);                              // 전달 끝난 뒤 깊이 0 을 보고
+
+        var status = (await OnlyNodeAsync(rig)).GetProperty("status");
+        Assert.Equal(0, status.GetProperty("outbox_depth").GetInt32());
+        Assert.Equal(0, status.GetProperty("dropped_crops").GetInt64());
+        Assert.Equal(0, status.GetProperty("parked").GetInt32());
+        Assert.Equal(EdgeAgent.AgentVersion, status.GetProperty("agent_version").GetString());
+        Assert.Equal("0.0.0-dev", EdgeAgent.AgentVersion);                             // 판이 찍히지 않은 개발 빌드는 그렇게 말한다
+        Assert.True(DateTimeOffset.TryParse(status.GetProperty("reported_at").GetString(), out _));
+    }
+
+    [Fact]
+    public async Task Agent_ReportsParkedItems_SoTheOperatorSeesWhatNeedsAHuman_WithoutGoingOffline()
+    {
+        using var rig = new Rig();
+        using var box = AgentOutbox.Open(Dir("s2/outbox"));
+        var agent = await rig.RegisteredAgentAsync(Dir("s2/state"), box);
+        await agent.RunOnceAsync(CancellationToken.None);
+        // 배정에 없는 시나리오 사건은 엔진이 영구 거절한다 → parked. 상태 보고가 «따로 둔 항목» 으로 사람에게 보인다.
+        box.EnqueueEvent("not-assigned", "count_changed", DateTimeOffset.UtcNow, Count(1));
+
+        var report = await agent.RunOnceAsync(CancellationToken.None);
+
+        Assert.False(report.Offline);
+        Assert.Equal(1, report.Parked);
+        Assert.Equal(1, (await OnlyNodeAsync(rig)).GetProperty("status").GetProperty("parked").GetInt32());
+    }
+
+    [Fact]
+    public async Task Agent_StopsReporting_ToAnEngineThatDoesNotKnowTheRoute_WithoutHarmingDelivery()
+    {
+        using var rig = new Rig();
+        using var box = AgentOutbox.Open(Dir("s3/outbox"));
+        var agent = await rig.RegisteredAgentAsync(Dir("s3/state"), box);
+        rig.Net.StatusRouteMissing = true;
+        box.EnqueueEvent("demo", "count_changed", DateTimeOffset.UtcNow, Count(1));
+
+        var first = await agent.RunOnceAsync(CancellationToken.None);
+        var second = await agent.RunOnceAsync(CancellationToken.None);
+
+        Assert.False(first.Offline);
+        Assert.Equal(1, first.Sent);                                                    // 전달은 멀쩡하다
+        Assert.False(second.Offline);
+        Assert.Equal(1, rig.Net.Paths.Count(p => p.EndsWith("/edge/v1/status", StringComparison.Ordinal)));   // 한 번 물어보고 그만
+    }
+
+    [Fact]
+    public async Task Agent_AfterRevocation_StopsAtThePoll_AndNeverReports()
+    {
+        using var rig = new Rig();
+        using var box = AgentOutbox.Open(Dir("s4/outbox"));
+        var agent = await rig.RegisteredAgentAsync(Dir("s4/state"), box);
+        await agent.RunOnceAsync(CancellationToken.None);
+        await rig.Admin.DeleteAsync($"{Api}/edge/nodes/{rig.NodeId}");
+        var statusCallsBefore = rig.Net.Paths.Count(p => p.EndsWith("/edge/v1/status", StringComparison.Ordinal));
+
+        var report = await agent.RunOnceAsync(CancellationToken.None);
+
+        Assert.True(report.Revoked);
+        Assert.Equal(statusCallsBefore, rig.Net.Paths.Count(p => p.EndsWith("/edge/v1/status", StringComparison.Ordinal)));
+    }
 
     [Fact]
     public async Task Agent_RegistersPollsAndFlushes_InOrder_ToTheRealEngine()
@@ -357,9 +435,9 @@ public sealed class EdgeAgentTests : IDisposable
         var report = await agent.RunOnceAsync(CancellationToken.None);
         Assert.Equal(3, report.Sent);
         // config → (사건 1건) → 크롭 판정 → (사건 1건): 큐 순서를 건너뛰지 않는다.
-        var paths = rig.Net.Paths.Where(p => !p.EndsWith("/register", StringComparison.Ordinal)).ToList();
-        Assert.Equal(["/edge/v1/config", "/edge/v1/events", "/v2/inspect", "/edge/v1/events"],
-            paths.Select(p => p.Replace(Api, "")));
+        var paths = rig.Net.Paths.Where(p => !p.EndsWith("/register", StringComparison.Ordinal)).Select(p => p.Replace(Api, "")).ToList();
+        Assert.Equal("/edge/v1/status", paths[^1]);                           // 상태 보고는 전달이 끝난 뒤 맨 끝에 한 번
+        Assert.Equal(["/edge/v1/config", "/edge/v1/events", "/v2/inspect", "/edge/v1/events"], paths[..^1]);
         // 크롭은 판정되어 엔진에 레코드가 한 건 있다.
         Assert.Single(
             Directory.GetFiles(Path.Combine(Rig_DemoDir(rig), DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)), "*.json"),

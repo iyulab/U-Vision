@@ -9,6 +9,7 @@ using System;
 using UVision.Client.Edge.V1.Config;
 using UVision.Client.Edge.V1.Events;
 using UVision.Client.Edge.V1.Register;
+using UVision.Client.Edge.V1.Status;
 using UVision.Client.Edge.V1.Whoami;
 namespace UVision.Client.Edge.V1
 {
@@ -32,6 +33,11 @@ namespace UVision.Client.Edge.V1
         public global::UVision.Client.Edge.V1.Register.RegisterRequestBuilder Register
         {
             get => new global::UVision.Client.Edge.V1.Register.RegisterRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The status property</summary>
+        public global::UVision.Client.Edge.V1.Status.StatusRequestBuilder Status
+        {
+            get => new global::UVision.Client.Edge.V1.Status.StatusRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The whoami property</summary>
         public global::UVision.Client.Edge.V1.Whoami.WhoamiRequestBuilder Whoami

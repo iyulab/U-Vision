@@ -66,10 +66,12 @@ export interface Contract {
   EdgeEventsRequest?: EdgeEventsRequest
   EdgeEventsResponse?: EdgeEventsResponse
   EdgeNode?: EdgeNode
+  EdgeNodeStatus?: EdgeNodeStatus
   EdgeRegisterRequest?: EdgeRegisterRequest
   EdgeRegisterResponse?: EdgeRegisterResponse
   EdgeScenarioConfig?: EdgeScenarioConfig
   EdgeScenariosInput?: EdgeScenariosInput
+  EdgeStatusReport?: EdgeStatusReport
   EdgeTokenRequest?: EdgeTokenRequest
   EdgeTokenResponse?: EdgeTokenResponse
   EventsStatusResponse?: EventsStatusResponse
@@ -587,7 +589,20 @@ export interface EdgeNode {
   scenarios: string[]
   clock_offset_ms?: number
   clock_skewed?: boolean
+  status?: EdgeNodeStatus
   revoked_at?: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeNodeStatus".
+ */
+export interface EdgeNodeStatus {
+  reported_at: string
+  outbox_depth: number
+  outbox_bytes: number
+  dropped_crops: number
+  parked: number
+  agent_version?: string
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
@@ -611,6 +626,17 @@ export interface EdgeRegisterResponse {
  */
 export interface EdgeScenariosInput {
   scenarios: string[]
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeStatusReport".
+ */
+export interface EdgeStatusReport {
+  outbox_depth: number
+  outbox_bytes: number
+  dropped_crops: number
+  parked: number
+  agent_version?: string
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

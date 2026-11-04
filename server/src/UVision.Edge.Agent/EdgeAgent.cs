@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -56,6 +57,7 @@ public sealed class EdgeAgent
     private readonly Random _random;
     private readonly ClockOffsetEstimator _offset = new();
     private int _failures;
+    private bool _statusUnsupported;
 
     public EdgeAgent(EngineClient engine, AgentOutbox outbox, string stateDir, AgentOptions? options = null, TimeProvider? clock = null, Random? random = null)
     {
@@ -98,6 +100,12 @@ public sealed class EdgeAgent
     /// <summary>지금까지 잰 서버 시계 오프셋(밀리초) — 사건 배치에 실어 보낸다. 아직 못 쟀으면 null.</summary>
     public long? ClockOffsetMs => _offset.OffsetMs();
 
+    /// <summary>엔진에 알리는 에이전트 판 — 어셈블리 정보 판(커밋 해시 접미사는 뗀다).</summary>
+    public static string? AgentVersion { get; } =
+        typeof(EdgeAgent).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion
+            is { Length: > 0 } v ? v.Split('+')[0] : null;
+
     /// <summary>일회용 토큰으로 등록하고 자격을 디스크에 보관한다(Unix 에서는 소유자만 읽게).</summary>
     public async Task RegisterAsync(string token, string? name, CancellationToken ct)
     {
@@ -128,6 +136,7 @@ public sealed class EdgeAgent
             }
             var (sent, duplicates, parked) = await FlushAsync(ct);
             _failures = 0;
+            await ReportStatusAsync(ct);
             return new CycleReport(sent, duplicates, parked, configChanged, false, false, _options.PollInterval);
         }
         catch (CredentialsRejectedException)
@@ -152,6 +161,25 @@ public sealed class EdgeAgent
             if (report.Revoked) return;
             try { await Task.Delay(report.NextDelay, _clock, ct); }
             catch (OperationCanceledException) { return; }
+        }
+    }
+
+    /// <summary>
+    /// 자기 상태를 엔진에 알린다 — 사건 전달이 끝난 뒤의 <b>덤</b>이다. 실패해도 사이클을 오프라인으로 만들지 않고(전달은 이미 끝났다),
+    /// 엔진이 이 경로를 모르면(옛 판) 이 프로세스에서는 다시 시도하지 않는다. 자격 거절만 올려 보낸다(회수는 어디서든 같은 뜻).
+    /// </summary>
+    private async Task ReportStatusAsync(CancellationToken ct)
+    {
+        if (_statusUnsupported) return;
+        try { await _engine.PostStatusAsync(Credentials!.Bearer, _outbox.Stats(), AgentVersion, ct); }
+        catch (PermanentRejectionException ex) when (ex.Status is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed)
+        {
+            _statusUnsupported = true;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or PermanentRejectionException
+                                       && !ct.IsCancellationRequested)
+        {
+            // 보고는 다음 사이클에 다시 간다 — 여기서 잃는 것은 운영자 화면의 한 주기 지연뿐이다.
         }
     }
 
