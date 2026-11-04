@@ -140,6 +140,7 @@ static class Evidence
             await E3_ClockSkew(engine, admin, data, work);
             await E4_Scale(engine, admin, data, work, scale);
             await E5_TokenAndRevoke(engine, admin, work, node2);
+            await E6_StatusReport(engine, admin, data, work);
         }
         finally
         {
@@ -420,5 +421,43 @@ static class Evidence
         var agent = new EdgeAgent(new EngineClient(http, engine.Url + "/api/u-vision"), box, revokedNode.StateDir);
         var report = await agent.RunOnceAsync(CancellationToken.None);
         Check("E5c", report.Revoked && agent.Revoked, "회수된 노드의 에이전트는 자격 거절을 받아 멈춤(큐는 지우지 않음)");
+    }
+
+    // --- 증거 6: 별도 프로세스의 에이전트가 보고한 상태가 엔진의 노드 목록에 보인다 -------------------------------
+
+    private static async Task E6_StatusReport(EngineProcess engine, HttpClient admin, string data, string work)
+    {
+        var node = await RegisterNodeAsync(admin, engine.Url, work, "e6");
+        // 정상 사건 20건 + 배정에 없는 시나리오의 사건 1건 — 엔진이 뒤의 것을 영구 거절해 에이전트가 «따로 둔 항목» 으로 센다.
+        var replay = Path.Combine(work, "e6.jsonl");
+        File.WriteAllLines(replay, Enumerable.Range(0, 20)
+            .Select(i => JsonSerializer.Serialize(new { scenario_id = "line1", kind = "count_changed", data = new { n = i } }))
+            .Append(JsonSerializer.Serialize(new { scenario_id = "not-assigned", kind = "count_changed", data = new { n = 99 } })));
+
+        var agent = StartAgent(engine.Url, node, replay, start: 0, delayMs: 1);
+        JsonElement? status = null;
+        var deadline = DateTime.UtcNow.AddSeconds(60);
+        while (DateTime.UtcNow < deadline)
+        {
+            var nodes = await admin.GetFromJsonAsync<JsonElement>("/api/u-vision/edge/nodes");
+            var mine = nodes.EnumerateArray().FirstOrDefault(n => n.GetProperty("node_id").GetString() == node.NodeId);
+            if (mine.ValueKind == JsonValueKind.Object && mine.TryGetProperty("status", out var s)
+                && s.GetProperty("outbox_depth").GetInt32() == 0 && s.GetProperty("parked").GetInt32() == 1)
+            {
+                status = s.Clone();
+                break;
+            }
+            await Task.Delay(100);
+        }
+        if (!agent.HasExited) agent.Kill(entireProcessTree: true);
+
+        var delivered = EngineEvents(data, node.NodeId).Count;
+        Check("E6a", status is not null,
+            status is { } s2
+                ? $"에이전트 프로세스의 보고가 노드 목록에 보임: 대기 {s2.GetProperty("outbox_depth").GetInt32()} · 따로 둔 {s2.GetProperty("parked").GetInt32()} · 버린 크롭 {s2.GetProperty("dropped_crops").GetInt64()} · 판 {s2.GetProperty("agent_version").GetString()}"
+                : "60초 안에 «대기 0 · 따로 둔 1» 보고가 노드 목록에 나타나지 않음");
+        Check("E6b", status is { } s3 && s3.GetProperty("agent_version").GetString() == EdgeAgent.AgentVersion,
+            $"보고된 에이전트 판 = 라이브러리의 판({EdgeAgent.AgentVersion})");
+        Check("E6c", delivered == 20, $"사건은 정상 20건만 엔진에 도착(배정 밖 1건은 따로 둠) — 도착 {delivered}건");
     }
 }
