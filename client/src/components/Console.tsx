@@ -8,6 +8,7 @@ import { useResource } from '../hooks/useResource'
 import { AdminSetup } from './AdminSetup'
 import { countDraftOf, countLine, EMPTY_COUNT_DRAFT, EXTRA_POLICIES, parseCountDraft, type CountDraft } from '../lib/counting'
 import { classesFor, defectsOf, formatDefects, parseDefects, type Defect } from '../lib/defectClasses'
+import { streamSummary } from '../lib/streamScenario'
 import { distanceUpdateInput } from '../lib/memory'
 import { DEFAULT_MOTION_CONFIG } from '../lib/motion'
 import { DEFAULT_ROI, fromScenarioRoi, toScenarioRoi, type Roi } from '../lib/roi'
@@ -72,6 +73,8 @@ interface DraftScenario {
   originalDefects: Defect[]
   /** 개수 세기(type=counting) 입력란. */
   count: CountDraft
+  /** 스트림 감시(type=monitoring)의 읽기 전용 요약 — 이 화면은 이름만 고친다(정의는 API 로). */
+  stream?: { sources: string[]; rules: string[] }
 }
 
 /** 시나리오 유형 — 이 화면이 고를 수 있는 것은 'inspection' · 'verification' · 'counting' 이고, 모르는 유형(서버가 더 지은 것)은 그대로 둔다. */
@@ -325,6 +328,16 @@ function ScenarioManager({
     // 개수 세기는 기대 개수가 필수라 입력란을 서버 필드로 옮긴다(막힌 입력은 저장 버튼이 이미 꺼져 있다).
     const counting = draft.type === 'counting' ? parseCountDraft(draft.count) : null
     if (counting && 'error' in counting) return
+    if (draft.type === 'monitoring' && draft.id) {
+      const id = draft.id
+      void mutate(
+        async (pin) => {
+          await updateScenario(id, { name: draft.name.trim() }, pin)
+        },
+        () => setDraft(null),
+      )
+      return
+    }
     const input = {
       ...(newId ? { scenario_id: newId } : {}),
       name: draft.name.trim(),
@@ -429,6 +442,7 @@ function ScenarioManager({
                   defects: formatDefects(defectsOf(s)),
                   originalDefects: defectsOf(s),
                   count: countDraftOf(s),
+                  stream: s.type === 'monitoring' ? streamSummary(s) : undefined,
                 })
               }
               className="rounded-lg bg-slate-700 px-3 py-1.5 text-sm hover:bg-slate-600"
@@ -712,6 +726,60 @@ function ScenarioForm({
   onSave: () => void
   onCancel: () => void
 }) {
+  // 스트림 감시는 사진을 판정하지 않는다 — 판정 기준 · 영역 · 캡처 · 해상도 · 기준 이미지는 뜻이 없고, 유형 단추를 누르면 서버가 소스 · 규칙을 버린다.
+  // 그래서 이름만 고치게 하고 정의는 읽기 전용으로 보인다(정의는 API 로 — 편집기는 아직 없다).
+  if (draft.type === 'monitoring' && draft.id) {
+    return (
+      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-6">
+        <div className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl bg-slate-800 p-6 shadow-xl">
+          <h2 className="text-lg font-semibold text-white">시나리오 수정 — 스트림 감시</h2>
+          <label className="block space-y-1">
+            <span className="text-sm text-slate-300">이름</span>
+            <input
+              value={draft.name}
+              onChange={(e) => onChange({ ...draft, name: e.target.value })}
+              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white focus:border-emerald-400 focus:outline-none"
+            />
+          </label>
+          <p data-testid="stream-readonly" className="text-xs text-slate-400">
+            스트림 감시는 사진을 판정하지 않습니다 — 엣지 노드가 아래 규칙으로 사건을 냅니다. 소스와 규칙은 이 화면에서 고치지 않습니다(API 로
+            바꿉니다). 카메라 주소는 시나리오에 없고 노드 안에만 있습니다.
+          </p>
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-slate-200">소스 ({draft.stream?.sources.length ?? 0})</h3>
+            <ul className="space-y-0.5 text-xs text-slate-300">
+              {(draft.stream?.sources ?? []).map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-slate-200">규칙 ({draft.stream?.rules.length ?? 0})</h3>
+            <ul className="space-y-0.5 text-xs text-slate-300">
+              {(draft.stream?.rules ?? []).map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={onCancel}
+              className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-600"
+            >
+              취소
+            </button>
+            <button
+              onClick={onSave}
+              disabled={busy || !draft.name.trim()}
+              className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-40"
+            >
+              저장
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-6">
       <div className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl bg-slate-800 p-6 shadow-xl">
