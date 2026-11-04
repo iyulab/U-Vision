@@ -335,4 +335,94 @@ public sealed class EdgeAgentHostTests : IDisposable
     {
         Assert.Equal(TimeSpan.FromSeconds(expectedSeconds), HostProgram.HealthMaxAge(pollSeconds));
     }
+
+    // --- 추론 워커 수신 ----------------------------------------------------------------------------
+
+    [Fact]
+    public void Options_WorkerSocket_IsOptionalAndMustBeAnAbsoluteFilePath()
+    {
+        Assert.Null(HostOptions.FromEnvironment(Env(("UVISION_ENGINE_URL", "https://e"))).WorkerSocket);
+        var abs = Path.Combine(Path.GetTempPath(), "w.sock");
+        Assert.Equal(abs, HostOptions.FromEnvironment(Env(("UVISION_ENGINE_URL", "https://e"), ("UVISION_WORKER_SOCKET", $" {abs} "))).WorkerSocket);
+
+        foreach (var bad in new[] { "worker.sock", "relative/worker.sock", Path.Combine(Path.GetTempPath(), new string('d', 100), "w.sock") + "/", Path.Combine(Path.GetTempPath(), new string('d', 120), "w.sock") })
+        {
+            var ex = Assert.Throws<HostConfigException>(() => HostOptions.FromEnvironment(Env(("UVISION_ENGINE_URL", "https://e"), ("UVISION_WORKER_SOCKET", bad))));
+            Assert.Contains(ex.Problems, p => p.Contains("UVISION_WORKER_SOCKET"));
+        }
+    }
+
+    [Fact]
+    public async Task Host_WithAWorkerSocket_TurnsWorkerFramesIntoEventsThatReachTheEngine()
+    {
+        using var engine = new Engine();
+        // 스트림 감시 시나리오: 선반 구역의 상자 개수(2 프레임 안정이면 사건).
+        Assert.Equal(HttpStatusCode.Created, (await engine.Admin.PostAsJsonAsync($"{Api}/scenarios", new
+        {
+            scenario_id = "wh", name = "창고", type = "monitoring",
+            sources = new[] { new { id = "cam1", camera_ref = "dock-1", zones = new[] { new { id = "shelf", polygon = new[] { new[] { 0.1, 0.1 }, new[] { 0.5, 0.1 }, new[] { 0.5, 0.9 }, new[] { 0.1, 0.9 } } } } } },
+            rules = new[] { new { id = "stock", kind = "count", source = "cam1", zone = "shelf", @class = "box", stable_frames = 2 } },
+        })).StatusCode);
+
+        var socketDir = Path.Combine(Path.GetTempPath(), "uvh-" + Guid.NewGuid().ToString("N")[..8]);
+        var socketPath = Path.Combine(socketDir, "w.sock");
+        var options = Under(engine.Options("hw", await engine.IssueTokenAsync()), "hw") with { WorkerSocket = socketPath };
+        using var cts = new CancellationTokenSource();
+        var log = new StringWriter();
+        var run = AgentHost.RunAsync(options, engine.Factory.CreateDefaultClient(), log, cts.Token);
+        try
+        {
+            var nodes = await UntilAsync(async () => (await engine.Admin.GetFromJsonAsync<JsonElement>($"{Api}/edge/nodes")).EnumerateArray().ToList(), l => l.Count == 1);
+            var nodeId = nodes.Single().GetProperty("node_id").GetString()!;
+            Assert.Equal(HttpStatusCode.OK, (await engine.Admin.PutAsJsonAsync($"{Api}/edge/nodes/{nodeId}/scenarios", new { scenarios = new[] { "wh" } })).StatusCode);
+
+            // 구성이 노드에 닿아 규칙이 서야 워커의 프레임이 뜻을 갖는다.
+            await UntilAsync(() => Task.FromResult(log.ToString()), l => l.Contains("규칙 1개 · 카메라 dock-1"));
+            Assert.Contains("규칙 1개 · 카메라 dock-1", log.ToString());
+
+            // 가짜 워커 — 실제 유닉스 소켓으로 줄을 흘린다.
+            await UntilAsync(() => Task.FromResult(File.Exists(socketPath)), exists => exists);
+            using var worker = new System.Net.Sockets.Socket(System.Net.Sockets.AddressFamily.Unix, System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Unspecified);
+            await worker.ConnectAsync(new System.Net.Sockets.UnixDomainSocketEndPoint(socketPath));
+            var t0 = DateTimeOffset.UtcNow;
+            string Line(int n) => "{\"v\":1,\"type\":\"tracks\",\"source_id\":\"dock-1\",\"seq\":" + n + ",\"t\":\"" + t0.AddMilliseconds(n * 100).ToString("o") +
+                                  "\",\"tracks\":[{\"id\":\"b1\",\"class\":\"box\",\"score\":0.9,\"box\":[0.2,0.4,0.1,0.1]}]}\n";
+            await worker.SendAsync(System.Text.Encoding.UTF8.GetBytes(Line(0) + "garbage\n" + Line(1) + Line(2)));
+
+            // 사건이 outbox → 전달 → 엔진 저장소까지 도착한다(엔진의 노드별 사건 파일).
+            var eventsDir = Path.Combine(engine.Factory.DataPath, "edge", "nodes", nodeId, "events");
+            var lines = await UntilAsync(
+                () => Task.FromResult(Directory.Exists(eventsDir) ? Directory.GetFiles(eventsDir, "*.jsonl").SelectMany(File.ReadAllLines).Where(l => l.Length > 0).ToArray() : []),
+                l => l.Length >= 1);
+            var stored = JsonDocument.Parse(Assert.Single(lines)).RootElement;
+            Assert.Equal("count_changed", stored.GetProperty("kind").GetString());
+            Assert.Equal("wh", stored.GetProperty("scenario_id").GetString());
+            Assert.Equal(1, stored.GetProperty("data").GetProperty("count").GetInt32());
+            Assert.Equal("stock", stored.GetProperty("data").GetProperty("rule").GetString());
+            Assert.True(JsonDocument.Parse(lines[0]).RootElement.TryGetProperty("received_at", out _));
+        }
+        finally
+        {
+            cts.Cancel();
+            Assert.Equal(ExitCodes.Ok, await run);
+        }
+        Assert.False(File.Exists(socketPath));   // 멈추면 소켓 파일을 치운다
+        try { Directory.Delete(socketDir, recursive: true); } catch (IOException) { }
+    }
+
+    [Fact]
+    public async Task Host_WhenTheWorkerSocketCannotBeOpened_ExitsWithAConfigError()
+    {
+        using var engine = new Engine();
+        var blocker = Path.Combine(_root, "not-a-dir");
+        Directory.CreateDirectory(_root);
+        await File.WriteAllTextAsync(blocker, "x");   // 소켓 디렉터리 자리에 파일이 있다 → 바인딩 전에 디렉터리를 못 만든다
+        var options = Under(engine.Options("hx", await engine.IssueTokenAsync()), "hx") with { WorkerSocket = Path.Combine(blocker, "w.sock") };
+        var log = new StringWriter();
+
+        var code = await AgentHost.RunAsync(options, engine.Factory.CreateDefaultClient(), log, CancellationToken.None);
+
+        Assert.Equal(ExitCodes.Config, code);
+        Assert.Contains("워커 소켓을 열지 못했습니다", log.ToString());
+    }
 }

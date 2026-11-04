@@ -46,6 +46,8 @@ internal sealed class AlarmState : IRuleState
 
     public string RuleId => _rule.Id;
 
+    public string ScenarioId => _scenarioId;
+
     public string CameraRef { get; }
 
     public IEnumerable<RuleEvent> OnFrame(TrackFrame frame)

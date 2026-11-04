@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace UVision.Edge.Agent.Rules;
 
 /// <summary>워커가 알리는 카메라 상태 — <c>ok</c> · <c>no_signal</c>(영상이 끊김) · <c>degraded</c>(보이지만 품질이 나쁨).</summary>
@@ -33,14 +35,21 @@ public sealed class RuleEngine
     private readonly List<string> _skipped = [];
     private readonly Dictionary<string, List<(string ScenarioId, string SourceId)>> _cameras = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _cameraState = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _scenarioKeys = new(StringComparer.Ordinal);
 
     private sealed record OutputFilter(string Event, string? Rule);
 
-    public RuleEngine(IEnumerable<EdgeScenarioConfig> scenarios)
+    /// <param name="scenarios">엔진이 준 구성의 시나리오들 — 스트림 감시(<c>monitoring</c>)만 쓴다.</param>
+    /// <param name="carryOver">이전 평가기 — 구성이 바뀌어 다시 지을 때, <b>소스와 규칙이 그대로인 시나리오</b>의 규칙 상태(올라간 경보 ·
+    /// 안정 구간 · 통과 합계)와 카메라 상태를 이어받는다. 바뀐 시나리오는 처음부터 시작한다(기준선 사건을 다시 낸다). 이어받지 않으면
+    /// 구성이 바뀔 때마다 올라간 경보가 잊혀 «올림» 이 두 번 나간다.</param>
+    public RuleEngine(IEnumerable<EdgeScenarioConfig> scenarios, RuleEngine? carryOver = null)
     {
         foreach (var scenario in scenarios)
         {
             if (scenario.Type != "monitoring") continue;
+            var key = JsonSerializer.Serialize(new { scenario.Sources, scenario.Rules });
+            _scenarioKeys[scenario.ScenarioId] = key;
             _outputs[scenario.ScenarioId] = scenario.Outputs is null
                 ? null
                 : [.. scenario.Outputs.Select(o => new OutputFilter(o.Event, o.Rule))];
@@ -50,10 +59,21 @@ public sealed class RuleEngine
                     _cameras[source.CameraRef] = list = [];
                 list.Add((scenario.ScenarioId, source.Id));
             }
+            if (carryOver is not null && carryOver._scenarioKeys.TryGetValue(scenario.ScenarioId, out var previousKey) && previousKey == key)
+            {
+                _states.AddRange(carryOver._states.Where(s => s.ScenarioId == scenario.ScenarioId));
+                _skipped.AddRange(carryOver._skipped.Where(s => s.StartsWith(scenario.ScenarioId + "/", StringComparison.Ordinal)));
+                continue;
+            }
             foreach (var rule in scenario.Rules ?? [])
                 if (Build(scenario, rule) is { } state)
                     _states.Add(state);
         }
+
+        if (carryOver is not null)
+            foreach (var (camera, state) in carryOver._cameraState)
+                if (_cameras.ContainsKey(camera))
+                    _cameraState[camera] = state;
     }
 
     /// <summary>건너뛴 규칙과 사유 — 비어 있어야 정상이다.</summary>

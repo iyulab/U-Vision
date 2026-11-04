@@ -27,6 +27,12 @@ public sealed record HostOptions
 
     public string OutboxDir { get; init; } = DefaultOutboxDir;
 
+    /// <summary>
+    /// 추론 워커가 붙는 유닉스 소켓 파일의 경로(절대 경로, 공유 볼륨 안) — 비어 있으면 워커를 받지 않는다(스트림 감시 시나리오를 돌리지 않는 노드).
+    /// 소켓 경로는 운영체제 한도(약 104자)가 있다.
+    /// </summary>
+    public string? WorkerSocket { get; init; }
+
     public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(30);
 
     /// <summary>outbox 가 디스크에서 차지할 수 있는 상한(바이트) — 넘으면 오래된 크롭부터 버린다. 0 이하면 라이브러리 기본.</summary>
@@ -73,6 +79,10 @@ public sealed record HostOptions
             else maxBytes = mb * 1024 * 1024;
         }
 
+        var workerSocket = Get("UVISION_WORKER_SOCKET");
+        if (workerSocket is not null && (!Path.IsPathRooted(workerSocket) || workerSocket.Length > 100 || workerSocket.EndsWith('/') || workerSocket.EndsWith('\\')))
+            problems.Add("UVISION_WORKER_SOCKET 은 소켓 파일의 절대 경로여야 합니다(100자 이하, 디렉터리가 아니라 파일 — 예: /data/worker/worker.sock)");
+
         var name = Get("UVISION_NODE_NAME");
         if (name is { Length: > 80 } || name?.Any(char.IsControl) == true)
             problems.Add("UVISION_NODE_NAME 은 제어 문자 없는 80자 이하여야 합니다");
@@ -87,6 +97,7 @@ public sealed record HostOptions
             NodeName = name,
             StateDir = Get("UVISION_STATE_DIR") ?? DefaultStateDir,
             OutboxDir = Get("UVISION_OUTBOX_DIR") ?? DefaultOutboxDir,
+            WorkerSocket = workerSocket,
             PollInterval = poll,
             OutboxMaxBytes = maxBytes,
         };

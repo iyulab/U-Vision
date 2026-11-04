@@ -1,4 +1,5 @@
 using System.Globalization;
+using UVision.Edge.Agent.Worker;
 
 namespace UVision.Edge.Agent.Host;
 
@@ -65,33 +66,76 @@ public static class AgentHost
             Log("이미 등록되어 있어 UVISION_REGISTRATION_TOKEN 은 쓰지 않습니다 — 환경에서 지워도 됩니다");
         }
 
-        var wasOffline = false;
-        while (!ct.IsCancellationRequested)
+        // 추론 워커 수신(원장 D-105) — 규칙은 엔진이 안 닿아도 디스크에 쥔 마지막 구성으로 돈다.
+        using var receiveCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        RuleRunner? runner = null;
+        Task? receive = null;
+        if (options.WorkerSocket is { } socketPath)
         {
-            CycleReport report;
-            try { report = await agent.RunOnceAsync(ct); }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }   // 요청 도중 종료 신호 — 정상 종료다
-            if (ct.IsCancellationRequested) break;
-            TouchHealth(healthPath, clock);
-
-            if (report.Revoked)
+            runner = new RuleRunner(outbox);
+            ConfigureRules(runner, agent.Config, Log);
+            receive = new WorkerSocketServer(socketPath, runner, clock: clock).RunAsync(receiveCts.Token);
+            if (receive.IsFaulted)   // 바인딩 실패(경로 · 권한)는 첫 await 전에 난다 — 다시 띄워도 같다
             {
-                Log("엔진이 이 노드의 자격을 거절했습니다(회수됨) — 멈춥니다. outbox 는 그대로 남깁니다. 새 토큰으로 다시 등록하세요");
-                return ExitCodes.Revoked;
+                Log($"워커 소켓을 열지 못했습니다({receive.Exception?.GetBaseException().Message}) — UVISION_WORKER_SOCKET 경로와 권한을 확인하세요");
+                return ExitCodes.Config;
             }
-            if (report.Offline && !wasOffline) Log($"엔진에 닿지 못합니다 — 쌓아 두고 {report.NextDelay.TotalSeconds:0}초 뒤 다시 시도합니다");
-            if (!report.Offline && wasOffline) Log("엔진에 다시 닿았습니다");
-            wasOffline = report.Offline;
-            if (report.ConfigChanged) Log($"구성을 받았습니다 — 시나리오 {agent.Config?.Scenarios.Count ?? 0}개 (버전 {agent.Config?.Version})");
-            if (report.Sent > 0 || report.Parked > 0)
-                Log($"전달 {report.Sent}건 (중복 응답 {report.Duplicates}) · 따로 둔 {report.Parked}건");
-
-            try { await Task.Delay(report.NextDelay, clock, ct); }
-            catch (OperationCanceledException) { break; }
+            Log($"워커 소켓 {socketPath} 를 듣습니다 — 규칙 {runner.RuleCount}개");
         }
 
-        Log("종료 신호를 받아 멈춥니다");
-        return ExitCodes.Ok;
+        try
+        {
+            var wasOffline = false;
+            while (!ct.IsCancellationRequested)
+            {
+                CycleReport report;
+                try { report = await agent.RunOnceAsync(ct); }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }   // 요청 도중 종료 신호 — 정상 종료다
+                if (ct.IsCancellationRequested) break;
+                TouchHealth(healthPath, clock);
+
+                if (report.Revoked)
+                {
+                    Log("엔진이 이 노드의 자격을 거절했습니다(회수됨) — 멈춥니다. outbox 는 그대로 남깁니다. 새 토큰으로 다시 등록하세요");
+                    return ExitCodes.Revoked;
+                }
+                if (report.Offline && !wasOffline) Log($"엔진에 닿지 못합니다 — 쌓아 두고 {report.NextDelay.TotalSeconds:0}초 뒤 다시 시도합니다");
+                if (!report.Offline && wasOffline) Log("엔진에 다시 닿았습니다");
+                wasOffline = report.Offline;
+                if (report.ConfigChanged)
+                {
+                    Log($"구성을 받았습니다 — 시나리오 {agent.Config?.Scenarios.Count ?? 0}개 (버전 {agent.Config?.Version})");
+                    if (runner is not null) ConfigureRules(runner, agent.Config, Log);
+                }
+                if (receive is { IsFaulted: true })
+                {
+                    Log($"워커 소켓 수신이 멈췄습니다({receive.Exception?.GetBaseException().Message}) — 멈춥니다");
+                    return ExitCodes.Config;
+                }
+                if (report.Sent > 0 || report.Parked > 0)
+                    Log($"전달 {report.Sent}건 (중복 응답 {report.Duplicates}) · 따로 둔 {report.Parked}건");
+
+                try { await Task.Delay(report.NextDelay, clock, ct); }
+                catch (OperationCanceledException) { break; }
+            }
+
+            Log("종료 신호를 받아 멈춥니다");
+            return ExitCodes.Ok;
+        }
+        finally
+        {
+            await receiveCts.CancelAsync();
+            if (receive is not null)
+                try { await receive; } catch (Exception ex) when (ex is not OperationCanceledException) { /* 위에서 이미 알렸다 */ }
+        }
+    }
+
+    private static void ConfigureRules(RuleRunner runner, EdgeConfig? config, Action<string> log)
+    {
+        runner.Configure(config);
+        log($"규칙 {runner.RuleCount}개 · 카메라 {string.Join(", ", runner.CameraRefs.Order())}");
+        foreach (var skipped in runner.Skipped)
+            log($"규칙을 건너뜁니다 — {skipped}");
     }
 
     /// <summary>

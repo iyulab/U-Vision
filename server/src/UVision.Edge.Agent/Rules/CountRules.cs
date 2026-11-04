@@ -7,6 +7,8 @@ internal interface IRuleState
 {
     string RuleId { get; }
 
+    string ScenarioId { get; }
+
     /// <summary>규칙이 보는 카메라의 별칭 — 이 별칭의 프레임만 먹는다.</summary>
     string CameraRef { get; }
 
@@ -49,6 +51,8 @@ internal sealed class CountZoneState : IRuleState
     }
 
     public string RuleId => _rule.Id;
+
+    public string ScenarioId => _scenarioId;
 
     public string CameraRef { get; }
 
@@ -125,6 +129,8 @@ internal sealed class CountLineState : IRuleState
     }
 
     public string RuleId => _rule.Id;
+
+    public string ScenarioId => _scenarioId;
 
     public string CameraRef { get; }
 
