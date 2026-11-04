@@ -4,6 +4,8 @@ Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-04
+
 ### Added
 - The events of monitoring scenarios are documented (`kind` and `data` of each rule event, the `config_stale` mark), and a camera that is already lost when a scenario is newly assigned or changed is announced to that scenario once, when its configuration takes effect, instead of leaving it unaware of the loss.
 - A configuration the edge agent could not confirm with the engine for longer than `UVISION_MAX_CONFIG_AGE_HOURS` (default 24) is stale: the rules keep running on it, because an alarm that silently disappears is worse than one raised on an old rule, but every event they raise carries `config_stale: true` in its data so the receiver can decide how far to trust it. The agent remembers when it last confirmed the configuration (a successful poll, whether it brought a new configuration or confirmed the same one) across restarts, reports `worker.config_stale` in its status, and the Nodes tab shows a warning.
