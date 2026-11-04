@@ -20,7 +20,9 @@ export function AuthorityPanel({
   runWithPin: (action: (pin: string) => Promise<void>) => Promise<PinRunResult>
 }) {
   const [scenarioId, setScenarioId] = useState(initialScenarioId ?? scenarios[0]?.scenario_id ?? '')
-  const authority = useResource(scenarioId || null, () => getAuthority(scenarioId), '권한 단계 로드 실패')
+  // 스트림 감시(monitoring)는 사진을 판정하지 않아 권한 사다리가 없다 — 서버도 409 로 닫는다. 쓸 수 없는 단추를 보이지 않는다.
+  const streamOnly = scenarios.find((s) => s.scenario_id === scenarioId)?.type === 'monitoring'
+  const authority = useResource(scenarioId && !streamOnly ? scenarioId : null, () => getAuthority(scenarioId), '권한 단계 로드 실패')
   const auth = authority.data ?? null
   // 변경 실패는 조회 실패와 따로 둔다 — 다시 읽기가 성공해도 방금 거절된 이유가 지워지지 않게.
   const [actionError, setActionError] = useState<string | null>(null)
@@ -65,7 +67,14 @@ export function AuthorityPanel({
 
       {error && <div className="rounded-lg bg-red-600/90 px-4 py-2 text-sm">{error}</div>}
 
-      {auth && (
+      {streamOnly && (
+        <p data-testid="stream-only" className="rounded-2xl border border-slate-700 bg-slate-800/50 p-5 text-sm text-slate-300">
+          이 시나리오는 스트림 감시(monitoring)라 사진을 판정하지 않습니다 — 권한 단계는 사진 판정 시나리오에만 있습니다. 엣지 노드가
+          규칙으로 사건을 냅니다(노드 탭).
+        </p>
+      )}
+
+      {!streamOnly && auth && (
         <div className="space-y-4 rounded-2xl border border-slate-700 bg-slate-800/50 p-5">
           <div>
             <p className="text-xs text-slate-400">현재 권한 단계</p>

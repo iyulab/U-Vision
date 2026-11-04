@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { ApiError, DetectionUnavailableError, getAdminStatus, getAnomalyMap, inspectImage, listAuditSample, putAudit, questionImageUrl, setupAdmin } from './api'
+import { ApiError, DetectionUnavailableError, demoteAuthority, getAdminStatus, getAnomalyMap, inspectImage, listAuditSample, putAudit, questionImageUrl, setupAdmin } from './api'
 
 function mockFetch(status: number, body: unknown) {
   return vi.fn().mockResolvedValue({
@@ -118,3 +118,27 @@ describe('questionImageUrl', () => {
     expect(url).not.toMatch(/references|results|\/ok|\/ng|date=/)
   })
 })
+
+describe('오류 문구', () => {
+  it('서버의 ProblemDetails 는 detail 만 보이고 원시 JSON 을 운영자 화면에 싣지 않는다', async () => {
+    vi.stubGlobal('fetch', mockFetch(409, { type: 'https://tools.ietf.org/html/rfc9110#section-15.5.10', title: 'Conflict', status: 409, detail: '이미 shadow 단계다' }))
+
+    const err = await demoteAuthority('s', '1234', 'console').catch((e) => e)
+
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err.status).toBe(409)
+    expect(err.message).toBe('단계 격하 실패 (409) 이미 shadow 단계다')
+    expect(err.message).not.toContain('rfc9110')
+  })
+
+  it('JSON 이 아니거나 detail 이 없으면 본문 그대로(예전 동작)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, text: async () => 'plain failure' } as Response))
+    const plain = await demoteAuthority('s', '1234', 'console').catch((e) => e)
+    expect(plain.message).toBe('단계 격하 실패 (500) plain failure')
+
+    vi.stubGlobal('fetch', mockFetch(500, { title: 'x' }))
+    const noDetail = await demoteAuthority('s', '1234', 'console').catch((e) => e)
+    expect(noDetail.message).toContain('"title":"x"')
+  })
+})
+

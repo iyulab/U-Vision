@@ -49,10 +49,24 @@ async function post(url: string, body: FormData, headers?: HeadersInit): Promise
   }
 }
 
+/**
+ * 서버의 ProblemDetails(`{"type":…,"detail":"…"}`)에서 사람이 읽을 `detail` 만 꺼낸다 — 원시 JSON 을 운영자 화면에 그대로 보이지 않는다.
+ * JSON 이 아니거나 `detail` 이 없으면 본문 그대로(예전 동작).
+ */
+export function problemDetail(text: string): string {
+  try {
+    const body = JSON.parse(text) as { detail?: unknown } | null
+    if (typeof body?.detail === 'string' && body.detail.trim()) return body.detail.trim()
+  } catch {
+    /* JSON 이 아님 — 그대로 */
+  }
+  return text
+}
+
 async function ensureOk(res: Response, what: string): Promise<void> {
   if (res.ok) return
-  const detail = await res.text().catch(() => '')
-  throw new ApiError(res.status, `${what} 실패 (${res.status}) ${detail}`.trim())
+  const text = await res.text().catch(() => '')
+  throw new ApiError(res.status, `${what} 실패 (${res.status}) ${problemDetail(text)}`.trim())
 }
 
 /**
