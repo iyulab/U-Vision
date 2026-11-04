@@ -91,6 +91,48 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
+  # 엣지 에이전트 이미지 — 엔진 이미지와 별개(server/Dockerfile.edge-agent). 같은 규칙: 검사가 통과한 뒤에만, 푸시는 v* 태그에서만.
+  # 판은 빌드 인자로 찍힌다(에이전트가 엔진에 알리는 agent_version) — 태그가 아닌 빌드는 0.0.0-ci.
+  edge-agent-image:
+    needs: [client, server]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@v4
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/u-vision-edge-agent
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          labels: |
+            org.opencontainers.image.title=U-Vision edge agent
+            org.opencontainers.image.description=Edge agent for the U-Vision engine (connects out to the engine only)
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: server
+          file: server/Dockerfile.edge-agent
+          platforms: linux/amd64,linux/arm64
+          build-args: VERSION=${{ startsWith(github.ref, 'refs/tags/v') && steps.meta.outputs.version || '0.0.0-ci' }}
+          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
   server:
     runs-on: ubuntu-latest
     defaults:

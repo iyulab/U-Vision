@@ -4,6 +4,7 @@
     <Project Path="src/UVision.Benchmark/UVision.Benchmark.csproj" />
     <Project Path="src/UVision.Client/UVision.Client.csproj" />
     <Project Path="src/UVision.Edge.Agent/UVision.Edge.Agent.csproj" />
+    <Project Path="src/UVision.Edge.Agent.Host/UVision.Edge.Agent.Host.csproj" />
     <Project Path="src/UVision.Hosting/UVision.Hosting.csproj" />
   </Folder>
   <Folder Name="/tests/">

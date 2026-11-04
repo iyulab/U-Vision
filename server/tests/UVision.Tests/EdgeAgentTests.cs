@@ -269,6 +269,33 @@ public sealed class EdgeAgentTests : IDisposable
         Assert.Equal(1, rig.Net.Paths.Count(p => p.EndsWith("/edge/v1/status", StringComparison.Ordinal)));   // 한 번 물어보고 그만
     }
 
+    /// <summary>요청을 받고 취소될 때까지 답하지 않는 «멈춘 엔진».</summary>
+    private sealed class HangingHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            await Task.Delay(Timeout.Infinite, ct);
+            throw new InvalidOperationException("unreachable");
+        }
+    }
+
+    [Fact]
+    public async Task Agent_RunAsync_CancelledInTheMiddleOfARequest_EndsWithoutThrowing()
+    {
+        using var rig = new Rig();
+        using var box = AgentOutbox.Open(Dir("c1/outbox"));
+        await rig.RegisteredAgentAsync(Dir("c1/state"), box);                       // 자격을 디스크에 남긴다
+        using var hanging = new HttpClient(new HangingHandler());
+        var agent = new EdgeAgent(new EngineClient(hanging, "http://localhost" + Api), box, Dir("c1/state"));
+        using var cts = new CancellationTokenSource();
+
+        var run = agent.RunAsync(cts.Token);
+        await Task.Delay(100);                                                       // 폴링 요청이 걸려 있다
+        cts.Cancel();
+
+        await run.WaitAsync(TimeSpan.FromSeconds(5));                                // 예외 없이 끝난다
+    }
+
     [Fact]
     public async Task Agent_AfterRevocation_StopsAtThePoll_AndNeverReports()
     {

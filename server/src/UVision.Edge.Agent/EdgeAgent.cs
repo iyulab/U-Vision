@@ -157,7 +157,9 @@ public sealed class EdgeAgent
     {
         while (!ct.IsCancellationRequested)
         {
-            var report = await RunOnceAsync(ct);
+            CycleReport report;
+            try { report = await RunOnceAsync(ct); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }   // 요청 도중 취소 — 끝낸다(예외로 올리지 않는다)
             if (report.Revoked) return;
             try { await Task.Delay(report.NextDelay, _clock, ct); }
             catch (OperationCanceledException) { return; }

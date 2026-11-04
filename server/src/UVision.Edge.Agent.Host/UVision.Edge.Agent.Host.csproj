@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>uvision-edge-agent</AssemblyName>
+    <RootNamespace>UVision.Edge.Agent.Host</RootNamespace>
+    <!-- The process that runs the edge agent in its own container image (server/Dockerfile.edge-agent). It only ever connects out
+         to the engine. The version is stamped at image build time with -p:Version=<tag>; a development build says so. -->
+    <Version>0.0.0-dev</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UVision.Edge.Agent\UVision.Edge.Agent.csproj" />
+    <InternalsVisibleTo Include="UVision.Tests" />
+  </ItemGroup>
+
+</Project>

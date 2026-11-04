@@ -1,0 +1,42 @@
+# U-Vision edge agent — the process that runs next to the cameras and only ever connects OUT to the engine
+# (src/UVision.Edge.Agent.Host). It is a separate image from the engine (Dockerfile).
+# Build from this directory:  docker build -f Dockerfile.edge-agent --build-arg VERSION=<version> -t u-vision-edge-agent:<version> .
+# Run:  docker run -v u-vision-edge:/data \
+#         -e UVISION_ENGINE_URL=https://engine.example:8080 -e UVISION_REGISTRATION_TOKEN=<token from the console's Nodes tab> \
+#         u-vision-edge-agent:<version>
+# Everything the agent keeps (its credentials, the last configuration, and the outbox of events not yet delivered) lives
+# under /data — mount a volume there, or a restart registers a new node and the undelivered events are lost with the container.
+# The registration token is only needed the first time; after that the stored credentials are used.
+
+# The SDK runs on the build machine's platform and cross-publishes for the target one (framework-dependent output needs
+# no target-platform toolchain), so a multi-platform build never runs the SDK under emulation.
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG TARGETARCH
+# The version the agent reports to the engine (uvision-edge-agent version). A build without it says 0.0.0-dev.
+ARG VERSION=0.0.0-dev
+WORKDIR /src
+RUN case "$TARGETARCH" in arm64) echo linux-arm64 ;; *) echo linux-x64 ;; esac > /tmp/rid
+# Restore first so the package layer is reused while only sources change. The agent has no package dependencies of its own.
+COPY nuget.config ./
+COPY src/UVision.Edge.Agent/UVision.Edge.Agent.csproj src/UVision.Edge.Agent/
+COPY src/UVision.Edge.Agent.Host/UVision.Edge.Agent.Host.csproj src/UVision.Edge.Agent.Host/
+RUN dotnet restore src/UVision.Edge.Agent.Host/UVision.Edge.Agent.Host.csproj -r "$(cat /tmp/rid)"
+COPY src/UVision.Edge.Agent/ src/UVision.Edge.Agent/
+COPY src/UVision.Edge.Agent.Host/ src/UVision.Edge.Agent.Host/
+RUN dotnet publish src/UVision.Edge.Agent.Host/UVision.Edge.Agent.Host.csproj -c Release --no-restore \
+    -r "$(cat /tmp/rid)" --self-contained false -p:Version="$VERSION" -o /app
+
+# No web stack: the agent opens no port.
+FROM mcr.microsoft.com/dotnet/runtime:10.0
+WORKDIR /app
+COPY --from=build /app ./
+# The image's non-root user owns the data directory; the agent never runs as root.
+RUN mkdir /data && chown "$APP_UID" /data
+USER $APP_UID
+ENV UVISION_STATE_DIR=/data/state \
+    UVISION_OUTBOX_DIR=/data/outbox
+VOLUME /data
+# The health file is touched after every cycle, whether or not the engine could be reached (an unreachable engine is
+# shown by the console as "no contact", not by killing the container); a stuck loop stops touching it.
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 CMD ["dotnet", "uvision-edge-agent.dll", "health"]
+ENTRYPOINT ["dotnet", "uvision-edge-agent.dll"]
