@@ -72,7 +72,19 @@ public sealed class WorkerSocketServer(string path, IWorkerSink sink, WorkerSock
         {
             while (!ct.IsCancellationRequested)
             {
-                var client = await listener.AcceptAsync(ct);
+                Socket client;
+                try
+                {
+                    client = await listener.AcceptAsync(ct);
+                }
+                catch (Exception e) when (ct.IsCancellationRequested && e is SocketException or ObjectDisposedException)
+                {
+                    break;   // 종료 신호와 겹쳐 «취소» 대신 «중단» 으로 올라온 경우(Windows 에서 일어난다) — 정상 종료
+                }
+                catch (SocketException e) when (e.SocketErrorCode is SocketError.ConnectionAborted or SocketError.ConnectionReset or SocketError.OperationAborted)
+                {
+                    continue;   // 접속하자마자 끊은 클라이언트 하나가 수락 루프를 죽이지 않는다
+                }
 
                 // 새 연결이 옛 연결을 대신한다 — 옛 처리가 끝난 뒤에 새 연결을 읽기 시작한다.
                 if (currentCts is not null)
