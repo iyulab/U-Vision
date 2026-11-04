@@ -14,8 +14,9 @@ public static class RetentionKinds
     public const string Records = "records";
     public const string Ledger = "ledger";
     public const string Metrics = "metrics";
+    public const string Rejudge = "rejudge";
 
-    public static readonly IReadOnlyList<string> All = [Records, Ledger, Metrics];
+    public static readonly IReadOnlyList<string> All = [Records, Ledger, Metrics, Rejudge];
 }
 
 /// <summary>계획과 삭제 사이에 구간 안이 달라졌거나 지문이 없다 — 호출자는 계획을 다시 받아야 한다(HTTP 409).</summary>
@@ -100,10 +101,10 @@ public sealed class RetentionService
     private static IReadOnlyList<string> NormalizeKinds(IReadOnlyList<string>? requested)
     {
         if (requested is null || requested.Count == 0)
-            throw new ArgumentException("kinds 가 비었다 — 지울 부류를 이름으로 고른다(records · ledger · metrics)");
+            throw new ArgumentException("kinds 가 비었다 — 지울 부류를 이름으로 고른다(records · ledger · metrics · rejudge)");
         foreach (var k in requested)
             if (!RetentionKinds.All.Contains(k, StringComparer.Ordinal))
-                throw new ArgumentException($"알 수 없는 부류: '{k}' (records · ledger · metrics)");
+                throw new ArgumentException($"알 수 없는 부류: '{k}' (records · ledger · metrics · rejudge)");
         // 고정 순서로 — 같은 선택은 같은 지문을 낸다.
         return [.. RetentionKinds.All.Where(a => requested.Contains(a, StringComparer.Ordinal))];
     }
@@ -117,7 +118,7 @@ public sealed class RetentionService
         var summaries = new List<RetentionKindSummary>();
         var recordDirs = new List<string>();
         var dayFiles = new List<string>();
-        int results = 0, humanLabels = 0, notExported = 0, openQuestions = 0, decisions = 0, metricRows = 0;
+        int results = 0, humanLabels = 0, notExported = 0, openQuestions = 0, decisions = 0, metricRows = 0, rejudges = 0;
         bool? covered = null;
 
         if (kinds.Contains(RetentionKinds.Records))
@@ -165,6 +166,13 @@ public sealed class RetentionService
             metricRows = rows;
         }
 
+        if (kinds.Contains(RetentionKinds.Rejudge))
+        {
+            var (s, rows) = SummarizeDatedFiles(RetentionKinds.Rejudge, _paths.RejudgeJsonl(scenarioId, "2000-01-01"), InRange, fingerprintLines, dayFiles);
+            summaries.Add(s);
+            rejudges = rows;
+        }
+
         fingerprintLines.Sort(StringComparer.Ordinal);
         var header = $"{scenarioId}|{from}|{to}|{string.Join(',', kinds)}";
         var fingerprint = Convert.ToHexStringLower(
@@ -174,7 +182,7 @@ public sealed class RetentionService
             new RetentionLoss
             {
                 Results = results, HumanLabels = humanLabels, LabelsNotExported = notExported, OpenQuestions = openQuestions,
-                Decisions = decisions, MetricRows = metricRows,
+                Decisions = decisions, MetricRows = metricRows, Rejudges = rejudges,
             },
             covered, recordDirs, dayFiles);
     }

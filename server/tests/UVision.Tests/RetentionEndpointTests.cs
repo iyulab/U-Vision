@@ -122,6 +122,36 @@ public class RetentionEndpointTests : IClassFixture<PinFactory>
     }
 
     [Fact]
+    public async Task Rejudge_IsItsOwnNamedKind_CountedAndPurgedByDateFile()
+    {
+        var client = PinClient();
+        SeedRecord("demo", "2022-03-05", "r1", "OK");
+        SeedJsonl("demo", "rejudge", "2022-03-05", 3);   // 구간 안
+        SeedJsonl("demo", "rejudge", "2022-03-20", 2);   // 구간 밖
+        SeedJsonl("demo", "ledger", "2022-03-05", 1);
+        var request = new { from = "2022-03-01", to = "2022-03-10", kinds = new[] { "rejudge" } };
+
+        var plan = await Json(await client.PostAsync(Url, Body(request)));
+        var kinds = plan.GetProperty("kinds").EnumerateArray().ToDictionary(k => k.GetProperty("kind").GetString()!);
+        Assert.Equal(1, kinds["rejudge"].GetProperty("days").GetInt32());
+        Assert.Equal(3, plan.GetProperty("lost").GetProperty("rejudges").GetInt32());
+        // 계획만으로는 아무것도 지우지 않는다.
+        Assert.True(Exists("demo", "rejudge", "2022-03-05"));
+
+        var done = await client.PostAsync(Url, Body(new
+        {
+            from = "2022-03-01", to = "2022-03-10", kinds = new[] { "rejudge" },
+            dry_run = false, plan_fingerprint = plan.GetProperty("plan_fingerprint").GetString(),
+        }));
+        Assert.Equal(HttpStatusCode.OK, done.StatusCode);
+        // 이름을 고른 부류만 — 재판정 기록은 지워지고, 같은 날의 판정 기록 · 장부는 남는다.
+        Assert.False(Exists("demo", "rejudge", "2022-03-05"));
+        Assert.True(Exists("demo", "rejudge", "2022-03-20"));
+        Assert.True(Directory.Exists(Dir("demo", "2022-03-05")));
+        Assert.True(Exists("demo", "ledger", "2022-03-05"));
+    }
+
+    [Fact]
     public async Task Purge_DeletesOnlyTheChosenKindsInsideTheRange_AndLogsIt()
     {
         var client = PinClient();

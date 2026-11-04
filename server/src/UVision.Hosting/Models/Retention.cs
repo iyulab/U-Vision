@@ -57,6 +57,9 @@ public sealed record RetentionLoss
 
     /// <summary>메트릭 행 수(<c>metrics</c>).</summary>
     [JsonPropertyName("metric_rows")] public required int MetricRows { get; init; }
+
+    /// <summary>다시 판정한 기록 수(<c>rejudge</c>) — 사용자가 판정원에게 다시 물어 본 소견이다. 판정이 아니다.</summary>
+    [JsonPropertyName("rejudges")] public required int Rejudges { get; init; }
 }
 
 /// <summary>

@@ -24,6 +24,8 @@ namespace UVision.Client.Models
         public int? MetricRows { get; set; }
         /// <summary>The open_questions property</summary>
         public int? OpenQuestions { get; set; }
+        /// <summary>The rejudges property</summary>
+        public int? Rejudges { get; set; }
         /// <summary>The results property</summary>
         public int? Results { get; set; }
         /// <summary>
@@ -56,6 +58,7 @@ namespace UVision.Client.Models
                 { "labels_not_exported", n => { LabelsNotExported = n.GetIntValue(); } },
                 { "metric_rows", n => { MetricRows = n.GetIntValue(); } },
                 { "open_questions", n => { OpenQuestions = n.GetIntValue(); } },
+                { "rejudges", n => { Rejudges = n.GetIntValue(); } },
                 { "results", n => { Results = n.GetIntValue(); } },
             };
         }
@@ -71,6 +74,7 @@ namespace UVision.Client.Models
             writer.WriteIntValue("labels_not_exported", LabelsNotExported);
             writer.WriteIntValue("metric_rows", MetricRows);
             writer.WriteIntValue("open_questions", OpenQuestions);
+            writer.WriteIntValue("rejudges", Rejudges);
             writer.WriteIntValue("results", Results);
             writer.WriteAdditionalData(AdditionalData);
         }

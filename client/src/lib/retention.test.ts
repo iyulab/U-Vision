@@ -24,7 +24,7 @@ function plan(over: Partial<RetentionPurgeResponse> = {}): RetentionPurgeRespons
     purged: false,
     plan_fingerprint: 'abc',
     kinds: [{ kind: 'records', days: 31, files: 1200, bytes: 3 * 1024 ** 3 }],
-    lost: { results: 600, human_labels: 40, labels_not_exported: 0, open_questions: 0, decisions: 0, metric_rows: 0 },
+    lost: { results: 600, human_labels: 40, labels_not_exported: 0, open_questions: 0, decisions: 0, metric_rows: 0, rejudges: 0 },
     ...over,
   }
 }
@@ -119,19 +119,20 @@ describe('계획 읽기', () => {
     expect(lines.some((l) => l.includes('12건은 어느 데이터셋 export 에도 담기지 않았습니다'))).toBe(true)
   })
 
-  it('장부 · 메트릭 · 열린 문제를 각각 밝힌다', () => {
+  it('장부 · 메트릭 · 열린 문제 · 다시 판정한 기록을 각각 밝힌다', () => {
     const lines = lossLines(
-      plan({ lost: { results: 0, human_labels: 0, labels_not_exported: 0, open_questions: 3, decisions: 9, metric_rows: 1500 } }),
+      plan({ lost: { results: 0, human_labels: 0, labels_not_exported: 0, open_questions: 3, decisions: 9, metric_rows: 1500, rejudges: 4 } }),
     )
     expect(lines).toEqual([
       '열린 문제 3건 — 사진이 없어져 풀 수 없으므로 철회됩니다',
       '결정 장부의 결정 9건 — 관문 재측정의 원천입니다',
       '메트릭 1,500행',
+      '다시 판정한 기록 4건 — 판정이 아니라 사용자가 물어 본 소견입니다',
     ])
   })
 
   it('모두 0 이면 빈 목록', () => {
-    expect(lossLines(plan({ lost: { results: 0, human_labels: 0, labels_not_exported: 0, open_questions: 0, decisions: 0, metric_rows: 0 } }))).toEqual([])
+    expect(lossLines(plan({ lost: { results: 0, human_labels: 0, labels_not_exported: 0, open_questions: 0, decisions: 0, metric_rows: 0, rejudges: 0 } }))).toEqual([])
   })
 
   it('export 권고는 라벨이 덮이지 않았다고 서버가 말할 때만 낸다', () => {

@@ -9,6 +9,7 @@ export const RETENTION_KINDS = [
   { kind: 'records', label: '판정 기록', hint: '사진 · 판정 레코드 · 사람 라벨 · 이상 지도(날짜 폴더 통째로)' },
   { kind: 'ledger', label: '결정 장부', hint: '판정마다의 단별 답과 정책 근거(날짜 파일 통째로)' },
   { kind: 'metrics', label: '메트릭', hint: '판정마다 한 줄의 관측 기록(날짜 파일 통째로)' },
+  { kind: 'rejudge', label: '다시 판정한 기록', hint: '사용자가 판정원에게 다시 물어 본 소견 — 판정이 아니다(날짜 파일 통째로)' },
 ] as const
 
 const KIND_LABEL: Record<string, string> = Object.fromEntries(RETENTION_KINDS.map((k) => [k.kind, k.label]))
@@ -93,6 +94,7 @@ export function lossLines(plan: RetentionPurgeResponse): string[] {
   if (l.open_questions > 0) lines.push(`열린 문제 ${n(l.open_questions)}건 — 사진이 없어져 풀 수 없으므로 철회됩니다`)
   if (l.decisions > 0) lines.push(`결정 장부의 결정 ${n(l.decisions)}건 — 관문 재측정의 원천입니다`)
   if (l.metric_rows > 0) lines.push(`메트릭 ${n(l.metric_rows)}행`)
+  if (l.rejudges > 0) lines.push(`다시 판정한 기록 ${n(l.rejudges)}건 — 판정이 아니라 사용자가 물어 본 소견입니다`)
   return lines
 }
 

@@ -35,7 +35,7 @@ function planResponse(over: Partial<RetentionPurgeResponse> = {}): RetentionPurg
     purged: false,
     plan_fingerprint: 'fp-1',
     kinds: [{ kind: 'records', days: 31, files: 1200, bytes: 1024 }],
-    lost: { results: 600, human_labels: 40, labels_not_exported: 5, open_questions: 2, decisions: 0, metric_rows: 0 },
+    lost: { results: 600, human_labels: 40, labels_not_exported: 5, open_questions: 2, decisions: 0, metric_rows: 0, rejudges: 0 },
     covered_by_export: false,
     ...over,
   }
@@ -152,7 +152,7 @@ describe('RetentionPanel', () => {
     runRetention.mockResolvedValue(
       planResponse({
         kinds: [{ kind: 'records', days: 0, files: 0, bytes: 0 }],
-        lost: { results: 0, human_labels: 0, labels_not_exported: 0, open_questions: 0, decisions: 0, metric_rows: 0 },
+        lost: { results: 0, human_labels: 0, labels_not_exported: 0, open_questions: 0, decisions: 0, metric_rows: 0, rejudges: 0 },
         covered_by_export: true,
       }),
     )

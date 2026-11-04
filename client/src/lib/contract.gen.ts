@@ -882,6 +882,7 @@ export interface RetentionLoss {
   open_questions: number
   decisions: number
   metric_rows: number
+  rejudges: number
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

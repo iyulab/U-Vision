@@ -5209,7 +5209,8 @@
           "labels_not_exported",
           "open_questions",
           "decisions",
-          "metric_rows"
+          "metric_rows",
+          "rejudges"
         ],
         "type": "object",
         "properties": {
@@ -5234,6 +5235,10 @@
             "format": "int32"
           },
           "metric_rows": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "rejudges": {
             "type": "integer",
             "format": "int32"
           }
