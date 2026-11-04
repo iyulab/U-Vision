@@ -13,6 +13,7 @@ using UVision.Client.Results.AnomalyMap;
 using UVision.Client.Results.Audit;
 using UVision.Client.Results.AuditSample;
 using UVision.Client.Results.Dates;
+using UVision.Client.Results.Decision;
 using UVision.Client.Results.Image;
 using UVision.Client.Results.Label;
 using UVision.Client.Results.Labels;
@@ -43,6 +44,11 @@ namespace UVision.Client.Results
         public global::UVision.Client.Results.Dates.DatesRequestBuilder Dates
         {
             get => new global::UVision.Client.Results.Dates.DatesRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The decision property</summary>
+        public global::UVision.Client.Results.Decision.DecisionRequestBuilder Decision
+        {
+            get => new global::UVision.Client.Results.Decision.DecisionRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The image property</summary>
         public global::UVision.Client.Results.Image.ImageRequestBuilder Image

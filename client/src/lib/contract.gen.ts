@@ -52,9 +52,11 @@ export interface Contract {
   DatasetItem?: DatasetItem
   DatasetSelection?: DatasetSelection
   DataVolumeStatus?: DataVolumeStatus
+  DecisionEvidence?: DecisionEvidence
   DemoteAuthorityInput?: DemoteAuthorityInput
   DetectionUnavailableResponse?: DetectionUnavailableResponse
   EventsStatusResponse?: EventsStatusResponse
+  EvidenceStep?: EvidenceStep
   FlywheelPoint?: FlywheelPoint
   FlywheelReport?: FlywheelReport
   HealthResponse?: HealthResponse
@@ -356,6 +358,57 @@ export interface DataVolumeStatus {
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "DecisionEvidence".
+ */
+export interface DecisionEvidence {
+  image_id: string
+  scenario_id: string
+  date: string
+  class: string
+  confidence: number
+  findings?: string
+  requires_review?: boolean
+  posture?: string
+  agreement?: boolean
+  ml?: MlResult
+  count?: CountInfo
+  ledger_recorded: boolean
+  settled_by?: SettledBy
+  tier_version?: string
+  path?: EvidenceStep[]
+  annotations?: {
+    [k: string]: string
+  }
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "MlResult".
+ */
+export interface MlResult {
+  label: string
+  confidence: number
+  model_version?: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "SettledBy".
+ */
+export interface SettledBy {
+  tier: string
+  kind: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EvidenceStep".
+ */
+export interface EvidenceStep {
+  tier: string
+  kind: string
+  outcome: string
+  detail?: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
  * via the `definition` "DemoteAuthorityInput".
  */
 export interface DemoteAuthorityInput {
@@ -370,15 +423,6 @@ export interface DetectionUnavailableResponse {
   detection_unavailable: boolean
   reason: string
   ml_hint?: MlResult
-}
-/**
- * This interface was referenced by `Contract`'s JSON-Schema
- * via the `definition` "MlResult".
- */
-export interface MlResult {
-  label: string
-  confidence: number
-  model_version?: string
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
@@ -503,14 +547,6 @@ export interface InspectResultV2 {
   captured_at?: string
   origin?: string
   origin_ref?: string
-}
-/**
- * This interface was referenced by `Contract`'s JSON-Schema
- * via the `definition` "SettledBy".
- */
-export interface SettledBy {
-  tier: string
-  kind: string
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

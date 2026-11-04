@@ -57,6 +57,12 @@ public static class InspectEndpoints
             .Produces<AnomalyMap>()
             .ProducesProblem(400)
             .ProducesProblem(404);
+        // 판정 근거 — 저장된 판정 한 건을 누가 · 어떤 경로로 냈는지(레코드 + 결정 장부). 읽기 전용, 판정원을 다시 부르지 않는다.
+        group.MapGet("/results/decision", GetDecisionEvidenceAsync)
+            .WithName("GetResultDecision")
+            .Produces<DecisionEvidence>()
+            .ProducesProblem(400)
+            .ProducesProblem(404);
         group.MapGet("/results/image", ServeResultImageAsync)
             .WithName("GetResultImage")
             .Produces(200, typeof(Stream), "image/jpeg", "image/png")
@@ -250,6 +256,26 @@ public static class InspectEndpoints
             return map is null
                 ? Results.Problem(statusCode: 404, detail: "이상 지도 없음")
                 : Results.Ok(map);
+        }
+        catch (ArgumentException) // 형식 위반 scenario_id/date/image_id → 400
+        {
+            return Results.Problem(statusCode: 400, detail: "scenario_id · date · image_id 형식 위반");
+        }
+    }
+
+    private static async Task<IResult> GetDecisionEvidenceAsync(
+        [FromQuery(Name = "scenario_id")] string scenarioId,
+        [FromQuery(Name = "date")] string date,
+        [FromQuery(Name = "image_id")] string imageId,
+        DecisionEvidenceReader reader,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var evidence = await reader.ReadAsync(scenarioId, date, imageId, cancellationToken);
+            return evidence is null
+                ? Results.Problem(statusCode: 404, detail: "판정 기록 없음")
+                : Results.Ok(evidence);
         }
         catch (ArgumentException) // 형식 위반 scenario_id/date/image_id → 400
         {

@@ -159,13 +159,16 @@ public sealed record PathStepV2
         provenance?.Path?.Select(s => new PathStepV2
         {
             Tier = s.TierId,
-            Outcome = s.Outcome switch
-            {
-                StepOutcome.Settled => "settled",
-                StepOutcome.Shadowed => "shadowed",
-                StepOutcome.Escalated => "escalated",
-                StepOutcome.Abstained => "abstained",
-                var other => other.ToString().ToLowerInvariant(),
-            },
+            Outcome = OutcomeName(s.Outcome),
         }).ToList();
+
+    /// <summary>경로 단의 결과 어휘(소문자) — 결과 v2 와 판정 근거 보기가 같은 이름을 쓴다.</summary>
+    internal static string OutcomeName(StepOutcome outcome) => outcome switch
+    {
+        StepOutcome.Settled => "settled",
+        StepOutcome.Shadowed => "shadowed",
+        StepOutcome.Escalated => "escalated",
+        StepOutcome.Abstained => "abstained",
+        var other => other.ToString().ToLowerInvariant(),
+    };
 }

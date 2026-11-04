@@ -91,6 +91,7 @@ public static class UVisionServiceExtensions
 
         // 판정 파이프라인 — 판정원 실행 · 판정 결정 · 기록. HTTP 엔드포인트는 이것을 부르기만 한다.
         services.AddSingleton<Services.Inspection.DecisionLedger>();
+        services.AddSingleton<Services.Inspection.DecisionEvidenceReader>();
         services.AddSingleton<Services.Inspection.InspectionPipeline>();
         services.AddSingleton(options.Storage);
         services.AddSingleton<Services.Inspection.InspectionReplays>();

@@ -1,4 +1,4 @@
-import type { AdminStatus, Ambiguity, AnomalyMap, AuthorityState, DetectionUnavailable, EventsStatus, FlywheelReport, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Question, QuestionAnswer, Reference, RetentionPurgeInput, RetentionPurgeResponse, Scenario, SolverTrust, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
+import type { AdminStatus, Ambiguity, AnomalyMap, AuthorityState, DecisionEvidence, DetectionUnavailable, EventsStatus, FlywheelReport, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Question, QuestionAnswer, Reference, RetentionPurgeInput, RetentionPurgeResponse, Scenario, SolverTrust, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
 import type { QuestionAnswerInput } from './contract.gen'
 import type { AuthorityStage } from './authority'
 import { resolveApiBase } from './runtimeConfig'
@@ -176,6 +176,19 @@ export async function getAnomalyMap(scenarioId: string, date: string, imageId: s
   if (res.status === 404) return null
   await ensureOk(res, '이상 지도')
   return (await res.json()) as AnomalyMap
+}
+
+/**
+ * 저장된 판정 한 건의 판정 근거(누가 · 어떤 경로로 · 무엇을 근거로) — 레코드 + 결정 장부, 읽기 전용. 레코드가 없으면
+ * `null`(404 는 오류가 아니다). 판정 흐름 밖의 조회라 그 밖의 실패만 던진다.
+ */
+export async function getDecisionEvidence(scenarioId: string, date: string, imageId: string): Promise<DecisionEvidence | null> {
+  const res = await fetch(
+    `${API_BASE}/results/decision?scenario_id=${encodeURIComponent(scenarioId)}&date=${encodeURIComponent(date)}&image_id=${encodeURIComponent(imageId)}`,
+  )
+  if (res.status === 404) return null
+  await ensureOk(res, '판정 근거')
+  return (await res.json()) as DecisionEvidence
 }
 
 // --- 사람 라벨 (무인증 운영 데이터 — 서버 /results/label[s] 계약) -----------

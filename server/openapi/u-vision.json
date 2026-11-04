@@ -640,6 +640,72 @@
         }
       }
     },
+    "/api/u-vision/results/decision": {
+      "get": {
+        "tags": [
+          "U-Vision"
+        ],
+        "operationId": "GetResultDecision",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "image_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionEvidence"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/u-vision/results/image": {
       "get": {
         "tags": [
@@ -3576,6 +3642,74 @@
           }
         }
       },
+      "DecisionEvidence": {
+        "required": [
+          "image_id",
+          "scenario_id",
+          "date",
+          "class",
+          "confidence",
+          "ledger_recorded"
+        ],
+        "type": "object",
+        "properties": {
+          "image_id": {
+            "type": "string"
+          },
+          "scenario_id": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number",
+            "format": "double"
+          },
+          "findings": {
+            "type": "string"
+          },
+          "requires_review": {
+            "type": "boolean"
+          },
+          "posture": {
+            "type": "string"
+          },
+          "agreement": {
+            "type": "boolean"
+          },
+          "ml": {
+            "$ref": "#/components/schemas/MlResult"
+          },
+          "count": {
+            "$ref": "#/components/schemas/CountInfo"
+          },
+          "ledger_recorded": {
+            "type": "boolean"
+          },
+          "settled_by": {
+            "$ref": "#/components/schemas/SettledBy"
+          },
+          "tier_version": {
+            "type": "string"
+          },
+          "path": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EvidenceStep"
+            }
+          },
+          "annotations": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "DemoteAuthorityInput": {
         "type": "object",
         "properties": {
@@ -3638,6 +3772,28 @@
             "items": {
               "$ref": "#/components/schemas/OpcUaStatus"
             }
+          }
+        }
+      },
+      "EvidenceStep": {
+        "required": [
+          "tier",
+          "kind",
+          "outcome"
+        ],
+        "type": "object",
+        "properties": {
+          "tier": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
           }
         }
       },

@@ -9,6 +9,7 @@ import { pendingReviewCount, reviewStateOf } from '../lib/review'
 import { percent, summarizeResults } from '../lib/resultSummary'
 import { AnomalyImage } from './AnomalyImage'
 import { CountImage } from './CountImage'
+import { EvidencePanel } from './EvidencePanel'
 import { ResultsTable } from './ResultsTable'
 import type { Scenario, StoredLabel, StoredResult } from '../lib/types'
 import { termOf } from '../lib/verification'
@@ -329,6 +330,8 @@ function ResultDetail({
             {result.findings}
           </div>
         )}
+
+        <EvidencePanel scenarioId={result.scenario_id} date={date} imageId={result.image_id} />
 
         <dl className="grid grid-cols-2 gap-2 text-sm">
           <dt className="text-slate-400">신뢰도</dt>
