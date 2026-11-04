@@ -18,7 +18,7 @@ public sealed class FileAnomalyMapStore(StoragePaths paths) : IAnomalyMapStore
             return null;
         try
         {
-            return JsonSerializer.Deserialize<AnomalyMap>(await File.ReadAllBytesAsync(path, cancellationToken), StoragePaths.Json);
+            return JsonSerializer.Deserialize<AnomalyMap>(await StoragePaths.ReadAllBytesResilientAsync(path, cancellationToken), StoragePaths.Json);
         }
         catch (JsonException)
         {

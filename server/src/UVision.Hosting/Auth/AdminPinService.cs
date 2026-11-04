@@ -107,7 +107,7 @@ public sealed class AdminPinService
             if (!File.Exists(tokenPath))
                 return AdminSetupOutcome.NoPendingSetup;
 
-            var expectedToken = (await File.ReadAllTextAsync(tokenPath, ct)).Trim();
+            var expectedToken = (await StoragePaths.ReadAllTextResilientAsync(tokenPath, ct)).Trim();
             if (string.IsNullOrEmpty(expectedToken) || !FixedTimeEquals(setupToken.Trim(), expectedToken))
                 return AdminSetupOutcome.InvalidToken;
 
@@ -157,7 +157,7 @@ public sealed class AdminPinService
             }
 
             // 부트스트랩 대기 — 토큰 보장(재시작 간 idempotent).
-            var token = File.Exists(tokenPath) ? (await File.ReadAllTextAsync(tokenPath, ct)).Trim() : "";
+            var token = File.Exists(tokenPath) ? (await StoragePaths.ReadAllTextResilientAsync(tokenPath, ct)).Trim() : "";
             if (token.Length == 0)
             {
                 // 원자 쓰기 — 쓰다 끊겨도 빈 · 잘린 토큰 파일이 남지 않는다.
@@ -204,7 +204,7 @@ public sealed class AdminPinService
         if (!File.Exists(path)) return null;
         try
         {
-            await using var stream = File.OpenRead(path);
+            await using var stream = await StoragePaths.OpenReadResilientAsync(path, ct);
             return await System.Text.Json.JsonSerializer.DeserializeAsync<AdminPinHash>(
                 stream, StoragePaths.Json, ct);
         }

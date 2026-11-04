@@ -47,7 +47,7 @@ public sealed class FileMemoryVectorStore(StoragePaths paths) : IMemoryVectorSto
         if (!File.Exists(path))
             return vectors;
 
-        foreach (var text in await File.ReadAllLinesAsync(path, cancellationToken))
+        foreach (var text in await StoragePaths.ReadAllLinesResilientAsync(path, cancellationToken))
         {
             if (string.IsNullOrWhiteSpace(text))
                 continue;

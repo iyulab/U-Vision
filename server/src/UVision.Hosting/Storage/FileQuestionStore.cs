@@ -110,7 +110,7 @@ public sealed class FileQuestionStore : IQuestionStore
     {
         if (!File.Exists(path))
             return null;
-        await using var stream = File.OpenRead(path);
+        await using var stream = await StoragePaths.OpenReadResilientAsync(path, cancellationToken);
         return await JsonSerializer.DeserializeAsync<StoredQuestion>(stream, StoragePaths.Json, cancellationToken);
     }
 }

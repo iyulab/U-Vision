@@ -34,7 +34,7 @@ public sealed class FilePatchBankStore(StoragePaths paths) : IPatchBankStore
         var path = paths.MemoryPatchFile(scenarioId, encoderKey, imageId);
         if (!File.Exists(path))
             return null;
-        var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
+        var bytes = await StoragePaths.ReadAllBytesResilientAsync(path, cancellationToken);
         if (bytes.Length == 0 || bytes.Length % sizeof(float) != 0
             || (expectedLength is { } n && bytes.Length != n * sizeof(float)))
             return null;

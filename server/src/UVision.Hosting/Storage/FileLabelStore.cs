@@ -201,7 +201,7 @@ public sealed class FileLabelStore : ILabelStore
         var path = _paths.LabelJson(scenarioId, date, imageId); // 형식 위반 → ArgumentException(→400)
         if (!File.Exists(path))
             return null;
-        await using var stream = File.OpenRead(path);
+        await using var stream = await StoragePaths.OpenReadResilientAsync(path, cancellationToken);
         var raw = await JsonSerializer.DeserializeAsync<StoredLabel>(
             stream, StoragePaths.Json, cancellationToken);
         return raw?.Normalized();
@@ -254,7 +254,7 @@ public sealed class FileLabelStore : ILabelStore
             new ParallelOptions { MaxDegreeOfParallelism = LoadParallelism, CancellationToken = cancellationToken },
             async (path, ct) =>
             {
-                await using var stream = File.OpenRead(path);
+                await using var stream = await StoragePaths.OpenReadResilientAsync(path, cancellationToken);
                 var label = await JsonSerializer.DeserializeAsync<StoredLabel>(stream, StoragePaths.Json, ct);
                 if (label is not null)
                     lock (gate) loaded[label.ImageId] = label.Normalized();
@@ -266,7 +266,7 @@ public sealed class FileLabelStore : ILabelStore
     {
         if (!File.Exists(path))
             return null;
-        await using var stream = File.OpenRead(path);
+        await using var stream = await StoragePaths.OpenReadResilientAsync(path, ct);
         var raw = await JsonSerializer.DeserializeAsync<StoredLabel>(stream, StoragePaths.Json, ct);
         return raw?.Normalized();
     }

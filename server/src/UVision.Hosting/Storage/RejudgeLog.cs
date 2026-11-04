@@ -40,7 +40,7 @@ public sealed class RejudgeLog(StoragePaths paths)
         if (!File.Exists(path))
             return [];
         var found = new List<RejudgeResponse>();
-        foreach (var line in await File.ReadAllLinesAsync(path, cancellationToken))
+        foreach (var line in await StoragePaths.ReadAllLinesResilientAsync(path, cancellationToken))
         {
             if (string.IsNullOrWhiteSpace(line))
                 continue;

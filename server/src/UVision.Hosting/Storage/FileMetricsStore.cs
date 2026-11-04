@@ -58,7 +58,7 @@ public sealed class FileMetricsStore : IMetricsStore
             return [];
 
         var rows = new List<MetricsRow>();
-        foreach (var line in await File.ReadAllLinesAsync(path, cancellationToken))
+        foreach (var line in await StoragePaths.ReadAllLinesResilientAsync(path, cancellationToken))
         {
             if (string.IsNullOrWhiteSpace(line))
                 continue;

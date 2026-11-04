@@ -81,7 +81,7 @@ public sealed class EventDispatcher(
     {
         try
         {
-            await using var stream = File.OpenRead(file);
+            await using var stream = await StoragePaths.OpenReadResilientAsync(file, cancellationToken);
             return await JsonSerializer.DeserializeAsync<OutboxEntry>(stream, cancellationToken: cancellationToken);
         }
         catch (Exception ex) when (ex is IOException or JsonException)

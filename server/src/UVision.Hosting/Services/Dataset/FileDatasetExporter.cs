@@ -126,7 +126,7 @@ public sealed class FileDatasetExporter : IDatasetExporter
         var path = _paths.DatasetManifest(scenarioId, exportId); // 형식 위반 → ArgumentException(→400)
         if (!File.Exists(path))
             return null;
-        await using var stream = File.OpenRead(path);
+        await using var stream = await StoragePaths.OpenReadResilientAsync(path, cancellationToken);
         return await System.Text.Json.JsonSerializer.DeserializeAsync<DatasetExportManifest>(
             stream, StoragePaths.Json, cancellationToken);
     }

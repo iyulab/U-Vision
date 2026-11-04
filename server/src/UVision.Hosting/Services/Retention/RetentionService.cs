@@ -205,12 +205,22 @@ public sealed class RetentionService
                 var size = new FileInfo(path).Length;
                 days++;
                 bytes += size;
-                rows += File.ReadLines(path).Count(l => !string.IsNullOrWhiteSpace(l));
+                rows += CountNonEmptyLines(path);
                 fingerprintLines.Add($"{kind}|{date}|{size}");
                 collect.Add(path);
             }
         }
         return (new RetentionKindSummary { Kind = kind, Days = days, Files = days, Bytes = bytes }, rows);
+    }
+
+    /// <summary>줄 수 세기 — 오늘 파일에 덧붙이는 쓰기를 막지 않게 공유 모드로 읽는다(<c>File.ReadLines</c> 는 <c>FileShare.Read</c>).</summary>
+    private static int CountNonEmptyLines(string path)
+    {
+        using var reader = new StreamReader(StoragePaths.OpenReadResilient(path));
+        var count = 0;
+        while (reader.ReadLine() is { } line)
+            if (!string.IsNullOrWhiteSpace(line)) count++;
+        return count;
     }
 
     /// <summary>모든 데이터셋 export 가 담은 <c>{date}/{image_id}</c> 키.</summary>

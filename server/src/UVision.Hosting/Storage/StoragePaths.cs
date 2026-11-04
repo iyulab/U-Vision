@@ -424,6 +424,59 @@ public sealed partial class StoragePaths
         }
     }
 
+    /// <summary><see cref="OpenReadResilientAsync"/> 의 동기 쌍둥이 — 비동기로 쓸 수 없는 읽기(색인 · 상태 읽기)용. 같은 공유 모드와 같은 재시도.</summary>
+    public static FileStream OpenReadResilient(string path)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            }
+            catch (Exception e) when (e is IOException and not FileNotFoundException and not DirectoryNotFoundException
+                                          || e is UnauthorizedAccessException)
+            {
+                if (attempt >= ReplaceRetries) throw;
+                Thread.Sleep(attempt < 5 ? 1 : 10);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 파일 전체를 바이트로 — 교체 순간(<see cref="AtomicWriteAsync"/>)에도 안 던지고, 같은 파일에 덧붙이는 쓰기를 막지도 않는다.
+    /// <c>File.ReadAllBytesAsync</c> 는 <c>FileShare.Read</c> 로 열어 덧붙이는 쪽의 열기를 거절시킬 수 있다(Windows).
+    /// </summary>
+    public static async Task<byte[]> ReadAllBytesResilientAsync(string path, CancellationToken ct = default)
+    {
+        await using var stream = await OpenReadResilientAsync(path, ct);
+        var buffer = new byte[checked((int)stream.Length)];
+        var read = 0;
+        while (read < buffer.Length)
+        {
+            var n = await stream.ReadAsync(buffer.AsMemory(read), ct);
+            if (n == 0) break;   // 읽는 도중 파일이 줄었다 — 읽은 만큼만
+            read += n;
+        }
+        return read == buffer.Length ? buffer : buffer[..read];
+    }
+
+    /// <summary>파일 전체를 UTF-8 텍스트로(<see cref="ReadAllBytesResilientAsync"/> 와 같은 규칙).</summary>
+    public static async Task<string> ReadAllTextResilientAsync(string path, CancellationToken ct = default) =>
+        System.Text.Encoding.UTF8.GetString(await ReadAllBytesResilientAsync(path, ct));
+
+    /// <summary>
+    /// 줄 단위로 — 덧붙이기 전용 파일(메트릭 · 기억 벡터 · 재판정 로그)을 읽는다. 쓰는 쪽이 열어 둔 채여도(<c>FileShare.Read</c> 로 연 덧붙이기)
+    /// 읽을 수 있고, 읽는 동안 새 줄이 붙어도 그 줄은 다음 읽기가 본다. 줄바꿈 없이 끝난 마지막 줄은 그대로 돌려준다(호출자가 파싱 실패를 건너뛴다).
+    /// </summary>
+    public static async Task<IReadOnlyList<string>> ReadAllLinesResilientAsync(string path, CancellationToken ct = default)
+    {
+        await using var stream = await OpenReadResilientAsync(path, ct);
+        using var reader = new StreamReader(stream, System.Text.Encoding.UTF8);
+        var lines = new List<string>();
+        while (await reader.ReadLineAsync(ct) is { } line) lines.Add(line);
+        return lines;
+    }
+
     public static Task AtomicWriteJsonAsync<T>(string path, T value, CancellationToken ct = default)
     {
         var bytes = JsonSerializer.SerializeToUtf8Bytes(value, Json);

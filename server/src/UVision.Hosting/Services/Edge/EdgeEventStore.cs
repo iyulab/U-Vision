@@ -188,7 +188,7 @@ public sealed class EdgeEventStore(
             return [];
         try
         {
-            await using var stream = File.OpenRead(path);
+            await using var stream = await StoragePaths.OpenReadResilientAsync(path, ct);
             var file = await JsonSerializer.DeserializeAsync<SeqFile>(stream, StoragePaths.Json, ct);
             return file?.Ranges.Where(r => r.Length == 2 && r[0] <= r[1]).ToList() ?? [];
         }

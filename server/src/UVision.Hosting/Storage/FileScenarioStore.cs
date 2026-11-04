@@ -24,7 +24,7 @@ public sealed partial class FileScenarioStore : IScenarioStore
         if (!File.Exists(path))
             return null;
 
-        await using var stream = File.OpenRead(path);
+        await using var stream = await StoragePaths.OpenReadResilientAsync(path, cancellationToken);
         return await JsonSerializer.DeserializeAsync<Scenario>(
             stream, StoragePaths.Json, cancellationToken);
     }
@@ -42,7 +42,7 @@ public sealed partial class FileScenarioStore : IScenarioStore
             if (!File.Exists(jsonPath))
                 continue;
 
-            await using var stream = File.OpenRead(jsonPath);
+            await using var stream = await StoragePaths.OpenReadResilientAsync(jsonPath, cancellationToken);
             var scenario = await JsonSerializer.DeserializeAsync<Scenario>(
                 stream, StoragePaths.Json, cancellationToken);
             if (scenario is not null)

@@ -142,7 +142,7 @@ public sealed class InspectionReplays(
         var path = paths.ReplayFile(scenarioId, key);
         if (!File.Exists(path))
             return null;
-        await using var stream = File.OpenRead(path);
+        await using var stream = await StoragePaths.OpenReadResilientAsync(path, cancellationToken);
         return await JsonSerializer.DeserializeAsync<StoredReplay>(stream, StoragePaths.Json, cancellationToken);
     }
 

@@ -34,7 +34,9 @@ public sealed class ScenarioFactsReader(StoragePaths paths)
         try
         {
             var file = paths.ScenarioJson(scenarioId);
-            return File.Exists(file) ? ScenarioFacts.FromScenarioJson(File.ReadAllText(file)) : ScenarioFacts.Unknown;
+            if (!File.Exists(file)) return ScenarioFacts.Unknown;
+            using var reader = new StreamReader(StoragePaths.OpenReadResilient(file));
+            return ScenarioFacts.FromScenarioJson(reader.ReadToEnd());
         }
         catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
         {

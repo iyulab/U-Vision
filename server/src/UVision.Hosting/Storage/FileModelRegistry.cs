@@ -74,7 +74,7 @@ public sealed class FileModelRegistry : IModelRegistry
     {
         var path = _paths.ModelManifest(scenarioId, version); // id/version 검증
         if (!File.Exists(path)) return null;
-        await using var stream = File.OpenRead(path);
+        await using var stream = await StoragePaths.OpenReadResilientAsync(path, ct);
         return await JsonSerializer.DeserializeAsync<ModelVersionManifest>(
             stream, StoragePaths.Json, ct);
     }
@@ -83,7 +83,7 @@ public sealed class FileModelRegistry : IModelRegistry
     {
         var path = _paths.ModelPointerFile(scenarioId); // scenarioId 검증
         if (!File.Exists(path)) return null;
-        await using var stream = File.OpenRead(path);
+        await using var stream = await StoragePaths.OpenReadResilientAsync(path, ct);
         return await JsonSerializer.DeserializeAsync<ModelPointer>(stream, StoragePaths.Json, ct);
     }
 

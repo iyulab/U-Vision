@@ -41,7 +41,7 @@ public sealed class FileInspectionStore : IInspectionStore
             .Where(p => !p.EndsWith(".label.json", StringComparison.OrdinalIgnoreCase))
             .OrderBy(p => p))
         {
-            await using var stream = File.OpenRead(jsonPath);
+            await using var stream = await StoragePaths.OpenReadResilientAsync(jsonPath, cancellationToken);
             var result = await JsonSerializer.DeserializeAsync<StoredResult>(
                 stream, StoragePaths.Json, cancellationToken);
             if (result is not null)
@@ -80,7 +80,7 @@ public sealed class FileInspectionStore : IInspectionStore
         for (var i = start; i < entries.Count && items.Count < limit; i++)
         {
             last = i;
-            await using var stream = File.OpenRead(entries[i].Path);
+            await using var stream = await StoragePaths.OpenReadResilientAsync(entries[i].Path, cancellationToken);
             if (await JsonSerializer.DeserializeAsync<StoredResult>(stream, StoragePaths.Json, cancellationToken) is { } result)
                 items.Add(result);
         }
@@ -108,7 +108,7 @@ public sealed class FileInspectionStore : IInspectionStore
         var path = _paths.ResultFile(scenarioId, date, imageId); // 형식 위반이면 ArgumentException(→400)
         if (!File.Exists(path))
             return null;
-        await using var stream = File.OpenRead(path);
+        await using var stream = await StoragePaths.OpenReadResilientAsync(path, cancellationToken);
         return await JsonSerializer.DeserializeAsync<StoredResult>(stream, StoragePaths.Json, cancellationToken);
     }
 
@@ -128,7 +128,7 @@ public sealed class FileInspectionStore : IInspectionStore
         if (file is null)
             return null;
 
-        var data = await File.ReadAllBytesAsync(file, cancellationToken);
+        var data = await StoragePaths.ReadAllBytesResilientAsync(file, cancellationToken);
         return new InspectionImage(data, ContentTypeOf(file));
     }
 

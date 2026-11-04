@@ -20,7 +20,7 @@ public sealed class FileAuthorityStore : IAuthorityStore
     {
         var path = _paths.AuthorityFile(scenarioId); // scenarioId 검증(ArgumentException→400)
         if (!File.Exists(path)) return null;
-        await using var stream = File.OpenRead(path);
+        await using var stream = await StoragePaths.OpenReadResilientAsync(path, ct);
         return await JsonSerializer.DeserializeAsync<AuthorityState>(stream, StoragePaths.Json, ct);
     }
 

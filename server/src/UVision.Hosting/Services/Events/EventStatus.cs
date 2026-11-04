@@ -147,7 +147,8 @@ public sealed class EventStatusReader(
     {
         try
         {
-            var entry = JsonSerializer.Deserialize<OutboxEntry>(File.ReadAllText(file));
+            using var stream = StoragePaths.OpenReadResilient(file);
+            var entry = JsonSerializer.Deserialize<OutboxEntry>(stream);
             // "HTTP 503" · "MQTT NotAuthorized" 는 그대로, "HttpRequestException: …" 은 예외 이름만.
             return entry?.LastError?.Split(':', 2)[0];
         }

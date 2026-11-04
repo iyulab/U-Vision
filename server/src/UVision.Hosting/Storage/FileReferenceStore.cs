@@ -50,7 +50,7 @@ public sealed class FileReferenceStore : IReferenceStore
         var file = FindFile(scenarioId, label, refId);
         if (file is null)
             return null;
-        var data = await File.ReadAllBytesAsync(file, cancellationToken);
+        var data = await StoragePaths.ReadAllBytesResilientAsync(file, cancellationToken);
         return new ReferenceBytes(data, ContentTypeOf(file));
     }
 
@@ -81,7 +81,7 @@ public sealed class FileReferenceStore : IReferenceStore
                 var refId = Path.GetFileNameWithoutExtension(file);
                 images.Add(new ReferenceImage
                 {
-                    Data = await File.ReadAllBytesAsync(file, cancellationToken),
+                    Data = await StoragePaths.ReadAllBytesResilientAsync(file, cancellationToken),
                     Label = label,
                     NgLabel = label == ReferenceLabel.Ng && ngLabels.TryGetValue(refId, out var l)
                         ? l
