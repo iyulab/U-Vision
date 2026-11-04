@@ -4,6 +4,9 @@ Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0
 
 ## [Unreleased]
 
+### Added
+- `UVISION_WORKER_SOCKET_MODE` for the edge agent image: the Unix permission of the worker socket file as an octal value (default `0600`, owner only). A worker in another container that runs as a different user could not connect to a `0600` socket, and the host had no setting to change it; with `0660` and the agent's group on the worker the socket opens for that group only. A value that is not octal, that does not leave the owner able to read and write, or that is given without `UVISION_WORKER_SOCKET` stops the agent at start with exit code 2.
+
 ## [0.7.0] - 2026-11-04
 
 ### Added

@@ -378,6 +378,28 @@ public sealed class EdgeAgentHostTests : IDisposable
     }
 
     [Fact]
+    public void Options_WorkerSocketMode_IsOctal_NeedsTheSocket_AndKeepsTheOwnerAbleToUseIt()
+    {
+        var abs = Path.Combine(Path.GetTempPath(), "w.sock");
+        HostOptions With(string? mode) => HostOptions.FromEnvironment(Env(("UVISION_ENGINE_URL", "https://e"), ("UVISION_WORKER_SOCKET", abs), ("UVISION_WORKER_SOCKET_MODE", mode)));
+        Assert.Null(With(null).WorkerSocketMode);   // 기본 = 소유자만(소켓 서버의 기본값)
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.GroupWrite, With("0660").WorkerSocketMode);
+        Assert.Equal(With("660").WorkerSocketMode, With("0660").WorkerSocketMode);
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, With(" 600 ").WorkerSocketMode);
+
+        // 8 진수가 아니거나 · 길이가 틀리거나 · 소유자가 읽고 쓸 수 없는 값(에이전트가 자기 소켓을 못 쓴다)은 시작에서 거절한다.
+        foreach (var bad in new[] { "6", "66", "0o660", "0668", "1660", "00660", "rw-rw----", "0060", "0400", "0200", "0000" })
+        {
+            var ex = Assert.Throws<HostConfigException>(() => With(bad));
+            Assert.Contains(ex.Problems, p => p.Contains("UVISION_WORKER_SOCKET_MODE"));
+        }
+
+        // 소켓 없이 권한만 준 설정은 뜻이 없다 — 조용히 무시하지 않고 알린다.
+        var alone = Assert.Throws<HostConfigException>(() => HostOptions.FromEnvironment(Env(("UVISION_ENGINE_URL", "https://e"), ("UVISION_WORKER_SOCKET_MODE", "0660"))));
+        Assert.Contains(alone.Problems, p => p.Contains("UVISION_WORKER_SOCKET_MODE") && p.Contains("UVISION_WORKER_SOCKET"));
+    }
+
+    [Fact]
     public void Options_MaxConfigAge_DefaultsToADay_AndIsBounded()
     {
         Assert.Equal(TimeSpan.FromHours(24), HostOptions.FromEnvironment(Env(("UVISION_ENGINE_URL", "https://e"))).MaxConfigAge);

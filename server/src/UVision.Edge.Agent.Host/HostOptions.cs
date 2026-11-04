@@ -34,6 +34,12 @@ public sealed record HostOptions
     public string? WorkerSocket { get; init; }
 
     /// <summary>
+    /// 소켓 파일의 Unix 권한. 비어 있으면 소유자만(<c>0600</c>). 워커가 다른 uid 의 컨테이너면 공유 볼륨의 그룹으로 맞춰 넓힌다
+    /// (<c>0660</c> + 워커에 그 그룹) — 같은 볼륨을 나누는 컨테이너가 소켓을 열 수 있는 유일한 길이다.
+    /// </summary>
+    public UnixFileMode? WorkerSocketMode { get; init; }
+
+    /// <summary>
     /// 구성을 엔진과 마지막으로 확인한 뒤 이만큼 지나면 «낡았다» — 규칙은 계속 돌되 사건에 <c>config_stale: true</c> 가 달린다(원장 D-105 W-6).
     /// 기본 24 시간.
     /// </summary>
@@ -97,6 +103,18 @@ public sealed record HostOptions
         if (workerSocket is not null && (!Path.IsPathRooted(workerSocket) || workerSocket.Length > 100 || workerSocket.EndsWith('/') || workerSocket.EndsWith('\\')))
             problems.Add("UVISION_WORKER_SOCKET 은 소켓 파일의 절대 경로여야 합니다(100자 이하, 디렉터리가 아니라 파일 — 예: /data/worker/worker.sock)");
 
+        UnixFileMode? workerSocketMode = null;
+        if (Get("UVISION_WORKER_SOCKET_MODE") is { } rawMode)
+        {
+            // 8 진수 세 자리(또는 앞에 0 을 붙인 네 자리). 소유자가 읽고 쓸 수 없는 값은 에이전트 자신이 소켓을 못 쓰는 값이라 거부한다.
+            var octal = rawMode.Length is 3 or 4 && rawMode.All(c => c is >= '0' and <= '7') && (rawMode.Length == 3 || rawMode[0] == '0');
+            if (workerSocket is null)
+                problems.Add("UVISION_WORKER_SOCKET_MODE 는 UVISION_WORKER_SOCKET 과 함께만 쓸 수 있습니다");
+            else if (!octal || (Convert.ToInt32(rawMode, 8) & 0b110_000_000) != 0b110_000_000)
+                problems.Add($"UVISION_WORKER_SOCKET_MODE 는 소유자가 읽고 쓸 수 있는 8 진수 권한(예: 0600 · 0660)이어야 합니다: {rawMode}");
+            else workerSocketMode = (UnixFileMode)Convert.ToInt32(rawMode, 8);
+        }
+
         var name = Get("UVISION_NODE_NAME");
         if (name is { Length: > 80 } || name?.Any(char.IsControl) == true)
             problems.Add("UVISION_NODE_NAME 은 제어 문자 없는 80자 이하여야 합니다");
@@ -112,6 +130,7 @@ public sealed record HostOptions
             StateDir = Get("UVISION_STATE_DIR") ?? DefaultStateDir,
             OutboxDir = Get("UVISION_OUTBOX_DIR") ?? DefaultOutboxDir,
             WorkerSocket = workerSocket,
+            WorkerSocketMode = workerSocketMode,
             MaxConfigAge = maxConfigAge,
             PollInterval = poll,
             OutboxMaxBytes = maxBytes,

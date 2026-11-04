@@ -74,7 +74,8 @@ public static class AgentHost
         {
             runner = new RuleRunner(outbox);
             ConfigureRules(runner, agent.Config, Log);
-            var socketServer = new WorkerSocketServer(socketPath, runner, clock: clock);
+            var socketServer = new WorkerSocketServer(socketPath, runner,
+                options.WorkerSocketMode is { } mode ? new WorkerSocketOptions { FileMode = mode } : null, clock);
             bool ConfigStale() => agent.ConfigConfirmedAt is { } at && clock.GetUtcNow() - at > options.MaxConfigAge;
             runner.IsConfigStale = ConfigStale;
             agent.WorkerStatus = () => WorkerStatusReport.From(socketServer.Stats, runner, ConfigStale());
