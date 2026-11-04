@@ -11,16 +11,21 @@ public class LabelAuditEndpointTests
 {
     private const string Base = "/api/u-vision";
 
-    private static async Task LabelAsync(HttpClient c, string imageId, string label) =>
-        await c.PutAsJsonAsync($"{Base}/results/label", new LabelInput
+    /// <summary>레코드를 먼저 심고(라벨은 판정 레코드에 매인다) 사람 라벨을 단다.</summary>
+    private static async Task LabelAsync(UVisionApiFactory factory, HttpClient c, string imageId, string label)
+    {
+        await factory.SeedResultAsync("demo", "2026-06-09", imageId);
+        var put = await c.PutAsJsonAsync($"{Base}/results/label", new LabelInput
         { ScenarioId = "demo", Date = "2026-06-09", ImageId = imageId, Label = label, By = "dev" });
+        put.EnsureSuccessStatusCode();
+    }
 
     [Fact]
     public async Task AuditSample_OmitsPriorLabel_BlindContract()
     {
         using var factory = new UVisionApiFactory();
         var c = factory.CreateClient();
-        await LabelAsync(c, "img_a", "NG");
+        await LabelAsync(factory, c, "img_a", "NG");
 
         var resp = await c.GetAsync($"{Base}/results/audit-sample?scenario_id=demo&date=2026-06-09");
         resp.EnsureSuccessStatusCode();
@@ -43,7 +48,8 @@ public class LabelAuditEndpointTests
         // 사람 라벨과 주입 도구가 심은 데이터셋 정답을 같은 수만큼 — 표본은 해시로 뽑으니 충분히 많이.
         for (var i = 0; i < 60; i++)
         {
-            await LabelAsync(c, $"img_h{i}", "OK");
+            await LabelAsync(factory, c, $"img_h{i}", "OK");
+            await factory.SeedResultAsync("demo", "2026-06-09", $"img_d{i}");
             await c.PutAsJsonAsync($"{Base}/results/label", new LabelInput
             { ScenarioId = "demo", Date = "2026-06-09", ImageId = $"img_d{i}", Label = "OK", By = CaptureOrigin.LabelerPrefix + "kamp-seq025" });
         }
@@ -59,7 +65,7 @@ public class LabelAuditEndpointTests
     {
         using var factory = new UVisionApiFactory();
         var c = factory.CreateClient();
-        await LabelAsync(c, "img_a", "NG");
+        await LabelAsync(factory, c, "img_a", "NG");
 
         var resp = await c.PostAsJsonAsync($"{Base}/results/audit", new AuditInput
         { ScenarioId = "demo", Date = "2026-06-09", ImageId = "img_a", Label = "NG", By = "dev" });
@@ -75,7 +81,7 @@ public class LabelAuditEndpointTests
     {
         using var factory = new UVisionApiFactory();
         var c = factory.CreateClient();
-        await LabelAsync(c, "img_a", "OK");
+        await LabelAsync(factory, c, "img_a", "OK");
 
         var resp = await c.PostAsJsonAsync($"{Base}/results/audit", new AuditInput
         { ScenarioId = "demo", Date = "2026-06-09", ImageId = "img_a", Label = "NG", By = "dev" });
@@ -95,7 +101,7 @@ public class LabelAuditEndpointTests
     {
         using var factory = new UVisionApiFactory();
         var c = factory.CreateClient();
-        await LabelAsync(c, "img_a", "NG");
+        await LabelAsync(factory, c, "img_a", "NG");
         var resp = await c.PostAsJsonAsync($"{Base}/results/audit", new AuditInput
         { ScenarioId = "demo", Date = "2026-06-09", ImageId = "img_a", Label = "BOGUS", By = "dev" });
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
@@ -106,8 +112,19 @@ public class LabelAuditEndpointTests
     {
         using var factory = new UVisionApiFactory();
         var c = factory.CreateClient();
+        await factory.SeedResultAsync("demo", "2026-06-09", "img_unlabeled");   // 레코드는 있고 라벨만 없다
+        var resp = await c.PostAsJsonAsync($"{Base}/results/audit", new AuditInput
+        { ScenarioId = "demo", Date = "2026-06-09", ImageId = "img_unlabeled", Label = "NG", By = "dev" });
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task PostAudit_NoRecord_Returns404()
+    {
+        using var factory = new UVisionApiFactory();
+        var c = factory.CreateClient();
         var resp = await c.PostAsJsonAsync($"{Base}/results/audit", new AuditInput
         { ScenarioId = "demo", Date = "2026-06-09", ImageId = "img_missing", Label = "NG", By = "dev" });
-        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
     }
 }

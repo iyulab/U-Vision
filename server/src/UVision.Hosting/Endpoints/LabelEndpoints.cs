@@ -23,6 +23,7 @@ public static class LabelEndpoints
             .WithName("PutLabel")
             .Produces(200)
             .ProducesProblem(400)
+            .ProducesProblem(404)
             .ProducesProblem(409);
         group.MapDelete("/results/label", DeleteLabelAsync)
             .WithName("DeleteLabel")
@@ -40,6 +41,7 @@ public static class LabelEndpoints
             .WithName("PostAudit")
             .Produces<AuditResponse>()
             .ProducesProblem(400)
+            .ProducesProblem(404)
             .ProducesProblem(409);
     }
 
@@ -55,13 +57,32 @@ public static class LabelEndpoints
         return scenario is null ? LabelSet.Default : EffectiveScenario.Resolve(scenario, mlEnabled: false).Labels;
     }
 
+    /// <summary>판정 레코드가 없으면 404, 형식이 틀린 id 면 400, 있으면 null.</summary>
+    private static async Task<IResult?> RecordMissingAsync(
+        IInspectionStore inspections, string scenarioId, string date, string imageId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await inspections.ReadResultAsync(scenarioId, date, imageId, cancellationToken) is null
+                ? Results.Problem(statusCode: 404, detail: $"판정 레코드 없음: {scenarioId}/{date}/{imageId}")
+                : null;
+        }
+        catch (ArgumentException)
+        {
+            return Results.Problem(statusCode: 400, detail: "유효하지 않은 scenario_id/date/image_id");
+        }
+    }
+
     private static async Task<IResult> PutLabelAsync(
-        LabelInput input, ILabelStore labelStore, IScenarioStore scenarioStore, CancellationToken cancellationToken)
+        LabelInput input, ILabelStore labelStore, IScenarioStore scenarioStore, IInspectionStore inspections, CancellationToken cancellationToken)
     {
         if (await PhotoSurface.RejectMonitoringAsync(scenarioStore, input.ScenarioId, "사람 라벨", cancellationToken) is { } monitoring)
             return monitoring;
         if (!LabelSet.IsValid(input.Label, await AllowedLabelsAsync(input.ScenarioId, scenarioStore, cancellationToken)))
             return Results.Problem(statusCode: 400, detail: $"허용되지 않은 라벨: '{input.Label}'");
+        // 라벨은 판정 레코드에 매인 사실이다 — 없는 레코드(오타 난 image_id · 삭제된 시나리오)에 «성공» 하며 사이드카를 남기지 않는다.
+        if (await RecordMissingAsync(inspections, input.ScenarioId, input.Date, input.ImageId, cancellationToken) is { } missing)
+            return missing;
 
         try
         {
@@ -139,12 +160,15 @@ public static class LabelEndpoints
     }
 
     private static async Task<IResult> PostAuditAsync(
-        AuditInput input, ILabelStore labelStore, IScenarioStore scenarioStore, CancellationToken cancellationToken)
+        AuditInput input, ILabelStore labelStore, IScenarioStore scenarioStore, IInspectionStore inspections, CancellationToken cancellationToken)
     {
         if (await PhotoSurface.RejectMonitoringAsync(scenarioStore, input.ScenarioId, "사람 라벨 감사", cancellationToken) is { } monitoring)
             return monitoring;
         if (!LabelSet.IsValid(input.Label, await AllowedLabelsAsync(input.ScenarioId, scenarioStore, cancellationToken)))
             return Results.Problem(statusCode: 400, detail: $"허용되지 않은 라벨: '{input.Label}'");
+        // 라벨은 판정 레코드에 매인 사실이다 — 없는 레코드(오타 난 image_id · 삭제된 시나리오)에 «성공» 하며 사이드카를 남기지 않는다.
+        if (await RecordMissingAsync(inspections, input.ScenarioId, input.Date, input.ImageId, cancellationToken) is { } missing)
+            return missing;
         try
         {
             var outcome = await labelStore.AppendAuditAsync(

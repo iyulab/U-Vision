@@ -134,4 +134,27 @@ public class LabelEndpointTests : IClassFixture<UVisionApiFactory>
             .First(r => r.GetProperty("image_id").GetString() == imageId);
         return match.GetRawText();
     }
+
+    [Fact]
+    public async Task PutLabel_NoRecord_Returns404_AndLeavesNothingBehind()
+    {
+        var client = _factory.CreateClient();
+
+        // 오타 난 image_id · 아직 없는 날짜 · 존재하지 않는(또는 지워진) 시나리오 — 모두 «기록됐다» 로 답하지 않고 사이드카도 남기지 않는다.
+        foreach (var (scenario, date, image) in new[] { ("demo", Today, "img_typo"), ("demo", "2020-01-01", "img_typo"), ("ghost", Today, "img_typo") })
+        {
+            var put = await client.PutAsJsonAsync("/api/u-vision/results/label", new LabelInput
+            { ScenarioId = scenario, Date = date, ImageId = image, Label = "OK" });
+            Assert.Equal(HttpStatusCode.NotFound, put.StatusCode);
+        }
+        var labels = await client.GetFromJsonAsync<JsonElement>($"/api/u-vision/results/labels?scenario_id=demo&date={Today}");
+        Assert.DoesNotContain(labels.EnumerateArray(), l => l.GetProperty("image_id").GetString() == "img_typo");   // 같은 픽스처의 다른 시험이 단 라벨은 남아 있다
+        Assert.False(Directory.Exists(Path.Combine(_factory.DataPath, "ghost")), "없는 시나리오의 디렉터리를 만들었다");
+
+        // 형식이 틀린 id 는 그대로 400(존재 확인 이전의 경계 거부).
+        var bad = await client.PutAsJsonAsync("/api/u-vision/results/label", new LabelInput
+        { ScenarioId = "demo", Date = Today, ImageId = "../x", Label = "OK" });
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+    }
+
 }

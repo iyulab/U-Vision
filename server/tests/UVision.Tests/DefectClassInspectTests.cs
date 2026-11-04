@@ -153,6 +153,7 @@ public class DefectClassInspectTests
     {
         using var factory = new UVisionApiFactory();
         await SeedTypedAsync(factory);
+        await factory.SeedResultAsync(scenarioId, "2026-10-22", "img_0123456789abcdef0123456789abcdef");   // 라벨은 판정 레코드에 매인다
         var resp = await factory.CreateClient().PutAsync("/api/u-vision/results/label", System.Net.Http.Json.JsonContent.Create(new
         {
             scenario_id = scenarioId, date = "2026-10-22", image_id = "img_0123456789abcdef0123456789abcdef", label,
