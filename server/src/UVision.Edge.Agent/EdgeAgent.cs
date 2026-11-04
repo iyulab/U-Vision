@@ -77,6 +77,9 @@ public sealed class EdgeAgent
         Directory.CreateDirectory(_stateDir);
         Credentials = Load<StoredCredentials>(CredentialsFile);
         Config = Load<EdgeConfig>(ConfigFile);
+        // 마지막으로 엔진과 구성이 같음을 확인한 시각 — 재시작 뒤에도 이어진다. 이 표지가 없는 옛 상태 디렉터리는 구성 파일의 수정 시각으로 대신한다.
+        ConfigConfirmedAt = Load<ConfirmedMark>(ConfirmedFile)?.At
+            ?? (Config is not null && File.Exists(ConfigFile) ? new DateTimeOffset(File.GetLastWriteTimeUtc(ConfigFile), TimeSpan.Zero) : null);
         Revoked = File.Exists(RevokedFile);
     }
 
@@ -89,6 +92,28 @@ public sealed class EdgeAgent
 
     private string CredentialsFile => Path.Combine(_stateDir, "credentials.json");
     private string ConfigFile => Path.Combine(_stateDir, "config.json");
+    private string ConfirmedFile => Path.Combine(_stateDir, "config-confirmed.json");
+
+    private sealed record ConfirmedMark([property: JsonPropertyName("at")] DateTimeOffset At);
+
+    private DateTimeOffset _confirmedPersistedAt;
+
+    /// <summary>
+    /// 구성이 엔진의 것과 같음을 마지막으로 확인한 시각(폴링이 200 으로 새 구성을 받았거나 304 로 «그대로» 를 확인한 때). 구성이 마지막으로 <b>바뀐</b> 때가
+    /// 아니다 — 구성이 오래 그대로여도 엔진을 계속 만나고 있으면 낡은 것이 아니다. 구성을 한 번도 못 받았으면 null.
+    /// </summary>
+    public DateTimeOffset? ConfigConfirmedAt { get; private set; }
+
+    private void ConfirmConfig()
+    {
+        var now = _clock.GetUtcNow();
+        ConfigConfirmedAt = now;
+        // 디스크에는 분 단위로만 — 낡음의 단위는 시간이라 폴링마다 쓸 이유가 없다.
+        if (now - _confirmedPersistedAt < TimeSpan.FromMinutes(1)) return;
+        _confirmedPersistedAt = now;
+        try { Save(ConfirmedFile, new ConfirmedMark(now)); }
+        catch (IOException) { /* 다음 확인에 다시 — 메모리 값은 이미 갱신됐다 */ }
+    }
     private string RevokedFile => Path.Combine(_stateDir, "revoked");
 
     private StoredCredentials? Credentials { get; set; }
@@ -135,6 +160,7 @@ public sealed class EdgeAgent
         {
             var poll = await _engine.GetConfigAsync(Credentials.Bearer, Config?.Version, ct);
             if (poll.ServerDate is { } serverDate) _offset.Observe(poll.SentAt, poll.ReceivedAt, serverDate);
+            ConfirmConfig();   // 200(새 구성)이든 304(그대로)이든 엔진과 구성이 같음을 확인했다
             if (poll.Config is not null)
             {
                 Config = poll.Config;

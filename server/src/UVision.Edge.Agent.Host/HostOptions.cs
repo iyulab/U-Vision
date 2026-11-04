@@ -33,6 +33,12 @@ public sealed record HostOptions
     /// </summary>
     public string? WorkerSocket { get; init; }
 
+    /// <summary>
+    /// 구성을 엔진과 마지막으로 확인한 뒤 이만큼 지나면 «낡았다» — 규칙은 계속 돌되 사건에 <c>config_stale: true</c> 가 달린다(원장 D-105 W-6).
+    /// 기본 24 시간.
+    /// </summary>
+    public TimeSpan MaxConfigAge { get; init; } = TimeSpan.FromHours(24);
+
     public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(30);
 
     /// <summary>outbox 가 디스크에서 차지할 수 있는 상한(바이트) — 넘으면 오래된 크롭부터 버린다. 0 이하면 라이브러리 기본.</summary>
@@ -79,6 +85,14 @@ public sealed record HostOptions
             else maxBytes = mb * 1024 * 1024;
         }
 
+        var maxConfigAge = TimeSpan.FromHours(24);
+        if (Get("UVISION_MAX_CONFIG_AGE_HOURS") is { } rawAge)
+        {
+            if (!int.TryParse(rawAge, NumberStyles.None, CultureInfo.InvariantCulture, out var hours) || hours is < 1 or > 8760)
+                problems.Add($"UVISION_MAX_CONFIG_AGE_HOURS 는 1~8760 사이의 정수(시간)여야 합니다: {rawAge}");
+            else maxConfigAge = TimeSpan.FromHours(hours);
+        }
+
         var workerSocket = Get("UVISION_WORKER_SOCKET");
         if (workerSocket is not null && (!Path.IsPathRooted(workerSocket) || workerSocket.Length > 100 || workerSocket.EndsWith('/') || workerSocket.EndsWith('\\')))
             problems.Add("UVISION_WORKER_SOCKET 은 소켓 파일의 절대 경로여야 합니다(100자 이하, 디렉터리가 아니라 파일 — 예: /data/worker/worker.sock)");
@@ -98,6 +112,7 @@ public sealed record HostOptions
             StateDir = Get("UVISION_STATE_DIR") ?? DefaultStateDir,
             OutboxDir = Get("UVISION_OUTBOX_DIR") ?? DefaultOutboxDir,
             WorkerSocket = workerSocket,
+            MaxConfigAge = maxConfigAge,
             PollInterval = poll,
             OutboxMaxBytes = maxBytes,
         };

@@ -680,6 +680,7 @@ export interface EdgeWorkerStatus {
   rules: number
   skipped_rules: number
   skipped?: string[]
+  config_stale?: boolean
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

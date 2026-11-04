@@ -79,6 +79,12 @@ export function describeNode(node: EdgeNode, now: number): NodeRow {
           severity: 'bad',
           text: `건너뛴 규칙 ${worker.skipped_rules}개 — ${worker.skipped?.[0] ?? '구성이 가리키는 소스·구역·선이 없습니다'}`,
         })
+      // 규칙은 마지막 구성으로 계속 돈다 — 멈추지 않으니 bad 가 아니라 «받는 쪽이 신뢰를 정하라» 는 경고다(사건에 config_stale 이 달린다).
+      if (worker.config_stale)
+        flags.push({
+          severity: 'warn',
+          text: '구성이 오래 갱신되지 않았습니다 — 엔진을 한동안 만나지 못했습니다. 규칙은 마지막 구성으로 돌고 사건에 config_stale 이 달립니다',
+        })
       if (worker.dropped > 0)
         flags.push({
           severity: 'warn',

@@ -279,6 +279,43 @@ public sealed class EdgeAgentTests : IDisposable
         }
     }
 
+    private sealed class StepClock(DateTimeOffset start) : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = start;
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    [Fact]
+    public async Task Agent_ConfigConfirmedAt_FollowsSuccessfulPolls_NotConfigChanges_AndSurvivesARestart()
+    {
+        using var rig = new Rig();
+        using var box = AgentOutbox.Open(Dir("cc/outbox"));
+        await rig.RegisteredAgentAsync(Dir("cc/state"), box);
+        var t0 = new DateTimeOffset(2026, 11, 4, 9, 0, 0, TimeSpan.Zero);
+        var clock = new StepClock(t0);
+        var options = new AgentOptions { Jitter = 0 };
+
+        var agent = new EdgeAgent(rig.Engine(), box, Dir("cc/state"), options, clock);
+        Assert.Null(agent.ConfigConfirmedAt);                                  // 구성을 한 번도 못 받았다
+
+        Assert.True((await agent.RunOnceAsync(CancellationToken.None)).ConfigChanged);   // 200 — 새 구성
+        Assert.Equal(t0, agent.ConfigConfirmedAt);
+
+        clock.Now = t0.AddHours(2);
+        Assert.False((await agent.RunOnceAsync(CancellationToken.None)).ConfigChanged);  // 304 — 구성은 그대로지만 «같음» 을 확인했다
+        Assert.Equal(t0.AddHours(2), agent.ConfigConfirmedAt);
+
+        rig.Net.Down = true;                                                    // 엔진을 못 만나는 동안은 확인이 쌓이지 않는다
+        clock.Now = t0.AddHours(5);
+        Assert.True((await agent.RunOnceAsync(CancellationToken.None)).Offline);
+        Assert.Equal(t0.AddHours(2), agent.ConfigConfirmedAt);
+
+        // 재시작 — 확인 시각이 디스크에서 돌아온다(낡음이 재시작으로 «새것» 이 되지 않는다).
+        clock.Now = t0.AddHours(6);
+        var restarted = new EdgeAgent(rig.Engine(), box, Dir("cc/state"), options, clock);
+        Assert.Equal(t0.AddHours(2), restarted.ConfigConfirmedAt);
+    }
+
     [Fact]
     public async Task Agent_RunAsync_CancelledInTheMiddleOfARequest_EndsWithoutThrowing()
     {

@@ -19,6 +19,13 @@ public sealed class RuleRunner(AgentOutbox outbox) : IWorkerSink
     private long _events;
     private string? _configVersion;
 
+    /// <summary>
+    /// 지금 쥔 구성이 낡았는가를 답하는 함수 — 호스트가 «엔진과 마지막으로 확인한 지 <c>max_config_age</c> 가 지났는가» 로 정한다(원장 D-105 W-6).
+    /// 참이면 규칙이 내는 모든 사건의 <c>data</c> 에 <c>config_stale: true</c> 가 달린다 — 규칙은 멈추지 않는다(경보가 조용히 사라지는 것이 더 위험하다);
+    /// 낡은 규칙의 사건을 얼마나 믿을지는 받는 쪽이 정한다.
+    /// </summary>
+    public Func<bool>? IsConfigStale { get; set; }
+
     /// <summary>지금까지 outbox 에 넣은 사건 수(진단용).</summary>
     public long EventsEnqueued => Interlocked.Read(ref _events);
 
@@ -68,10 +75,19 @@ public sealed class RuleRunner(AgentOutbox outbox) : IWorkerSink
 
     private void Enqueue(IReadOnlyList<RuleEvent> events)
     {
+        if (events.Count == 0) return;
+        var stale = IsConfigStale?.Invoke() == true;
         foreach (var e in events)
         {
-            outbox.EnqueueEvent(e.ScenarioId, e.Kind, e.Time, e.Data);
+            outbox.EnqueueEvent(e.ScenarioId, e.Kind, e.Time, stale ? WithStaleFlag(e.Data) : e.Data);
             Interlocked.Increment(ref _events);
         }
+    }
+
+    private static System.Text.Json.JsonElement WithStaleFlag(System.Text.Json.JsonElement data)
+    {
+        var node = System.Text.Json.Nodes.JsonNode.Parse(data.GetRawText())!.AsObject();
+        node["config_stale"] = true;
+        return System.Text.Json.JsonSerializer.SerializeToElement(node);
     }
 }

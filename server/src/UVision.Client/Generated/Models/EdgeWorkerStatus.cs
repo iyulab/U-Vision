@@ -14,6 +14,8 @@ namespace UVision.Client.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
+        /// <summary>The config_stale property</summary>
+        public bool? ConfigStale { get; set; }
         /// <summary>The connected property</summary>
         public bool? Connected { get; set; }
         /// <summary>The dropped property</summary>
@@ -73,6 +75,7 @@ namespace UVision.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "config_stale", n => { ConfigStale = n.GetBoolValue(); } },
                 { "connected", n => { Connected = n.GetBoolValue(); } },
                 { "dropped", n => { Dropped = n.GetLongValue(); } },
                 { "frames", n => { Frames = n.GetLongValue(); } },
@@ -90,6 +93,7 @@ namespace UVision.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteBoolValue("config_stale", ConfigStale);
             writer.WriteBoolValue("connected", Connected);
             writer.WriteLongValue("dropped", Dropped);
             writer.WriteLongValue("frames", Frames);

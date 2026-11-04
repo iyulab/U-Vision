@@ -52,6 +52,14 @@ describe('describeNode — inference worker', () => {
     expect(row.worst).toBe('bad')
   })
 
+  it('warns (not errors) that a stale config keeps running, because the events are marked for the receiver', () => {
+    const row = describeNode(workerNode({ config_stale: true }), NOW)
+    expect(row.flags).toHaveLength(1)
+    expect(row.flags[0].severity).toBe('warn')
+    expect(row.flags[0].text).toContain('config_stale')
+    expect(row.worst).toBe('warn')
+  })
+
   it('does not flag a missing worker when there are no rules to feed', () => {
     expect(describeNode(workerNode({ connected: false, rules: 0 }), NOW).flags).toEqual([])
   })

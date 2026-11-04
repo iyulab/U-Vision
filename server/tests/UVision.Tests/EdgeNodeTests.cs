@@ -352,6 +352,30 @@ public class EdgeNodeTests
     }
 
     [Fact]
+    public async Task StatusReport_ConfigStale_IsShown_AndChangingItIsWrittenAtOnce()
+    {
+        using var f = new PinFactory();
+        var admin = Admin(f);
+        var (nodeId, secret) = await RegisterAsync(f.CreateClient(), await IssueAsync(admin));
+        var node = AsNode(f, nodeId, secret);
+        object Body(bool stale) => new
+        {
+            outbox_depth = 0, outbox_bytes = 0L, dropped_crops = 0L, parked = 0,
+            worker = new { connected = true, frames = 5L, dropped = 0L, rules = 1, skipped_rules = 0, config_stale = stale },
+        };
+        var path = Path.Combine(f.DataPath, "edge", "nodes", nodeId, "node.json");
+
+        await node.PostAsJsonAsync($"{Base}/v1/status", Body(false));
+        var fresh = File.ReadAllText(path);
+        Assert.DoesNotContain("config_stale", fresh);                                       // 기본값(false)은 쓰지 않는다
+
+        await node.PostAsJsonAsync($"{Base}/v1/status", Body(true));                         // 바뀌면 1 분 안이라도 곧바로 쓴다
+        var w = (await admin.GetFromJsonAsync<JsonElement>($"{Base}/nodes")).EnumerateArray().Single().GetProperty("status").GetProperty("worker");
+        Assert.True(w.GetProperty("config_stale").GetBoolean());
+        Assert.NotEqual(fresh, File.ReadAllText(path));
+    }
+
+    [Fact]
     public async Task StatusReport_BadWorkerValues_Are400()
     {
         using var f = new PinFactory();

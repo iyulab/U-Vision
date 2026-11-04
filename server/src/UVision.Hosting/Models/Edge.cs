@@ -147,6 +147,14 @@ public sealed record EdgeWorkerStatus
     [JsonPropertyName("skipped")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Skipped { get; init; }
+
+    /// <summary>
+    /// 에이전트가 쥔 구성이 낡았는가 — 엔진과 마지막으로 확인한 지 노드가 정한 한도(기본 24 시간)가 지났다. 규칙은 멈추지 않고 마지막 구성으로
+    /// 돌며, 그동안 난 사건의 <c>data</c> 에는 <c>config_stale: true</c> 가 달린다.
+    /// </summary>
+    [JsonPropertyName("config_stale")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ConfigStale { get; init; }
 }
 
 /// <summary>엔진이 기록한 노드의 마지막 자기 보고 — 보고 내용과 받은 시각.</summary>

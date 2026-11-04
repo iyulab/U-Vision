@@ -353,6 +353,15 @@ public sealed class EdgeAgentHostTests : IDisposable
     }
 
     [Fact]
+    public void Options_MaxConfigAge_DefaultsToADay_AndIsBounded()
+    {
+        Assert.Equal(TimeSpan.FromHours(24), HostOptions.FromEnvironment(Env(("UVISION_ENGINE_URL", "https://e"))).MaxConfigAge);
+        Assert.Equal(TimeSpan.FromHours(6), HostOptions.FromEnvironment(Env(("UVISION_ENGINE_URL", "https://e"), ("UVISION_MAX_CONFIG_AGE_HOURS", "6"))).MaxConfigAge);
+        foreach (var bad in new[] { "0", "8761", "-1", "1.5", "day" })
+            Assert.Throws<HostConfigException>(() => HostOptions.FromEnvironment(Env(("UVISION_ENGINE_URL", "https://e"), ("UVISION_MAX_CONFIG_AGE_HOURS", bad))));
+    }
+
+    [Fact]
     public async Task Host_WithAWorkerSocket_TurnsWorkerFramesIntoEventsThatReachTheEngine()
     {
         using var engine = new Engine();

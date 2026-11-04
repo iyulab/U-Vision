@@ -4711,6 +4711,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "config_stale": {
+            "type": "boolean"
           }
         }
       },

@@ -75,7 +75,9 @@ public static class AgentHost
             runner = new RuleRunner(outbox);
             ConfigureRules(runner, agent.Config, Log);
             var socketServer = new WorkerSocketServer(socketPath, runner, clock: clock);
-            agent.WorkerStatus = () => WorkerStatusReport.From(socketServer.Stats, runner);
+            bool ConfigStale() => agent.ConfigConfirmedAt is { } at && clock.GetUtcNow() - at > options.MaxConfigAge;
+            runner.IsConfigStale = ConfigStale;
+            agent.WorkerStatus = () => WorkerStatusReport.From(socketServer.Stats, runner, ConfigStale());
             receive = socketServer.RunAsync(receiveCts.Token);
             if (receive.IsFaulted)   // 바인딩 실패(경로 · 권한)는 첫 await 전에 난다 — 다시 띄워도 같다
             {

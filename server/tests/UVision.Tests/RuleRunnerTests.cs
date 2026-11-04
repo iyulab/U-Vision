@@ -162,6 +162,26 @@ public sealed class RuleRunnerTests : IDisposable
     }
 
     [Fact]
+    public void AStaleConfig_KeepsTheRulesRunning_AndMarksEveryEventItRaises()
+    {
+        var stale = false;
+        var runner = new RuleRunner(_outbox) { IsConfigStale = () => stale };
+        runner.Configure(Config("v1", Watch()));
+
+        runner.OnFrame(Frame(0, Box()));
+        runner.OnFrame(Frame(1, Box()));            // 신선한 구성의 사건 — 표시 없음
+        stale = true;                                // 엔진을 오래 못 만났다
+        for (var s = 2; s <= 7; s++) runner.OnFrame(Frame(s, Person()));   // 5 초 → alarm_raised (규칙은 계속 돈다)
+        runner.OnWorkerLost(T0.AddSeconds(8));
+
+        var items = _outbox.Peek(100);
+        Assert.Equal(["count_changed", "count_changed", "alarm_raised", "source_state"], items.Select(i => i.EventKind));
+        Assert.False(items[0].Data!.Value.TryGetProperty("config_stale", out _));
+        Assert.All(items.Skip(1), i => Assert.True(i.Data!.Value.GetProperty("config_stale").GetBoolean()));
+        Assert.Equal("intruder", items[2].Data!.Value.GetProperty("rule").GetString());   // 원래 필드는 그대로
+    }
+
+    [Fact]
     public void SkippedRulesAreVisible_AndTheValidOnesStillRun()
     {
         var broken = Watch() with

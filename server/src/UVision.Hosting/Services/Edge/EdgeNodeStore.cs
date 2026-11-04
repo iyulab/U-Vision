@@ -312,7 +312,7 @@ public sealed class EdgeNodeStore(StoragePaths paths, TimeProvider clock)
     private static bool SameWorker(EdgeWorkerStatus? a, EdgeWorkerStatus? b) =>
         a is null || b is null
             ? a is null && b is null
-            : a.Connected == b.Connected && a.Dropped == b.Dropped && a.LastDropReason == b.LastDropReason
+            : a.Connected == b.Connected && a.ConfigStale == b.ConfigStale && a.Dropped == b.Dropped && a.LastDropReason == b.LastDropReason
               && a.Rules == b.Rules && a.SkippedRules == b.SkippedRules && (a.Skipped ?? []).SequenceEqual(b.Skipped ?? []);
 
     private static string? CleanName(string? name)
