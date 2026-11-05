@@ -19,6 +19,14 @@ public sealed record ScenarioClass
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Label { get; init; }
 
+    /// <summary>
+    /// 이 클래스가 무엇인지 설명하는 글(현장 말) — <c>classification</c> 시나리오에서 VLM 프롬프트가 <c>label</c> 과 함께 싣는다.
+    /// 클래스에 선악이 없어 기준 이미지가 없어도 글만으로 시작할 수 있다. 다른 유형에서는 쓰지 않는다.
+    /// </summary>
+    [JsonPropertyName("description")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; init; }
+
     [JsonPropertyName("settleable")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Settleable { get; init; }
@@ -99,6 +107,12 @@ public static class ScenarioVocabulary
     public const string Verification = "verification";
     public const string Counting = "counting";
 
+    /// <summary>
+    /// 선별 · 식별 — 사진이 어느 <b>종류</b>인지 가린다(품번 · 품종 · 숫자 판독). 클래스는 값 중립이고 둘 이상이며 OK 가 없어도 된다.
+    /// 결과는 v2 의 <c>class</c> 이고 v1 로는 부를 수 없다(원장 D-111).
+    /// </summary>
+    public const string Classification = "classification";
+
     /// <summary>스트림 감시 — 판정(OK/NG)이 아니라 엣지 규칙이 내는 <b>사건</b>이 결과다. 항상 <c>trigger: stream</c>.</summary>
     public const string Monitoring = "monitoring";
 
@@ -118,7 +132,7 @@ public static class ScenarioVocabulary
     public const string Match = "MATCH";
     public const string Mismatch = "MISMATCH";
 
-    public static readonly IReadOnlySet<string> Types = new HashSet<string>(StringComparer.Ordinal) { Inspection, Verification, Counting, Monitoring };
+    public static readonly IReadOnlySet<string> Types = new HashSet<string>(StringComparer.Ordinal) { Inspection, Verification, Counting, Monitoring, Classification };
     public static readonly IReadOnlySet<string> Triggers = new HashSet<string>(StringComparer.Ordinal) { Still, Stream };
     public static readonly IReadOnlySet<string> Tiers = new HashSet<string>(StringComparer.Ordinal) { MatchTier, MemoryTier, MlTier, VlmTier, DetectorTier };
 
@@ -132,6 +146,7 @@ public static class ScenarioVocabulary
         Verification => VerificationTiers,
         Counting => CountingTiers,
         Monitoring => NoTiers, // 스트림 감시는 판정 라우터를 타지 않는다 — 사건은 엣지 규칙이 낸다
+        Inspection or Classification => InspectionTiers, // 선별도 같은 세 단 — 기억(k-NN)은 클래스에 중립이다
         _ => InspectionTiers,
     };
 

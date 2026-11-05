@@ -44,6 +44,12 @@ public sealed record EffectiveScenario(
     public bool IsVerification => Type == ScenarioVocabulary.Verification;
 
     /// <summary>
+    /// 선별 · 식별 — 클래스는 값 중립이고 OK 가 없어도 된다. 결과는 v2 의 <c>class</c> 이고, OK/NG 는 그 보기일 뿐이다(<see cref="VerdictOf"/>:
+    /// 꼭 잡을 클래스면 NG). v1 로는 부를 수 없다.
+    /// </summary>
+    public bool IsClassification => Type == ScenarioVocabulary.Classification;
+
+    /// <summary>
     /// 개수를 세어 판정하는가 — 판정 클래스는 검사와 같은 OK/NG(허용 범위 안/밖)이고, 세는 일은 검출기 단이 한다.
     /// 세는 물건의 종류(<see cref="CountClasses"/>)는 판정 클래스와 다른 말이다.
     /// </summary>
@@ -65,12 +71,15 @@ public sealed record EffectiveScenario(
     public IReadOnlyList<string> DefectClasses => DefectTypes.Select(c => c.Id).ToList();
 
     /// <summary><see cref="DefectClasses"/> 의 클래스 그대로 — 표시 이름이 필요한 곳(프롬프트)이 쓴다.</summary>
-    public IReadOnlyList<ScenarioClass> DefectTypes => IsVerification
+    public IReadOnlyList<ScenarioClass> DefectTypes => IsVerification || IsClassification
         ? []
         : Classes.Where(c => c.Id != ScenarioVocabulary.Ok).ToList();
 
-    /// <summary>NG 를 유형으로 나눠 판정하는가 — 불량 유형이 <c>NG</c> 하나뿐이면 지금의 이분 판정이다.</summary>
-    public bool IsMultiClass => !IsVerification && DefectClasses is not [ScenarioVocabulary.Ng];
+    /// <summary>
+    /// 결과가 클래스 id 로 남는가 — 선별은 언제나, 검사는 NG 를 유형으로 나눌 때(불량 유형이 <c>NG</c> 하나뿐이면 지금의 이분 판정이다).
+    /// 오투입 확인은 아니다(verdict 가 곧 클래스).
+    /// </summary>
+    public bool IsMultiClass => IsClassification || (!IsVerification && DefectClasses is not [ScenarioVocabulary.Ng]);
 
     /// <summary>
     /// 사람 라벨로 받는 값. 검사는 클래스 id, 오투입 확인은 OK/NG(화면이 일치/불일치로 읽는다) — 판정 레코드의
@@ -94,6 +103,8 @@ public sealed record EffectiveScenario(
     /// </summary>
     public string? ClassOf(InspectionResult result)
     {
+        // 선별은 VLM 이 OK/NG 가 아니라 클래스를 직접 댄다 — 선언하지 않은 클래스(또는 못 댐)는 답이 아니다(null, fail-closed).
+        if (IsClassification) return result.Class is { } picked ? ClassFor(picked) : null;
         if (!IsMultiClass || result.Verdict == Verdict.OK) return ClassOf(result.Verdict);
         return result.DefectClass is { } defect && ClassFor(defect) is { } id && id != ScenarioVocabulary.Ok ? id : null;
     }
@@ -107,11 +118,17 @@ public sealed record EffectiveScenario(
     /// </summary>
     public Func<string, bool>? NgLabelRule => IsMultiClass ? label => VerdictOf(label) == Verdict.NG : null;
 
-    /// <summary>클래스의 v1 보기 — 좋은 쪽(OK · MATCH)만 OK, 불량 유형은 모두 NG.</summary>
+    /// <summary>
+    /// 클래스의 v1 보기 — 검사는 좋은 쪽(OK · MATCH)만 OK 이고 불량 유형은 모두 NG. 선별은 클래스에 선악이 없으므로 <b>꼭 잡을
+    /// 클래스(<c>must_catch</c>)면 NG</b>, 아니면 OK 다(잡아야 할 것이 없으면 늘 OK) — 메트릭의 NG recall 이 must_catch recall 인 것과
+    /// 같은 정의다(원장 D-111).
+    /// </summary>
     public Verdict VerdictOf(string classId) =>
-        string.Equals(classId, IsVerification ? ScenarioVocabulary.Match : ScenarioVocabulary.Ok, StringComparison.OrdinalIgnoreCase)
-            ? Verdict.OK
-            : Verdict.NG;
+        IsClassification
+            ? (Classes.Any(c => c.MustCatch && string.Equals(c.Id, classId, StringComparison.OrdinalIgnoreCase)) ? Verdict.NG : Verdict.OK)
+            : string.Equals(classId, IsVerification ? ScenarioVocabulary.Match : ScenarioVocabulary.Ok, StringComparison.OrdinalIgnoreCase)
+                ? Verdict.OK
+                : Verdict.NG;
 
     /// <param name="scenario">저장된 시나리오(경계에서 <see cref="Validate"/> 를 통과한 것).</param>
     /// <param name="mlEnabled">전용 ML 판정원이 켜져 있는가 — 단 순서를 파생할 때만 쓴다.</param>
@@ -186,7 +203,17 @@ public sealed record EffectiveScenario(
                 return "classes[].label 이 겹친다(대소문자 무시)";
             if (classes.Any(c => c.Settleable && c.MustCatch))
                 return "한 클래스가 settleable 이면서 must_catch 일 수 없다";
-            if (type == ScenarioVocabulary.Verification)
+            if (type != ScenarioVocabulary.Classification && classes.Any(c => c.Description is not null))
+                return $"classes[].description 은 type 이 classification 일 때만 줄 수 있다: {type}";
+            if (type == ScenarioVocabulary.Classification)
+            {
+                // 선별은 값 중립인 클래스 둘 이상 — OK 도 불량 유형도 요구하지 않는다. 확정 권한(settleable)과 꼭 잡을 값(must_catch)은 클래스마다 선택이다.
+                if (classes.Count < 2)
+                    return "classification 의 classes 는 둘 이상이어야 한다";
+                if (classes.FirstOrDefault(c => c.Description is { } d && !ClassDescription.IsMatch(d)) is { } badDescription)
+                    return $"classes[].description 은 앞뒤 공백 없이 1~{MaxClassDescription}자(제어문자 · 줄바꿈 제외): {badDescription.Id}";
+            }
+            else if (type == ScenarioVocabulary.Verification)
             {
                 // 대조는 같다/다르다 둘뿐이고, 다른 쪽은 꼭 잡을 값이다.
                 if (!(classes.Count == 2
@@ -206,6 +233,10 @@ public sealed record EffectiveScenario(
                     return $"{type} 의 불량 유형은 모두 must_catch 여야 한다: {string.Join(", ", defects.Where(c => !c.MustCatch).Select(c => c.Id))}";
             }
         }
+
+        // 선별은 클래스가 곧 시나리오의 어휘라 파생 기본값이 없다 — 합친 모양(수정이면 저장된 것, 유형이 바뀌면 옮기지 않는다)에 둘 이상이 있어야 한다.
+        if (type == ScenarioVocabulary.Classification && (input.Classes ?? (typeChanged ? null : existing?.Classes)) is not { Count: >= 2 })
+            return "classification 시나리오는 classes(둘 이상)가 필수다";
 
         if (input.Judges is { } judges)
         {
@@ -245,8 +276,8 @@ public sealed record EffectiveScenario(
         {
             if (!double.IsFinite(memoryDistance) || memoryDistance < 0 || memoryDistance > 2)
                 return "memory_max_distance 는 0 초과 2 이하의 코사인 거리(0 은 지움)";
-            if (memoryDistance > 0 && type != ScenarioVocabulary.Inspection)
-                return $"memory_max_distance 는 type 이 inspection 일 때만 줄 수 있다: {type}";
+            if (memoryDistance > 0 && type is not (ScenarioVocabulary.Inspection or ScenarioVocabulary.Classification))
+                return $"memory_max_distance 는 type 이 inspection 또는 classification 일 때만 줄 수 있다: {type}";
         }
 
         return ValidateCounting(input, existing, type, typeChanged) ?? ValidateStream(input, existing, type, typeChanged);
@@ -344,5 +375,10 @@ public sealed record EffectiveScenario(
 
     // 표시 이름은 프롬프트에 «id(이름)» 로 들어가고 관리 화면은 «id=이름, …» 으로 적는다 — 줄을 끊거나 목록 · 쌍을
     // 흐리는 문자(제어문자 · ',' · '=')와 앞뒤 공백을 받지 않는다.
+    /// <summary>클래스 설명의 길이 상한 — 프롬프트에 그대로 실리는 글이라 짧게 묶는다(현장 말 한두 문장).</summary>
+    public const int MaxClassDescription = 400;
+
+    private static readonly Regex ClassDescription = new(@"^(?=\S)[^\p{C}]{1,400}(?<=\S)\z", RegexOptions.Compiled);
+
     private static readonly Regex DisplayLabel = new(@"^(?=\S)[^\p{C},=]{1,32}(?<=\S)\z", RegexOptions.Compiled);
 }

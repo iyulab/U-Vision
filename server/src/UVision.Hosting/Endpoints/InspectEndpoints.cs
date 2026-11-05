@@ -177,6 +177,11 @@ public static class InspectEndpoints
             return Results.Problem(statusCode: 400,
                 detail: "monitoring 시나리오는 /inspect 로 판정하지 않는다 — 엣지 노드가 규칙으로 사건을 낸다");
 
+        // 선별은 OK/NG 로 접히지 않는다(클래스에 선악이 없다) — 결과가 클래스인 v2 로만 부를 수 있다. v1 은 호출자의 OK/NG 기대를 속이지 않고 거절한다.
+        if (scenario.Type == ScenarioVocabulary.Classification && operation == "inspect")
+            return Results.Problem(statusCode: 400,
+                detail: "classification 시나리오는 결과가 클래스라 POST /inspect(OK/NG)로 부를 수 없다 — POST /v2/inspect 를 쓴다");
+
         // 오투입 확인은 기대 품번 없이는 판정할 것이 없다 — v1 은 이 필드가 없으므로 v2 로만 부를 수 있다.
         if (scenario.Type == ScenarioVocabulary.Verification && string.IsNullOrWhiteSpace(context?.ExpectedPart))
             return Results.Problem(statusCode: 400,

@@ -63,6 +63,14 @@ public sealed record InspectionResult
     /// </summary>
     [JsonIgnore]
     public string? DefectClass { get; init; }
+
+    /// <summary>
+    /// 선별(<c>classification</c>) 시나리오에서 VLM 이 고른 클래스 id — OK/NG 가 아니라 클래스를 직접 댄다. 이분 판정의
+    /// 구조화 출력 스키마에서 빼는 내부 필드다(선별은 다른 출력 형태로 받는다). 선별에서는 <see cref="Verdict"/> 를 파이프라인이
+    /// 이 클래스에서 파생한다.
+    /// </summary>
+    [JsonIgnore]
+    public string? Class { get; init; }
 }
 
 /// <summary>
