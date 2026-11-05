@@ -1,10 +1,12 @@
 import type { Scenario, ScenarioClass } from './types'
 
 /** 서버 클래스 id 규칙과 같다 — 학습 폴더 이름 · VLM 출력 enum 이 된다. */
-const ID = /^[A-Za-z0-9_-]{1,64}$/
+export const CLASS_ID = /^[A-Za-z0-9_-]{1,64}$/
+const ID = CLASS_ID
 
 /** 서버 표시 이름 규칙과 같다 — 앞뒤 공백 · 제어문자 · ',' · '=' 없이 1~32자(입력 문법 «id=이름, …» 을 흐리지 않게). */
-const LABEL = /^(?=\S)[^\p{C},=]{1,32}(?<=\S)$/u
+export const CLASS_LABEL = /^(?=\S)[^\p{C},=]{1,32}(?<=\S)$/u
+const LABEL = CLASS_LABEL
 
 /** 불량 유형 하나 — 키(id)와 현장 말 표시 이름. */
 export interface Defect {
@@ -14,9 +16,10 @@ export interface Defect {
 
 /**
  * 관리 화면이 보여 줄 불량 유형 — 검사 시나리오가 OK 밖에 둔 클래스. 이분 판정(`NG` 하나뿐)과 오투입 확인은 빈 목록이다.
+ * 선별(`classification`)의 클래스는 값 중립이라 «불량 유형» 이 아니다 — 빈 목록(클래스 편집기가 따로 다룬다).
  */
 export function defectsOf(scenario: Pick<Scenario, 'type' | 'classes'>): Defect[] {
-  if (scenario.type === 'verification' || !scenario.classes?.length) return []
+  if (scenario.type === 'verification' || scenario.type === 'classification' || !scenario.classes?.length) return []
   const defects = scenario.classes
     .filter((c) => c.id !== 'OK')
     .map((c) => (c.label === undefined ? { id: c.id } : { id: c.id, label: c.label }))

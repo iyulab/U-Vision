@@ -8,6 +8,16 @@ import { useResource } from '../hooks/useResource'
 import { AdminSetup } from './AdminSetup'
 import { countDraftOf, countLine, EMPTY_COUNT_DRAFT, EXTRA_POLICIES, parseCountDraft, type CountDraft } from '../lib/counting'
 import { classesFor, defectsOf, formatDefects, parseDefects, type Defect } from '../lib/defectClasses'
+import {
+  classDraftsError,
+  classDraftsOf,
+  classesOfDrafts,
+  classSummary,
+  emptyClassDrafts,
+  sameClassDrafts,
+  type ClassDraft,
+} from '../lib/classification'
+import { ClassesField } from './ClassesField'
 import { streamSummary } from '../lib/streamScenario'
 import { distanceUpdateInput } from '../lib/memory'
 import { DEFAULT_MOTION_CONFIG } from '../lib/motion'
@@ -73,11 +83,15 @@ interface DraftScenario {
   originalDefects: Defect[]
   /** 개수 세기(type=counting) 입력란. */
   count: CountDraft
+  /** 다중 분류(type=classification)의 클래스 편집 줄. */
+  classDrafts: ClassDraft[]
+  /** 수정 시작 때의 클래스 줄 — 바뀌었거나 유형을 선별로 바꿨을 때만 classes 를 보낸다. */
+  originalClassDrafts: ClassDraft[]
   /** 스트림 감시(type=monitoring)의 읽기 전용 요약 — 이 화면은 이름만 고친다(정의는 API 로). */
   stream?: { sources: string[]; rules: string[] }
 }
 
-/** 시나리오 유형 — 이 화면이 고를 수 있는 것은 'inspection' · 'verification' · 'counting' 이고, 모르는 유형(서버가 더 지은 것)은 그대로 둔다. */
+/** 시나리오 유형 — 이 화면이 고를 수 있는 것은 'inspection' · 'verification' · 'counting' · 'classification' 이고, 모르는 유형(서버가 더 지은 것)은 그대로 둔다. */
 type ScenarioType = string
 
 /**
@@ -328,6 +342,12 @@ function ScenarioManager({
     // 개수 세기는 기대 개수가 필수라 입력란을 서버 필드로 옮긴다(막힌 입력은 저장 버튼이 이미 꺼져 있다).
     const counting = draft.type === 'counting' ? parseCountDraft(draft.count) : null
     if (counting && 'error' in counting) return
+    // 다중 분류는 클래스가 시나리오의 어휘 그 자체라 파생 기본값이 없다 — 새로 만들거나 유형을 바꿀 때는 늘 보내고, 그 밖엔 바뀐 때만.
+    const classification = draft.type === 'classification'
+    if (classification && classDraftsError(draft.classDrafts)) return
+    const classesChanged =
+      classification &&
+      (draft.originalType !== 'classification' || !sameClassDrafts(draft.classDrafts, draft.originalClassDrafts))
     if (draft.type === 'monitoring' && draft.id) {
       const id = draft.id
       void mutate(
@@ -354,6 +374,7 @@ function ScenarioManager({
         ? { type: draft.type }
         : {}),
       ...(defectsChanged ? { classes: classesFor(parsed.defects) } : {}),
+      ...(classesChanged ? { classes: classesOfDrafts(draft.classDrafts) } : {}),
       ...(counting && 'fields' in counting ? counting.fields : {}),
     }
     void mutate(
@@ -389,6 +410,8 @@ function ScenarioManager({
               defects: '',
               originalDefects: [],
               count: EMPTY_COUNT_DRAFT,
+              classDrafts: emptyClassDrafts(),
+              originalClassDrafts: [],
             })
           }
           className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold hover:bg-emerald-400"
@@ -414,6 +437,11 @@ function ScenarioManager({
               )}
               {s.type === 'counting' && (
                 <span className="ml-2 rounded bg-sky-500/20 px-1.5 py-0.5 text-sky-300">개수 세기 · {countLine(s)}</span>
+              )}
+              {s.type === 'classification' && (
+                <span className="ml-2 rounded bg-violet-500/20 px-1.5 py-0.5 text-violet-300">
+                  다중 분류 · {classSummary(s)}
+                </span>
               )}
               {defectsOf(s).length > 0 && (
                 <span className="ml-2 rounded bg-red-500/20 px-1.5 py-0.5 text-red-300">
@@ -442,6 +470,8 @@ function ScenarioManager({
                   defects: formatDefects(defectsOf(s)),
                   originalDefects: defectsOf(s),
                   count: countDraftOf(s),
+                  classDrafts: classDraftsOf(s),
+                  originalClassDrafts: classDraftsOf(s),
                   stream: s.type === 'monitoring' ? streamSummary(s) : undefined,
                 })
               }
@@ -798,12 +828,13 @@ function ScenarioForm({
         {!draft.id && <ScenarioIdField draft={draft} onChange={onChange} />}
         <div className="space-y-1">
           <span className="text-sm text-slate-300">유형</span>
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
             {(
               [
                 ['inspection', '검사 (OK / NG)'],
                 ['verification', '오투입 확인 (기대 품번과 일치 / 불일치)'],
                 ['counting', '개수 세기 (기대 개수와 견줌)'],
+                ['classification', '다중 분류 (여러 클래스 중 하나를 고름)'],
               ] as const
             ).map(([value, label]) => (
               <button
@@ -823,8 +854,17 @@ function ScenarioForm({
               작업자가 운영 화면에서 기대 품번을 넣고 촬영한다. 바코드를 읽을 수 있는 기기면 읽은 코드와도 대조한다.
             </span>
           )}
+          {draft.type === 'classification' && (
+            <span className="block text-xs text-slate-500">
+              정상이 여럿이거나 품번 · 품종 · 판독처럼 «무엇인가» 를 고르는 시나리오. 운영 화면은 결과 v2 로 판정하고, 오투입 확인과
+              달리 작업자가 값을 넣지 않습니다.
+            </span>
+          )}
         </div>
         {draft.type === 'inspection' && <DefectsField draft={draft} onChange={onChange} />}
+        {draft.type === 'classification' && (
+          <ClassesField classes={draft.classDrafts} onChange={(classDrafts) => onChange({ ...draft, classDrafts })} />
+        )}
         {draft.type === 'counting' && <CountingFields draft={draft} onChange={onChange} />}
         {/* 판정 기준(자연어)은 VLM 이 읽는다 — 개수는 검출기가 세므로 계수에는 쓰이지 않는다. */}
         {draft.type !== 'counting' && (
@@ -885,7 +925,11 @@ function ScenarioForm({
           />
           <Slider
             label="기준 이미지 장수"
-            hint="라벨(OK/NG)당 few-shot 장수 — 0=zero-shot, 많을수록 정확↑ 느림↑"
+            hint={
+              draft.type === 'classification'
+                ? '클래스당 few-shot 장수 — 0=zero-shot, 많을수록 정확↑ 느림↑'
+                : '라벨(OK/NG)당 few-shot 장수 — 0=zero-shot, 많을수록 정확↑ 느림↑'
+            }
             min={0}
             max={8}
             value={draft.referenceCap}
@@ -940,6 +984,7 @@ function ScenarioForm({
               !draft.name.trim() ||
               'error' in parseDefects(draft.defects) ||
               (draft.type === 'counting' && 'error' in parseCountDraft(draft.count)) ||
+              (draft.type === 'classification' && classDraftsError(draft.classDrafts) !== null) ||
               (!draft.id && !!draft.newId?.trim() && !isValidScenarioId(draft.newId.trim()))
             }
             className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-40"
