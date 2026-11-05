@@ -874,7 +874,11 @@ function ScenarioForm({
               value={draft.criteria}
               onChange={(e) => onChange({ ...draft, criteria: e.target.value })}
               rows={4}
-              placeholder="예: 표면에 긁힘·이물·균열이 없어야 한다. 결함이 보이면 NG."
+              placeholder={
+                draft.type === 'classification'
+                  ? '예: 커넥터 색과 핀 수를 보고 클래스를 고른다. 클래스마다의 특징은 위 클래스 설명에 적는다.'
+                  : '예: 표면에 긁힘·이물·균열이 없어야 한다. 결함이 보이면 NG.'
+              }
               className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
             />
           </label>
