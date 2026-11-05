@@ -170,12 +170,15 @@ public static class MetricsAggregator
         // «표본 충분» 에는 검사 건수(MinWindow)뿐 아니라 재현율 분모의 NG 건수(MinNgSamples)도 든다 — 라벨된 NG 1건으로
         // 재현율 1.0 이 되어 true 가 나오는 점추정을 막는다.
         bool enough = mlChecked >= options.MinWindow
-            && labeledNg >= options.MinNgSamples && mlNgScored >= options.MinNgSamples;
+            && labeledNg >= options.MinNgSamples && mlNgScored >= options.MinNgSamples
+            && mlOkScored >= options.MinOkSamples;
+        // 재현율만으로는 모든 사진을 불량으로 모는 모델도 통과한다 — ML 의 정상 오경보율 상한(FalseAlarmCeiling)도 조건이다.
+        var mlFalseAlarmRate = Rate(mlFalseAlarms, mlOkScored);
         bool? eligible = (enough
-            && vlmRecall is { } vr && mlRecall is { } mr && agreementRate is { } ar
-            && mr >= vr && mr >= options.RecallFloor && ar >= options.AgreementFloor)
+            && vlmRecall is { } vr && mlRecall is { } mr && agreementRate is { } ar && mlFalseAlarmRate is { } fa
+            && mr >= vr && mr >= options.RecallFloor && ar >= options.AgreementFloor && fa <= options.FalseAlarmCeiling)
             ? true
-            : (enough && vlmRecall is not null && mlRecall is not null && agreementRate is not null
+            : (enough && vlmRecall is not null && mlRecall is not null && agreementRate is not null && mlFalseAlarmRate is not null
                 ? false      // 표본 충분·계산 가능하나 조건 미달 → 명시 false
                 : null);     // 데이터 불충분 → null(위장 금지)
 
@@ -219,7 +222,7 @@ public static class MetricsAggregator
             VlmNgRecall = vlmRecall,
             MlNgRecall = mlRecall,
             VlmFalseAlarmRate = Rate(vlmFalseAlarms, labeledOk),
-            MlFalseAlarmRate = Rate(mlFalseAlarms, mlOkScored),
+            MlFalseAlarmRate = mlFalseAlarmRate,
             LabelConsistencyRate = Rate(labelConsistent, audited),
             AuditPositiveAgreement = SpecificAgreement(auditNgNg, auditNgOk + auditOkNg),
             AuditNegativeAgreement = SpecificAgreement(auditOkOk, auditNgOk + auditOkNg),

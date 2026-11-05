@@ -17,6 +17,18 @@ public sealed class AuthorityOptions
     /// </summary>
     public int MinNgSamples { get; set; } = 59;
 
+    /// <summary>
+    /// 격상 자격 판정에 필요한 «ML 이 정상으로 라벨된 사진을 점수 매긴» 최소 건수(<c>ml_ok_scored</c>). 미만이면
+    /// <c>promotion_eligible=null</c> — 정상 오경보율을 잴 분모가 없는데 «적격» 이라 하지 않는다. 기본 30 은 «오경보 0건이어도
+    /// 오경보율 ≤ 10 % 를 95 % 신뢰로 주장하려면 정상 약 29건»(0.9^29 ≈ 0.047)에서 온다.
+    /// </summary>
+    public int MinOkSamples { get; set; } = 30;
+
+    /// <summary>
+    /// ML 정상 오경보율 상한. 격상 자격: ml_false_alarm_rate ≤ 이 값. 재현율만 보면 모든 사진을 불량으로 모는 모델도 재현율 1.0 이다.
+    /// </summary>
+    public double FalseAlarmCeiling { get; set; } = 0.10;
+
     /// <summary>ML NG recall 바닥. 격상 자격: ml_ng_recall ≥ 이 값.</summary>
     public double RecallFloor { get; set; } = 0.95;
 

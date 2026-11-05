@@ -511,6 +511,19 @@ public class MetricsAggregatorTests
 
     // --- 격상 자격 신호(A1) ---
 
+    // 격상 자격 시험용 — 정상으로 라벨된 사진 count 건. falseAlarms 건은 ML 이 NG 로 몬다(오경보).
+    private static void AddOkRows(List<MetricsRow> rows, List<StoredLabel> labels, int count, int falseAlarms = 0)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            var id = $"ok{i}";
+            var fa = i < falseAlarms;
+            rows.Add(new MetricsRow { ImageId = id, Timestamp = "t", Verdict = Verdict.OK,
+                MlLabel = fa ? "NG" : "OK", MlConfidence = 0.9, Agreement = !fa, RequiresReview = fa, MlDegraded = false });
+            labels.Add(new StoredLabel { ImageId = id, Label = "OK", Timestamp = "t" });
+        }
+    }
+
     [Fact]
     public void PromotionEligible_TrueWhenAllConditionsMet()
     {
@@ -524,8 +537,45 @@ public class MetricsAggregatorTests
                 MlLabel = "NG", MlConfidence = 0.9, Agreement = true, RequiresReview = false, MlDegraded = false });
             labels.Add(new StoredLabel { ImageId = id, Label = "NG", Timestamp = "t" });
         }
+        AddOkRows(rows, labels, 30);
         var s = MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions());
         Assert.True(s.PromotionEligible);
+    }
+
+    [Fact]
+    public void PromotionEligible_FalseWhenTheMlFlagsTooManyGoodPhotos_EvenAtPerfectRecall()
+    {
+        // 재현율 1.0 · VLM 과 일치율 높음이어도 정상의 30 % 를 불량으로 모는 ML 은 적격이 아니다.
+        var rows = new List<MetricsRow>();
+        var labels = new List<StoredLabel>();
+        for (int i = 0; i < 60; i++)
+        {
+            var id = $"img{i}";
+            rows.Add(new MetricsRow { ImageId = id, Timestamp = "t", Verdict = Verdict.NG,
+                MlLabel = "NG", MlConfidence = 0.9, Agreement = true, RequiresReview = false, MlDegraded = false });
+            labels.Add(new StoredLabel { ImageId = id, Label = "NG", Timestamp = "t" });
+        }
+        AddOkRows(rows, labels, 100, falseAlarms: 30);
+        var s = MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions());
+        Assert.Equal(1.0, s.MlNgRecall);
+        Assert.Equal(0.3, s.MlFalseAlarmRate);
+        Assert.False(s.PromotionEligible);
+    }
+
+    [Fact]
+    public void PromotionEligible_NullWhenTooFewGoodPhotosWereScored_SoNoFalseAlarmRateCanBeClaimed()
+    {
+        var rows = new List<MetricsRow>();
+        var labels = new List<StoredLabel>();
+        for (int i = 0; i < 60; i++)
+        {
+            var id = $"img{i}";
+            rows.Add(new MetricsRow { ImageId = id, Timestamp = "t", Verdict = Verdict.NG,
+                MlLabel = "NG", MlConfidence = 0.9, Agreement = true, RequiresReview = false, MlDegraded = false });
+            labels.Add(new StoredLabel { ImageId = id, Label = "NG", Timestamp = "t" });
+        }
+        AddOkRows(rows, labels, 5);   // MinOkSamples(30) 미만
+        Assert.Null(MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions()).PromotionEligible);
     }
 
     [Fact]
@@ -542,6 +592,7 @@ public class MetricsAggregatorTests
                 MlLabel = "OK", MlConfidence = 0.9, Agreement = false, RequiresReview = true, MlDegraded = false });
             labels.Add(new StoredLabel { ImageId = id, Label = "NG", Timestamp = "t" });
         }
+        AddOkRows(rows, labels, 30);
         var s = MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions());
         Assert.False(s.PromotionEligible);  // null 아님 — 표본 충분(60≥50)·계산 가능·조건 미달
         Assert.Equal(0.0, s.MlNgRecall);
