@@ -55,7 +55,7 @@ public class IdempotencyTests
     private static int LedgerLines(string dataPath) =>
         Directory.Exists(Path.Combine(dataPath, "demo", "ledger"))
             ? Directory.GetFiles(Path.Combine(dataPath, "demo", "ledger"), "*.jsonl")
-                .Sum(f => File.ReadAllLines(f).Count(l => l.Trim().Length > 0))
+                .Sum(f => SharedFileReader.ReadLines(f).Count(l => l.Trim().Length > 0))
             : 0;
 
     private static int ResultRecords(string dataPath) =>

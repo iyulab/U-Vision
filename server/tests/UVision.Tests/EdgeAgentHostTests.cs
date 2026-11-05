@@ -449,7 +449,7 @@ public sealed class EdgeAgentHostTests : IDisposable
             // 사건이 outbox → 전달 → 엔진 저장소까지 도착한다(엔진의 노드별 사건 파일).
             var eventsDir = Path.Combine(engine.Factory.DataPath, "edge", "nodes", nodeId, "events");
             var lines = await UntilAsync(
-                () => Task.FromResult(Directory.Exists(eventsDir) ? Directory.GetFiles(eventsDir, "*.jsonl").SelectMany(File.ReadAllLines).Where(l => l.Length > 0).ToArray() : []),
+                () => Task.FromResult(Directory.Exists(eventsDir) ? Directory.GetFiles(eventsDir, "*.jsonl").SelectMany(SharedFileReader.ReadLines).Where(l => l.Length > 0).ToArray() : []),
                 l => l.Length >= 1);
             var stored = JsonDocument.Parse(Assert.Single(lines)).RootElement;
             Assert.Equal("count_changed", stored.GetProperty("kind").GetString());
