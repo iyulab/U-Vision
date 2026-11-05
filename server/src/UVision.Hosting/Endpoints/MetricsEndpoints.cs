@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using UVision.Api.Configuration;
 using UVision.Api.Models;
+using UVision.Api.Services.Memory;
 using UVision.Api.Services.Metrics;
 using UVision.Api.Services.Scenarios;
 using UVision.Api.Storage;
@@ -54,20 +55,29 @@ public static class MetricsEndpoints
         IScenarioStore scenarioStore,
         AuthorityOptions authorityOptions,
         CancellationToken cancellationToken,
-        [FromQuery(Name = "date")] string? date = null)
+        [FromQuery(Name = "date")] string? date = null,
+        [FromQuery(Name = "days")] int days = 1)
     {
         // date 생략 시 오늘(UTC) — /results 와 동일 규약.
         date ??= DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        if (days is < 1 or > ReplayWindow.MaxDays)
+            return Results.Problem(statusCode: 400, detail: $"days 는 1 이상 {ReplayWindow.MaxDays} 이하여야 합니다");
 
         try
         {
-            var rows = await metricsStore.ReadAsync(scenarioId, date, cancellationToken);
-            var labels = await labelStore.ListAsync(scenarioId, date, cancellationToken);
+            // days=1(기본) 은 날짜 하나 — 응답 바이트 그대로. 2 이상이면 date 가 마지막 날인 창 전체의 행 · 라벨을 한 집계로 센다.
+            var rows = new List<MetricsRow>();
+            var labels = new List<StoredLabel>();
+            foreach (var day in ReplayWindow.Dates(date, days))
+            {
+                rows.AddRange(await metricsStore.ReadAsync(scenarioId, day, cancellationToken));
+                labels.AddRange(await labelStore.ListAsync(scenarioId, day, cancellationToken));
+            }
             // 삭제된 시나리오의 지난 메트릭은 이분 판정으로 읽는다.
             var scenario = await scenarioStore.GetAsync(scenarioId, cancellationToken);
             var isNg = scenario is null ? null : EffectiveScenario.Resolve(scenario, mlEnabled: false).NgLabelRule;
             // 메트릭 없음(ML 비활성·미검사)도 200 빈 집계 — "데이터 없음"을 404 가 아니라 0 으로 정직히.
-            return Results.Ok(MetricsAggregator.Summarize(scenarioId, date, rows, labels, authorityOptions, isNg));
+            return Results.Ok(MetricsAggregator.Summarize(scenarioId, date, rows, labels, authorityOptions, isNg, days > 1 ? days : null));
         }
         catch (ArgumentException) // 형식 위반 scenario_id/date → 400
         {

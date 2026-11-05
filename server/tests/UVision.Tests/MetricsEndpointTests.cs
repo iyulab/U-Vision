@@ -139,6 +139,38 @@ public class MetricsEndpointTests
     }
 
     [Fact]
+    public async Task GetMetrics_Days_AggregatesAWindowEndingAtDate_AndLeavesTheSingleDayShapeAlone()
+    {
+        await using var factory = UVisionApiFactory.Create(mlProvider: "mock");
+        var client = factory.CreateClient();
+        await client.PostAsync("/api/u-vision/inspect", Form("demo"));
+        await client.PostAsync("/api/u-vision/inspect", Form("demo"));
+        var tomorrow = DateTime.UtcNow.AddDays(1).ToString("yyyy-MM-dd");
+
+        // 날짜 하나(기본) 응답에는 window_days 가 없다 — 이전 응답과 같은 모양.
+        var single = await client.GetFromJsonAsync<JsonElement>($"/api/u-vision/metrics?scenario_id=demo&date={TodayUtc()}");
+        Assert.False(single.TryGetProperty("window_days", out _));
+
+        // 내일 하루만 보면 비어 있고, 내일이 마지막 날인 이틀 창은 오늘의 두 건을 센다.
+        var emptyDay = await client.GetFromJsonAsync<JsonElement>($"/api/u-vision/metrics?scenario_id=demo&date={tomorrow}");
+        Assert.Equal(0, emptyDay.GetProperty("inspections").GetInt32());
+        var window = await client.GetFromJsonAsync<JsonElement>($"/api/u-vision/metrics?scenario_id=demo&date={tomorrow}&days=2");
+        Assert.Equal(2, window.GetProperty("inspections").GetInt32());
+        Assert.Equal(2, window.GetProperty("window_days").GetInt32());
+        Assert.Equal(tomorrow, window.GetProperty("date").GetString());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(91)]
+    public async Task GetMetrics_DaysOutOfRange_400(int days)
+    {
+        await using var factory = new UVisionApiFactory();
+        var resp = await factory.CreateClient().GetAsync($"/api/u-vision/metrics?scenario_id=demo&date={TodayUtc()}&days={days}");
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [Fact]
     public async Task GetMetrics_NoData_Returns200EmptySummary()
     {
         // ML 비활성·미검사 → 404 가 아니라 0 집계(정직히 "데이터 없음").

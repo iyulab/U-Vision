@@ -1014,6 +1014,7 @@ export interface MetricsSummary {
   oracle_consistency_rate: null | number
   oracle_coverage_rate: null | number
   promotion_eligible?: boolean
+  window_days?: number
   counting?: CountingMetrics
   classification?: ClassificationMetrics
 }

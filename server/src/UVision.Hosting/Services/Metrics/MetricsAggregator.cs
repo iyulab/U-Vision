@@ -26,7 +26,7 @@ public static class MetricsAggregator
     public static MetricsSummary Summarize(
         string scenarioId, string date,
         IReadOnlyList<MetricsRow> rows, IReadOnlyList<StoredLabel> labels,
-        AuthorityOptions options, Func<string, bool>? isNg = null)
+        AuthorityOptions options, Func<string, bool>? isNg = null, int? windowDays = null)
     {
         isNg ??= IsBinaryNg;
         // 라벨 일관성 집계(C1) — audit 상태별 카운팅. NG recall 루프와 독립.
@@ -226,6 +226,7 @@ public static class MetricsAggregator
             OracleConsistencyRate = Rate(oracleEvaluated - oracleConflicts, oracleEvaluated),
             OracleCoverageRate = Rate(reviews - oraclePending, reviews),
             PromotionEligible = eligible,
+            WindowDays = windowDays,
             Counting = counting.ToMetrics(),
             Classification = classification.ToMetrics(),
         };

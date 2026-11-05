@@ -296,6 +296,15 @@ public sealed record MetricsSummary
     public bool? PromotionEligible { get; init; }
 
     /// <summary>
+    /// 집계 창의 날 수 — <c>days</c> 를 2 이상으로 부른 응답에만 나온다(날짜 하나 응답은 바이트 그대로). <c>date</c> 가 창의 마지막 날이고,
+    /// 모든 비율 · 격상 신호가 그 창 전체의 행과 라벨로 계산된다. 사람 라벨된 불량이 날마다 몇 건씩만 쌓이는 현장에서 신호가 날짜 하나로는
+    /// 영영 표본 하한에 닿지 못하는 것을 막는 길이다.
+    /// </summary>
+    [JsonPropertyName("window_days")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? WindowDays { get; init; }
+
+    /// <summary>
     /// 계수 판정의 관측 — 그 날짜에 계수 행이 있을 때만 나온다(계수가 아닌 시나리오 응답은 byte 동일). 위 VLM · ML 집계와
     /// 섞이지 않는다: 계수 행은 <c>inspections</c> · 재현율 · 오경보 · 격상 신호에 들지 않는다.
     /// </summary>

@@ -132,6 +132,8 @@ namespace UVision.Client.Models
         public int? VlmNgHits { get; set; }
         /// <summary>The vlm_ng_recall property</summary>
         public double? VlmNgRecall { get; set; }
+        /// <summary>The window_days property</summary>
+        public int? WindowDays { get; set; }
         /// <summary>
         /// Instantiates a new <see cref="global::UVision.Client.Models.MetricsSummary"/> and sets the default values.
         /// </summary>
@@ -204,6 +206,7 @@ namespace UVision.Client.Models
                 { "vlm_false_alarms", n => { VlmFalseAlarms = n.GetIntValue(); } },
                 { "vlm_ng_hits", n => { VlmNgHits = n.GetIntValue(); } },
                 { "vlm_ng_recall", n => { VlmNgRecall = n.GetDoubleValue(); } },
+                { "window_days", n => { WindowDays = n.GetIntValue(); } },
             };
         }
         /// <summary>
@@ -260,6 +263,7 @@ namespace UVision.Client.Models
             writer.WriteIntValue("vlm_false_alarms", VlmFalseAlarms);
             writer.WriteIntValue("vlm_ng_hits", VlmNgHits);
             writer.WriteDoubleValue("vlm_ng_recall", VlmNgRecall);
+            writer.WriteIntValue("window_days", WindowDays);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

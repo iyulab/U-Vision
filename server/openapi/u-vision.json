@@ -1413,6 +1413,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
           }
         ],
         "responses": {
@@ -5686,6 +5695,10 @@
           },
           "promotion_eligible": {
             "type": "boolean"
+          },
+          "window_days": {
+            "type": "integer",
+            "format": "int32"
           },
           "counting": {
             "$ref": "#/components/schemas/CountingMetrics"
