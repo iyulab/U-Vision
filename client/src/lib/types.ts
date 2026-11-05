@@ -34,6 +34,7 @@ export type FlywheelReport = Wire.FlywheelReport
 export type FlywheelPoint = Wire.FlywheelPoint
 export type MetricsSummary = Wire.MetricsSummary
 export type CountingMetrics = Wire.CountingMetrics
+export type ClassificationMetrics = Wire.ClassificationMetrics
 export type AuthorityTransition = Wire.AuthorityTransition
 export type AuthorityState = Wire.AuthorityState
 export type AdminStatus = Wire.AdminStatusResponse

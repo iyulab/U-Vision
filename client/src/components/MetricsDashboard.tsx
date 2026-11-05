@@ -11,6 +11,7 @@ import { hasPlants } from '../lib/solverTrust'
 import { readinessLine } from '../lib/training'
 import type { MemoryReport, MetricsSummary, Scenario } from '../lib/types'
 import { AmbiguityPanel } from './AmbiguityPanel'
+import { ClassificationPanel } from './ClassificationPanel'
 import { CountingPanel } from './CountingPanel'
 import { FlywheelPanel } from './FlywheelPanel'
 import { SolverTrustPanel } from './SolverTrustPanel'
@@ -154,6 +155,13 @@ export function MetricsDashboard({
       ) : (
         <>
           {summary.counting && <CountingPanel counting={summary.counting} />}
+          {summary.classification && (
+            <ClassificationPanel
+              classification={summary.classification}
+              declared={(activeScenario?.classes ?? []).map((c) => c.id)}
+              nameOf={classNameOf(activeScenario)}
+            />
+          )}
           {hasVlmMlMetrics(summary) && <Cards summary={summary} />}
         </>
       )}
