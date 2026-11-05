@@ -155,6 +155,22 @@ public sealed class EdgeAgentHostTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// <see cref="UntilAsync"/> 와 같되 시간이 다 되도록 조건이 서지 않으면 <b>그 사실을 예외로</b> 던진다 — 마지막 값을 돌려주면 시간 초과가
+    /// 단정문의 값 불일치(예: 프레임 2 ≠ 3)로 가려져 원인이 «부하로 늦었다» 인지 «값이 틀렸다» 인지 알 수 없다.
+    /// </summary>
+    private static async Task<T> UntilOrFailAsync<T>(Func<Task<T>> read, Func<T, bool> done, string what, int timeoutMs = 30_000)
+    {
+        var deadline = Environment.TickCount64 + timeoutMs;
+        while (true)
+        {
+            var value = await read();
+            if (done(value)) return value;
+            if (Environment.TickCount64 > deadline) throw new TimeoutException($"{what}: {timeoutMs} ms 안에 조건이 서지 않았다 (마지막 값: {value})");
+            await Task.Delay(25);
+        }
+    }
+
     [Fact]
     public async Task Host_Registers_Delivers_ReportsStatus_WritesHealth_AndStopsCleanlyOnCancel()
     {
@@ -448,9 +464,9 @@ public sealed class EdgeAgentHostTests : IDisposable
 
             // 사건이 outbox → 전달 → 엔진 저장소까지 도착한다(엔진의 노드별 사건 파일).
             var eventsDir = Path.Combine(engine.Factory.DataPath, "edge", "nodes", nodeId, "events");
-            var lines = await UntilAsync(
+            var lines = await UntilOrFailAsync(
                 () => Task.FromResult(Directory.Exists(eventsDir) ? Directory.GetFiles(eventsDir, "*.jsonl").SelectMany(SharedFileReader.ReadLines).Where(l => l.Length > 0).ToArray() : []),
-                l => l.Length >= 1);
+                l => l.Length >= 1, "워커 사건이 엔진 저장소에 닿기");
             var stored = JsonDocument.Parse(Assert.Single(lines)).RootElement;
             Assert.Equal("count_changed", stored.GetProperty("kind").GetString());
             Assert.Equal("wh", stored.GetProperty("scenario_id").GetString());
@@ -459,8 +475,9 @@ public sealed class EdgeAgentHostTests : IDisposable
             Assert.True(JsonDocument.Parse(lines[0]).RootElement.TryGetProperty("received_at", out _));
 
             // 운영자가 콘솔에서 볼 워커 수신 상태도 엔진에 닿는다: 연결됨 · 프레임 3 · 버린 줄 1(깨진 줄) · 규칙 1.
-            var status = await UntilAsync(engine.OnlyNodeAsync,
-                n => n is { } x && x.TryGetProperty("status", out var st) && st.TryGetProperty("worker", out var w) && w.GetProperty("frames").GetInt64() >= 3);
+            var status = await UntilOrFailAsync(engine.OnlyNodeAsync,
+                n => n is { } x && x.TryGetProperty("status", out var st) && st.TryGetProperty("worker", out var w) && w.GetProperty("frames").GetInt64() >= 3,
+                "엔진이 읽는 워커 상태의 프레임 수가 3 에 닿기");
             var reported = status!.Value.GetProperty("status").GetProperty("worker");
             Assert.True(reported.GetProperty("connected").GetBoolean());
             Assert.Equal((3L, 1L, 1, 0), (reported.GetProperty("frames").GetInt64(), reported.GetProperty("dropped").GetInt64(), reported.GetProperty("rules").GetInt32(), reported.GetProperty("skipped_rules").GetInt32()));
