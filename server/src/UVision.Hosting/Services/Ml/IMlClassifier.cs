@@ -19,6 +19,13 @@ public sealed record MlClassification
 
     /// <summary>판정에 사용된 모델 버전(B1, mloop active 바인딩 해석 시). 미등록/mock/none 이면 null.</summary>
     public string? ModelVersion { get; init; }
+
+    /// <summary>
+    /// <b>실제로 답한</b> 모델 파일의 SHA-256 — 서빙 쪽이 보고한 값이다(<see cref="ModelVersion"/> 은 엔진 레지스트리가 가리키는 판이고,
+    /// 그것이 가리키는 이름 아래 서빙 슬롯이 무엇인지는 모른다). 실험 id 는 프로젝트마다 <c>exp-001</c> 로 겹치므로 신원은 해시다.
+    /// 보고하지 않는 서버 · mock · none 이면 null.
+    /// </summary>
+    public string? ModelSha256 { get; init; }
 }
 
 /// <summary>

@@ -65,6 +65,7 @@ public sealed class MloopClassifier : IMlClassifier
             Confidence = ConfidenceOf(prediction),
             Scores = ScoresOf(prediction.Value.Outputs),
             ModelVersion = binding?.Version,
+            ModelSha256 = prediction.Value.Model?.Sha256,
         };
     }
 

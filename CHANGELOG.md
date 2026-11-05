@@ -22,6 +22,7 @@ Changes to the `UVision.Hosting` and `UVision.Client` NuGet packages. Versions 0
 
 ### Fixed
 - On Windows, reading a stored state file (a scenario, the authority ladder, a model registry, a label, an event outbox entry, a stored judgment or image) at the moment another request replaced it could fail with an I/O error, and reading an append-only file (metrics, the case-memory vectors, the re-judgment log, the retention row count) could make the append that came next fail with a sharing violation, because the standard read calls open a file for reading in a mode that excludes writers. Every such read now goes through one shared read path that does not exclude writers and retries for a few milliseconds while a replacement is under way. Linux and macOS did not have the problem.
+- The version of the dedicated model's judging tier (`version` of an `ml` opinion in `POST /results/rejudge`, and the tier version in the decision ledger when that tier settles) is now the model file hash that `mloop serve` reports with each prediction when no registry version is bound; it used to fall back to the classifier name, so a retrained model that was never promoted (the previous one keeps answering) looked the same as a promoted one. A registry-bound version is unchanged, and a server that does not report the hash still gives the classifier name.
 
 ## [0.7.0] - 2026-11-04
 

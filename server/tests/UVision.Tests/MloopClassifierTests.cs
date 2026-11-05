@@ -82,6 +82,26 @@ public class MloopClassifierTests
     }
 
     [Fact]
+    public async Task Classify_ReportsTheAnsweringModelHash_WhenTheServerNamesIt()
+    {
+        // mloop serve 는 응답 최상단에 답한 실험과 모델 파일 해시를 싣는다 — 엔진의 레지스트리 바인딩(ModelVersion)과 별개의 신원이다.
+        var body = OkResponse.Replace("\"modelName\": \"default\",",
+            "\"modelName\": \"default\", \"experimentId\": \"exp-007\", \"modelSha256\": \"84251629a2d59baaa3a9332effbac80832c54071bae04125932bb13d80d8ab45\",");
+        var result = await Build(new FakeHandler(HttpStatusCode.OK, body)).ClassifyAsync(Image, "demo");
+
+        Assert.Equal("84251629a2d59baaa3a9332effbac80832c54071bae04125932bb13d80d8ab45", result.ModelSha256);
+        Assert.Null(result.ModelVersion); // 레지스트리에 등록한 판이 아니다
+    }
+
+    [Fact]
+    public async Task Classify_LeavesTheHashNull_WhenTheServerDoesNotReportIt()
+    {
+        var result = await Build(new FakeHandler(HttpStatusCode.OK, OkResponse)).ClassifyAsync(Image, "demo");
+
+        Assert.Null(result.ModelSha256);
+    }
+
+    [Fact]
     public async Task Classify_SendsImageContentsAsBase64_WithBearer_ToPredictEndpoint()
     {
         var handler = new FakeHandler(HttpStatusCode.OK, OkResponse);

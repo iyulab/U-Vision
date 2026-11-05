@@ -149,7 +149,7 @@ public sealed class DecisionLedger(
                 // ML 비활성이면 그 단은 없다(구성에 적혀 있어도). 활성인데 실패했으면 기권한 단으로 남는다.
                 case ScenarioVocabulary.MlTier when subject.Ml is { } ml:
                     yield return new AnsweredJudge(
-                        new Tier { Id = tier, Kind = JudgeKind.Ml, Version = ml.Result?.ModelVersion ?? classifier.Name, CostRank = 1 },
+                        new Tier { Id = tier, Kind = JudgeKind.Ml, Version = ml.Result?.ModelVersion ?? ml.Result?.ModelSha256 ?? classifier.Name, CostRank = 1 },
                         ml.Result is { } c
                             ? JudgeVerdict<string>.Answer(c.Label, c.Confidence)
                             : JudgeVerdict<string>.Abstain("ml failed: " + ml.FailureReason));

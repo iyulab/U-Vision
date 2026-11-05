@@ -53,7 +53,7 @@ public sealed partial class InspectionPipeline
                     {
                         Tier = tier, Kind = "ml", Status = "answered",
                         Class = effective.ClassFor(c.Label), Confidence = c.Confidence,
-                        Version = c.ModelVersion ?? classifier.Name,
+                        Version = c.ModelVersion ?? c.ModelSha256 ?? classifier.Name,
                     }
                     : Abstained(tier, "ml", "ml failed: " + outcome.FailureReason, classifier.Name);
             }

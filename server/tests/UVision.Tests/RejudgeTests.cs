@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UVision.Api;
 using UVision.Api.Auth;
 using UVision.Api.Models;
+using UVision.Api.Services.Ml;
 using UVision.Api.Services.Oracle;
 using Xunit;
 
@@ -37,7 +38,7 @@ public class RejudgeTests
     }
 
     /// <summary>PIN + ML(mock) + 주입한 오라클을 켠 팩토리.</summary>
-    private sealed class RejudgeFactory(IOracleProvider oracle, bool ml = true) : UVisionApiFactory
+    private sealed class RejudgeFactory(IOracleProvider oracle, bool ml = true, IMlClassifier? mlStub = null) : UVisionApiFactory
     {
         public const string Pin = "1234";
 
@@ -50,8 +51,25 @@ public class RejudgeTests
             {
                 s.AddSingleton(new AdminPinOptions { Pin = Pin });
                 s.AddSingleton(oracle);
+                if (mlStub is not null)
+                    s.AddSingleton(mlStub);
             });
         }
+    }
+
+    /// <summary>답한 모델의 해시를 보고하는 분류기 — 레지스트리 바인딩(ModelVersion)은 없다.</summary>
+    private sealed class HashReportingMl(string sha) : IMlClassifier
+    {
+        public string Name => "hash-stub";
+        public bool IsEnabled => true;
+
+        public Task<MlClassification> ClassifyAsync(
+            ReadOnlyMemory<byte> image, string scenarioId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new MlClassification
+            {
+                Label = "ok", Confidence = 0.9, Scores = new Dictionary<string, double> { ["ok"] = 0.9, ["ng"] = 0.1 },
+                ModelSha256 = sha,
+            });
     }
 
     private static string Today() => DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -113,6 +131,21 @@ public class RejudgeTests
         var synthesis = body.GetProperty("synthesis");
         Assert.Equal(2, synthesis.GetProperty("answered").GetInt32());
         Assert.Contains(synthesis.GetProperty("agreement").GetString(), new[] { "unanimous", "split" });
+    }
+
+    [Fact]
+    public async Task MlOpinion_Version_IsTheAnsweringModelHash_WhenNoRegistryVersionIsBound()
+    {
+        // 바인딩이 없으면 판은 분류기 이름(`mloop`)으로만 남아, 서빙 모델이 바뀌어도 같은 판으로 읽혔다.
+        using var factory = new RejudgeFactory(new FakeOracle(false, false, Verdict.OK), mlStub: new HashReportingMl("sha-served"));
+        var client = factory.CreateClient();
+        var (id, _) = await InspectAsync(client);
+
+        var body = await (await RejudgeAsync(client, id, ["ml"])).Content.ReadFromJsonAsync<JsonElement>();
+
+        var opinion = Assert.Single(body.GetProperty("opinions").EnumerateArray());
+        Assert.Equal("answered", opinion.GetProperty("status").GetString());
+        Assert.Equal("sha-served", opinion.GetProperty("version").GetString());
     }
 
     [Fact]
