@@ -105,7 +105,28 @@ public sealed class ModelEndpointTests : IClassFixture<PinFactory>
     [Fact]
     public async Task Register_InvalidModelName_400()
     {
-        var resp = await PinClient().PostAsJsonAsync(Base, new { model_name = "../escape" });
+        var scenarioId = $"badname_{Guid.NewGuid():N}"[..12];
+        _factory.SeedScenario(new UVision.Api.Models.Scenario { ScenarioId = scenarioId, Name = "n", Criteria = "c" });
+        var resp = await PinClient().PostAsJsonAsync($"/api/u-vision/scenarios/{scenarioId}/models", new { model_name = "../escape" });
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task Write_MissingScenario_404_AndLeavesNoPhantomThatBlocksCreation()
+    {
+        var scenarioId = $"ghost_{Guid.NewGuid():N}"[..12];
+        var baseUrl = $"/api/u-vision/scenarios/{scenarioId}/models";
+        var client = PinClient();
+
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync(baseUrl, new { model_name = "demo-a" })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsync($"{baseUrl}/v1/promote", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsync($"{baseUrl}/rollback", null)).StatusCode);
+
+        // 폴더가 남았다면 같은 id 의 생성이 409 로 막힌다
+        var create = await client.PostAsJsonAsync("/api/u-vision/scenarios",
+            new { scenario_id = scenarioId, name = "n", criteria = "c" });
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var list = JsonDocument.Parse(await _factory.CreateClient().GetStringAsync(baseUrl));
+        Assert.Equal(0, list.RootElement.GetProperty("versions").GetArrayLength());
     }
 }

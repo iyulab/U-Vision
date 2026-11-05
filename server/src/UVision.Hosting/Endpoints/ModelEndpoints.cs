@@ -24,6 +24,7 @@ public static class ModelEndpoints
             .WithName("RegisterModel")
             .Produces<ModelRegisteredResponse>(201)
             .ProducesProblem(400)
+            .ProducesProblem(404)
             .ProducesProblem(409);
         group.MapPost("/{version}/promote", PromoteAsync).RequireAdminPin()
             .WithName("PromoteModel")
@@ -35,6 +36,7 @@ public static class ModelEndpoints
             .WithName("RollbackModel")
             .Produces<ModelPointerResponse>()
             .ProducesProblem(400)
+            .ProducesProblem(404)
             .ProducesProblem(409);
     }
 
@@ -62,8 +64,8 @@ public static class ModelEndpoints
         string id, RegisterModelInput input, IModelRegistry registry, IScenarioStore scenarioStore,
         HttpRequest request, UVisionOptions options, CancellationToken ct)
     {
-        if (await PhotoSurface.RejectMonitoringAsync(scenarioStore, id, "모델 버전", ct) is { } monitoring)
-            return monitoring;
+        if (await PhotoSurface.RejectMissingOrMonitoringAsync(scenarioStore, id, "모델 버전", ct) is { } rejected)
+            return rejected;
         if (string.IsNullOrWhiteSpace(input.ModelName))
             return Results.Problem(statusCode: 400, detail: "model_name 필수");
         try
@@ -89,8 +91,8 @@ public static class ModelEndpoints
         string id, string version, IModelRegistry registry, IScenarioStore scenarioStore, CancellationToken ct,
         [FromQuery(Name = "by")] string? by = null)
     {
-        if (await PhotoSurface.RejectMonitoringAsync(scenarioStore, id, "모델 버전", ct) is { } monitoring)
-            return monitoring;
+        if (await PhotoSurface.RejectMissingOrMonitoringAsync(scenarioStore, id, "모델 버전", ct) is { } rejected)
+            return rejected;
         try
         {
             await registry.PromoteAsync(id, version, by ?? "", ct);
@@ -111,8 +113,8 @@ public static class ModelEndpoints
         string id, IModelRegistry registry, IScenarioStore scenarioStore, CancellationToken ct,
         [FromQuery(Name = "by")] string? by = null)
     {
-        if (await PhotoSurface.RejectMonitoringAsync(scenarioStore, id, "모델 버전", ct) is { } monitoring)
-            return monitoring;
+        if (await PhotoSurface.RejectMissingOrMonitoringAsync(scenarioStore, id, "모델 버전", ct) is { } rejected)
+            return rejected;
         bool ok;
         try
         {

@@ -19,6 +19,21 @@ public static class PhotoSurface
         scenario?.Type == ScenarioVocabulary.Monitoring ? Results.Problem(statusCode: 409, detail: MonitoringDetail(what)) : null;
 
     /// <summary>
+    /// 시나리오 폴더에 상태를 쓰는 관리 쓰기(권한 단계 · 모델 버전)의 문턱: 없는 시나리오는 404, monitoring 은 409, 통과하면 null.
+    /// 저장소 쓰기가 시나리오 폴더를 스스로 만들기 때문에 이 문턱이 없으면 «존재하지 않는 id 에 쓴 상태» 가 폴더만 남은 채 시나리오 읽기는 404,
+    /// 같은 id 의 생성은 409 인 막다른 길을 만든다. 형식이 틀린 id 는 여기서 판정하지 않는다(null) — 핸들러의 기존 400 이 낸다.
+    /// </summary>
+    public static async Task<IResult?> RejectMissingOrMonitoringAsync(IScenarioStore store, string scenarioId, string what, CancellationToken ct)
+    {
+        Scenario? scenario;
+        try { scenario = await store.GetAsync(scenarioId, ct); }
+        catch (ArgumentException) { return null; }
+        return scenario is null
+            ? Results.Problem(statusCode: 404, detail: $"시나리오 없음: {scenarioId}")
+            : RejectMonitoring(scenario, what);
+    }
+
+    /// <summary>
     /// 시나리오를 읽어 monitoring 이면 409. 없는 시나리오 · 형식이 틀린 id 는 여기서 판정하지 않는다(null) — 각 핸들러가 원래 하던 대로
     /// 400/404 를 낸다.
     /// </summary>

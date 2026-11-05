@@ -52,6 +52,24 @@ public sealed class AuthorityEndpointTests : IClassFixture<PinFactory>
         Assert.Equal("co_primary", doc.RootElement.GetProperty("stage").GetString());
     }
 
+    [Theory]
+    [InlineData("promote", "{\"stage\":\"co_primary\"}")]
+    [InlineData("demote", "{}")]
+    public async Task Write_MissingScenario_404_AndLeavesNoPhantomThatBlocksCreation(string action, string body)
+    {
+        var sid = $"ghost_{Guid.NewGuid():N}"[..12];
+        var resp = await PinClient().PostAsync($"{Url(sid)}/{action}",
+            new StringContent(body, System.Text.Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
+
+        // 폴더가 남았다면 같은 id 의 생성이 409 로 막힌다(읽기는 404 인데 쓰기는 «이미 있다»)
+        var create = await PinClient().PostAsJsonAsync("/api/u-vision/scenarios",
+            new { scenario_id = sid, name = "n", criteria = "c" });
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var state = JsonDocument.Parse(await _factory.CreateClient().GetStringAsync(Url(sid)));
+        Assert.Equal("advisory", state.RootElement.GetProperty("stage").GetString());
+    }
+
     [Fact]
     public async Task Promote_NonMonotonic_400()
     {

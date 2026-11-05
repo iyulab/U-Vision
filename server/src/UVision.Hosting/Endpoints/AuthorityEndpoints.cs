@@ -22,11 +22,13 @@ public static class AuthorityEndpoints
             .WithName("PromoteAuthority")
             .Produces<AuthorityTransitionResponse>()
             .ProducesProblem(400)
+            .ProducesProblem(404)
             .ProducesProblem(409);
         group.MapPost("/demote", DemoteAsync).RequireAdminPin()
             .WithName("DemoteAuthority")
             .Produces<AuthorityTransitionResponse>()
             .ProducesProblem(400)
+            .ProducesProblem(404)
             .ProducesProblem(409);
     }
 
@@ -50,8 +52,8 @@ public static class AuthorityEndpoints
     private static async Task<IResult> PromoteAsync(
         string id, PromoteAuthorityInput input, IAuthorityStore store, IScenarioStore scenarioStore, CancellationToken ct)
     {
-        if (await PhotoSurface.RejectMonitoringAsync(scenarioStore, id, "권한 사다리", ct) is { } monitoring)
-            return monitoring;
+        if (await PhotoSurface.RejectMissingOrMonitoringAsync(scenarioStore, id, "권한 사다리", ct) is { } rejected)
+            return rejected;
         try
         {
             var current = (await store.ReadAsync(id, ct))?.Stage ?? AuthorityStage.Advisory;
@@ -70,8 +72,8 @@ public static class AuthorityEndpoints
     private static async Task<IResult> DemoteAsync(
         string id, DemoteAuthorityInput input, IAuthorityStore store, IScenarioStore scenarioStore, CancellationToken ct)
     {
-        if (await PhotoSurface.RejectMonitoringAsync(scenarioStore, id, "권한 사다리", ct) is { } monitoring)
-            return monitoring;
+        if (await PhotoSurface.RejectMissingOrMonitoringAsync(scenarioStore, id, "권한 사다리", ct) is { } rejected)
+            return rejected;
         try
         {
             var current = (await store.ReadAsync(id, ct))?.Stage ?? AuthorityStage.Advisory;
