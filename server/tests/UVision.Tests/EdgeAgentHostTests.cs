@@ -474,13 +474,17 @@ public sealed class EdgeAgentHostTests : IDisposable
             Assert.Equal("stock", stored.GetProperty("data").GetProperty("rule").GetString());
             Assert.True(JsonDocument.Parse(lines[0]).RootElement.TryGetProperty("received_at", out _));
 
-            // 운영자가 콘솔에서 볼 워커 수신 상태도 엔진에 닿는다: 연결됨 · 프레임 3 · 버린 줄 1(깨진 줄) · 규칙 1.
+            // 운영자가 콘솔에서 볼 워커 수신 상태도 엔진에 닿는다: 연결됨 · 버린 줄 1(깨진 줄) · 규칙 1.
+            // 프레임 수는 단정하지 않는다 — 엔진은 `frames` 를 «같은 상태» 판정에서 빼고 같은 값이 1분 안에 다시 오면 쓰지 않는다
+            // (EdgeNodeTests 가 그 규칙을 고정한다). 그래서 저장된 값은 «다른 필드가 마지막으로 바뀐 순간»의 것이고, 여기서는 깨진 줄이
+            // 셈에 들어간 순간이라 3 줄 중 어디까지 읽었는지는 부하에 달렸다. 정확한 프레임 수는 WorkerSocketTests 가 소켓 서버에서 센다.
             var status = await UntilOrFailAsync(engine.OnlyNodeAsync,
-                n => n is { } x && x.TryGetProperty("status", out var st) && st.TryGetProperty("worker", out var w) && w.GetProperty("frames").GetInt64() >= 3,
-                "엔진이 읽는 워커 상태의 프레임 수가 3 에 닿기");
+                n => n is { } x && x.TryGetProperty("status", out var st) && st.TryGetProperty("worker", out var w) && w.GetProperty("dropped").GetInt64() >= 1,
+                "엔진이 읽는 워커 상태에 깨진 줄 수가 닿기");
             var reported = status!.Value.GetProperty("status").GetProperty("worker");
             Assert.True(reported.GetProperty("connected").GetBoolean());
-            Assert.Equal((3L, 1L, 1, 0), (reported.GetProperty("frames").GetInt64(), reported.GetProperty("dropped").GetInt64(), reported.GetProperty("rules").GetInt32(), reported.GetProperty("skipped_rules").GetInt32()));
+            Assert.Equal((1L, 1, 0), (reported.GetProperty("dropped").GetInt64(), reported.GetProperty("rules").GetInt32(), reported.GetProperty("skipped_rules").GetInt32()));
+            Assert.InRange(reported.GetProperty("frames").GetInt64(), 1L, 3L);
             Assert.True(reported.TryGetProperty("last_message_at", out _));
             Assert.Contains("JSON", reported.GetProperty("last_drop_reason").GetString());
         }
