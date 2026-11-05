@@ -23,7 +23,7 @@ namespace UVision.Benchmark;
 internal static class PatchBench
 {
     private const int Batch = 8; // 패치 모드는 한 요청 최대 8장(MLoop 0.46.0)
-    private static readonly double[] FalseAlarmRates = [0.01, 0.05, 0.10];
+    private static readonly double[] FalseAlarmRates = PatchScoring.StandardFalseAlarmRates;
 
     public static async Task<int> RunAsync(Dictionary<string, string> opts)
     {
@@ -327,6 +327,9 @@ internal static class PatchBench
 /// <summary>패치 재생의 비교 지표 — 문턱에 기대지 않는다(점수 계산은 <see cref="PatchDistance"/>, 장부와 같은 것).</summary>
 internal static class PatchScoring
 {
+    /// <summary>재생 리포트가 함께 읽는 허용 정상 오경보율 — 패치 · 장부 재생 · ML 분류가 같은 눈금으로 견준다.</summary>
+    public static readonly double[] StandardFalseAlarmRates = [0.01, 0.05, 0.10];
+
     /// <summary>불량 점수가 정상 점수보다 높을 확률(동점은 절반) — 순위만 보므로 점수의 단위와 무관하다.</summary>
     public static double Auroc(IReadOnlyList<double> normal, IReadOnlyList<double> defect)
     {

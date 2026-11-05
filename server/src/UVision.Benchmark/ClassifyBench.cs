@@ -78,6 +78,7 @@ internal static class ClassifyBench
         });
 
         var tally = new Dictionary<(string Truth, string Predicted), int>();
+        var scores = new List<(string Truth, double NgScore)>();
         var knownClasses = test.Select(t => t.Class).Distinct().ToList();
         var latencies = new List<double>();
         var failed = 0;
@@ -94,6 +95,7 @@ internal static class ClassifyBench
                 // 대소문자를 무시하고 견준다. 이걸 안 하면 `ng`/`NG` 가 어긋나 정확도 0 으로 읽힌다.
                 var predicted = knownClasses.FirstOrDefault(k => string.Equals(k, r.Label, StringComparison.OrdinalIgnoreCase)) ?? r.Label;
                 tally[(s.Class, predicted)] = tally.GetValueOrDefault((s.Class, predicted)) + 1;
+                if (NgScoreOf(r) is { } ngScore) scores.Add((s.Class, ngScore));
             }
             catch (Exception ex)
             {
@@ -104,7 +106,7 @@ internal static class ClassifyBench
         }
         Console.Error.WriteLine();
 
-        var report = Render(name, test, tally, latencies, failed);
+        var report = Render(name, test, tally, latencies, failed, scores);
         Console.WriteLine(report);
         // --out: 다른 측정 명령(patches · memory · ledger-replay)과 같이 리포트를 파일로도 남긴다. 표준 출력은 그대로라
         // 예전처럼 리다이렉트해도 같다.
@@ -113,9 +115,30 @@ internal static class ClassifyBench
         return failed == 0 ? 0 : 3;
     }
 
+    /// <summary>
+    /// 한 사진의 «불량 점수» — 클래스별 확률의 <c>NG</c> 쪽(대소문자 무시), 없으면 <c>1 − OK</c>, 확률 맵이 비었으면 예측 라벨과
+    /// 그 확률로 이진 환산한다. 읽을 수 없으면 null(그 사진은 문턱 무관 지표에서 빠지고 리포트가 장수를 밝힌다). 이진(OK/NG) 가정이다.
+    /// </summary>
+    internal static double? NgScoreOf(MlClassification r)
+    {
+        if (TryScore(r.Scores, "NG", out var ng)) return ng;
+        if (TryScore(r.Scores, "OK", out var ok)) return 1 - ok;
+        if (string.Equals(r.Label, "NG", StringComparison.OrdinalIgnoreCase)) return r.Confidence;
+        if (string.Equals(r.Label, "OK", StringComparison.OrdinalIgnoreCase)) return 1 - r.Confidence;
+        return null;
+    }
+
+    private static bool TryScore(IReadOnlyDictionary<string, double> scores, string cls, out double value)
+    {
+        foreach (var (k, v) in scores)
+            if (string.Equals(k, cls, StringComparison.OrdinalIgnoreCase)) { value = v; return true; }
+        value = 0;
+        return false;
+    }
+
     internal static string Render(
         string name, IReadOnlyList<Sample> test, IReadOnlyDictionary<(string Truth, string Predicted), int> tally,
-        IReadOnlyList<double> latenciesMs, int failed)
+        IReadOnlyList<double> latenciesMs, int failed, IReadOnlyList<(string Truth, double NgScore)>? scores = null)
     {
         var inv = CultureInfo.InvariantCulture;
         var sb = new System.Text.StringBuilder();
@@ -145,6 +168,35 @@ internal static class ClassifyBench
         var ok = tally.Where(x => x.Key.Truth == "OK").Sum(x => x.Value);
         if (ok > 0)
             sb.AppendLine(string.Create(inv, $"- 정상 오경보 {tally.GetValueOrDefault(("OK", "NG"))}/{ok}"));
+        if (scores is not null) RenderThresholdFree(sb, scores, judged);
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// 문턱 무관 지표 — 위 혼동표는 모델이 고른 한 작동점(argmax)만 보여 주므로 «재학습이 좋아졌는가» 를 말하지 못한다
+    /// (학습 표본이 바뀌면 같은 모델 계열도 고르는 작동점이 움직인다). AUROC 는 순위만 보고, «정상 오경보 허용치 → 불량 재현율» 표는
+    /// 같은 눈금에서 두 모델을 견주게 한다. 동점(포화한 확률)은 통과로 셈 — 보수적이다.
+    /// </summary>
+    private static void RenderThresholdFree(
+        System.Text.StringBuilder sb, IReadOnlyList<(string Truth, double NgScore)> scores, int judged)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        var normal = scores.Where(s => s.Truth == "OK").Select(s => s.NgScore).ToList();
+        var defect = scores.Where(s => s.Truth == "NG").Select(s => s.NgScore).ToList();
+        sb.AppendLine().AppendLine(string.Create(inv, $"## 문턱 무관 (NG 점수 {scores.Count}/{judged}장에서 읽음 — 정상 {normal.Count} · 불량 {defect.Count})"));
+        if (normal.Count == 0 || defect.Count == 0)
+        {
+            sb.AppendLine("- 정상 · 불량이 모두 있어야 계산한다 — 건너뜀");
+            return;
+        }
+        sb.AppendLine(string.Create(inv, $"- AUROC {PatchScoring.Auroc(normal, defect):F3}"));
+        sb.AppendLine().AppendLine("| 허용 정상 오경보 | 허용 장수 | 불량 재현율 |").AppendLine("|---|---|---|");
+        foreach (var far in PatchScoring.StandardFalseAlarmRates)
+        {
+            var missed = PatchScoring.MissedAtFalseAlarm(normal, defect, far);
+            var caught = defect.Count - missed;
+            var allowed = (int)Math.Floor(far * normal.Count);
+            sb.AppendLine(string.Create(inv, $"| {far:P0} | {allowed}/{normal.Count} | {(double)caught / defect.Count:F3} ({caught}/{defect.Count}) |"));
+        }
     }
 }

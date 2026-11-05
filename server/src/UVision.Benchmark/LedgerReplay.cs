@@ -19,7 +19,7 @@ internal static class LedgerReplay
 {
     internal sealed record ScoredCase(double Global, double Patch, int BankSize, bool Defect);
 
-    private static readonly double[] FalseAlarmRates = [0.01, 0.05, 0.10];
+    private static readonly double[] FalseAlarmRates = PatchScoring.StandardFalseAlarmRates;
 
     /// <summary>기억 크기 구간의 아래 경계(포함). 마지막은 «그 이상».</summary>
     private static readonly int[] BankEdges = [1, 10, 50, 200];
