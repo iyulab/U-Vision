@@ -402,12 +402,12 @@ function Cards({ summary }: { summary: MetricsSummary }) {
         </div>
         {summary.promotion_eligible === true && (
           <div className="mt-3 rounded-lg bg-emerald-500/15 px-4 py-2 text-sm font-semibold text-emerald-300">
-            ✅ 격상 가능 신호 — ML NG recall ≥ VLM·≥0.95·일치율 ≥0.9 충족(표본 {summary.ml_checked}). 확정은 관리자.
+            ✅ 격상 가능 신호 — ML NG recall ≥ VLM·≥0.95·일치율 ≥0.9·오경보율 ≤10 % 충족(표본 {summary.ml_checked}). 확정은 관리자.
           </div>
         )}
         {summary.promotion_eligible === false && (
           <p className="mt-3 text-xs text-slate-500">
-            격상 조건 미충족(표본 {summary.ml_checked}) — ML이 VLM 수준의 NG recall·일치율에 아직 못 미칩니다.
+            격상 조건 미충족(표본 {summary.ml_checked}) — ML이 VLM 수준의 NG recall·일치율 또는 오경보율 상한에 아직 못 미칩니다.
           </p>
         )}
       </div>

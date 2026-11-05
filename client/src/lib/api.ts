@@ -322,9 +322,11 @@ export async function putAudit(
 // --- 메트릭/관측성 (B3, 무인증 읽기 — 서버 /api/metrics 계약) ---------------
 
 /** 시나리오·날짜의 메트릭 집계(agreement·degrade·검토율·NG recall). 데이터 없으면 0 집계. */
-export async function getMetrics(scenarioId: string, date: string): Promise<MetricsSummary> {
+export async function getMetrics(scenarioId: string, date: string, days = 1): Promise<MetricsSummary> {
+  // days 가 2 이상이면 date 가 마지막 날인 창 전체를 한 집계로 — 기본(1)은 날짜 하나, 서버 응답도 그대로.
+  const window = days > 1 ? `&days=${days}` : ''
   const res = await fetch(
-    `${API_BASE}/metrics?scenario_id=${encodeURIComponent(scenarioId)}&date=${encodeURIComponent(date)}`,
+    `${API_BASE}/metrics?scenario_id=${encodeURIComponent(scenarioId)}&date=${encodeURIComponent(date)}${window}`,
   )
   await ensureOk(res, '메트릭 조회')
   return (await res.json()) as MetricsSummary

@@ -1,9 +1,9 @@
 import { useState } from 'react'
 
-import { demoteAuthority, getAuthority, promoteAuthority } from '../lib/api'
+import { demoteAuthority, getAuthority, getMetrics, promoteAuthority } from '../lib/api'
 import type { PinRunResult } from '../hooks/usePin'
 import { useResource } from '../hooks/useResource'
-import { nextStageUp, stageLabel } from '../lib/authority'
+import { EVIDENCE_WINDOW_DAYS, evidenceSummary, nextStageUp, stageLabel } from '../lib/authority'
 import type { Scenario } from '../lib/types'
 
 /**
@@ -24,6 +24,13 @@ export function AuthorityPanel({
   const streamOnly = scenarios.find((s) => s.scenario_id === scenarioId)?.type === 'monitoring'
   const authority = useResource(scenarioId && !streamOnly ? scenarioId : null, () => getAuthority(scenarioId), '권한 단계 로드 실패')
   const auth = authority.data ?? null
+  // 격상 근거 — 서버의 창 집계(최근 N일)를 읽기 전용으로 보인다. 격상을 막지는 않는다(확정은 사람).
+  const evidence = useResource(
+    scenarioId && !streamOnly ? scenarioId : null,
+    () => getMetrics(scenarioId, new Date().toISOString().slice(0, 10), EVIDENCE_WINDOW_DAYS),
+    '격상 근거 로드 실패',
+  )
+  const ev = evidence.data ? evidenceSummary(evidence.data) : null
   // 변경 실패는 조회 실패와 따로 둔다 — 다시 읽기가 성공해도 방금 거절된 이유가 지워지지 않게.
   const [actionError, setActionError] = useState<string | null>(null)
   const error = actionError ?? authority.error
@@ -104,6 +111,25 @@ export function AuthorityPanel({
               </button>
             )}
           </div>
+
+          {ev && (
+            <div data-testid="promotion-evidence" className="space-y-2 rounded-xl border border-slate-700 bg-slate-900/60 p-4 text-sm">
+              <p className="text-xs text-slate-400">격상 근거 — 최근 {EVIDENCE_WINDOW_DAYS}일 창 집계(점추정 · 읽기 전용)</p>
+              <dl className="space-y-1">
+                {ev.rows.map((r) => (
+                  <div key={r.label} className="flex justify-between gap-4">
+                    <dt className="text-slate-400">{r.label}</dt>
+                    <dd className="font-mono text-slate-200">{r.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p data-testid="promotion-signal" className={ev.signal === 'eligible' ? 'text-emerald-300' : 'text-amber-300'}>
+                {ev.signal === 'eligible' && '격상 가능 신호 — 조건 충족(확정은 사람).'}
+                {ev.signal === 'unmet' && '격상 조건 미충족 — 재현율 · 오경보율 · 일치율 중 기준에 못 미칩니다. 근거가 약한 채 격상하면 라인이 ML 에 더 의존합니다.'}
+                {ev.signal === 'insufficient' && '표본 부족 — 신호를 낼 만큼 쌓이지 않았습니다(적격이라는 뜻이 아닙니다).'}
+              </p>
+            </div>
+          )}
 
           <p className="text-xs text-slate-500">
             격상은 데이터 신호(메트릭 탭의 '격상 가능')를 확인한 뒤 사람이 확정합니다. 격하는 ML 열화 시 서버가 자동 수행하기도 합니다.
