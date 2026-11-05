@@ -151,6 +151,8 @@ namespace UVision.Client.Models
 #else
         public string Timestamp { get; set; }
 #endif
+        /// <summary>The verdict property</summary>
+        public global::UVision.Client.Models.Verdict? Verdict { get; set; }
         /// <summary>
         /// Instantiates a new <see cref="global::UVision.Client.Models.InspectResultV2"/> and sets the default values.
         /// </summary>
@@ -195,6 +197,7 @@ namespace UVision.Client.Models
                 { "scenario_id", n => { ScenarioId = n.GetStringValue(); } },
                 { "settled_by", n => { SettledBy = n.GetObjectValue<global::UVision.Client.Models.SettledBy>(global::UVision.Client.Models.SettledBy.CreateFromDiscriminatorValue); } },
                 { "timestamp", n => { Timestamp = n.GetStringValue(); } },
+                { "verdict", n => { Verdict = n.GetEnumValue<global::UVision.Client.Models.Verdict>(); } },
             };
         }
         /// <summary>
@@ -223,6 +226,7 @@ namespace UVision.Client.Models
             writer.WriteStringValue("scenario_id", ScenarioId);
             writer.WriteObjectValue<global::UVision.Client.Models.SettledBy>("settled_by", SettledBy);
             writer.WriteStringValue("timestamp", Timestamp);
+            writer.WriteEnumValue<global::UVision.Client.Models.Verdict>("verdict", Verdict);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

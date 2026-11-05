@@ -187,7 +187,7 @@ public partial class InspectV2GoldenTests
         """;
     private const string ExpectedClassification =
         """
-        {"decision_id":"img_ID","scenario_id":"parts","timestamp":"TS","class":"P-100","settled_by":{"tier":"vlm","kind":"vlm"},"confidence":0.79,"findings":"모의 선별 소견: 클래스를 해시로 골랐다(mock — 실제 판정 아님).","path":[{"tier":"vlm","outcome":"settled"}],"device_id":"tab-1","device_label":"라인1"}
+        {"decision_id":"img_ID","scenario_id":"parts","timestamp":"TS","class":"P-100","verdict":"OK","settled_by":{"tier":"vlm","kind":"vlm"},"confidence":0.79,"findings":"모의 선별 소견: 클래스를 해시로 골랐다(mock — 실제 판정 아님).","path":[{"tier":"vlm","outcome":"settled"}],"device_id":"tab-1","device_label":"라인1"}
         """;
     private const string ExpectedClassificationStored =
         """

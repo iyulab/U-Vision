@@ -78,6 +78,8 @@ public class ClassificationInspectTests
         var body = await V2Async(Client(factory, vlm));
 
         Assert.Equal("P-200", body.GetProperty("class").GetString());
+        // v2 가 OK/NG 보기를 직접 싣는다 — 클래스 이름이 아니라 꼭 잡을 값이냐로(P-200 은 아니다).
+        Assert.Equal("OK", body.GetProperty("verdict").GetString());
         var record = StoredRecord(factory);
         Assert.Equal("P-200", record.GetProperty("class").GetString());
         Assert.Equal("OK", record.GetProperty("verdict").GetString()); // 꼭 잡을 클래스가 아니다
@@ -94,7 +96,10 @@ public class ClassificationInspectTests
         var body = await V2Async(Client(factory, new FixedVlm("REJECT")));
 
         Assert.Equal("REJECT", body.GetProperty("class").GetString());
+        Assert.Equal("NG", body.GetProperty("verdict").GetString());
         Assert.Equal("NG", StoredRecord(factory).GetProperty("verdict").GetString());
+        // 응답 · 레코드가 같은 보기다.
+        Assert.Equal(body.GetProperty("verdict").GetString(), StoredRecord(factory).GetProperty("verdict").GetString());
     }
 
     [Theory]

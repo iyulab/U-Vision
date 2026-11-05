@@ -5086,6 +5086,9 @@
           "class": {
             "type": "string"
           },
+          "verdict": {
+            "$ref": "#/components/schemas/Verdict"
+          },
           "settled_by": {
             "$ref": "#/components/schemas/SettledBy"
           },

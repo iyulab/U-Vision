@@ -861,6 +861,7 @@ export interface InspectResultV2 {
   scenario_id: string
   timestamp: string
   class?: string
+  verdict?: Verdict
   settled_by?: SettledBy
   confidence?: number
   findings?: string

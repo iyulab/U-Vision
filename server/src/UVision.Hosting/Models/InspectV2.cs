@@ -22,6 +22,15 @@ public sealed record InspectResultV2
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Class { get; init; }
 
+    /// <summary>
+    /// 확정한 클래스의 OK/NG 보기 — <b>선별(<c>classification</c>) 결과에서만</b> 있다: 꼭 잡을 클래스(<c>must_catch</c>)면 <c>NG</c>,
+    /// 아니면 <c>OK</c>(꼭 잡을 클래스가 없으면 늘 <c>OK</c>). 선별은 클래스 이름으로 선악을 가릴 수 없어(<c>OK</c> 가 없어도 된다) 받는 쪽이
+    /// 이름 규칙으로 되풀이할 수 없다 — 이 값이 저장 레코드의 <c>verdict</c> 와 같은 정의의 정본이다. 다른 유형은 생략한다(그쪽은 이름 규칙이 맞다).
+    /// </summary>
+    [JsonPropertyName("verdict")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Verdict? Verdict { get; init; }
+
     /// <summary>실제로 판정을 낸 단.</summary>
     [JsonPropertyName("settled_by")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

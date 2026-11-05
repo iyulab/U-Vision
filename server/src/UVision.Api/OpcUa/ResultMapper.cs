@@ -160,7 +160,8 @@ public static class ResultMapper
                 IsPartial: false,
                 ResultState: OpcUaResult.StateCompleted,
                 CreationTime: at.UtcDateTime,
-                Verdict: VerdictOf(cls, facts.Type),
+                // 선별 결과는 서버가 OK/NG 보기를 싣는다(클래스 이름으로 가릴 수 없다) — 있으면 그것이 정본이고, 없는 유형은 이름 규칙이다.
+                Verdict: ExplicitVerdict(data) ?? VerdictOf(cls, facts.Type),
                 Class: cls,
                 SettledByTier: tier,
                 SettledByKind: kind,
@@ -180,13 +181,16 @@ public static class ResultMapper
 
     /// <summary>
     /// 클래스의 OK/NG 보기 — 판정 파이프라인의 v1 보기와 같은 규칙이다(좋은 쪽만 OK, 불량 유형은 모두 NG).
-    /// 결과 v2 에는 verdict 필드가 없어 시나리오 유형(오투입 확인은 <c>MATCH</c> 가 좋은 쪽)을 같이 받는다.
+    /// 결과 v2 에 verdict 필드가 없는 유형(선별 밖)은 시나리오 유형(오투입 확인은 <c>MATCH</c> 가 좋은 쪽)을 같이 받아 이 규칙으로 읽는다.
     /// </summary>
     public static string VerdictOf(string classId, string? scenarioType)
     {
         var good = scenarioType == ScenarioVocabulary.Verification ? ScenarioVocabulary.Match : ScenarioVocabulary.Ok;
         return string.Equals(classId, good, StringComparison.OrdinalIgnoreCase) ? ScenarioVocabulary.Ok : ScenarioVocabulary.Ng;
     }
+
+    private static string? ExplicitVerdict(JsonElement data) =>
+        String(data, "verdict") is { } v && (v == ScenarioVocabulary.Ok || v == ScenarioVocabulary.Ng) ? v : null;
 
     private static string? String(JsonElement obj, string name) =>
         obj.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;

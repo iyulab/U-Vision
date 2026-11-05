@@ -726,6 +726,26 @@ public sealed class MapperOpcUaResultTests
     public void Verdict_Follows_The_Pipelines_Ok_Ng_View(string cls, string? type, string expected) =>
         Assert.Equal(expected, ResultMapper.VerdictOf(cls, type));
 
+    [Theory]
+    [InlineData("A100", "OK")]      // 선별: 이름이 OK 가 아니어도 꼭 잡을 값이 아니면 OK 다 — 이름 규칙이 NG 로 읽던 자리
+    [InlineData("reject", "NG")]
+    [InlineData("OK", "NG")]        // 선별에서 `OK` 라는 이름의 클래스가 꼭 잡을 값일 수도 있다 — 서버가 실은 값을 따른다
+    public void A_Classification_Verdict_Carried_By_The_Event_Wins_Over_The_Name_Rule(string cls, string verdict)
+    {
+        var d = OpcUaSamples.Decision("d-9", cls: cls) with { Verdict = verdict == "OK" ? UVision.Api.Models.Verdict.OK : UVision.Api.Models.Verdict.NG };
+        Assert.True(ResultMapper.TryMap(Body(d), new ScenarioFacts("abc123abc123", "classification"), out var r, out var error), error);
+        Assert.Equal(verdict, r!.Verdict);
+        Assert.Contains("\"verdict\":\"" + verdict + "\"", r.Json);   // 원문 data 에도 그대로 실린다
+    }
+
+    [Fact]
+    public void An_Event_Without_A_Verdict_Keeps_The_Name_Rule()
+    {
+        Assert.True(ResultMapper.TryMap(Body(OpcUaSamples.Decision("d-10", cls: "scratch")), ScenarioFacts.Unknown, out var r, out _));
+        Assert.Equal("NG", r!.Verdict);
+        Assert.DoesNotContain("\"verdict\"", r.Json);
+    }
+
     [Fact]
     public void Json_Is_The_Envelope_Data_Verbatim_Not_A_Reserialization()
     {

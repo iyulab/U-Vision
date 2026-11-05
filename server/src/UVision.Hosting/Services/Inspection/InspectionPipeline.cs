@@ -226,6 +226,8 @@ public sealed partial class InspectionPipeline(
             ScenarioId = scenario.ScenarioId,
             Timestamp = timestamp,
             Class = decidedClass,
+            // 선별은 클래스 이름으로 선악을 가릴 수 없으니 OK/NG 보기를 서버가 싣는다(받는 쪽이 되풀이하지 않게). 다른 유형은 생략 — 응답 byte 불변.
+            Verdict = effective.IsClassification ? verdict : null,
             SettledBy = new SettledBy { Tier = SourceName(decision), Kind = SourceName(decision) },
             Confidence = confidence,
             Findings = useMl ? null : findings,
