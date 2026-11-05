@@ -78,6 +78,7 @@ internal static class ClassifyBench
         });
 
         var tally = new Dictionary<(string Truth, string Predicted), int>();
+        var knownClasses = test.Select(t => t.Class).Distinct().ToList();
         var latencies = new List<double>();
         var failed = 0;
         foreach (var (s, i) in test.Select((s, i) => (s, i)))
@@ -89,7 +90,10 @@ internal static class ClassifyBench
             {
                 var r = await classifier.ClassifyAsync(image, "bench");
                 latencies.Add(sw.Elapsed.TotalMilliseconds);
-                tally[(s.Class, r.Label)] = tally.GetValueOrDefault((s.Class, r.Label)) + 1;
+                // 학습 폴더 이름(소문자 클래스 디렉터리)이 그대로 라벨로 와도 목록의 클래스와 같게 센다 — 엔진의 2중체크도
+                // 대소문자를 무시하고 견준다. 이걸 안 하면 `ng`/`NG` 가 어긋나 정확도 0 으로 읽힌다.
+                var predicted = knownClasses.FirstOrDefault(k => string.Equals(k, r.Label, StringComparison.OrdinalIgnoreCase)) ?? r.Label;
+                tally[(s.Class, predicted)] = tally.GetValueOrDefault((s.Class, predicted)) + 1;
             }
             catch (Exception ex)
             {
