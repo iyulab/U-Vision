@@ -29,7 +29,7 @@ describe('sendCapture', () => {
   it('다중 분류는 v1 이 아니라 v2 로 보내고, 결과를 캡처 때 선언한 클래스로 푼다', async () => {
     api.inspectImage.mockClear()
     api.inspectImageV2.mockClear()
-    api.inspectImageV2.mockResolvedValueOnce({ decision_id: 'img_3', scenario_id: 's', timestamp: 't', class: 'reject' })
+    api.inspectImageV2.mockResolvedValueOnce({ decision_id: 'img_3', scenario_id: 's', timestamp: 't', class: 'reject', verdict: 'NG' } as never)
     const result = await sendCapture(item({ classification: { classes: [{ id: 'A100' }, { id: 'reject', label: '불량', must_catch: true }] } }))
     expect(api.inspectImage).not.toHaveBeenCalled()
     expect(api.inspectImageV2).toHaveBeenCalledWith(expect.any(Blob), 's', 'd', 'l', {}, '2026-10-22T01:00:00.000Z', 'cap-1')

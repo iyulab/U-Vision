@@ -9,22 +9,16 @@ export function isVerification(scenario: Pick<Scenario, 'type'>): boolean {
  * 결과 v2 → 운영 화면의 판정 결과. 운영 화면은 OK/NG 축으로 상태를 다루므로 좋은 쪽(OK · 일치)만 OK 에, 불일치 ·
  * 불량 유형은 모두 NG 쪽(놓치면 안 되는 값)에 두고, 표시용 클래스(`class_label`)를 함께 싣는다.
  *
- * 다중 분류(`classes` 를 주면)는 클래스가 값 중립이라 이름으로 선악을 가리지 않는다 — 서버가 저장하는 OK/NG 보기와 같게,
- * 결정된 클래스가 **꼭 잡을 값**이면 NG, 아니면 OK 다(꼭 잡을 값이 없는 시나리오는 늘 OK). 선언에 없는 클래스이거나 답에
- * 클래스가 없으면 NG(안전한 쪽 — 차단). `class_name` 은 시나리오가 붙인 표시 이름(없으면 id).
+ * 다중 분류(`classes` 를 주면)는 클래스가 값 중립이라 이름으로 선악을 가릴 수 없다 — 서버가 결과 v2 의 `verdict` 로 OK/NG 보기
+ * (꼭 잡을 값이면 NG, 아니면 OK)를 싣는다(원장 D-115). 이 함수는 그 값을 읽기만 하고, 답에 없으면 NG(안전한 쪽 — 차단)다.
+ * `classes` 는 표시 이름(`class_name`, 시나리오가 붙인 이름 없으면 id)을 풀 때만 쓴다.
  */
 export function toInspectResult(v2: InspectResultV2, classes?: ScenarioClass[]): InspectResult {
   const decided =
     classes && v2.class !== undefined
       ? classes.find((c) => c.id.toLowerCase() === v2.class!.toLowerCase())
       : undefined
-  const verdict = classes
-    ? decided && decided.must_catch !== true
-      ? 'OK'
-      : 'NG'
-    : v2.class === 'OK' || v2.class === 'MATCH'
-      ? 'OK'
-      : 'NG'
+  const verdict = classes ? (v2.verdict ?? 'NG') : v2.class === 'OK' || v2.class === 'MATCH' ? 'OK' : 'NG'
   return {
     verdict,
     ...(classes ? { class_name: decided?.label ?? decided?.id ?? v2.class ?? '?' } : {}),

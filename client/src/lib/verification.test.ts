@@ -35,33 +35,32 @@ describe('verification', () => {
 
   describe('다중 분류(classes 를 주면)', () => {
     const base = { decision_id: 'img_1', scenario_id: 's', timestamp: 't', confidence: 0.8 }
-    const classes = [{ id: 'A100', label: '품번 A' }, { id: 'B200' }, { id: 'reject', must_catch: true }]
+    const classes = [{ id: 'A100', label: '품번 A' }, { id: 'B200' }, { id: 'reject', label: '불량', must_catch: true }]
 
-    it('클래스 이름으로 선악을 가리지 않는다 — 꼭 잡을 값이면 NG, 아니면 OK(서버가 저장하는 OK/NG 보기와 같다)', () => {
-      expect(toInspectResult({ ...base, class: 'A100' }, classes)).toMatchObject({ verdict: 'OK', class_name: '품번 A', class_label: 'A100' })
-      expect(toInspectResult({ ...base, class: 'B200' }, classes)).toMatchObject({ verdict: 'OK', class_name: 'B200' })
-      expect(toInspectResult({ ...base, class: 'reject' }, classes)).toMatchObject({ verdict: 'NG', class_name: 'reject' })
-      // 클래스 id 가 'OK'/'MATCH' 철자여도 또는 아니어도 이름은 의미가 없다 — 검사의 이름 규칙을 쓰지 않는다.
-      expect(toInspectResult({ ...base, class: 'OK' }, [{ id: 'OK', must_catch: true }, { id: 'X' }])).toMatchObject({ verdict: 'NG' })
+    it('OK/NG 보기는 서버가 v2 `verdict` 로 싣는 값 그대로다 — 클래스 이름으로 짐작하지 않는다', () => {
+      expect(toInspectResult({ ...base, class: 'A100', verdict: 'OK' }, classes)).toMatchObject({ verdict: 'OK', class_name: '품번 A', class_label: 'A100' })
+      expect(toInspectResult({ ...base, class: 'reject', verdict: 'NG' }, classes)).toMatchObject({ verdict: 'NG', class_name: '불량' })
+      // 이름이 'OK' 여도 서버가 NG 라고 하면 NG, 이름이 reject 여도 서버가 OK 라고 하면 OK — 이름은 뜻이 없다.
+      expect(toInspectResult({ ...base, class: 'OK', verdict: 'NG' }, [{ id: 'OK', must_catch: true }, { id: 'X' }])).toMatchObject({ verdict: 'NG' })
+      expect(toInspectResult({ ...base, class: 'reject', verdict: 'OK' }, classes)).toMatchObject({ verdict: 'OK' })
     })
 
-    it('꼭 잡을 값이 하나도 없으면 늘 OK — 작업자 화면이 막히지 않는다', () => {
-      expect(toInspectResult({ ...base, class: 'B200' }, [{ id: 'A100' }, { id: 'B200' }])).toMatchObject({ verdict: 'OK' })
-    })
-
-    it('대소문자만 다른 답도 선언한 클래스로 읽고, 선언에 없거나 답에 클래스가 없으면 NG(안전한 쪽)', () => {
-      expect(toInspectResult({ ...base, class: 'reject' }, classes)).toMatchObject({ verdict: 'NG' })
-      expect(toInspectResult({ ...base, class: 'REJECT' }, classes)).toMatchObject({ verdict: 'NG', class_name: 'reject' })
-      expect(toInspectResult({ ...base, class: 'a100' }, classes)).toMatchObject({ verdict: 'OK', class_name: '품번 A' })
-      expect(toInspectResult({ ...base, class: 'ghost' }, classes)).toMatchObject({ verdict: 'NG', class_name: 'ghost' })
+    it('답에 verdict 가 없으면 NG(안전한 쪽 — 차단) — 선언에 없는 클래스여도 이름 풀이는 id 로 돌아간다', () => {
+      expect(toInspectResult({ ...base, class: 'A100' }, classes)).toMatchObject({ verdict: 'NG', class_name: '품번 A' })
+      expect(toInspectResult({ ...base, class: 'ghost', verdict: 'OK' }, classes)).toMatchObject({ verdict: 'OK', class_name: 'ghost' })
       expect(toInspectResult({ ...base }, classes)).toMatchObject({ verdict: 'NG', class_name: '?' })
     })
 
+    it('대소문자만 다른 답도 선언한 클래스의 표시 이름으로 푼다', () => {
+      expect(toInspectResult({ ...base, class: 'REJECT', verdict: 'NG' }, classes)).toMatchObject({ class_name: '불량' })
+      expect(toInspectResult({ ...base, class: 'a100', verdict: 'OK' }, classes)).toMatchObject({ class_name: '품번 A' })
+    })
+
     it('배지 · 목록 문구는 클래스 이름 — 아이콘은 OK/NG 보기를 따른다', () => {
-      const ok = toInspectResult({ ...base, class: 'A100' }, classes)
-      const ng = toInspectResult({ ...base, class: 'reject' }, classes)
+      const ok = toInspectResult({ ...base, class: 'A100', verdict: 'OK' }, classes)
+      const ng = toInspectResult({ ...base, class: 'reject', verdict: 'NG' }, classes)
       expect(verdictLabel(ok)).toBe('✅ 품번 A')
-      expect(verdictLabel(ng)).toBe('❌ reject')
+      expect(verdictLabel(ng)).toBe('❌ 불량')
       expect(shortVerdictLabel(ok)).toBe('품번 A')
     })
   })
