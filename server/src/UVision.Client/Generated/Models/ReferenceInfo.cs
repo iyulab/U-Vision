@@ -14,6 +14,14 @@ namespace UVision.Client.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
+        /// <summary>The class property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Class { get; set; }
+#nullable restore
+#else
+        public string Class { get; set; }
+#endif
         /// <summary>0 = ok reference, 1 = ng reference</summary>
         public int? Label { get; set; }
         /// <summary>The ng_label property</summary>
@@ -57,6 +65,7 @@ namespace UVision.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "class", n => { Class = n.GetStringValue(); } },
                 { "label", n => { Label = n.GetIntValue(); } },
                 { "ng_label", n => { NgLabel = n.GetStringValue(); } },
                 { "ref_id", n => { RefId = n.GetStringValue(); } },
@@ -69,6 +78,7 @@ namespace UVision.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteStringValue("class", Class);
             writer.WriteIntValue("label", Label);
             writer.WriteStringValue("ng_label", NgLabel);
             writer.WriteStringValue("ref_id", RefId);

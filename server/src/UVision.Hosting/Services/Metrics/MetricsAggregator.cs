@@ -87,6 +87,7 @@ public static class MetricsAggregator
         // 계수 판정(검출기) 줄은 VLM · ML 집계와 뜻이 달라 맨 앞에서 갈라 따로 센다 — 검사 수 · 재현율 · 오경보 · 격상 신호에 들지 않는다.
         // 사람 라벨 조인도 하지 않는다: 검출기의 정확도는 정수 정답이 있는 개수 오차 측정이 잰다.
         var counting = new CountingTally();
+        var classification = new ClassificationTally();
 
         foreach (var r in rows)
         {
@@ -101,6 +102,7 @@ public static class MetricsAggregator
                 continue;  // verdict 없는 행 — 기존 집계 제외
             }
             inspections++;
+            classification.AddDecision(r.Class);
             if (r.Match == ScenarioVocabulary.Mismatch) matchMismatches++;
             else if (r.Match == MatchAbstained) matchAbstained++;
             if (r.Contested) contested++;
@@ -129,6 +131,7 @@ public static class MetricsAggregator
             if (!labelOf.TryGetValue(r.ImageId, out var truth))
                 continue;
             labeled++;
+            classification.AddLabeled(r.Class, truth);
 
             // NG recall: 정답이 NG 인 건만(ground-truth 양성) 분모에 든다. 정답이 OK 인 건은 오경보율의 분모다.
             if (!isNg(truth))
@@ -224,7 +227,49 @@ public static class MetricsAggregator
             OracleCoverageRate = Rate(reviews - oraclePending, reviews),
             PromotionEligible = eligible,
             Counting = counting.ToMetrics(),
+            Classification = classification.ToMetrics(),
         };
+    }
+
+    /// <summary>
+    /// 선별 줄의 클래스별 집계 — 클래스가 없는 줄(검사 · 오투입 확인)은 건너뛰므로 선별이 없으면 <c>null</c>(응답에서 생략).
+    /// 사람 라벨이 붙은 건만 혼동 행렬에 든다.
+    /// </summary>
+    private sealed class ClassificationTally
+    {
+        private int _checked, _labeled, _agreed;
+        private readonly SortedDictionary<string, int> _predicted = new(StringComparer.Ordinal);
+        private readonly SortedDictionary<string, SortedDictionary<string, int>> _confusion = new(StringComparer.Ordinal);
+
+        public void AddDecision(string? predicted)
+        {
+            if (predicted is null) return;
+            _checked++;
+            _predicted[predicted] = _predicted.GetValueOrDefault(predicted) + 1;
+        }
+
+        public void AddLabeled(string? predicted, string truth)
+        {
+            if (predicted is null) return;
+            _labeled++;
+            if (string.Equals(predicted, truth, StringComparison.OrdinalIgnoreCase)) _agreed++;
+            if (!_confusion.TryGetValue(truth, out var row))
+                _confusion[truth] = row = new SortedDictionary<string, int>(StringComparer.Ordinal);
+            row[predicted] = row.GetValueOrDefault(predicted) + 1;
+        }
+
+        public ClassificationMetrics? ToMetrics() =>
+            _checked == 0
+                ? null
+                : new ClassificationMetrics
+                {
+                    Checked = _checked,
+                    Predicted = _predicted,
+                    Labeled = _labeled,
+                    Agreed = _agreed,
+                    Confusion = _confusion.ToDictionary(e => e.Key, e => (IReadOnlyDictionary<string, int>)e.Value, StringComparer.Ordinal),
+                    AgreementRate = Rate(_agreed, _labeled),
+                };
     }
 
     /// <summary>계수 줄의 집계 — 원시 카운트를 모으고 비율은 끝에서 한 번에 낸다. 계수 줄이 없으면 <c>null</c>(응답에서 생략).</summary>

@@ -213,7 +213,7 @@ public sealed partial class InspectionPipeline(
         await WriteMetricsSafelyAsync(
             scenario.ScenarioId, imageId, timestamp, verdict, confidence, evidence.Ml, dual,
             posture, vlmOnly: !mlActive, MatchOf(effective, capture.Context), contested: contests.Count > 0,
-            capture.Origin?.Kind, cancellationToken);
+            capture.Origin?.Kind, cancellationToken, decidedClass: effective.IsClassification ? decidedClass : null);
 
         if (mlActive
             && (stage == AuthorityStage.CoPrimary || stage == AuthorityStage.MlPrimary))
@@ -531,8 +531,12 @@ public sealed partial class InspectionPipeline(
         IReadOnlyList<ReferenceImage> references = [];
         try
         {
-            references = await referenceStore.LoadImagesAsync(
-                scenario.ScenarioId, scenario.NgLabels, Math.Max(0, scenario.ReferenceCap), cancellationToken);
+            // 선별은 클래스 폴더(references/{class})에서 클래스마다, 그 밖은 ok/ng 에서 — 장수 상한(ReferenceCap)은 둘 다 «묶음당»이다.
+            references = effective.IsClassification
+                ? await referenceStore.LoadClassImagesAsync(
+                    scenario.ScenarioId, effective.Classes, Math.Max(0, scenario.ReferenceCap), cancellationToken)
+                : await referenceStore.LoadImagesAsync(
+                    scenario.ScenarioId, scenario.NgLabels, Math.Max(0, scenario.ReferenceCap), cancellationToken);
         }
         catch (Exception ex)
         {
@@ -779,7 +783,8 @@ public sealed partial class InspectionPipeline(
     private async Task WriteMetricsSafelyAsync(
         string scenarioId, string imageId, string timestamp,
         Verdict verdict, double confidence, MlOutcome? outcome, DualCheckResult? dual,
-        string? posture, bool vlmOnly, string? match, bool contested, string? origin, CancellationToken cancellationToken)
+        string? posture, bool vlmOnly, string? match, bool contested, string? origin, CancellationToken cancellationToken,
+        string? decidedClass = null)
     {
         var degraded = outcome?.Failed ?? false;
         var row = new MetricsRow
@@ -798,6 +803,7 @@ public sealed partial class InspectionPipeline(
             Match = match,
             Contested = contested,
             Origin = origin,
+            Class = decidedClass,
         };
         try { await metricsStore.AppendAsync(scenarioId, row, cancellationToken); }
         catch (Exception ex)

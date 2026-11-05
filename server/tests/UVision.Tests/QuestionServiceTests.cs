@@ -232,6 +232,18 @@ public class QuestionServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ClassificationScenarios_AreNotSupported_BecauseTheQuestionShapeAssumesAnOkClass()
+    {
+        _source.Candidates = [C("a")];
+
+        var outcome = await Service(type: "classification").NextAsync(Scenario, "dev", default);
+
+        var unsupported = Assert.IsType<QuestionOutcome.Unsupported>(outcome);
+        Assert.Contains("선별", unsupported.Reason);
+        Assert.Empty(await _questions.ListAsync(Scenario, default));
+    }
+
+    [Fact]
     public void Options_RejectUnknownRulesAndOutOfRangeValues()
     {
         Assert.Throws<ArgumentException>(() => new QuestionsOptions { Rule = "magic" }.Validate());

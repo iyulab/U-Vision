@@ -20,7 +20,18 @@ public sealed record ReferenceInfo
 
     /// <summary>NG 기준 이미지의 불량 유형명(scenario.json.ng_labels). OK 면 null.</summary>
     [JsonPropertyName("ng_label")] public string? NgLabel { get; init; }
+
+    /// <summary>
+    /// 선별(<c>classification</c>) 기준 이미지의 클래스 id — 선별 시나리오에서만 채워진다(검사의 응답은 그대로). 그 경우
+    /// <see cref="Label"/> 은 클래스의 OK/NG 보기(꼭 잡을 클래스면 ng)다.
+    /// </summary>
+    [JsonPropertyName("class")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Class { get; init; }
 }
+
+/// <summary>선별 기준 이미지 한 장의 저장 위치 — 클래스 폴더 이름(소문자)과 기준 이미지 id.</summary>
+public sealed record ClassReference(string ClassDir, string RefId);
 
 /// <summary>
 /// few-shot 판정에 결합할 기준 이미지(바이트 포함). provider 가 비전 입력으로 변환한다.

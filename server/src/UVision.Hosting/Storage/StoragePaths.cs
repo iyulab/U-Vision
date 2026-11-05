@@ -102,6 +102,20 @@ public sealed partial class StoragePaths
         string scenarioId, Models.ReferenceLabel label, string refId, string ext) =>
         Path.Combine(ReferenceDir(scenarioId, label), Id(refId) + ext);
 
+    /// <summary>
+    /// 선별 기준 이미지 폴더 — <c>references/{class}/</c>(클래스 id 소문자). 기존 <c>ok</c> · <c>ng</c> 폴더와 같은 자리에 선다 —
+    /// 클래스 id 가 <c>OK</c> 면 <see cref="ReferenceDir"/> 의 ok 폴더가 곧 그 클래스다(어댑터 없이 옛 배치가 읽힌다).
+    /// id 는 화이트리스트(영숫자 · '_' · '-')로 거부한다.
+    /// </summary>
+    public string ReferenceClassDir(string scenarioId, string classId) =>
+        Path.Combine(ScenarioDir(scenarioId), "references", Id(classId).ToLowerInvariant());
+
+    public string ReferenceClassFile(string scenarioId, string classId, string refId, string ext) =>
+        Path.Combine(ReferenceClassDir(scenarioId, classId), Id(refId) + ext);
+
+    /// <summary>시나리오의 <c>references</c> 루트 — 클래스 폴더를 모두 훑을 때.</summary>
+    public string ReferencesRoot(string scenarioId) => Path.Combine(ScenarioDir(scenarioId), "references");
+
     // --- 데이터셋 export (신뢰성 플라이휠 ②) -------------------------------
     // 사람 라벨된 이미지를 MLoop 이미지분류 입력 레이아웃으로 스냅샷한다.
     // <c>datasets</c> 는 날짜로 파싱되지 않으므로 ListDatesAsync 가 자연 제외한다(references 와 동일).

@@ -47,6 +47,7 @@ export interface Contract {
   AuthorityState?: AuthorityState
   AuthorityTransition?: AuthorityTransition
   AuthorityTransitionResponse?: AuthorityTransitionResponse
+  ClassificationMetrics?: ClassificationMetrics
   ContestedBy?: ContestedBy
   CountBox?: CountBox
   CountInfo?: CountInfo
@@ -258,6 +259,24 @@ export interface AuthorityTransition {
 export interface AuthorityTransitionResponse {
   stage: AuthorityStage
   previous_stage: AuthorityStage
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "ClassificationMetrics".
+ */
+export interface ClassificationMetrics {
+  checked: number
+  predicted: {
+    [k: string]: number
+  }
+  labeled: number
+  agreed: number
+  confusion: {
+    [k: string]: {
+      [k: string]: number
+    }
+  }
+  agreement_rate?: number
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
@@ -995,6 +1014,7 @@ export interface MetricsSummary {
   oracle_coverage_rate: null | number
   promotion_eligible?: boolean
   counting?: CountingMetrics
+  classification?: ClassificationMetrics
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
@@ -1098,6 +1118,7 @@ export interface ReferenceInfo {
   ref_id: string
   label: ReferenceLabel
   ng_label: null | string
+  class?: string
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

@@ -152,5 +152,21 @@ public class ReferenceTests : IClassFixture<PinFactory>
         public Task<IReadOnlyList<ReferenceImage>> LoadImagesAsync(
             string s, IReadOnlyDictionary<string, string> ng, int max, CancellationToken ct = default) =>
             throw new IOException("기준이미지 로드 실패(테스트)");
+
+        public Task<string> SaveClassAsync(string s, string c, ReadOnlyMemory<byte> i, string e,
+            CancellationToken ct = default) => throw new IOException("test");
+
+        public Task<IReadOnlyList<ClassReference>> ListClassesAsync(string s, CancellationToken ct = default) =>
+            throw new IOException("test");
+
+        public Task<ReferenceBytes?> ReadClassAsync(string s, string c, string r, CancellationToken ct = default) =>
+            throw new IOException("test");
+
+        public Task<bool> DeleteClassAsync(string s, string c, string r, CancellationToken ct = default) =>
+            throw new IOException("test");
+
+        public Task<IReadOnlyList<ReferenceImage>> LoadClassImagesAsync(
+            string s, IReadOnlyList<ScenarioClass> classes, int max, CancellationToken ct = default) =>
+            throw new IOException("기준이미지 로드 실패(테스트)");
     }
 }

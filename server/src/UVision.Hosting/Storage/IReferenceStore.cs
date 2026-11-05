@@ -37,4 +37,30 @@ public interface IReferenceStore
     Task<IReadOnlyList<ReferenceImage>> LoadImagesAsync(
         string scenarioId, IReadOnlyDictionary<string, string> ngLabels, int maxPerLabel,
         CancellationToken cancellationToken = default);
+
+    // --- 선별(classification) — 기준 이미지는 OK/NG 가 아니라 클래스 폴더(references/{class})에 둔다. 열거(ReferenceLabel)는 동결이라 건드리지 않고
+    //     문자열 클래스 id 로 옆에 더했다. 검사 시나리오의 경로는 위 메서드 그대로다.
+
+    /// <summary>클래스 하나의 기준 이미지를 저장한다 — <paramref name="classId"/> 는 시나리오가 선언한 클래스 id(경계에서 확인한다).</summary>
+    Task<string> SaveClassAsync(
+        string scenarioId, string classId, ReadOnlyMemory<byte> image, string ext,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>선별 시나리오의 모든 클래스 폴더의 기준 이미지 — 선언을 벗어난(지워진 클래스의) 폴더도 그대로 보인다.</summary>
+    Task<IReadOnlyList<ClassReference>> ListClassesAsync(
+        string scenarioId, CancellationToken cancellationToken = default);
+
+    Task<ReferenceBytes?> ReadClassAsync(
+        string scenarioId, string classId, string refId, CancellationToken cancellationToken = default);
+
+    Task<bool> DeleteClassAsync(
+        string scenarioId, string classId, string refId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 선별의 few-shot 입력 — 선언한 클래스마다 최대 <paramref name="maxPerClass"/> 장(경로 순). 기준 이미지가 없는 클래스는 글 설명만으로
+    /// 시작한다(건너뛴다). 각 이미지의 <see cref="ReferenceImage.ClassId"/> 가 프롬프트 표지가 된다.
+    /// </summary>
+    Task<IReadOnlyList<ReferenceImage>> LoadClassImagesAsync(
+        string scenarioId, IReadOnlyList<ScenarioClass> classes, int maxPerClass,
+        CancellationToken cancellationToken = default);
 }

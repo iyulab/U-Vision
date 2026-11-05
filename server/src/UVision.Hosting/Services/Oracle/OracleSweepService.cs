@@ -109,11 +109,16 @@ public sealed class OracleSweepService
         var img = await _inspections.ReadImageAsync(scenario.ScenarioId, date, imageId, ct)
             ?? throw new InvalidOperationException($"이미지 없음: {imageId}");
 
+        var effective = EffectiveScenario.Resolve(scenario, mlEnabled: false);
         IReadOnlyList<ReferenceImage> refs = [];
-        try { refs = await _references.LoadImagesAsync(scenario.ScenarioId, scenario.NgLabels, Math.Max(0, scenario.ReferenceCap), ct); }
+        try
+        {
+            refs = effective.IsClassification
+                ? await _references.LoadClassImagesAsync(scenario.ScenarioId, effective.Classes, Math.Max(0, scenario.ReferenceCap), ct)
+                : await _references.LoadImagesAsync(scenario.ScenarioId, scenario.NgLabels, Math.Max(0, scenario.ReferenceCap), ct);
+        }
         catch (Exception ex) { _log.LogWarning(ex, "기준이미지 로드 실패 — refs 없이 (sc={Sc})", scenario.ScenarioId); }
 
-        var effective = EffectiveScenario.Resolve(scenario, mlEnabled: false);
         var context = new ScenarioContext
         {
             ScenarioId = scenario.ScenarioId, Name = scenario.Name, Criteria = scenario.Criteria, References = refs,

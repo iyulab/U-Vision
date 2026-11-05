@@ -52,6 +52,23 @@ public static class ReferenceEndpoints
             if (scenario is null)
                 return Results.Problem(statusCode: 404, detail: $"시나리오 없음: {id}");
 
+            // 선별은 클래스 폴더를 훑는다 — 응답의 label 은 클래스의 OK/NG 보기, class 가 본체(검사의 응답 모양은 그대로).
+            if (scenario.Type == ScenarioVocabulary.Classification)
+            {
+                var classes = EffectiveScenario.Resolve(scenario, mlEnabled: false).Classes;
+                var rows = await referenceStore.ListClassesAsync(id, ct);
+                return Results.Ok(rows.Select(r =>
+                {
+                    var declared = classes.FirstOrDefault(c => string.Equals(c.Id, r.ClassDir, StringComparison.OrdinalIgnoreCase))?.Id ?? r.ClassDir;
+                    return new ReferenceInfo
+                    {
+                        RefId = r.RefId,
+                        Label = ScenarioClass.ViewOf(classes, declared) == Verdict.NG ? ReferenceLabel.Ng : ReferenceLabel.Ok,
+                        Class = declared,
+                    };
+                }));
+            }
+
             var refs = await referenceStore.ListAsync(id, ct);
             // NG 레이블을 scenario.json 에서 결합.
             var withLabels = refs.Select(r => r with
@@ -69,8 +86,26 @@ public static class ReferenceEndpoints
     }
 
     private static async Task<IResult> ServeAsync(
-        string id, string label, string refId, IReferenceStore referenceStore, CancellationToken ct)
+        string id, string label, string refId, IScenarioStore scenarioStore, IReferenceStore referenceStore, CancellationToken ct)
     {
+        // 선별 시나리오는 label 이 선언한 클래스 id 다(ok|ng 도 그 시나리오가 선언한 클래스일 때만). 그 밖은 지금 그대로다.
+        var (isClassification, classId) = await ClassOfAsync(scenarioStore, id, label, ct);
+        if (isClassification)
+        {
+            if (classId is null)
+                return Results.Problem(statusCode: 400, detail: $"label 은 시나리오가 선언한 클래스 id: {label}");
+            try
+            {
+                var classBytes = await referenceStore.ReadClassAsync(id, classId, refId, ct);
+                return classBytes is null
+                    ? Results.Problem(statusCode: 404, detail: "기준 이미지 없음")
+                    : Results.File(classBytes.Data, classBytes.ContentType);
+            }
+            catch (ArgumentException)
+            {
+                return Results.Problem(statusCode: 400, detail: "유효하지 않은 id");
+            }
+        }
         if (!TryParseLabel(label, out var parsed))
             return Results.Problem(statusCode: 400, detail: $"label 은 ok|ng: {label}");
         try
@@ -98,6 +133,12 @@ public static class ReferenceEndpoints
         CancellationToken ct,
         [FromForm(Name = "ng_label")] string? ngLabel = null)
     {
+        // 선별 시나리오는 label 에 선언한 클래스 id 를 받는다. ng_label(불량 유형 이름)은 검사의 개념이라 받지 않는다.
+        var (isClassification, classId) = await ClassOfAsync(scenarioStore, id, label, ct);
+        if (isClassification)
+            return classId is null
+                ? Results.Problem(statusCode: 400, detail: $"label 은 시나리오가 선언한 클래스 id: {label}")
+                : await UploadClassAsync(id, classId, image, ngLabel, scenarioStore, referenceStore, options, request, uvision, ct);
         if (!TryParseLabel(label, out var parsed))
             return Results.Problem(statusCode: 400, detail: $"label 은 ok|ng: {label}");
 
@@ -137,6 +178,22 @@ public static class ReferenceEndpoints
         string id, string label, string refId,
         IScenarioStore scenarioStore, IReferenceStore referenceStore, CancellationToken ct)
     {
+        var (isClassification, classId) = await ClassOfAsync(scenarioStore, id, label, ct);
+        if (isClassification)
+        {
+            if (classId is null)
+                return Results.Problem(statusCode: 400, detail: $"label 은 시나리오가 선언한 클래스 id: {label}");
+            try
+            {
+                return await referenceStore.DeleteClassAsync(id, classId, refId, ct)
+                    ? Results.NoContent()
+                    : Results.Problem(statusCode: 404, detail: "기준 이미지 없음");
+            }
+            catch (ArgumentException)
+            {
+                return Results.Problem(statusCode: 400, detail: "유효하지 않은 id");
+            }
+        }
         if (!TryParseLabel(label, out var parsed))
             return Results.Problem(statusCode: 400, detail: $"label 은 ok|ng: {label}");
         try
@@ -155,6 +212,52 @@ public static class ReferenceEndpoints
         {
             return Results.Problem(statusCode: 400, detail: "유효하지 않은 id");
         }
+    }
+
+    /// <summary>
+    /// 선별 시나리오인가, 그렇다면 label 이 선언한 클래스 id 인가(대소문자 무시 — 선언한 철자로 돌려준다, 선언 밖이면 null).
+    /// 선별이 아니거나 시나리오가 없거나 형식 위반이면 (false, null) — 호출부가 지금의 ok|ng 경로(와 그 오류)로 간다.
+    /// </summary>
+    private static async Task<(bool IsClassification, string? ClassId)> ClassOfAsync(
+        IScenarioStore scenarioStore, string id, string label, CancellationToken ct)
+    {
+        try
+        {
+            var scenario = await scenarioStore.GetAsync(id, ct);
+            return scenario?.Type == ScenarioVocabulary.Classification
+                ? (true, EffectiveScenario.Resolve(scenario, mlEnabled: false).ClassFor(label))
+                : (false, null);
+        }
+        catch (ArgumentException)
+        {
+            return (false, null);
+        }
+    }
+
+    private static async Task<IResult> UploadClassAsync(
+        string id, string classId, IFormFile image, string? ngLabel, IScenarioStore scenarioStore, IReferenceStore referenceStore,
+        VlmOptions options, HttpRequest request, UVisionOptions uvision, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(ngLabel))
+            return Results.Problem(statusCode: 400, detail: "ng_label 은 검사 시나리오의 불량 유형 이름이다 — 선별의 기준 이미지는 label 에 클래스 id 를 준다");
+        var invalid = ImageUpload.Validate(image, options.MaxUploadSizeMb);
+        if (invalid is not null)
+            return invalid;
+        var scenario = await scenarioStore.GetAsync(id, ct);
+        if (scenario is null)
+            return Results.Problem(statusCode: 404, detail: $"시나리오 없음: {id}");
+        var data = await ImageUpload.ReadBytesAsync(image, ct);
+        if (data is null)
+            return Results.Problem(statusCode: 400, detail: "빈 이미지");
+        var refId = await referenceStore.SaveClassAsync(id, classId, data, ImageFiles.ExtensionFor(image.ContentType), ct);
+        var classes = EffectiveScenario.Resolve(scenario, mlEnabled: false).Classes;
+        return Results.Created(ApiLocation.For(request, uvision, $"scenarios/{id}/references/{classId}/{refId}"),
+            new ReferenceInfo
+            {
+                RefId = refId,
+                Label = ScenarioClass.ViewOf(classes, classId) == Verdict.NG ? ReferenceLabel.Ng : ReferenceLabel.Ok,
+                Class = classId,
+            });
     }
 
     private static bool TryParseLabel(string label, out ReferenceLabel parsed)

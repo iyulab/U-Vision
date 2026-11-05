@@ -32,6 +32,14 @@ namespace UVision.Client.Models
         public int? AuditOkOk { get; set; }
         /// <summary>The audit_positive_agreement property</summary>
         public double? AuditPositiveAgreement { get; set; }
+        /// <summary>The classification property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::UVision.Client.Models.ClassificationMetrics? Classification { get; set; }
+#nullable restore
+#else
+        public global::UVision.Client.Models.ClassificationMetrics Classification { get; set; }
+#endif
         /// <summary>The contested property</summary>
         public int? Contested { get; set; }
         /// <summary>The counting property</summary>
@@ -158,6 +166,7 @@ namespace UVision.Client.Models
                 { "audit_ok_ok", n => { AuditOkOk = n.GetIntValue(); } },
                 { "audit_positive_agreement", n => { AuditPositiveAgreement = n.GetDoubleValue(); } },
                 { "audited", n => { Audited = n.GetIntValue(); } },
+                { "classification", n => { Classification = n.GetObjectValue<global::UVision.Client.Models.ClassificationMetrics>(global::UVision.Client.Models.ClassificationMetrics.CreateFromDiscriminatorValue); } },
                 { "contested", n => { Contested = n.GetIntValue(); } },
                 { "counting", n => { Counting = n.GetObjectValue<global::UVision.Client.Models.CountingMetrics>(global::UVision.Client.Models.CountingMetrics.CreateFromDiscriminatorValue); } },
                 { "dataset_inspections", n => { DatasetInspections = n.GetIntValue(); } },
@@ -213,6 +222,7 @@ namespace UVision.Client.Models
             writer.WriteIntValue("audit_ok_ng", AuditOkNg);
             writer.WriteIntValue("audit_ok_ok", AuditOkOk);
             writer.WriteDoubleValue("audit_positive_agreement", AuditPositiveAgreement);
+            writer.WriteObjectValue<global::UVision.Client.Models.ClassificationMetrics>("classification", Classification);
             writer.WriteIntValue("contested", Contested);
             writer.WriteObjectValue<global::UVision.Client.Models.CountingMetrics>("counting", Counting);
             writer.WriteIntValue("dataset_inspections", DatasetInspections);

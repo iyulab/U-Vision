@@ -166,6 +166,25 @@ public class ClassificationInspectTests
         Assert.False(StoredRecord(factory).TryGetProperty("ml", out _)); // 2중체크 없이 VLM 단독(degrade)
     }
 
+    [Fact]
+    public async Task Inspect_WritesTheClassIntoTheMetricsRow_AndTheEndpointShowsTheBlock()
+    {
+        using var factory = new UVisionApiFactory();
+        await SeedAsync(factory);
+        var client = Client(factory, new FixedVlm("P-200"));
+        var body = await V2Async(client);
+        await client.PutAsJsonAsync("/api/u-vision/results/label", new LabelInput
+        { ScenarioId = Id, Date = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), ImageId = body.GetProperty("decision_id").GetString()!, Label = "P-100" });
+
+        var metrics = await client.GetFromJsonAsync<JsonElement>($"/api/u-vision/metrics?scenario_id={Id}");
+
+        var c = metrics.GetProperty("classification");
+        Assert.Equal(1, c.GetProperty("checked").GetInt32());
+        Assert.Equal(1, c.GetProperty("predicted").GetProperty("P-200").GetInt32());
+        Assert.Equal(1, c.GetProperty("confusion").GetProperty("P-100").GetProperty("P-200").GetInt32()); // 사람은 P-100, 판정은 P-200
+        Assert.Equal(0.0, c.GetProperty("agreement_rate").GetDouble());
+    }
+
     // ── 라벨 ──────────────────────────────────────────────────────────────
 
     [Theory]

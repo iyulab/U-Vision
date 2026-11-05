@@ -80,6 +80,14 @@ public sealed record MetricsRow
     public string? Origin { get; init; }
 
     /// <summary>
+    /// 선별(<c>classification</c>) 판정이 정한 클래스 id — 선별 행에만 있다(그 밖의 행은 생략되어 byte 가 그대로다). 집계가 사람 라벨과
+    /// 견줘 클래스별 혼동 행렬을 낸다(<see cref="MetricsSummary.Classification"/>). <see cref="Verdict"/> 는 이 클래스의 OK/NG 보기다.
+    /// </summary>
+    [JsonPropertyName("class")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Class { get; init; }
+
+    /// <summary>
     /// 계수 판정의 표지 — 있으면 이 행은 검출기가 낸 계수 판정이다. 집계는 이 행을 맨 앞에서 갈라 VLM · ML 집계(검사 수 ·
     /// 재현율 · 오경보 · 격상 신호)에 섞지 않고 따로 센다(<see cref="MetricsSummary.Counting"/>). 계수가 아닌 행에는 없다.
     /// </summary>
@@ -294,6 +302,41 @@ public sealed record MetricsSummary
     [JsonPropertyName("counting")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public CountingMetrics? Counting { get; init; }
+
+    /// <summary>
+    /// 선별 판정의 클래스별 관측 — 그 날짜에 선별 행(<see cref="MetricsRow.Class"/>)이 있을 때만 나온다(다른 시나리오 응답은 byte 동일).
+    /// 위 재현율 · 오경보 · 격상 신호는 클래스의 OK/NG 보기(꼭 잡을 클래스 = NG)로 그대로 계산되고, 이 블록은 클래스 단위의 그림이다.
+    /// </summary>
+    [JsonPropertyName("classification")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ClassificationMetrics? Classification { get; init; }
+}
+
+/// <summary>
+/// 선별 판정의 클래스별 관측. 원시 카운트가 근본이고 비율은 분모 0 이면 null 이다. 사람 라벨은 «정답»이고 판정이 정한 클래스는 «예측»이다
+/// — 사람 라벨이 붙은 건만 혼동 행렬에 든다.
+/// </summary>
+public sealed record ClassificationMetrics
+{
+    /// <summary>클래스를 정한 선별 판정 건(판정 불가 · fail-closed 는 제외).</summary>
+    [JsonPropertyName("checked")] public required int Checked { get; init; }
+
+    /// <summary>클래스 → 판정이 그 클래스로 정한 건수. 클래스 이름 순.</summary>
+    [JsonPropertyName("predicted")] public required IReadOnlyDictionary<string, int> Predicted { get; init; }
+
+    /// <summary>판정한 건 가운데 사람 라벨이 붙은 건 — 아래 일치율 · 혼동 행렬의 분모.</summary>
+    [JsonPropertyName("labeled")] public required int Labeled { get; init; }
+
+    /// <summary>라벨이 붙은 건 가운데 판정한 클래스가 사람 라벨과 같은 건(대소문자 무시).</summary>
+    [JsonPropertyName("agreed")] public required int Agreed { get; init; }
+
+    /// <summary>정답(사람 라벨) 클래스 → 예측 클래스 → 건수. 두 층 모두 클래스 이름 순.</summary>
+    [JsonPropertyName("confusion")] public required IReadOnlyDictionary<string, IReadOnlyDictionary<string, int>> Confusion { get; init; }
+
+    /// <summary>일치율 = agreed / labeled. 라벨 0 건이면 null(위장하지 않는다).</summary>
+    [JsonPropertyName("agreement_rate")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? AgreementRate { get; init; }
 }
 
 /// <summary>

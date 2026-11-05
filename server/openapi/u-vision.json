@@ -3868,6 +3868,51 @@
           }
         }
       },
+      "ClassificationMetrics": {
+        "required": [
+          "checked",
+          "predicted",
+          "labeled",
+          "agreed",
+          "confusion"
+        ],
+        "type": "object",
+        "properties": {
+          "checked": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "predicted": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "labeled": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "agreed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "confusion": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          },
+          "agreement_rate": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
       "ContestedBy": {
         "required": [
           "tier",
@@ -5601,6 +5646,9 @@
           },
           "counting": {
             "$ref": "#/components/schemas/CountingMetrics"
+          },
+          "classification": {
+            "$ref": "#/components/schemas/ClassificationMetrics"
           }
         }
       },
@@ -5955,6 +6003,9 @@
               "null",
               "string"
             ]
+          },
+          "class": {
+            "type": "string"
           }
         }
       },
