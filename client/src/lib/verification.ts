@@ -1,4 +1,4 @@
-import type { InspectResult, InspectResultV2, Scenario } from './types'
+import type { InspectResult, InspectResultV2, Scenario, ScenarioClass } from './types'
 
 /** 오투입 확인 시나리오인가 — 기대 품번을 받아 결과 v2 경로로 판정한다. */
 export function isVerification(scenario: Pick<Scenario, 'type'>): boolean {
@@ -8,10 +8,26 @@ export function isVerification(scenario: Pick<Scenario, 'type'>): boolean {
 /**
  * 결과 v2 → 운영 화면의 판정 결과. 운영 화면은 OK/NG 축으로 상태를 다루므로 좋은 쪽(OK · 일치)만 OK 에, 불일치 ·
  * 불량 유형은 모두 NG 쪽(놓치면 안 되는 값)에 두고, 표시용 클래스(`class_label`)를 함께 싣는다.
+ *
+ * 다중 분류(`classes` 를 주면)는 클래스가 값 중립이라 이름으로 선악을 가리지 않는다 — 서버가 저장하는 OK/NG 보기와 같게,
+ * 결정된 클래스가 **꼭 잡을 값**이면 NG, 아니면 OK 다(꼭 잡을 값이 없는 시나리오는 늘 OK). 선언에 없는 클래스이거나 답에
+ * 클래스가 없으면 NG(안전한 쪽 — 차단). `class_name` 은 시나리오가 붙인 표시 이름(없으면 id).
  */
-export function toInspectResult(v2: InspectResultV2): InspectResult {
+export function toInspectResult(v2: InspectResultV2, classes?: ScenarioClass[]): InspectResult {
+  const decided =
+    classes && v2.class !== undefined
+      ? classes.find((c) => c.id.toLowerCase() === v2.class!.toLowerCase())
+      : undefined
+  const verdict = classes
+    ? decided && decided.must_catch !== true
+      ? 'OK'
+      : 'NG'
+    : v2.class === 'OK' || v2.class === 'MATCH'
+      ? 'OK'
+      : 'NG'
   return {
-    verdict: v2.class === 'OK' || v2.class === 'MATCH' ? 'OK' : 'NG',
+    verdict,
+    ...(classes ? { class_name: decided?.label ?? decided?.id ?? v2.class ?? '?' } : {}),
     findings: v2.findings ?? '',
     confidence: v2.confidence ?? 0,
     timestamp: v2.timestamp,
@@ -24,14 +40,16 @@ export function toInspectResult(v2: InspectResultV2): InspectResult {
 }
 
 /** 판정 배지 문구 — 오투입 확인은 일치/불일치, 검사는 OK/NG. */
-export function verdictLabel(result: Pick<InspectResult, 'verdict' | 'class_label'>): string {
+export function verdictLabel(result: Pick<InspectResult, 'verdict' | 'class_label' | 'class_name'>): string {
+  if (result.class_name !== undefined) return `${result.verdict === 'NG' ? '❌' : '✅'} ${result.class_name}`
   if (result.class_label === 'MATCH') return '✅ 일치'
   if (result.class_label === 'MISMATCH') return '❌ 불일치'
   return result.verdict === 'NG' ? '❌ NG' : '✅ OK'
 }
 
 /** 짧은 판정 문구(목록용) — 오투입은 일치/불일치, 검사는 OK/NG. */
-export function shortVerdictLabel(result: Pick<InspectResult, 'verdict' | 'class_label'>): string {
+export function shortVerdictLabel(result: Pick<InspectResult, 'verdict' | 'class_label' | 'class_name'>): string {
+  if (result.class_name !== undefined) return result.class_name
   if (result.class_label === 'MATCH') return '일치'
   if (result.class_label === 'MISMATCH') return '불일치'
   return result.verdict

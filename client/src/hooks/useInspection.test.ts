@@ -120,6 +120,25 @@ describe('useInspection', () => {
     expect(h.send).not.toHaveBeenCalled()
   })
 
+  it('다중 분류는 선언한 클래스를 큐 항목에 실어 보낸다 — 오투입 확인의 품번은 싣지 않는다', async () => {
+    await useRealQueue()
+    h.send.mockResolvedValue(result('OK', { class_name: '품번 A' }))
+    const classes = [{ id: 'A100', label: '품번 A' }, { id: 'reject', must_catch: true }]
+    const { result: hook } = renderHook(() => useInspection(video, 's', roi, 0, null, classes))
+    await act(async () => {
+      await h.sender
+      await new Promise((r) => setTimeout(r, 0))
+    })
+
+    act(() => hook.current.trigger())
+
+    await waitFor(() => expect(hook.current.phase).toBe('done'))
+    const sent = h.send.mock.calls[0][0]
+    expect(sent.classification).toEqual({ classes })
+    expect(sent.expectedPart).toBeUndefined()
+    expect(hook.current.latest?.class_name).toBe('품번 A')
+  })
+
   it('오투입 확인은 기대 품번과 읽은 코드를 함께 보낸다', async () => {
     await useRealQueue()
     h.send.mockResolvedValue(result('OK'))

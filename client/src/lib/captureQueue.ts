@@ -6,6 +6,8 @@
  * 고르지 않았던 이력이 있고, 바이트는 어디서나 같은 structured clone 이다.
  */
 
+import type { ScenarioClass } from './types'
+
 export interface QueuedCapture {
   id: string
   bytes: ArrayBuffer
@@ -17,6 +19,11 @@ export interface QueuedCapture {
   expectedPart?: string
   /** 캡처 때 장치가 읽은 코드(있을 때). */
   observedCode?: string
+  /**
+   * 다중 분류(classification)일 때만 — 캡처 시점에 시나리오가 선언한 클래스. 서버는 이 유형을 결과 v2 로만 받고, 결과의
+   * OK/NG 보기(결정된 클래스가 꼭 잡을 값인가)와 표시 이름을 큐에서 늦게 보낸 결과에서도 그때 기준으로 풀려고 같이 둔다.
+   */
+  classification?: { classes: ScenarioClass[] }
   /** 캡처 시각(UTC ISO 8601) — 늦게 올라가도 서버 레코드에 실제 시각이 남는다. */
   capturedAt: string
 }

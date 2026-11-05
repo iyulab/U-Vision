@@ -10,7 +10,7 @@ import { classifyTriggerError } from '../lib/inspectionError'
 import { addLateAlert } from '../lib/lateResults'
 import { isStuckNotice, type SendOutcome, stuckNotice } from '../lib/queueSender'
 import type { Roi } from '../lib/roi'
-import type { InspectResult, MlResult } from '../lib/types'
+import type { InspectResult, MlResult, ScenarioClass } from '../lib/types'
 
 export type { InspectionPhase } from '../lib/capturePolicy'
 
@@ -59,6 +59,8 @@ export function useInspection(
   roi: Roi,
   minSharpness: number,
   expectedPart: string | null = null,
+  /** 다중 분류의 선언된 클래스 — 있으면(null 이 아니면) 큐 항목이 결과 v2 로 가고 결과 OK/NG 는 꼭 잡을 값을 따른다. */
+  classes: ScenarioClass[] | null = null,
 ): InspectionState {
   const [phase, setPhase] = useState<InspectionPhase>('idle')
   const [latest, setLatest] = useState<InspectResult | null>(null)
@@ -170,6 +172,7 @@ export function useInspection(
           deviceLabel: getDeviceLabel(),
           capturedAt: new Date().toISOString(),
         }
+        if (classes !== null) item.classification = { classes }
         if (expectedPart !== null) {
           const expected = expectedPart.trim()
           if (!expected) {
@@ -211,7 +214,7 @@ export function useInspection(
         inFlight.current = false
       }
     })()
-  }, [videoRef, scenarioId, roi, minSharpness, expectedPart, showResult, showFailure, refreshPending])
+  }, [videoRef, scenarioId, roi, minSharpness, expectedPart, classes, showResult, showFailure, refreshPending])
 
   const acknowledge = useCallback(() => {
     setPhase((p) => (p === 'blocked' ? 'done' : p))

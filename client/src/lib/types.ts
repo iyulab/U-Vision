@@ -68,6 +68,8 @@ export type InspectResult = Wire.InspectResponse & {
   contested_by?: ContestedBy[]
   /** 시나리오 클래스(결과 v2 로 판정했을 때 — 오투입 확인의 'MATCH'·'MISMATCH'). 서버 v1 응답에는 없다. */
   class_label?: string
+  /** 다중 분류에서 결정된 클래스의 표시 이름(시나리오가 붙인 이름, 없으면 id) — 배지가 OK/NG 대신 이 이름을 보인다. */
+  class_name?: string
   /** 큐에 쌓였다가 늦게 판정된 캡처 — 그 사이 다른 캡처가 화면에 있었다. */
   late?: boolean
   /** 늦게 판정된 캡처의 실제 캡처 시각(`timestamp` 는 서버가 받은 시각). */

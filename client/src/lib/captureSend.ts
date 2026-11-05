@@ -4,9 +4,17 @@ import { createQueueSender } from './queueSender'
 import type { InspectResult } from './types'
 import { toInspectResult } from './verification'
 
-/** 큐 항목 하나를 서버로 보낸다 — 오투입 확인(기대 품번 있음)은 결과 v2, 그 밖은 v1. 항목 id 가 멱등 키다(다시 보내도 한 번만 판정). */
+/**
+ * 큐 항목 하나를 서버로 보낸다 — 오투입 확인(기대 품번 있음)과 다중 분류(클래스 목록 있음)는 결과 v2, 그 밖은 v1.
+ * 서버는 다중 분류를 v1 로 받지 않는다(400). 항목 id 가 멱등 키다(다시 보내도 한 번만 판정).
+ */
 export async function sendCapture(item: QueuedCapture): Promise<InspectResult> {
   const blob = new Blob([item.bytes], { type: item.type })
+  if (item.classification)
+    return toInspectResult(
+      await inspectImageV2(blob, item.scenarioId, item.deviceId, item.deviceLabel, {}, item.capturedAt, item.id),
+      item.classification.classes,
+    )
   if (item.expectedPart !== undefined)
     return toInspectResult(
       await inspectImageV2(

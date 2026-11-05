@@ -2,6 +2,7 @@ import type { CaptureMode } from '../lib/captureMode'
 import { isInspectionFree } from '../lib/capturePolicy'
 import type { MotionConfig } from '../lib/motion'
 import type { Roi } from '../lib/roi'
+import type { ScenarioClass } from '../lib/types'
 import { shortVerdictLabel } from '../lib/verification'
 import { useCamera } from '../hooks/useCamera'
 import { useContinuousCapture } from '../hooks/useContinuousCapture'
@@ -22,6 +23,8 @@ interface CameraViewProps {
   captureMode: CaptureMode
   /** 오투입 확인의 기대 품번 — 검사 시나리오면 null. */
   expectedPart?: string | null
+  /** 다중 분류가 선언한 클래스 — 그 시나리오만 값을 갖는다(결과 v2 로 판정하고 결과를 클래스 이름으로 보인다). */
+  classes?: ScenarioClass[] | null
 }
 
 /**
@@ -35,9 +38,10 @@ export function CameraView({
   minSharpness,
   captureMode,
   expectedPart = null,
+  classes = null,
 }: CameraViewProps) {
   const { videoRef, ready, error } = useCamera()
-  const inspection = useInspection(videoRef, scenarioId, roi, minSharpness, expectedPart)
+  const inspection = useInspection(videoRef, scenarioId, roi, minSharpness, expectedPart, classes)
   const auto = captureMode === 'auto'
   // 자동 모드만 모션 감지 worker 가동. 수동은 셔터로 trigger.
   const motion = useMotionDetection(videoRef, motionConfig, ready && auto)

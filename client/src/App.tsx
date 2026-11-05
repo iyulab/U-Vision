@@ -20,6 +20,7 @@ import { DEFAULT_MOTION_CONFIG, type MotionConfig } from './lib/motion'
 import { fromScenarioRoi } from './lib/roi'
 import type { Scenario } from './lib/types'
 import { isCounting } from './lib/counting'
+import { isClassification } from './lib/classification'
 import { isVerification } from './lib/verification'
 
 /** 시나리오 캡처 설정 → 모션 감지 config. downscaleWidth 는 시나리오에 없으므로 클라 기본 보존. */
@@ -71,6 +72,8 @@ export default function App() {
   // worker 재생성을 막기 위해 config 객체를 active 기준으로 안정화.
   // ⚠️ 모든 Hook 은 조건부 return 위에 둔다 — admin 전환 시 hook 수가 달라지면 안 된다(Rules of Hooks).
   const motionConfig = useMemo(() => (active ? toMotionConfig(active) : null), [active])
+  // 다중 분류의 선언된 클래스 — 훅 의존성이라 active 가 같으면 같은 배열이어야 한다(새 배열이면 캡처 콜백이 매 렌더 바뀐다).
+  const activeClasses = useMemo(() => (active && isClassification(active) ? (active.classes ?? []) : null), [active])
 
   function selectScenario(id: string) {
     setActiveId(id)
@@ -96,6 +99,7 @@ export default function App() {
           minSharpness={active.min_sharpness}
           captureMode={captureMode}
           expectedPart={isVerification(active) ? expectedPart : null}
+          classes={activeClasses}
         />
       ) : (
         <NoScenario loaded={loaded} onAdmin={() => setShowAdmin(true)} />
@@ -138,7 +142,7 @@ export default function App() {
             ))}
           </select>
         )}
-        {active && !isVerification(active) && !isCounting(active) && (
+        {active && !isVerification(active) && !isCounting(active) && !isClassification(active) && (
           <button
             onClick={() => setShowQuestions(true)}
             className="rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur hover:bg-black/80"

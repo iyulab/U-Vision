@@ -53,7 +53,12 @@ export function VerdictBadge({
           ng ? 'bg-red-600/85' : 'bg-emerald-600/85'
         }`}
       >
-        <div className="text-7xl font-black tracking-tight text-white">
+        {/* 다중 분류의 클래스 이름은 길 수 있다(32자까지) — 길면 글자를 줄이고 줄바꿈을 허용한다. */}
+        <div
+          className={`break-words font-black tracking-tight text-white ${
+            (result.class_name?.length ?? 0) > 8 ? 'text-5xl' : 'text-7xl'
+          }`}
+        >
           {verdictLabel(result)}
         </div>
         {ng && result.findings && (
