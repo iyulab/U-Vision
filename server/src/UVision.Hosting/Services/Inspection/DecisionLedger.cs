@@ -122,7 +122,7 @@ public sealed class DecisionLedger(
     }
 
     /// <summary>유효 시나리오의 단 순서대로 — 비용 순(아래 → 꼭대기).</summary>
-    private IEnumerable<IJudge<LedgerSubject, string>> Judges(LedgerSubject subject)
+    internal IEnumerable<IJudge<LedgerSubject, string>> Judges(LedgerSubject subject)
     {
         // 비용 순위는 단의 종류가 정한다(배열 위치가 아니다) — 같은 단은 시나리오가 달라도 같은 값으로 기록된다.
         foreach (var tier in subject.Scenario.Tiers)
