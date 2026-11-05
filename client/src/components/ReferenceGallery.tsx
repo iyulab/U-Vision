@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 
 import { deleteReference, listReferences, referenceUrl, uploadReference } from '../lib/api'
 import type { PinRunResult } from '../hooks/usePin'
-import type { Reference } from '../lib/types'
-import { missingReferenceNotice, splitReferences } from '../lib/references'
+import type { Reference, ScenarioClass } from '../lib/types'
+import { emptyClassNotice, groupByClass, missingReferenceNotice, splitReferences } from '../lib/references'
 
 interface ReferenceGalleryProps {
   scenarioId: string
@@ -14,8 +14,10 @@ interface ReferenceGalleryProps {
    * 판정 모델이 기준 이미지를 그 유형 id 와 잇는다(자유 설명도 그대로 받는다).
    */
   defectNames?: string[]
-  /** 시나리오 유형 — 검사(inspection)에 기준이 하나도 없으면 안내를 띄운다. */
+  /** 시나리오 유형 — 검사(inspection)에 기준이 하나도 없으면 안내를 띄우고, 다중 분류(classification)는 클래스마다 구획을 둔다. */
   scenarioType?: string
+  /** 다중 분류가 선언한 클래스(저장된 것) — 클래스마다 한 구획이고 업로드는 그 클래스 id 로 간다. */
+  classes?: ScenarioClass[]
 }
 
 /**
@@ -23,7 +25,13 @@ interface ReferenceGalleryProps {
  * few-shot 판정 결합은 서버가 inspect 시 수행한다(판정 효과는 M0.1 게이트).
  * 변경은 시나리오 저장/삭제와 동일한 lazy-PIN 메커니즘({@link runWithPin})을 거친다.
  */
-export function ReferenceGallery({ scenarioId, runWithPin, defectNames = [], scenarioType }: ReferenceGalleryProps) {
+export function ReferenceGallery({
+  scenarioId,
+  runWithPin,
+  defectNames = [],
+  scenarioType,
+  classes = [],
+}: ReferenceGalleryProps) {
   const [refs, setRefs] = useState<Reference[]>([])
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -56,6 +64,36 @@ export function ReferenceGallery({ scenarioId, runWithPin, defectNames = [], sce
     } finally {
       setBusy(false)
     }
+  }
+
+  if (scenarioType === 'classification') {
+    const { groups, orphans } = groupByClass(refs, classes)
+    const classNotice = emptyClassNotice(groups, loaded)
+    return (
+      <div className="space-y-4 rounded-lg border border-slate-700 p-4" data-testid="class-reference-gallery">
+        <h3 className="text-sm font-semibold text-slate-200">기준 이미지 (클래스별)</h3>
+        {error && <p className="text-sm text-red-400">{error}</p>}
+        {classNotice && <p className="text-sm text-amber-400">{classNotice}</p>}
+        {groups.map(({ cls, items }) => (
+          <Group
+            key={cls.id}
+            title={cls.label ?? cls.id}
+            hint={cls.label ? cls.id : undefined}
+            label={cls.id}
+            items={items}
+            scenarioId={scenarioId}
+            busy={busy}
+            onUpload={(file) => mutate((pin) => uploadReference(scenarioId, file, cls.id, undefined, pin).then(() => {}))}
+            onDelete={(refId) => mutate((pin) => deleteReference(scenarioId, cls.id, refId, pin))}
+          />
+        ))}
+        {orphans > 0 && (
+          <p className="text-xs text-slate-500">
+            선언에서 빠진 클래스의 기준 이미지 {orphans}장이 저장소에 남아 있습니다 — 그 클래스를 다시 선언하면 이 화면에 나타납니다.
+          </p>
+        )}
+      </div>
+    )
   }
 
   const { ok, ng } = splitReferences(refs)
@@ -95,6 +133,7 @@ export function ReferenceGallery({ scenarioId, runWithPin, defectNames = [], sce
 
 function Group({
   title,
+  hint,
   label,
   items,
   scenarioId,
@@ -105,7 +144,10 @@ function Group({
   onDelete,
 }: {
   title: string
-  label: 'ok' | 'ng'
+  /** 제목 옆에 흐리게 붙는 보조 글(다중 분류의 클래스 id). */
+  hint?: string
+  /** 서버가 서빙 · 업로드 · 삭제 경로에서 받는 값 — 검사는 'ok' · 'ng', 다중 분류는 클래스 id. */
+  label: string
   items: Reference[]
   scenarioId: string
   busy: boolean
@@ -128,6 +170,7 @@ function Group({
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <span className="text-xs font-medium text-slate-400">{title}</span>
+        {hint && <span className="font-mono text-[10px] text-slate-600">{hint}</span>}
         {withLabel && (
           <input
             value={ngLabel}

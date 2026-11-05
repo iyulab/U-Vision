@@ -1,4 +1,5 @@
-import { REFERENCE_KIND, type Reference } from './types'
+import { sameClass } from './labels'
+import { REFERENCE_KIND, type Reference, type ScenarioClass } from './types'
 
 /**
  * 검사(inspection) 시나리오에 기준 이미지가 하나도 없으면 알리는 문구 — 없으면 null.
@@ -18,4 +19,39 @@ export function splitReferences(refs: Reference[]): { ok: Reference[]; ng: Refer
     ok: refs.filter((r) => REFERENCE_KIND[r.label] === 'ok'),
     ng: refs.filter((r) => REFERENCE_KIND[r.label] === 'ng'),
   }
+}
+
+/** 선별 시나리오의 기준 이미지 한 클래스 구획 — 선언한 클래스 하나와 그 클래스로 올린 이미지들. */
+export interface ClassReferenceGroup {
+  cls: ScenarioClass
+  items: Reference[]
+}
+
+/**
+ * 선별(classification)의 기준 이미지를 선언한 클래스 순서대로 구획으로 나눈다. 서버 목록의 `class` 는 선언한 철자로 오지만
+ * 대소문자만 달라도 같은 클래스로 묶는다(서버도 같다). 선언에서 빠진 클래스의 이미지는 `orphans` — 서버가 그 클래스를 더는
+ * 받지 않아(서빙 · 삭제 400) 화면이 보이거나 지울 수 없으므로 개수만 알린다.
+ */
+export function groupByClass(
+  refs: Reference[],
+  classes: ScenarioClass[],
+): { groups: ClassReferenceGroup[]; orphans: number } {
+  const groups = classes.map((cls) => ({
+    cls,
+    items: refs.filter((r) => r.class !== undefined && sameClass(r.class, cls.id)),
+  }))
+  const orphans = refs.length - groups.reduce((n, g) => n + g.items.length, 0)
+  return { groups, orphans }
+}
+
+/**
+ * 선별 시나리오에 기준 이미지가 없는 클래스가 있으면 알리는 문구 — 없으면 null. 막지는 않는다(기준 없이도 판정은 된다).
+ * 모델이 «이 클래스는 이렇게 생겼다» 를 보려면 클래스마다 몇 장이 있어야 해서, 비어 있는 클래스를 이름으로 짚는다.
+ * 목록을 아직 못 읽었으면(loaded=false) 깜빡이지 않게 null.
+ */
+export function emptyClassNotice(groups: ClassReferenceGroup[], loaded: boolean): string | null {
+  if (!loaded) return null
+  const empty = groups.filter((g) => g.items.length === 0).map((g) => g.cls.label ?? g.cls.id)
+  if (empty.length === 0) return null
+  return `기준 이미지가 없는 클래스: ${empty.join(' · ')}. 클래스마다 몇 장을 올리면 모델이 구분을 더 잘 합니다.`
 }

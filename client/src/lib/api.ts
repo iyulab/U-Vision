@@ -556,8 +556,11 @@ export async function deleteScenario(id: string, pin: string): Promise<void> {
 
 // --- 기준 이미지 (S-D 서버 계약) -----------------------------------------
 
-/** 기준 이미지 서빙 URL(무인증, 미리보기용). */
-export function referenceUrl(scenarioId: string, label: 'ok' | 'ng', refId: string): string {
+/**
+ * 기준 이미지 서빙 URL(무인증, 미리보기용). `label` 은 검사 시나리오는 `'ok'` · `'ng'`, 다중 분류(classification)는 시나리오가
+ * 선언한 클래스 id 다 — 서버가 같은 자리에서 시나리오 유형에 따라 읽는다.
+ */
+export function referenceUrl(scenarioId: string, label: string, refId: string): string {
   return `${API_BASE}/scenarios/${encodeURIComponent(scenarioId)}/references/${label}/${encodeURIComponent(refId)}`
 }
 
@@ -568,11 +571,11 @@ export async function listReferences(scenarioId: string): Promise<Reference[]> {
   return (await res.json()) as Reference[]
 }
 
-/** 기준 이미지 업로드(PIN). NG 면 ngLabel 로 불량 유형 지정. */
+/** 기준 이미지 업로드(PIN). NG 면 ngLabel 로 불량 유형 지정. 다중 분류는 `label` 에 클래스 id 를 주고 ngLabel 은 쓰지 않는다. */
 export async function uploadReference(
   scenarioId: string,
   file: File,
-  label: 'ok' | 'ng',
+  label: string,
   ngLabel: string | undefined,
   pin: string,
 ): Promise<Reference> {
@@ -593,7 +596,7 @@ export async function uploadReference(
 /** 기준 이미지 삭제(PIN). */
 export async function deleteReference(
   scenarioId: string,
-  label: 'ok' | 'ng',
+  label: string,
   refId: string,
   pin: string,
 ): Promise<void> {

@@ -965,6 +965,7 @@ function ScenarioForm({
             runWithPin={runWithPin}
             defectNames={draft.originalDefects.map((d) => d.label ?? d.id)}
             scenarioType={draft.originalType}
+            classes={classesOfDrafts(draft.originalClassDrafts)}
           />
         ) : (
           <p className="text-xs text-slate-500">기준 이미지는 저장 후 추가할 수 있습니다.</p>
