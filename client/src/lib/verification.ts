@@ -56,6 +56,24 @@ export function shortVerdictLabel(result: Pick<InspectResult, 'verdict' | 'class
 }
 
 /**
+ * 결과 표 · 상세의 판정 알약 문구 — 본문 `text` 와 덧붙이는 `detail`. 검사 · 오투입 확인은 OK/NG(일치/불일치)가 본문이고 NG 가
+ * 유형으로 나뉘면 그 유형이 덧붙는다. **다중 분류는 클래스가 본체**라 클래스 이름이 본문이다(저장된 OK/NG 는 «꼭 잡을 값인가»
+ * 보기일 뿐이라 알약 색만 정한다). 레코드에 클래스가 없으면(옛 레코드) OK/NG 로 돌아간다.
+ */
+export function verdictPillText(
+  verdict: string,
+  decidedClass: string | undefined,
+  scenarioType: Scenario['type'] | undefined,
+  nameOf: (value: string) => string,
+): { text: string; detail?: string } {
+  if (scenarioType === 'classification' && decidedClass !== undefined) return { text: nameOf(decidedClass) }
+  return {
+    text: termOf(verdict, scenarioType),
+    ...(verdict === 'NG' && decidedClass !== undefined ? { detail: nameOf(decidedClass) } : {}),
+  }
+}
+
+/**
  * 저장된 OK/NG 값(판정 · 사람 라벨)을 시나리오 유형의 말로 — 오투입 확인은 일치/불일치. 저장값은 바꾸지 않는다:
  * 라벨 · 일치 판정 · 메트릭은 계속 OK/NG 축으로 돈다.
  */

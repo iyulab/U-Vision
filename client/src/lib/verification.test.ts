@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { DetectionUnavailableError, inspectImageV2 } from './api'
 import { readCode } from './barcode'
-import { isVerification, shortVerdictLabel, termOf, toInspectResult, verdictLabel } from './verification'
+import { isVerification, shortVerdictLabel, termOf, toInspectResult, verdictLabel, verdictPillText } from './verification'
 
 const ponyfillDetect = vi.hoisted(() => vi.fn())
 vi.mock('./barcodePonyfill', () => ({
@@ -173,5 +173,28 @@ describe('readCode', () => {
       detect = vi.fn()
     })
     expect(await readCode(new Blob())).toBeUndefined()
+  })
+})
+
+describe('verdictPillText', () => {
+  const nameOf = (v: string) => ({ A100: '품번 A', scratch: '긁힘' })[v] ?? v
+
+  it('검사: OK/NG 가 본문, NG 가 유형으로 나뉘면 유형이 덧붙는다', () => {
+    expect(verdictPillText('OK', 'OK', 'inspection', nameOf)).toEqual({ text: 'OK' })
+    expect(verdictPillText('NG', 'scratch', 'inspection', nameOf)).toEqual({ text: 'NG', detail: '긁힘' })
+    expect(verdictPillText('NG', undefined, undefined, nameOf)).toEqual({ text: 'NG' })
+  })
+
+  it('오투입 확인: 일치/불일치', () => {
+    expect(verdictPillText('NG', 'MISMATCH', 'verification', nameOf)).toEqual({ text: '불일치', detail: 'MISMATCH' })
+  })
+
+  it('다중 분류: 클래스 이름이 본문 — 저장된 OK/NG 는 문구에 나오지 않는다', () => {
+    expect(verdictPillText('OK', 'A100', 'classification', nameOf)).toEqual({ text: '품번 A' })
+    expect(verdictPillText('NG', 'scratch', 'classification', nameOf)).toEqual({ text: '긁힘' })
+  })
+
+  it('다중 분류여도 레코드에 클래스가 없으면(옛 레코드) OK/NG 로 돌아간다', () => {
+    expect(verdictPillText('OK', undefined, 'classification', nameOf)).toEqual({ text: 'OK' })
   })
 })

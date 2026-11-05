@@ -4,16 +4,16 @@ import { useResource } from '../hooks/useResource'
 
 import { deleteLabel, listLabels, listResultDates, listResults, putLabel } from '../lib/api'
 import { getDeviceId } from '../lib/deviceIdentity'
-import { classNameOf, labelMapOf, labelsOf } from '../lib/labels'
+import { classNameOf, labelMapOf, labelsOf, labelToneOf } from '../lib/labels'
 import { pendingReviewCount, reviewStateOf } from '../lib/review'
-import { percent, summarizeResults } from '../lib/resultSummary'
+import { classDistribution, percent, summarizeResults } from '../lib/resultSummary'
 import { AnomalyImage } from './AnomalyImage'
 import { CountImage } from './CountImage'
 import { EvidencePanel } from './EvidencePanel'
 import type { RunWithPin } from '../hooks/usePin'
 import { ResultsTable } from './ResultsTable'
 import type { Scenario, StoredLabel, StoredResult } from '../lib/types'
-import { termOf } from '../lib/verification'
+import { termOf, verdictPillText } from '../lib/verification'
 import { csvFileName, downloadCsv, resultsToCsv } from '../lib/csvExport'
 
 /**
@@ -173,7 +173,13 @@ export function ResultsBrowser({
       </div>
 
       {results.length > 0 && !loading && (
-        <SummaryStrip results={results} labels={labelMap} scenarioType={scenarioType} nameOf={nameOf} />
+        <SummaryStrip
+          results={results}
+          labels={labelMap}
+          scenarioType={scenarioType}
+          nameOf={nameOf}
+          hasMustCatch={scenario?.classes?.some((c) => c.must_catch === true) ?? false}
+        />
       )}
 
       {/* ④-A 검토 큐 — ③ 2중체크가 불일치/저신뢰로 표면화한 건을 사람이 라벨로 해소한다. */}
@@ -213,6 +219,7 @@ export function ResultsBrowser({
           scenarioType={scenarioType}
           labelSet={labelsOf(scenario)}
           nameOf={nameOf}
+          toneOf={labelToneOf(scenario)}
           results={shown}
           labels={labelMap}
           date={date}
@@ -241,31 +248,47 @@ function SummaryStrip({
   labels,
   scenarioType,
   nameOf,
+  hasMustCatch,
 }: {
   results: StoredResult[]
   labels: Map<string, StoredLabel>
   scenarioType?: Scenario['type']
   nameOf: (value: string) => string
+  /** 다중 분류 시나리오에 «꼭 잡을 값» 클래스가 있는가 — 없으면 OK/NG 보기가 늘 OK 라 건수를 보이지 않는다. */
+  hasMustCatch?: boolean
 }) {
   const s = summarizeResults(results, labels)
+  const classification = scenarioType === 'classification'
+  const distribution = classification ? classDistribution(results) : []
   return (
     <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm" aria-label="판정 요약">
       <div className="flex gap-2">
         <dt className="text-slate-400">검사</dt>
         <dd className="font-semibold text-white">{s.total}건</dd>
       </div>
-      <div className="flex gap-2">
-        <dt className="text-slate-400">{termOf('OK', scenarioType)}</dt>
-        <dd className="font-semibold text-emerald-300">{s.ok}</dd>
-      </div>
-      <div className="flex gap-2">
-        <dt className="text-slate-400">{termOf('NG', scenarioType)}</dt>
-        <dd className="font-semibold text-red-300">
-          {s.ng}
-          {s.ngRate !== null && <span className="ml-1 font-normal text-slate-400">({percent(s.ngRate)})</span>}
-        </dd>
-      </div>
-      {s.defects.length > 0 && (
+      {/* 다중 분류의 OK/NG 는 «꼭 잡을 값인가» 보기라 OK 건수는 뜻이 없다 — 클래스 분포가 본체다. */}
+      {!classification && (
+        <div className="flex gap-2">
+          <dt className="text-slate-400">{termOf('OK', scenarioType)}</dt>
+          <dd className="font-semibold text-emerald-300">{s.ok}</dd>
+        </div>
+      )}
+      {(!classification || hasMustCatch) && (
+        <div className="flex gap-2">
+          <dt className="text-slate-400">{classification ? '꼭 잡을 값' : termOf('NG', scenarioType)}</dt>
+          <dd className="font-semibold text-red-300">
+            {s.ng}
+            {s.ngRate !== null && <span className="ml-1 font-normal text-slate-400">({percent(s.ngRate)})</span>}
+          </dd>
+        </div>
+      )}
+      {distribution.length > 0 && (
+        <div className="flex gap-2" data-testid="class-distribution">
+          <dt className="text-slate-400">클래스 분포</dt>
+          <dd className="text-slate-200">{distribution.map((d) => `${nameOf(d.id)} ${d.count}`).join(' · ')}</dd>
+        </div>
+      )}
+      {!classification && s.defects.length > 0 && (
         <div className="flex gap-2">
           <dt className="text-slate-400">불량 유형</dt>
           <dd className="text-red-200">{s.defects.map((d) => `${nameOf(d.id)} ${d.count}`).join(' · ')}</dd>
@@ -380,14 +403,16 @@ function VerdictPill({
   scenarioType?: Scenario['type']
 }) {
   const ng = verdict === 'NG'
+  // defect 는 이미 표시 이름이다 — 문구 규칙(다중 분류는 클래스 이름이 본문)만 같은 함수를 쓴다.
+  const pill = verdictPillText(verdict, defect, scenarioType, (v) => v)
   return (
     <span
       className={`inline-flex items-center rounded-lg font-bold text-white ${
         ng ? 'bg-red-600' : 'bg-emerald-600'
       } ${large ? 'px-4 py-1.5 text-lg' : 'px-2.5 py-1 text-sm'}`}
     >
-      {termOf(verdict, scenarioType)}
-      {ng && defect !== undefined && <span className="ml-1.5 font-normal">· {defect}</span>}
+      {pill.text}
+      {pill.detail !== undefined && <span className="ml-1.5 font-normal">· {pill.detail}</span>}
     </span>
   )
 }

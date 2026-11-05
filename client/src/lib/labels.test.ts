@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import { agreementOf, classNameOf, decidedClassOf, labelMapOf, labelsOf, latestOracleOpinion, sameClass } from './labels'
+import {
+  agreementOf,
+  classNameOf,
+  decidedClassOf,
+  labelMapOf,
+  labelsOf,
+  labelToneOf,
+  latestOracleOpinion,
+  sameClass,
+} from './labels'
 import type { StoredLabel } from './types'
 
 describe('classNameOf', () => {
@@ -69,5 +78,25 @@ describe('labels', () => {
   it('latestOracleOpinion is undefined when no oracle event (or no label)', () => {
     expect(latestOracleOpinion(undefined)).toBeUndefined()
     expect(latestOracleOpinion({ image_id: 'a', label: 'NG', timestamp: 't' })).toBeUndefined()
+  })
+})
+
+describe('labelToneOf', () => {
+  it('검사 · 오투입 확인: OK 는 초록, 나머지(불량 유형 · NG · 불일치)는 빨강', () => {
+    const tone = labelToneOf({ type: 'inspection', classes: [{ id: 'OK' }, { id: 'scratch' }] })
+    expect(tone('OK')).toBe('ok')
+    expect(tone('scratch')).toBe('ng')
+    expect(labelToneOf(undefined)('NG')).toBe('ng')
+  })
+
+  it('다중 분류: 꼭 잡을 값만 빨강 — 클래스 이름으로 선악을 가리지 않는다(대소문자 무시)', () => {
+    const tone = labelToneOf({
+      type: 'classification',
+      classes: [{ id: 'A100' }, { id: 'NG', settleable: true }, { id: 'reject', must_catch: true }],
+    })
+    expect(tone('A100')).toBe('ok')
+    expect(tone('NG')).toBe('ok') // 이름이 NG 여도 꼭 잡을 값이 아니면 빨강이 아니다
+    expect(tone('REJECT')).toBe('ng')
+    expect(tone('ghost')).toBe('ok')
   })
 })

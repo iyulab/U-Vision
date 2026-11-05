@@ -19,6 +19,18 @@ export function classNameOf(scenario: Pick<Scenario, 'type' | 'classes'> | undef
     scenario?.classes?.find((c) => sameClass(c.id, value))?.label ?? termOf(value, scenario?.type)
 }
 
+/**
+ * 라벨 버튼의 색 — `'ok'`(초록) · `'ng'`(빨강). 검사 · 오투입 확인은 값이 `OK` 면 초록, 나머지(불량 유형 · NG)는 빨강이다.
+ * 다중 분류는 클래스에 이름으로 정해진 선악이 없다 — **꼭 잡을 값** 클래스만 빨강이고 나머지는 초록이다(결과의 OK/NG 보기와 같다).
+ */
+export function labelToneOf(
+  scenario: Pick<Scenario, 'type' | 'classes'> | undefined,
+): (value: string) => 'ok' | 'ng' {
+  if (scenario?.type === 'classification')
+    return (value) => (scenario.classes?.find((c) => sameClass(c.id, value))?.must_catch === true ? 'ng' : 'ok')
+  return (value) => (value === 'OK' ? 'ok' : 'ng')
+}
+
 /** 레코드가 판정한 클래스 — 불량 유형 시나리오면 `class`, 그 밖은 `verdict` 가 곧 클래스다. */
 export function decidedClassOf(r: Pick<StoredResult, 'verdict' | 'class'>): string {
   return r.class ?? r.verdict

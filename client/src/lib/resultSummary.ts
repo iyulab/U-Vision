@@ -36,6 +36,16 @@ export function summarizeResults(results: StoredResult[], labels: Map<string, St
   return { total: results.length, ok, ng, ngRate: results.length ? ng / results.length : null, labeled, corrected, defects }
 }
 
+/**
+ * 클래스별 판정 분포(많은 순) — 다중 분류 시나리오의 요약이 쓴다. OK/NG 가 아니라 모든 판정을 클래스로 센다(선별의 OK/NG 는
+ * 꼭 잡을 값 보기일 뿐이라 분포를 가리지 않는다). 클래스가 없는 레코드(옛 · 검사)는 세지 않는다.
+ */
+export function classDistribution(results: StoredResult[]): { id: string; count: number }[] {
+  const counts = new Map<string, number>()
+  for (const r of results) if (r.class !== undefined) counts.set(r.class, (counts.get(r.class) ?? 0) + 1)
+  return [...counts].map(([id, count]) => ({ id, count })).sort((a, b) => b.count - a.count || a.id.localeCompare(b.id))
+}
+
 /** 비율을 «12.5%» 로(소수 한 자리, 정수면 소수 없음). */
 export function percent(rate: number): string {
   const v = Math.round(rate * 1000) / 10

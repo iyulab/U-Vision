@@ -2,7 +2,7 @@ import { resultImageUrl } from '../lib/api'
 import { agreementOf, decidedClassOf, latestOracleOpinion, sameClass } from '../lib/labels'
 import { reviewStateOf, type ReviewState } from '../lib/review'
 import type { MlResult, Scenario, StoredLabel, StoredResult } from '../lib/types'
-import { termOf } from '../lib/verification'
+import { verdictPillText } from '../lib/verification'
 import { conflictBadgeLabel } from './conflictBadge'
 
 /**
@@ -18,12 +18,15 @@ export function ResultsTable({
   scenarioType,
   labelSet,
   nameOf,
+  toneOf = (value) => (value === 'OK' ? 'ok' : 'ng'),
 }: {
   results: StoredResult[]
   /** 사람 라벨 버튼 — 시나리오가 받는 라벨(`labelsOf`). */
   labelSet: string[]
   /** 클래스 값 → 표시 이름(`classNameOf`) — 라벨 버튼 · 유형 배지가 쓴다. 값 자체는 그대로 보낸다. */
   nameOf: (value: string) => string
+  /** 라벨 버튼의 색(`labelToneOf`) — 기본은 OK 초록 · 나머지 빨강. 다중 분류는 꼭 잡을 값만 빨강. */
+  toneOf?: (value: string) => 'ok' | 'ng'
   /** 시나리오 유형 — 오투입 확인이면 OK/NG 를 일치/불일치로 읽는다(저장값은 그대로). */
   scenarioType?: Scenario['type']
   labels: Map<string, StoredLabel>
@@ -106,7 +109,7 @@ export function ResultsTable({
                         onClick={() => onLabel(r.image_id, current === value ? null : value)}
                         className={`rounded px-2 py-1 text-xs font-bold ${
                           current === value
-                            ? value === 'OK'
+                            ? toneOf(value) === 'ok'
                               ? 'bg-emerald-600 text-white'
                               : 'bg-red-600 text-white'
                             : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
@@ -232,15 +235,16 @@ function VerdictPill({
   nameOf: (value: string) => string
 }) {
   const ng = result.verdict === 'NG'
+  const pill = verdictPillText(result.verdict, result.class, scenarioType, nameOf)
   return (
     <span
       className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-bold text-white ${
         ng ? 'bg-red-600' : 'bg-emerald-600'
       }`}
     >
-      {termOf(result.verdict, scenarioType)}
+      {pill.text}
       {/* 불량 유형 — 시나리오가 NG 를 유형으로 나눌 때만 레코드에 있다. */}
-      {ng && result.class !== undefined && <span className="ml-1 font-normal">· {nameOf(result.class)}</span>}
+      {pill.detail !== undefined && <span className="ml-1 font-normal">· {pill.detail}</span>}
     </span>
   )
 }

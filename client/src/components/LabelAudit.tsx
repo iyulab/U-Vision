@@ -4,7 +4,7 @@ import { useResource } from '../hooks/useResource'
 
 import { listAuditSample, putAudit, resultImageUrl } from '../lib/api'
 import { getDeviceId } from '../lib/deviceIdentity'
-import { classNameOf, labelsOf } from '../lib/labels'
+import { classNameOf, labelsOf, labelToneOf } from '../lib/labels'
 import type { Scenario } from '../lib/types'
 import { auditResultText } from './auditResultText'
 
@@ -24,6 +24,7 @@ export function LabelAudit({
   )
   const scenario = scenarios.find((s) => s.scenario_id === scenarioId)
   const nameOf = classNameOf(scenario)
+  const toneOf = labelToneOf(scenario)
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const sample = useResource(
     scenarioId && date ? `${scenarioId}|${date}` : null,
@@ -135,7 +136,7 @@ export function LabelAudit({
                   disabled={busy}
                   onClick={() => submit(l)}
                   className={`rounded-lg px-6 py-3 text-lg font-bold text-white disabled:opacity-50 ${
-                    l === 'OK' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-red-600 hover:bg-red-500'
+                    toneOf(l) === 'ok' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-red-600 hover:bg-red-500'
                   }`}
                 >
                   {nameOf(l)}

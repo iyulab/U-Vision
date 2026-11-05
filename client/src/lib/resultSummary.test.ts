@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { percent, summarizeResults } from './resultSummary'
+import { classDistribution, percent, summarizeResults } from './resultSummary'
 import type { StoredLabel, StoredResult } from './types'
 
 const result = (image_id: string, verdict: 'OK' | 'NG', cls?: string): StoredResult =>
@@ -57,5 +57,23 @@ describe('percent', () => {
     expect(percent(0.25)).toBe('25%')
     expect(percent(1 / 3)).toBe('33.3%')
     expect(percent(0)).toBe('0%')
+  })
+})
+
+describe('classDistribution', () => {
+  it('OK/NG 가 아니라 모든 판정을 클래스로 센다(많은 순, 같으면 이름 순) — 클래스 없는 레코드는 세지 않는다', () => {
+    const results = [
+      result('a', 'OK', 'A100'),
+      result('b', 'OK', 'B200'),
+      result('c', 'OK', 'A100'),
+      result('d', 'NG', 'reject'),
+      result('e', 'OK'),
+    ]
+    expect(classDistribution(results)).toEqual([
+      { id: 'A100', count: 2 },
+      { id: 'B200', count: 1 },
+      { id: 'reject', count: 1 },
+    ])
+    expect(classDistribution([])).toEqual([])
   })
 })
