@@ -35,5 +35,8 @@ public sealed record ReferenceImage
 
     public string? NgLabel { get; init; }
 
+    /// <summary>선별(<c>classification</c>) 기준 이미지의 클래스 id — 있으면 프롬프트 표지가 OK/NG 가 아니라 이 클래스로 붙는다.</summary>
+    public string? ClassId { get; init; }
+
     public bool IsPng { get; init; }
 }

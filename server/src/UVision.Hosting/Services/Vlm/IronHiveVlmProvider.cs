@@ -65,12 +65,14 @@ public sealed class IronHiveVlmProvider : IVlmProvider
             System = VlmPrompt.BuildSystemPrompt(scenario),
             Messages =
             [
-                Message.User([.. BuildContent(image, scenario.References, scenario.DefectClasses)]),
+                Message.User([.. BuildContent(image, scenario.References, scenario.DefectClasses, scenario.Classes)]),
             ],
             // 구조화 출력(json_schema grammar 강제) — 유형을 선언한 시나리오는 유형 id 를 enum 으로 구속한 형태.
-            OutputFormat = scenario.DefectClasses is { Count: > 0 } defects
-                ? OutputFormat.For(TypedSchema([.. defects.Select(c => c.Id)]))
-                : OutputFormat.For<InspectionResult>(),
+            OutputFormat = scenario.Classes is { Count: > 0 } classes
+                ? OutputFormat.For(ClassSchema([.. classes.Select(c => c.Id)]))
+                : scenario.DefectClasses is { Count: > 0 } defects
+                    ? OutputFormat.For(TypedSchema([.. defects.Select(c => c.Id)]))
+                    : OutputFormat.For<InspectionResult>(),
             MaxTokens = _maxOutputTokens,      // reasoning 모델 truncation 방지(위 주석)
             ThinkingEffort = _thinkingEffort,  // null 이면 보내지 않음 — 서버 · 모델 기본값
         };
@@ -94,7 +96,9 @@ public sealed class IronHiveVlmProvider : IVlmProvider
         InspectionResult? result;
         try
         {
-            result = ParseAnswer(ExtractJson(json), typed: scenario.DefectClasses is { Count: > 0 });
+            result = scenario.Classes is { Count: > 0 } picks
+                ? ParseClassAnswer(ExtractJson(json), picks)
+                : ParseAnswer(ExtractJson(json), typed: scenario.DefectClasses is { Count: > 0 });
         }
         catch (JsonException) when (truncated)
         {
@@ -131,6 +135,52 @@ public sealed class IronHiveVlmProvider : IVlmProvider
             ["required"] = new JsonArray("verdict", "defect_class", "findings", "confidence"),
             ["additionalProperties"] = false,
         };
+    }
+
+    /// <summary>
+    /// 선별의 출력 스키마 — <c>class</c> 를 선언한 클래스 id 로 구속한다. 선별은 OK/NG 를 묻지 않으므로 <c>verdict</c> 필드가 없다.
+    /// </summary>
+    internal static JsonObject ClassSchema(IReadOnlyList<string> classIds)
+    {
+        var classEnum = new JsonArray();
+        foreach (var id in classIds) classEnum.Add(id);
+        return new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["class"] = new JsonObject { ["type"] = "string", ["enum"] = classEnum },
+                ["findings"] = new JsonObject { ["type"] = "string" },
+                ["confidence"] = new JsonObject { ["type"] = "number" },
+            },
+            ["required"] = new JsonArray("class", "findings", "confidence"),
+            ["additionalProperties"] = false,
+        };
+    }
+
+    /// <summary>
+    /// 선별 답 → 판정. 고른 클래스의 OK/NG 보기(<see cref="ScenarioClass.ViewOf"/>)를 <see cref="InspectionResult.Verdict"/> 에 싣는다 —
+    /// 모델에게 OK/NG 를 묻지 않고 같은 규칙으로 파생한다. 선언 밖 id 는 그대로 두어 파이프라인이 fail-closed 로 거른다.
+    /// </summary>
+    internal static InspectionResult? ParseClassAnswer(string json, IReadOnlyList<ScenarioClass> classes)
+    {
+        var answer = JsonSerializer.Deserialize<ClassAnswer>(json, DeserializeOptions);
+        return answer is null
+            ? null
+            : new InspectionResult
+            {
+                Verdict = ScenarioClass.ViewOf(classes, answer.Class),
+                Findings = answer.Findings ?? "",
+                Confidence = answer.Confidence,
+                Class = answer.Class,
+            };
+    }
+
+    private sealed record ClassAnswer
+    {
+        [JsonPropertyName("class")] public required string Class { get; init; }
+        [JsonPropertyName("findings")] public string? Findings { get; init; }
+        [JsonPropertyName("confidence")] public required double Confidence { get; init; }
     }
 
     /// <summary>모델 JSON → 판정. 유형을 나누는 판정이면 <see cref="TypedAnswer"/> 로 읽어 유형을 싣는다.</summary>
@@ -192,7 +242,7 @@ public sealed class IronHiveVlmProvider : IVlmProvider
     /// </summary>
     internal static List<MessageContent> BuildContent(
         ReadOnlyMemory<byte> image, IReadOnlyList<ReferenceImage> references,
-        IReadOnlyList<ScenarioClass>? defectClasses = null)
+        IReadOnlyList<ScenarioClass>? defectClasses = null, IReadOnlyList<ScenarioClass>? classes = null)
     {
         var content = new List<MessageContent>();
 
@@ -204,7 +254,7 @@ public sealed class IronHiveVlmProvider : IVlmProvider
             });
             foreach (var reference in references)
             {
-                content.Add(new TextMessageContent { Value = VlmPrompt.ReferenceTag(reference, defectClasses) });
+                content.Add(new TextMessageContent { Value = VlmPrompt.ReferenceTag(reference, defectClasses, classes) });
                 content.Add(new ImageMessageContent
                 {
                     Format = reference.IsPng ? ImageFormat.Png : ImageFormat.Jpeg,

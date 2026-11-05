@@ -6460,6 +6460,9 @@
           "label": {
             "type": "string"
           },
+          "description": {
+            "type": "string"
+          },
           "settleable": {
             "type": "boolean"
           },

@@ -34,6 +34,13 @@ public sealed record ScenarioClass
     [JsonPropertyName("must_catch")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool MustCatch { get; init; }
+
+    /// <summary>
+    /// 선별(<c>classification</c>)에서 클래스의 OK/NG 보기 — 클래스에 선악이 없으므로 <b>꼭 잡을 클래스면 NG</b>, 아니면 OK
+    /// (잡아야 할 것이 없으면 늘 OK). id 비교는 대소문자를 무시한다. 판정원(VLM)과 파이프라인이 같은 규칙을 쓰는 한 곳이다.
+    /// </summary>
+    public static Verdict ViewOf(IEnumerable<ScenarioClass> classes, string classId) =>
+        classes.Any(c => c.MustCatch && string.Equals(c.Id, classId, StringComparison.OrdinalIgnoreCase)) ? Verdict.NG : Verdict.OK;
 }
 
 /// <summary>

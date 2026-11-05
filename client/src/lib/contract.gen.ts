@@ -538,6 +538,7 @@ export interface EdgeScenarioConfig {
 export interface ScenarioClass {
   id: string
   label?: string
+  description?: string
   settleable?: boolean
   must_catch?: boolean
 }

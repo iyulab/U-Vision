@@ -76,6 +76,11 @@ public sealed record EffectiveScenario(
         : Classes.Where(c => c.Id != ScenarioVocabulary.Ok).ToList();
 
     /// <summary>
+    /// VLM 이 고를 클래스 전체(설명 포함) — 선별만. 검사는 OK/NG(+불량 유형)을 묻고 선별은 클래스를 직접 묻는다.
+    /// </summary>
+    public IReadOnlyList<ScenarioClass>? PickableClasses => IsClassification ? Classes : null;
+
+    /// <summary>
     /// 결과가 클래스 id 로 남는가 — 선별은 언제나, 검사는 NG 를 유형으로 나눌 때(불량 유형이 <c>NG</c> 하나뿐이면 지금의 이분 판정이다).
     /// 오투입 확인은 아니다(verdict 가 곧 클래스).
     /// </summary>
@@ -125,7 +130,7 @@ public sealed record EffectiveScenario(
     /// </summary>
     public Verdict VerdictOf(string classId) =>
         IsClassification
-            ? (Classes.Any(c => c.MustCatch && string.Equals(c.Id, classId, StringComparison.OrdinalIgnoreCase)) ? Verdict.NG : Verdict.OK)
+            ? ScenarioClass.ViewOf(Classes, classId)
             : string.Equals(classId, IsVerification ? ScenarioVocabulary.Match : ScenarioVocabulary.Ok, StringComparison.OrdinalIgnoreCase)
                 ? Verdict.OK
                 : Verdict.NG;

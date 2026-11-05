@@ -18,8 +18,24 @@ public static class VlmPrompt
     // (Output=typeof)의 json_schema 가 grammar 로 강제한다 — 프롬프트로 JSON shape 를 지시하지 않는다
     // (ironhive 0.7.4 에서 셀프호스트 호환 정규화 확인). 단 스키마는 타입만 강제하고 *값 범위/스케일*은
     // 강제하지 못하므로, confidence 의 0~1 스케일 같은 **필드 의미론**은 위 System 프롬프트가 소유한다.
+    private const string ClassificationSystem =
+        "당신은 제조 현장의 비전 선별 판정기다. " +
+        "주어진 이미지가 시나리오가 정한 클래스 중 어느 것인지 하나를 고른다. 좋고 나쁨(OK/NG)을 판정하지 않는다. " +
+        "findings 에는 그 클래스를 고른 근거를 한국어로 간단히 쓴다. " +
+        "confidence 는 0.0~1.0 사이 소수다(백분율·100 척도 금지 — 예: 95% 는 0.95). 경계 사례일수록 낮춘다.";
+
     public static string BuildSystemPrompt(ScenarioContext scenario)
     {
+        // 선별 — 클래스 목록(id · 표시 이름 · 설명)을 싣고 id 하나를 고르게 한다. 설명이 없는 클래스는 id/이름만으로 시작한다.
+        if (scenario.Classes is { Count: > 0 } classes)
+        {
+            var goal = string.IsNullOrEmpty(scenario.Criteria)
+                ? "(기준 미지정 — 클래스 설명에 따른다)"
+                : scenario.Criteria;
+            return $"{ClassificationSystem}\n\n[판정 기준]\n{goal}\n\n[클래스]\n" +
+                   string.Join("\n", classes.Select(c => c.Description is { } d ? $"- {Describe(c)}: {d}" : $"- {Describe(c)}")) +
+                   "\n\nclass 는 위 id 중 하나로 답한다. 어느 클래스인지 확신할 수 없으면 가장 가까운 클래스를 고르고 confidence 를 낮춘다.";
+        }
         var criteria = string.IsNullOrEmpty(scenario.Criteria)
             ? "(기준 미지정 — 일반적 외관 결함 기준 적용)"
             : scenario.Criteria;
@@ -43,8 +59,15 @@ public static class VlmPrompt
     /// 무시)이면 [불량 유형] 목록과 같은 <c>id(이름)</c> 로 말해 — 모델이 기준 이미지와 답할 id 를 잇게 — 그 밖의
     /// 설명은 적힌 그대로 둔다.
     /// </summary>
-    public static string ReferenceTag(ReferenceImage reference, IReadOnlyList<ScenarioClass>? defectClasses)
+    public static string ReferenceTag(ReferenceImage reference, IReadOnlyList<ScenarioClass>? defectClasses,
+        IReadOnlyList<ScenarioClass>? classes = null)
     {
+        // 선별의 기준 이미지는 클래스가 표지다 — OK/NG 로 부르지 않는다.
+        if (reference.ClassId is { } classId)
+        {
+            var picked = classes?.FirstOrDefault(c => string.Equals(c.Id, classId, StringComparison.OrdinalIgnoreCase));
+            return $"[{(picked is null ? classId : Describe(picked))} 기준]";
+        }
         if (reference.Label == ReferenceLabel.Ok) return "[OK 기준]";
         if (string.IsNullOrEmpty(reference.NgLabel)) return "[NG 기준]";
         var declared = defectClasses?.FirstOrDefault(c =>

@@ -567,6 +567,7 @@ public sealed partial class InspectionPipeline(
             References = references,
             ExpectedPart = inspectionContext?.ExpectedPart,
             DefectClasses = effective.IsMultiClass ? effective.DefectTypes : null,
+            Classes = effective.PickableClasses,
         };
 
         return (vlmImage, context, loadedReferences);
@@ -579,6 +580,18 @@ public sealed partial class InspectionPipeline(
     private InspectionResult? AcceptVlm(InspectionResult? result, EffectiveScenario effective)
     {
         if (result is null || !effective.IsMultiClass) return result;
+        if (effective.IsClassification)
+        {
+            // 선별 — 클래스를 선언한 철자로 맞추고 OK/NG 보기를 같은 규칙으로 다시 정한다. 선언 밖 클래스는 답이 아니다.
+            if (effective.ClassOf(result) is not { } picked)
+            {
+                logger.LogWarning(
+                    "VLM 이 선언하지 않은 클래스로 답함 — fail-closed (scenario={ScenarioId}, class={Class})",
+                    effective.ScenarioId, result.Class);
+                return null;
+            }
+            return result with { Class = picked, Verdict = effective.VerdictOf(picked), DefectClass = null };
+        }
         if (effective.ClassOf(result) is not { } cls)
         {
             logger.LogWarning(

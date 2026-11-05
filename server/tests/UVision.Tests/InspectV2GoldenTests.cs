@@ -109,6 +109,40 @@ public partial class InspectV2GoldenTests
         Assert.Equal(ExpectedVerificationStored.ReplaceLineEndings("\n"), stored);
     }
 
+    private static async Task SeedClassificationAsync(UVisionApiFactory factory)
+    {
+        factory.CreateClient();
+        var dir = Path.Combine(factory.DataPath, "parts");
+        Directory.CreateDirectory(dir);
+        var scenario = new Scenario
+        {
+            ScenarioId = "parts", Name = "품번 구분", Type = ScenarioVocabulary.Classification,
+            Classes =
+            [
+                new() { Id = "P-100", Label = "품번 100", Description = "각진 금속 브래킷", Settleable = true },
+                new() { Id = "P-200", Label = "품번 200", Description = "둥근 와셔" },
+                new() { Id = "REJECT", MustCatch = true },
+            ],
+        };
+        await File.WriteAllTextAsync(Path.Combine(dir, "scenario.json"), JsonSerializer.Serialize(scenario, StoragePaths.Json));
+    }
+
+    [Fact]
+    public async Task Classification_ResponseAndRecord_AreByteStable()
+    {
+        using var factory = new UVisionApiFactory();
+        await SeedClassificationAsync(factory);
+        var (status, body) = await PostAsync(factory.CreateClient(), Form("parts"));
+
+        Assert.Equal(HttpStatusCode.OK, status);
+        Assert.Equal(ExpectedClassification, body);
+
+        var dayDir = Path.Combine(factory.DataPath, "parts",
+            DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        var stored = Normalize(File.ReadAllText(Directory.GetFiles(dayDir, "img_*.json").Single()));
+        Assert.Equal(ExpectedClassificationStored.ReplaceLineEndings("\n"), stored);
+    }
+
     private sealed class ThrowingVlmProvider : IVlmProvider
     {
         public string Name => "throwing-vlm";
@@ -149,6 +183,25 @@ public partial class InspectV2GoldenTests
           "device_label": "라인1",
           "expected_part": "P-100",
           "observed_code": "P-200"
+        }
+        """;
+    private const string ExpectedClassification =
+        """
+        {"decision_id":"img_ID","scenario_id":"parts","timestamp":"TS","class":"P-100","settled_by":{"tier":"vlm","kind":"vlm"},"confidence":0.79,"findings":"모의 선별 소견: 클래스를 해시로 골랐다(mock — 실제 판정 아님).","path":[{"tier":"vlm","outcome":"settled"}],"device_id":"tab-1","device_label":"라인1"}
+        """;
+    private const string ExpectedClassificationStored =
+        """
+        {
+          "scenario_id": "parts",
+          "image_id": "img_ID",
+          "verdict": "OK",
+          "findings": "모의 선별 소견: 클래스를 해시로 골랐다(mock — 실제 판정 아님).",
+          "confidence": 0.79,
+          "timestamp": "TS",
+          "image_file": "img_ID.jpg",
+          "device_id": "tab-1",
+          "device_label": "라인1",
+          "class": "P-100"
         }
         """;
 }

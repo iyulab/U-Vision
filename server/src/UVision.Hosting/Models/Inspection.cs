@@ -41,6 +41,12 @@ public sealed record ScenarioContext
     /// 프롬프트가 유형을 설명하는 데만 쓴다).
     /// </summary>
     public IReadOnlyList<ScenarioClass>? DefectClasses { get; init; }
+
+    /// <summary>
+    /// 선별(<c>classification</c>)의 클래스 전체 — 있으면 VLM 은 OK/NG 가 아니라 이 중 하나를 고른다(<see cref="InspectionResult.Class"/>).
+    /// 각 클래스의 <c>description</c> 이 프롬프트에 실린다. 검사 · 오투입 확인 · 계수는 비어 있다.
+    /// </summary>
+    public IReadOnlyList<ScenarioClass>? Classes { get; init; }
 }
 
 /// <summary>

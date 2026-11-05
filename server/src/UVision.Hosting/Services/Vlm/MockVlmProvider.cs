@@ -28,6 +28,18 @@ public sealed class MockVlmProvider : IVlmProvider
         var isNg = digest[0] % 3 == 0; // 약 1/3 확률로 NG
         // confidence: 해시 바이트를 0.70~0.99 로 사상.
         var confidence = Math.Round(0.70 + (digest[1] / 255.0) * 0.29, 2);
+        // 선별이면 같은 해시로 클래스 하나를 고른다(재현성). OK/NG 는 그 보기다.
+        if (scenario.Classes is { Count: > 0 } classes)
+        {
+            var picked = classes[digest[2] % classes.Count].Id;
+            return Task.FromResult(new InspectionResult
+            {
+                Verdict = ScenarioClass.ViewOf(classes, picked),
+                Findings = "모의 선별 소견: 클래스를 해시로 골랐다(mock — 실제 판정 아님).",
+                Confidence = confidence,
+                Class = picked,
+            });
+        }
         return Task.FromResult(new InspectionResult
         {
             Verdict = isNg ? Verdict.NG : Verdict.OK,
