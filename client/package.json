@@ -15,7 +15,7 @@
     "generate:types": "node scripts/generate-types.mjs"
   },
   "dependencies": {
-    "@uplatform/brand": "^0.4.0",
+    "@uplatform/brand": "^0.5.0",
     "barcode-detector": "^3.2.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
@@ -36,7 +36,7 @@
     "oxlint": "^1.90.0",
     "tailwindcss": "^4.3.0",
     "typescript": "^7.0.2",
-    "vite": "^8.0.16",
+    "vite": "^8.3.6",
     "vite-plugin-pwa": "^2.0.0",
     "vitest": "^5.0.5"
   }
