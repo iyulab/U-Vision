@@ -111,6 +111,8 @@ switch (args.FirstOrDefault())
         return UVision.Benchmark.RepeatBench.Run(opts);
     case "ledger-replay":
         return await UVision.Benchmark.LedgerReplay.RunAsync(opts);
+    case "ledger-neighbors":
+        return await UVision.Benchmark.LedgerNeighbors.RunAsync(opts);
     case "count-error":
         return await UVision.Benchmark.CountErrorBench.RunAsync(opts);
     case "composition-error":
