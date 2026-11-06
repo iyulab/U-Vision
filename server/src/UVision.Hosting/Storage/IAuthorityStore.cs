@@ -12,7 +12,8 @@ public interface IAuthorityStore
     Task<AuthorityState?> ReadAsync(string scenarioId, CancellationToken ct = default);
 
     /// <summary>단계를 설정한다 — previous = 직전 단계(없으면 Advisory baseline), history append. atomic.</summary>
+    /// <param name="unverifiedBasis">근거 없이 올린 격상이면 서버가 확인을 요구한 이유들 — 이력에 «확인함» 으로 남는다. 아니면 null.</param>
     Task SetStageAsync(
         string scenarioId, AuthorityStage stage, string by, string mode, string? reason,
-        CancellationToken ct = default);
+        CancellationToken ct = default, IReadOnlyList<string>? unverifiedBasis = null);
 }

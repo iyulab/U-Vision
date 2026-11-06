@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AUTHORITY_STAGES, evidenceSummary, nextStageUp, stageLabel } from './authority'
+import { AUTHORITY_STAGES, evidenceSummary, needsAcknowledgement, nextStageUp, stageLabel } from './authority'
 
 describe('authority stages', () => {
   it('orders stages', () => {
@@ -38,5 +38,19 @@ describe('evidenceSummary', () => {
   it('분모가 0 이면 비율을 지어내지 않는다', () => {
     const rows = evidenceSummary({ ml_ok_scored: 0, ml_false_alarm_rate: null }).rows
     expect(rows[2].value).toBe('0건 (—)')
+  })
+})
+
+describe('needsAcknowledgement', () => {
+  it('ML 이 판정 권한을 받는 격상은 신호가 «적격» 일 때만 확인 없이 간다', () => {
+    expect(needsAcknowledgement('advisory', 'co_primary', 'eligible')).toBe(false)
+    expect(needsAcknowledgement('advisory', 'co_primary', 'unmet')).toBe(true)
+    expect(needsAcknowledgement('advisory', 'co_primary', 'insufficient')).toBe(true)
+    expect(needsAcknowledgement('co_primary', 'ml_primary', null)).toBe(true) // 신호를 아직 못 읽었으면 «적격» 이 아니다
+  })
+
+  it('ML 이 판정 권한을 받지 않는 격상(shadow → advisory)은 묻지 않고, 단계를 건너뛰면 신호와 무관하게 묻는다', () => {
+    expect(needsAcknowledgement('shadow', 'advisory', 'insufficient')).toBe(false)
+    expect(needsAcknowledgement('advisory', 'ml_primary', 'eligible')).toBe(true)
   })
 })

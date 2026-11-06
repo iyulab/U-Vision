@@ -1,15 +1,16 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { Scenario } from '../lib/types'
 
 const getAuthority = vi.fn()
 const getMetrics = vi.fn()
+const promoteAuthority = vi.fn()
 
 vi.mock('../lib/api', () => ({
   getAuthority: (id: string) => getAuthority(id),
   getMetrics: (id: string, date: string, days: number) => getMetrics(id, date, days),
-  promoteAuthority: vi.fn(),
+  promoteAuthority: (...args: unknown[]) => promoteAuthority(...args),
   demoteAuthority: vi.fn(),
 }))
 
@@ -19,6 +20,7 @@ afterEach(() => {
   cleanup()
   getAuthority.mockReset()
   getMetrics.mockReset()
+  promoteAuthority.mockReset()
 })
 
 const scenarios = [
@@ -60,5 +62,50 @@ describe('AuthorityPanel', () => {
     expect(screen.getByTestId('promotion-signal').textContent).toContain('표본 부족')
     expect(screen.getByTestId('promotion-signal').textContent).toContain('적격이라는 뜻이 아닙니다')
     expect(getMetrics).toHaveBeenCalledWith('photo', expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), 30)
+  })
+
+  // 근거 없는 격상(D-116) — 서버도 확인 없이는 409 로 거절하므로 콘솔은 미리 «알고 하는가» 를 묻고, 확인했을 때만 확인 표지를 보낸다.
+  const runWithPin = async (action: (pin: string) => Promise<void>) => {
+    await action('1234')
+    return 'ok' as const
+  }
+
+  it('신호가 «적격» 이 아니면 격상 단추가 바로 보내지 않고 확인을 묻는다 — 확인하면 확인 표지와 함께 보낸다', async () => {
+    getAuthority.mockResolvedValue({ stage: 'advisory', history: [] })
+    getMetrics.mockResolvedValue({ promotion_eligible: null })
+    promoteAuthority.mockResolvedValue(undefined)
+    render(<AuthorityPanel scenarios={scenarios} initialScenarioId="photo" runWithPin={runWithPin} />)
+
+    fireEvent.click(await screen.findByText(/로 격상/))
+    expect(await screen.findByTestId('acknowledge-box')).toBeTruthy()
+    expect(promoteAuthority).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByText('근거 없이 격상 확정'))
+    await waitFor(() => expect(promoteAuthority).toHaveBeenCalledTimes(1))
+    expect(promoteAuthority).toHaveBeenCalledWith('photo', 'co_primary', '1234', 'console', undefined, true)
+  })
+
+  it('취소하면 아무것도 보내지 않는다', async () => {
+    getAuthority.mockResolvedValue({ stage: 'advisory', history: [] })
+    getMetrics.mockResolvedValue({ promotion_eligible: false })
+    render(<AuthorityPanel scenarios={scenarios} initialScenarioId="photo" runWithPin={runWithPin} />)
+
+    fireEvent.click(await screen.findByText(/로 격상/))
+    fireEvent.click(await screen.findByText('취소'))
+    expect(screen.queryByTestId('acknowledge-box')).toBeNull()
+    expect(promoteAuthority).not.toHaveBeenCalled()
+  })
+
+  it('신호가 «적격» 이면 확인 없이 바로 보낸다(확인 표지 없음)', async () => {
+    getAuthority.mockResolvedValue({ stage: 'advisory', history: [] })
+    getMetrics.mockResolvedValue({ promotion_eligible: true })
+    promoteAuthority.mockResolvedValue(undefined)
+    render(<AuthorityPanel scenarios={scenarios} initialScenarioId="photo" runWithPin={runWithPin} />)
+
+    await screen.findByTestId('promotion-evidence')
+    fireEvent.click(screen.getByText(/로 격상/))
+    await waitFor(() => expect(promoteAuthority).toHaveBeenCalledTimes(1))
+    expect(promoteAuthority).toHaveBeenCalledWith('photo', 'co_primary', '1234', 'console')
+    expect(screen.queryByTestId('acknowledge-box')).toBeNull()
   })
 })

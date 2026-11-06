@@ -3899,6 +3899,15 @@
               "null",
               "string"
             ]
+          },
+          "acknowledged_unverified": {
+            "type": "boolean"
+          },
+          "unverified_basis": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -5972,6 +5981,9 @@
               "null",
               "string"
             ]
+          },
+          "acknowledge_unverified": {
+            "type": "boolean"
           }
         }
       },

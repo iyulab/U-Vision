@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { demoteAuthority, getAuthority, getMetrics, promoteAuthority } from '../lib/api'
 import type { PinRunResult } from '../hooks/usePin'
 import { useResource } from '../hooks/useResource'
-import { EVIDENCE_WINDOW_DAYS, evidenceSummary, nextStageUp, stageLabel } from '../lib/authority'
+import { EVIDENCE_WINDOW_DAYS, evidenceSummary, needsAcknowledgement, nextStageUp, stageLabel } from '../lib/authority'
+import type { AuthorityStage } from '../lib/authority'
 import type { Scenario } from '../lib/types'
 
 /**
@@ -35,6 +36,8 @@ export function AuthorityPanel({
   const [actionError, setActionError] = useState<string | null>(null)
   const error = actionError ?? authority.error
   const [busy, setBusy] = useState(false)
+  // 근거 없는 격상은 «알고 하는가» 를 한 번 더 묻는다 — 서버도 확인 없이는 409 로 거절한다.
+  const [confirming, setConfirming] = useState<AuthorityStage | null>(null)
 
   async function mutate(action: (pin: string) => Promise<void>) {
     setBusy(true)
@@ -61,6 +64,7 @@ export function AuthorityPanel({
           onChange={(e) => {
             setScenarioId(e.target.value)
             setActionError(null)
+            setConfirming(null)
           }}
           className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white"
         >
@@ -93,9 +97,10 @@ export function AuthorityPanel({
             {up && (
               <button
                 disabled={busy}
-                onClick={() =>
-                  void mutate((pin) => promoteAuthority(scenarioId, up, pin, 'console'))
-                }
+                onClick={() => {
+                  if (needsAcknowledgement(auth.stage, up, ev?.signal ?? null)) setConfirming(up)
+                  else void mutate((pin) => promoteAuthority(scenarioId, up, pin, 'console'))
+                }}
                 className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-40"
               >
                 {stageLabel(up)}로 격상
@@ -111,6 +116,34 @@ export function AuthorityPanel({
               </button>
             )}
           </div>
+
+          {confirming && (
+            <div data-testid="acknowledge-box" className="space-y-3 rounded-xl border border-amber-500/60 bg-amber-950/40 p-4 text-sm">
+              <p className="text-amber-200">
+                {stageLabel(confirming)}로 올리는데 격상 신호가 «적격» 이 아닙니다(아래 근거). 올리면 라인이 ML 에 더 의존하고, 근거 없이 올렸다는 사실이
+                격상 이력에 남습니다. 알고 올리시겠습니까?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  disabled={busy}
+                  onClick={() => {
+                    const target = confirming
+                    setConfirming(null)
+                    void mutate((pin) => promoteAuthority(scenarioId, target, pin, 'console', undefined, true))
+                  }}
+                  className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:opacity-40"
+                >
+                  근거 없이 격상 확정
+                </button>
+                <button
+                  onClick={() => setConfirming(null)}
+                  className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-600"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          )}
 
           {ev && (
             <div data-testid="promotion-evidence" className="space-y-2 rounded-xl border border-slate-700 bg-slate-900/60 p-4 text-sm">

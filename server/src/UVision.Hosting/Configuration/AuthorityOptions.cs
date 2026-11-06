@@ -36,6 +36,12 @@ public sealed class AuthorityOptions
     /// <summary>agreement rate 바닥. 격상 자격: agreement_rate ≥ 이 값.</summary>
     public double AgreementFloor { get; set; } = 0.9;
 
+    /// <summary>
+    /// 격상 요청이 «격상 신호» 를 읽는 집계 창의 날 수(1~90) — 임베드 콘솔의 «격상 근거» 가 보이는 창(30일)과 같다. 날짜 하나로는
+    /// 날마다 몇 건씩만 라벨되는 불량이 표본 하한에 닿지 못한다.
+    /// </summary>
+    public int EvidenceWindowDays { get; set; } = 30;
+
     /// <summary>자동격하 안전체크 주기 — inspect N건마다 1회 재집계(암종화·핫패스 보호).</summary>
     public int AutoDemoteCheckEvery { get; set; } = 25;
 }

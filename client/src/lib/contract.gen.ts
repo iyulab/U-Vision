@@ -251,6 +251,8 @@ export interface AuthorityTransition {
   by: string
   mode: string
   reason: null | string
+  acknowledged_unverified?: boolean
+  unverified_basis?: string[]
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
@@ -1082,6 +1084,7 @@ export interface PromoteAuthorityInput {
   stage: AuthorityStage
   by?: null | string
   reason?: null | string
+  acknowledge_unverified?: boolean
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

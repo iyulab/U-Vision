@@ -12,6 +12,8 @@ namespace UVision.Client.Models
     public partial class AuthorityTransition : IAdditionalDataHolder, IParsable
     #pragma warning restore CS1591
     {
+        /// <summary>The acknowledged_unverified property</summary>
+        public bool? AcknowledgedUnverified { get; set; }
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
         /// <summary>The at property</summary>
@@ -62,6 +64,14 @@ namespace UVision.Client.Models
 #else
         public string To { get; set; }
 #endif
+        /// <summary>The unverified_basis property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<string>? UnverifiedBasis { get; set; }
+#nullable restore
+#else
+        public List<string> UnverifiedBasis { get; set; }
+#endif
         /// <summary>
         /// Instantiates a new <see cref="global::UVision.Client.Models.AuthorityTransition"/> and sets the default values.
         /// </summary>
@@ -87,12 +97,14 @@ namespace UVision.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "acknowledged_unverified", n => { AcknowledgedUnverified = n.GetBoolValue(); } },
                 { "at", n => { At = n.GetStringValue(); } },
                 { "by", n => { By = n.GetStringValue(); } },
                 { "from", n => { From = n.GetStringValue(); } },
                 { "mode", n => { Mode = n.GetStringValue(); } },
                 { "reason", n => { Reason = n.GetStringValue(); } },
                 { "to", n => { To = n.GetStringValue(); } },
+                { "unverified_basis", n => { UnverifiedBasis = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
             };
         }
         /// <summary>
@@ -102,12 +114,14 @@ namespace UVision.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteBoolValue("acknowledged_unverified", AcknowledgedUnverified);
             writer.WriteStringValue("at", At);
             writer.WriteStringValue("by", By);
             writer.WriteStringValue("from", From);
             writer.WriteStringValue("mode", Mode);
             writer.WriteStringValue("reason", Reason);
             writer.WriteStringValue("to", To);
+            writer.WriteCollectionOfPrimitiveValues<string>("unverified_basis", UnverifiedBasis);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

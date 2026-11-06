@@ -12,6 +12,8 @@ namespace UVision.Client.Models
     public partial class PromoteAuthorityInput : IAdditionalDataHolder, IParsable
     #pragma warning restore CS1591
     {
+        /// <summary>The acknowledge_unverified property</summary>
+        public bool? AcknowledgeUnverified { get; set; }
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
         /// <summary>The by property</summary>
@@ -57,6 +59,7 @@ namespace UVision.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "acknowledge_unverified", n => { AcknowledgeUnverified = n.GetBoolValue(); } },
                 { "by", n => { By = n.GetStringValue(); } },
                 { "reason", n => { Reason = n.GetStringValue(); } },
                 { "stage", n => { Stage = n.GetEnumValue<global::UVision.Client.Models.AuthorityStage>(); } },
@@ -69,6 +72,7 @@ namespace UVision.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteBoolValue("acknowledge_unverified", AcknowledgeUnverified);
             writer.WriteStringValue("by", By);
             writer.WriteStringValue("reason", Reason);
             writer.WriteEnumValue<global::UVision.Client.Models.AuthorityStage>("stage", Stage);

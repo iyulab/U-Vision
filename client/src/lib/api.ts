@@ -412,11 +412,13 @@ export async function promoteAuthority(
   pin: string,
   by?: string,
   reason?: string,
+  acknowledgeUnverified?: boolean,
 ): Promise<void> {
   const res = await fetch(`${API_BASE}/scenarios/${encodeURIComponent(scenarioId)}/authority/promote`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', [PIN_HEADER]: pin },
-    body: JSON.stringify({ stage, by, reason }),
+    // 근거 없는 격상(서버가 409 로 확인을 요구하는 격상)을 알고 하겠다는 확인 — 보내지 않으면 서버가 근거를 다시 읽어 판정한다.
+    body: JSON.stringify({ stage, by, reason, ...(acknowledgeUnverified ? { acknowledge_unverified: true } : {}) }),
   })
   await ensureOk(res, '단계 격상')
 }

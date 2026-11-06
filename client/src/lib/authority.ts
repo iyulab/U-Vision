@@ -23,6 +23,21 @@ export function nextStageUp(stage: AuthorityStage): AuthorityStage | null {
 /** 격상 근거로 읽는 집계 창의 날 수 — 서버 `GET /metrics?days=` 의 창. 날짜 하나로는 날마다 몇 건씩 쌓이는 불량이 표본 하한에 닿지 못한다. */
 export const EVIDENCE_WINDOW_DAYS = 30
 
+/**
+ * 이 격상에 명시 확인이 필요한가 — 서버(`AuthorityPromotionGuard`)와 같은 규칙의 미러다. 판정은 서버가 하고(근거를 직접 다시 읽는다),
+ * 여기서는 «물어볼지» 만 미리 안다: ML 이 판정 권한을 받는 단계(co_primary 이상)로 올리는데 신호가 «적격» 이 아니거나, 한 단계를 건너뛴다.
+ * 신호를 아직 못 읽었으면(null) «적격» 이 아니다.
+ */
+export function needsAcknowledgement(
+  current: AuthorityStage,
+  target: AuthorityStage,
+  signal: 'eligible' | 'unmet' | 'insufficient' | null,
+): boolean {
+  const skips = AUTHORITY_STAGES.indexOf(target) - AUTHORITY_STAGES.indexOf(current) > 1
+  const givesMlAuthority = AUTHORITY_STAGES.indexOf(target) >= AUTHORITY_STAGES.indexOf('co_primary')
+  return skips || (givesMlAuthority && signal !== 'eligible')
+}
+
 export type EvidenceMetrics = {
   labeled_ng?: number
   labeled_ok?: number

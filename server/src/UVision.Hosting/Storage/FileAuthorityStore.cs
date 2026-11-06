@@ -26,7 +26,7 @@ public sealed class FileAuthorityStore : IAuthorityStore
 
     public async Task SetStageAsync(
         string scenarioId, AuthorityStage stage, string by, string mode, string? reason,
-        CancellationToken ct = default)
+        CancellationToken ct = default, IReadOnlyList<string>? unverifiedBasis = null)
     {
         StoragePaths.Id(scenarioId); // 화이트리스트 거부(read 전에도 검증)
         await _writeLock.WaitAsync(ct);
@@ -41,6 +41,8 @@ public sealed class FileAuthorityStore : IAuthorityStore
                 From = AuthorityStageJsonConverter.ToWire(from),
                 To = AuthorityStageJsonConverter.ToWire(stage),
                 At = now, By = by, Mode = mode, Reason = reason,
+                AcknowledgedUnverified = unverifiedBasis is { Count: > 0 } ? true : null,
+                UnverifiedBasis = unverifiedBasis is { Count: > 0 } ? unverifiedBasis : null,
             };
             var history = new List<AuthorityTransition>(current?.History ?? []) { transition };
 

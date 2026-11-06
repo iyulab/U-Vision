@@ -60,6 +60,19 @@ public sealed record AuthorityTransition
     /// <summary>promote | demote-manual | demote-auto.</summary>
     [JsonPropertyName("mode")] public required string Mode { get; init; }
     [JsonPropertyName("reason")] public string? Reason { get; init; }
+
+    /// <summary>
+    /// 근거 없이 올린 격상이면 true — 서버가 명시 확인(<c>acknowledge_unverified</c>)을 요구했고 사람이 확인했다. 근거가 있었던 격상 ·
+    /// 격하 · 이 필드가 생기기 전의 행은 생략된다.
+    /// </summary>
+    [JsonPropertyName("acknowledged_unverified")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? AcknowledgedUnverified { get; init; }
+
+    /// <summary>확인을 요구한 이유 — <c>AuthorityPromotionGuard</c> 의 표지(<c>skipped_stage</c> · <c>signal_unmet</c> · <c>signal_insufficient</c>).</summary>
+    [JsonPropertyName("unverified_basis")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? UnverifiedBasis { get; init; }
 }
 
 /// <summary>
@@ -84,6 +97,14 @@ public sealed record PromoteAuthorityInput
     [JsonPropertyName("stage")] public required AuthorityStage Stage { get; init; }
     [JsonPropertyName("by")] public string? By { get; init; }
     [JsonPropertyName("reason")] public string? Reason { get; init; }
+
+    /// <summary>
+    /// 근거 없는 격상을 알고 하겠다는 명시 확인. 격상 신호(<c>promotion_eligible</c>)가 «적격» 이 아닌데 ML 이 판정 권한을 받는 격상
+    /// (<c>co_primary</c> · <c>ml_primary</c>) 이거나 한 단계를 건너뛰는 격상이면 이것이 true 여야 한다 — 아니면 409.
+    /// </summary>
+    [JsonPropertyName("acknowledge_unverified")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? AcknowledgeUnverified { get; init; }
 }
 
 /// <summary><c>POST /scenarios/{id}/authority/demote</c> 요청 본문(wire).</summary>

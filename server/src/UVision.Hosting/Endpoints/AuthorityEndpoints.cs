@@ -1,5 +1,9 @@
 using UVision.Api.Auth;
+using UVision.Api.Configuration;
 using UVision.Api.Models;
+using UVision.Api.Services.Authority;
+using UVision.Api.Services.Memory;
+using UVision.Api.Services.Metrics;
 using UVision.Api.Services.Scenarios;
 using UVision.Api.Storage;
 
@@ -50,7 +54,8 @@ public static class AuthorityEndpoints
     }
 
     private static async Task<IResult> PromoteAsync(
-        string id, PromoteAuthorityInput input, IAuthorityStore store, IScenarioStore scenarioStore, CancellationToken ct)
+        string id, PromoteAuthorityInput input, IAuthorityStore store, IScenarioStore scenarioStore,
+        IMetricsStore metricsStore, ILabelStore labelStore, AuthorityOptions authorityOptions, CancellationToken ct)
     {
         if (await PhotoSurface.RejectMissingOrMonitoringAsync(scenarioStore, id, "권한 사다리", ct) is { } rejected)
             return rejected;
@@ -60,7 +65,22 @@ public static class AuthorityEndpoints
             if ((int)input.Stage <= (int)current)
                 return Results.Problem(statusCode: 400,
                     detail: $"격상은 단조 상향만 — 현재 {current}, 요청 {input.Stage}");
-            await store.SetStageAsync(id, input.Stage, input.By ?? "", "promote", input.Reason, ct);
+            // 근거 없는 격상(D-116) — 신호가 «적격» 이 아닌데 ML 이 판정 권한을 받거나 단계를 건너뛰면 명시 확인이 있어야 한다.
+            // 신호는 콘솔 «격상 근거» 와 같은 창 집계를 서버가 직접 읽는다(클라이언트가 준 값을 믿지 않는다). 읽는 일은 ML 이 판정 권한을
+            // 받는 격상에만 한다 — 건너뛰기 판정은 신호가 필요 없다.
+            bool? eligible = null;
+            if (AuthorityPromotionGuard.GivesMlAuthority(input.Stage))
+            {
+                var summary = await MetricsWindow.SummarizeAsync(
+                    id, null, Math.Clamp(authorityOptions.EvidenceWindowDays, 1, ReplayWindow.MaxDays), metricsStore, labelStore, scenarioStore, authorityOptions, ct);
+                eligible = summary.PromotionEligible;
+            }
+            var basis = AuthorityPromotionGuard.UnverifiedBasis(current, input.Stage, eligible);
+            if (basis.Count > 0 && input.AcknowledgeUnverified != true)
+                return Results.Problem(statusCode: 409, detail: AuthorityPromotionGuard.Explain(basis));
+
+            await store.SetStageAsync(
+                id, input.Stage, input.By ?? "", "promote", input.Reason, ct, basis.Count > 0 ? basis : null);
             return Results.Ok(new AuthorityTransitionResponse { Stage = input.Stage, PreviousStage = current });
         }
         catch (ArgumentException)
