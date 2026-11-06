@@ -5651,6 +5651,22 @@
             ],
             "format": "double"
           },
+          "ml_ranked_ng": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ml_ranked_ok": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ml_auroc": {
+            "type": "number",
+            "format": "double"
+          },
+          "ml_recall_at_far": {
+            "type": "number",
+            "format": "double"
+          },
           "fail_closed_rate": {
             "type": [
               "null",

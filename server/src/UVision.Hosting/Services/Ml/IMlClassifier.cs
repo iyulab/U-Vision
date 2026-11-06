@@ -26,6 +26,31 @@ public sealed record MlClassification
     /// 보고하지 않는 서버 · mock · none 이면 null.
     /// </summary>
     public string? ModelSha256 { get; init; }
+
+    /// <summary>
+    /// 이 사진의 «불량 점수» — 문턱 · 작동점에 기대지 않는 순위 지표(AUROC · 오경보 고정 재현율)의 입력이다.
+    /// <paramref name="isNg"/> 를 주면(불량 유형을 나누는 시나리오) 그 규칙이 NG 로 읽는 클래스들의 확률 합. 주지 않으면 이진(OK/NG)
+    /// 가정이다: 클래스별 확률의 <c>NG</c> 쪽(대소문자 무시), 없으면 <c>1 − OK</c>, 확률 맵이 비었으면 예측 라벨과 그 확률로 환산한다.
+    /// 읽을 수 없으면 null — 그 사진은 순위 지표에서 빠진다.
+    /// </summary>
+    public double? NgScore(Func<string, bool>? isNg = null)
+    {
+        if (isNg is not null && Scores.Count > 0)
+            return Math.Clamp(Scores.Where(s => isNg(s.Key)).Sum(s => s.Value), 0.0, 1.0);
+        if (TryScore("NG", out var ng)) return ng;
+        if (TryScore("OK", out var ok)) return 1 - ok;
+        if (string.Equals(Label, "NG", StringComparison.OrdinalIgnoreCase)) return Confidence;
+        if (string.Equals(Label, "OK", StringComparison.OrdinalIgnoreCase)) return 1 - Confidence;
+        return null;
+    }
+
+    private bool TryScore(string cls, out double value)
+    {
+        foreach (var (k, v) in Scores)
+            if (string.Equals(k, cls, StringComparison.OrdinalIgnoreCase)) { value = v; return true; }
+        value = 0;
+        return false;
+    }
 }
 
 /// <summary>

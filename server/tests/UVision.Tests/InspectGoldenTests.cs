@@ -144,12 +144,12 @@ public partial class InspectGoldenTests
         {"image_id":"img_ID","timestamp":"TS","verdict":"NG","vlm_confidence":0.79,"ml_label":null,"ml_confidence":null,"agreement":null,"requires_review":null,"ml_degraded":false,"vlm_only":true}
         """.ReplaceLineEndings("\n") + "\n";
     private static readonly string ExpectedMlMetrics = """
-        {"image_id":"img_ID","timestamp":"TS","verdict":"NG","vlm_confidence":0.79,"ml_label":"ng","ml_confidence":0.6922,"agreement":true,"requires_review":false,"ml_degraded":false}
+        {"image_id":"img_ID","timestamp":"TS","verdict":"NG","vlm_confidence":0.79,"ml_label":"ng","ml_confidence":0.6922,"ml_ng_score":0.6922,"agreement":true,"requires_review":false,"ml_degraded":false}
         """.ReplaceLineEndings("\n") + "\n";
     private static readonly string ExpectedFailClosedBody = """
         {"detection_unavailable":true,"reason":"vlm_unavailable","ml_hint":{"label":"ng","confidence":0.6922}}
         """.ReplaceLineEndings("\n");
     private static readonly string ExpectedFailClosedMetrics = """
-        {"image_id":"img_ID","timestamp":"TS","verdict":null,"vlm_confidence":null,"ml_label":"ng","ml_confidence":0.6922,"agreement":null,"requires_review":null,"ml_degraded":false,"posture":"fail_closed"}
+        {"image_id":"img_ID","timestamp":"TS","verdict":null,"vlm_confidence":null,"ml_label":"ng","ml_confidence":0.6922,"ml_ng_score":0.6922,"agreement":null,"requires_review":null,"ml_degraded":false,"posture":"fail_closed"}
         """.ReplaceLineEndings("\n") + "\n";
 }

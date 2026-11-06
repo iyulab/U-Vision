@@ -26,10 +26,11 @@ public sealed class AuthorityOptions
 
     /// <summary>
     /// ML 정상 오경보율 상한. 격상 자격: ml_false_alarm_rate ≤ 이 값. 재현율만 보면 모든 사진을 불량으로 모는 모델도 재현율 1.0 이다.
+    /// 재현율 항(<see cref="RecallFloor"/>)은 정상 오경보를 정확히 이 값으로 묶었을 때의 재현율(<c>ml_recall_at_far</c>)로 읽는다.
     /// </summary>
     public double FalseAlarmCeiling { get; set; } = 0.10;
 
-    /// <summary>ML NG recall 바닥. 격상 자격: ml_ng_recall ≥ 이 값.</summary>
+    /// <summary>ML NG recall 바닥. 격상 자격: ml_recall_at_far(정상 오경보를 <see cref="FalseAlarmCeiling"/> 으로 묶은 재현율) ≥ 이 값.</summary>
     public double RecallFloor { get; set; } = 0.95;
 
     /// <summary>agreement rate 바닥. 격상 자격: agreement_rate ≥ 이 값.</summary>

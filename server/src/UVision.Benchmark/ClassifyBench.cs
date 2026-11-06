@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using UVision.Api.Configuration;
 using UVision.Api.Services.Ml;
+using UVision.Api.Services.Metrics;
 
 namespace UVision.Benchmark;
 
@@ -95,7 +96,7 @@ internal static class ClassifyBench
                 // 대소문자를 무시하고 견준다. 이걸 안 하면 `ng`/`NG` 가 어긋나 정확도 0 으로 읽힌다.
                 var predicted = knownClasses.FirstOrDefault(k => string.Equals(k, r.Label, StringComparison.OrdinalIgnoreCase)) ?? r.Label;
                 tally[(s.Class, predicted)] = tally.GetValueOrDefault((s.Class, predicted)) + 1;
-                if (NgScoreOf(r) is { } ngScore) scores.Add((s.Class, ngScore));
+                if (r.NgScore() is { } ngScore) scores.Add((s.Class, ngScore));
             }
             catch (Exception ex)
             {
@@ -113,27 +114,6 @@ internal static class ClassifyBench
         if (opts.GetValueOrDefault("out") is { } outPath)
             await ReportFile.WriteAsync(outPath, report);
         return failed == 0 ? 0 : 3;
-    }
-
-    /// <summary>
-    /// 한 사진의 «불량 점수» — 클래스별 확률의 <c>NG</c> 쪽(대소문자 무시), 없으면 <c>1 − OK</c>, 확률 맵이 비었으면 예측 라벨과
-    /// 그 확률로 이진 환산한다. 읽을 수 없으면 null(그 사진은 문턱 무관 지표에서 빠지고 리포트가 장수를 밝힌다). 이진(OK/NG) 가정이다.
-    /// </summary>
-    internal static double? NgScoreOf(MlClassification r)
-    {
-        if (TryScore(r.Scores, "NG", out var ng)) return ng;
-        if (TryScore(r.Scores, "OK", out var ok)) return 1 - ok;
-        if (string.Equals(r.Label, "NG", StringComparison.OrdinalIgnoreCase)) return r.Confidence;
-        if (string.Equals(r.Label, "OK", StringComparison.OrdinalIgnoreCase)) return 1 - r.Confidence;
-        return null;
-    }
-
-    private static bool TryScore(IReadOnlyDictionary<string, double> scores, string cls, out double value)
-    {
-        foreach (var (k, v) in scores)
-            if (string.Equals(k, cls, StringComparison.OrdinalIgnoreCase)) { value = v; return true; }
-        value = 0;
-        return false;
     }
 
     internal static string Render(
@@ -189,11 +169,11 @@ internal static class ClassifyBench
             sb.AppendLine("- 정상 · 불량이 모두 있어야 계산한다 — 건너뜀");
             return;
         }
-        sb.AppendLine(string.Create(inv, $"- AUROC {PatchScoring.Auroc(normal, defect):F3}"));
+        sb.AppendLine(string.Create(inv, $"- AUROC {RankScoring.Auroc(normal, defect):F3}"));
         sb.AppendLine().AppendLine("| 허용 정상 오경보 | 허용 장수 | 불량 재현율 |").AppendLine("|---|---|---|");
-        foreach (var far in PatchScoring.StandardFalseAlarmRates)
+        foreach (var far in RankScoring.StandardFalseAlarmRates)
         {
-            var missed = PatchScoring.MissedAtFalseAlarm(normal, defect, far);
+            var missed = RankScoring.MissedAtFalseAlarm(normal, defect, far);
             var caught = defect.Count - missed;
             var allowed = (int)Math.Floor(far * normal.Count);
             sb.AppendLine(string.Create(inv, $"| {far:P0} | {allowed}/{normal.Count} | {(double)caught / defect.Count:F3} ({caught}/{defect.Count}) |"));

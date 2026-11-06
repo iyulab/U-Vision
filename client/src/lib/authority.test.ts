@@ -26,6 +26,15 @@ describe('evidenceSummary', () => {
     expect(rows[2].value).toBe('6/120 (5.0 %)')
   })
 
+  it('신호의 재현율 항(오경보 고정 재현율)과 순위 품질을 서버가 준 대로 보이고, 점수가 없으면 지어내지 않는다', () => {
+    const rows = evidenceSummary({ ml_recall_at_far: 0.9667, ml_auroc: 0.98123, ml_ranked_ng: 60, ml_ranked_ok: 120 }).rows
+    expect(rows[3].value).toBe('96.7 % · 점수 표본 불량 60 / 정상 120')
+    expect(rows[4].value).toBe('0.981')
+    const none = evidenceSummary({ labeled_ng: 60 }).rows
+    expect(none[3].value).toBe('— · 점수 표본 불량 0 / 정상 0')
+    expect(none[4].value).toBe('—')
+  })
+
   it('분모가 0 이면 비율을 지어내지 않는다', () => {
     const rows = evidenceSummary({ ml_ok_scored: 0, ml_false_alarm_rate: null }).rows
     expect(rows[2].value).toBe('0건 (—)')

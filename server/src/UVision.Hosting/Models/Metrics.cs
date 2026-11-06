@@ -39,6 +39,14 @@ public sealed record MetricsRow
     /// <summary>ML softmax 신뢰도(raw). degrade 시 null.</summary>
     [JsonPropertyName("ml_confidence")] public double? MlConfidence { get; init; }
 
+    /// <summary>
+    /// ML 의 «불량 점수»(0~1, 클래스별 확률에서 읽은 NG 쪽 — <c>MlClassification.NgScore</c>) — 문턱 · 작동점에 기대지 않는 순위 지표
+    /// (<c>ml_auroc</c> · <c>ml_recall_at_far</c>)의 입력. 점수를 읽을 수 없거나 degrade 면, 그리고 이 필드가 생기기 전의 옛 행이면 null.
+    /// </summary>
+    [JsonPropertyName("ml_ng_score")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? MlNgScore { get; init; }
+
     /// <summary>VLM·ML 일치 여부. degrade 시 null.</summary>
     [JsonPropertyName("agreement")] public bool? Agreement { get; init; }
 
@@ -254,6 +262,35 @@ public sealed record MetricsSummary
 
     /// <summary>ML 오경보율 = ml_false_alarms / ml_ok_scored. ML 이 라벨된 OK 0 건이면 null.</summary>
     [JsonPropertyName("ml_false_alarm_rate")] public double? MlFalseAlarmRate { get; init; }
+
+    /// <summary>
+    /// 순위 지표의 표본 — ML 불량 점수(<c>ml_ng_score</c>)가 있고 사람 라벨이 붙은 불량 · 정상 건수. 점수가 있는 행이 없으면 지표 넷이 모두 생략된다
+    /// (이 필드가 생기기 전의 행만 있는 창 · ML 이 점수를 못 읽는 시나리오).
+    /// </summary>
+    [JsonPropertyName("ml_ranked_ng")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MlRankedNg { get; init; }
+
+    /// <inheritdoc cref="MlRankedNg"/>
+    [JsonPropertyName("ml_ranked_ok")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MlRankedOk { get; init; }
+
+    /// <summary>
+    /// ML 순위 품질 — 불량 점수가 정상 점수보다 높을 확률(AUROC, 동점은 절반). 한 작동점의 재현율(<c>ml_ng_recall</c>)과 달리 문턱에 기대지 않는다.
+    /// 불량 · 정상 중 한쪽이라도 점수가 없으면 생략.
+    /// </summary>
+    [JsonPropertyName("ml_auroc")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? MlAuroc { get; init; }
+
+    /// <summary>
+    /// 정상 오경보를 <c>UVision:Authority:FalseAlarmCeiling</c> 이하로 묶었을 때 잡은 불량의 비율(동점은 통과로 센다) — 격상 신호의 재현율 항이
+    /// 읽는 값이다. 문턱을 정상 점수 분포에서 정하므로 모델의 argmax 문턱이 어디 있든 같은 정의다. 점수가 없으면 생략.
+    /// </summary>
+    [JsonPropertyName("ml_recall_at_far")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? MlRecallAtFar { get; init; }
 
     /// <summary>fail-closed율 = fail_closed / (inspections + fail_closed). 총 시도 0 이면 null.</summary>
     [JsonPropertyName("fail_closed_rate")] public double? FailClosedRate { get; init; }

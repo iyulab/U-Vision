@@ -519,7 +519,7 @@ public class MetricsAggregatorTests
             var id = $"ok{i}";
             var fa = i < falseAlarms;
             rows.Add(new MetricsRow { ImageId = id, Timestamp = "t", Verdict = Verdict.OK,
-                MlLabel = fa ? "NG" : "OK", MlConfidence = 0.9, Agreement = !fa, RequiresReview = fa, MlDegraded = false });
+                MlLabel = fa ? "NG" : "OK", MlConfidence = 0.9, MlNgScore = fa ? 0.9 : 0.1, Agreement = !fa, RequiresReview = fa, MlDegraded = false });
             labels.Add(new StoredLabel { ImageId = id, Label = "OK", Timestamp = "t" });
         }
     }
@@ -534,7 +534,7 @@ public class MetricsAggregatorTests
             var id = $"img{i}";
             // 모두 NG 라벨, VLM·ML 둘 다 NG 적중, 일치 → ml_ng_recall=1, vlm=1, agreement=1
             rows.Add(new MetricsRow { ImageId = id, Timestamp = "t", Verdict = Verdict.NG,
-                MlLabel = "NG", MlConfidence = 0.9, Agreement = true, RequiresReview = false, MlDegraded = false });
+                MlLabel = "NG", MlConfidence = 0.9, MlNgScore = 0.9, Agreement = true, RequiresReview = false, MlDegraded = false });
             labels.Add(new StoredLabel { ImageId = id, Label = "NG", Timestamp = "t" });
         }
         AddOkRows(rows, labels, 30);
@@ -552,7 +552,7 @@ public class MetricsAggregatorTests
         {
             var id = $"img{i}";
             rows.Add(new MetricsRow { ImageId = id, Timestamp = "t", Verdict = Verdict.NG,
-                MlLabel = "NG", MlConfidence = 0.9, Agreement = true, RequiresReview = false, MlDegraded = false });
+                MlLabel = "NG", MlConfidence = 0.9, MlNgScore = 0.9, Agreement = true, RequiresReview = false, MlDegraded = false });
             labels.Add(new StoredLabel { ImageId = id, Label = "NG", Timestamp = "t" });
         }
         AddOkRows(rows, labels, 100, falseAlarms: 30);
@@ -571,7 +571,7 @@ public class MetricsAggregatorTests
         {
             var id = $"img{i}";
             rows.Add(new MetricsRow { ImageId = id, Timestamp = "t", Verdict = Verdict.NG,
-                MlLabel = "NG", MlConfidence = 0.9, Agreement = true, RequiresReview = false, MlDegraded = false });
+                MlLabel = "NG", MlConfidence = 0.9, MlNgScore = 0.9, Agreement = true, RequiresReview = false, MlDegraded = false });
             labels.Add(new StoredLabel { ImageId = id, Label = "NG", Timestamp = "t" });
         }
         AddOkRows(rows, labels, 5);   // MinOkSamples(30) 미만
@@ -589,7 +589,7 @@ public class MetricsAggregatorTests
             var id = $"img{i}";
             // 정답 NG. VLM 은 NG 적중(recall 1.0), ML 은 OK 놓침(recall 0.0) → ml < vlm.
             rows.Add(new MetricsRow { ImageId = id, Timestamp = "t", Verdict = Verdict.NG,
-                MlLabel = "OK", MlConfidence = 0.9, Agreement = false, RequiresReview = true, MlDegraded = false });
+                MlLabel = "OK", MlConfidence = 0.9, MlNgScore = 0.1, Agreement = false, RequiresReview = true, MlDegraded = false });
             labels.Add(new StoredLabel { ImageId = id, Label = "NG", Timestamp = "t" });
         }
         AddOkRows(rows, labels, 30);
@@ -736,7 +736,7 @@ public class MetricsAggregatorTests
             var id = $"img{i}";
             bool ng = i == 0;
             rows.Add(new MetricsRow { ImageId = id, Timestamp = "t", Verdict = Verdict.OK, // VLM 은 놓침
-                MlLabel = ng ? "NG" : "OK", MlConfidence = 0.9, Agreement = !ng, RequiresReview = ng, MlDegraded = false });
+                MlLabel = ng ? "NG" : "OK", MlConfidence = 0.9, MlNgScore = ng ? 0.9 : 0.1, Agreement = !ng, RequiresReview = ng, MlDegraded = false });
             labels.Add(new StoredLabel { ImageId = id, Label = ng ? "NG" : "OK", Timestamp = "t" });
         }
         var s = MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions());
@@ -756,7 +756,7 @@ public class MetricsAggregatorTests
             var id = $"img{i}";
             bool ng = i < 3;
             rows.Add(new MetricsRow { ImageId = id, Timestamp = "t", Verdict = ng ? Verdict.NG : Verdict.OK,
-                MlLabel = ng ? "NG" : "OK", MlConfidence = 0.9, Agreement = true, RequiresReview = false, MlDegraded = false });
+                MlLabel = ng ? "NG" : "OK", MlConfidence = 0.9, MlNgScore = ng ? 0.9 : 0.1, Agreement = true, RequiresReview = false, MlDegraded = false });
             labels.Add(new StoredLabel { ImageId = id, Label = ng ? "NG" : "OK", Timestamp = "t" });
         }
         Assert.Null(MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions()).PromotionEligible);
@@ -769,10 +769,90 @@ public class MetricsAggregatorTests
         var rows = new List<MetricsRow>
         {
             new() { ImageId = "a", Timestamp = "t", Verdict = Verdict.NG, MlLabel = "NG",
-                MlConfidence = 0.9, Agreement = true, RequiresReview = false, MlDegraded = false },
+                MlConfidence = 0.9, MlNgScore = 0.9, Agreement = true, RequiresReview = false, MlDegraded = false },
         };
         var labels = new List<StoredLabel> { new() { ImageId = "a", Label = "NG", Timestamp = "t" } };
         var s = MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions());
         Assert.Null(s.PromotionEligible); // inspections(1) < MinWindow(50)
+    }
+
+    // --- 격상 신호의 재현율 항 = 정상 오경보를 고정한 값(D-116) ---
+
+    // 라벨 NG 60건 · 정상 30건 — VLM 은 전부 맞히고(재현율 1.0), ML 점수는 인자로 정한다. argmax 라벨은 점수와 따로 줄 수 있다.
+    private static (List<MetricsRow> Rows, List<StoredLabel> Labels) ScoredWindow(
+        Func<int, (string Label, double? Score)> ng, Func<int, (string Label, double? Score)> ok)
+    {
+        var rows = new List<MetricsRow>();
+        var labels = new List<StoredLabel>();
+        for (int i = 0; i < 60; i++)
+        {
+            var (label, score) = ng(i);
+            rows.Add(new MetricsRow { ImageId = $"ng{i}", Timestamp = "t", Verdict = Verdict.NG,
+                MlLabel = label, MlConfidence = 0.9, MlNgScore = score, Agreement = true, RequiresReview = false, MlDegraded = false });
+            labels.Add(new StoredLabel { ImageId = $"ng{i}", Label = "NG", Timestamp = "t" });
+        }
+        for (int i = 0; i < 30; i++)
+        {
+            var (label, score) = ok(i);
+            rows.Add(new MetricsRow { ImageId = $"ok{i}", Timestamp = "t", Verdict = Verdict.OK,
+                MlLabel = label, MlConfidence = 0.9, MlNgScore = score, Agreement = true, RequiresReview = false, MlDegraded = false });
+            labels.Add(new StoredLabel { ImageId = $"ok{i}", Label = "OK", Timestamp = "t" });
+        }
+        return (rows, labels);
+    }
+
+    [Fact]
+    public void PromotionEligible_ReadsTheRecallAtAFixedFalseAlarmRate_NotTheRecallOfOneOperatingPoint()
+    {
+        // 순위는 완벽(불량 점수 0.6 > 정상 0.1)인데 모델의 argmax 문턱이 높아 불량을 모두 OK 로 가른다 — 한 작동점의 재현율은 0 이다.
+        var (rows, labels) = ScoredWindow(_ => ("OK", 0.6), _ => ("OK", 0.1));
+        var s = MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions());
+
+        Assert.Equal(0.0, s.MlNgRecall);
+        Assert.Equal(1.0, s.MlAuroc);
+        Assert.Equal(1.0, s.MlRecallAtFar);
+        Assert.Equal(60, s.MlRankedNg);
+        Assert.Equal(30, s.MlRankedOk);
+        Assert.True(s.PromotionEligible); // 문턱 의존인 argmax 재현율이 신호를 가르지 않는다
+    }
+
+    [Fact]
+    public void PromotionEligible_IsFalse_WhenTheArgmaxCatchesEveryDefectButTheRankingCannotSeparateThem()
+    {
+        // argmax 재현율은 1.0 이지만 불량 점수와 정상 점수가 같다(전부 동점) — 오경보를 묶으면 한 장도 못 잡는다. 동점은 통과로 센다.
+        var (rows, labels) = ScoredWindow(_ => ("NG", 0.5), _ => ("OK", 0.5));
+        var s = MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions());
+
+        Assert.Equal(1.0, s.MlNgRecall);
+        Assert.Equal(0.5, s.MlAuroc);
+        Assert.Equal(0.0, s.MlRecallAtFar);
+        Assert.False(s.PromotionEligible);
+    }
+
+    [Fact]
+    public void PromotionEligible_IsNull_WhenOnlyRowsWithoutAScoreExist_ButEveryOtherCountIsEnough()
+    {
+        // 점수 필드가 생기기 전의 옛 행 — 라벨 · 일치 · 오경보는 충분하지만 순위를 잴 수 없으므로 «적격» 도 «부적격» 도 말하지 않는다.
+        var (rows, labels) = ScoredWindow(_ => ("NG", null), _ => ("OK", null));
+        var s = MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions());
+
+        Assert.Null(s.PromotionEligible);
+        Assert.Null(s.MlAuroc);
+        Assert.Null(s.MlRecallAtFar);
+        Assert.Null(s.MlRankedNg);
+        Assert.Null(s.MlRankedOk);
+        Assert.Equal(1.0, s.MlNgRecall); // 기존 지표는 그대로
+    }
+
+    [Fact]
+    public void PromotionEligible_IsNull_UntilTheScoredRowsThemselvesReachTheSampleFloor()
+    {
+        // 라벨 NG 60건 중 점수가 있는 것은 10건 — 라벨 하한(59)은 넘었어도 순위 표본이 모자란다.
+        var (rows, labels) = ScoredWindow(i => ("NG", i < 10 ? 0.9 : null), _ => ("OK", 0.1));
+        var s = MetricsAggregator.Summarize("demo", "2026-06-23", rows, labels, new AuthorityOptions());
+
+        Assert.Equal(10, s.MlRankedNg);
+        Assert.Equal(1.0, s.MlAuroc); // 지표는 있는 만큼 보인다 — 신호만 보류
+        Assert.Null(s.PromotionEligible);
     }
 }

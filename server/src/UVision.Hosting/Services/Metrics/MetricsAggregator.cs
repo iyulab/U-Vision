@@ -83,6 +83,9 @@ public static class MetricsAggregator
         int degraded = 0, agreements = 0, reviews = 0, oraclePending = 0;
         int labeled = 0, labeledNg = 0, vlmNgHits = 0, mlNgScored = 0, mlNgHits = 0;
         int labeledOk = 0, vlmFalseAlarms = 0, mlOkScored = 0, mlFalseAlarms = 0;
+        // 순위 지표의 입력 — ML 불량 점수가 있고 사람 라벨이 붙은 건의 점수. 문턱 · 작동점에 기대지 않는다.
+        var rankedNormal = new List<double>();
+        var rankedDefect = new List<double>();
 
         // 계수 판정(검출기) 줄은 VLM · ML 집계와 뜻이 달라 맨 앞에서 갈라 따로 센다 — 검사 수 · 재현율 · 오경보 · 격상 신호에 들지 않는다.
         // 사람 라벨 조인도 하지 않는다: 검출기의 정확도는 정수 정답이 있는 개수 오차 측정이 잰다.
@@ -144,6 +147,7 @@ public static class MetricsAggregator
                     mlOkScored++;
                     if (isNg(r.MlLabel))
                         mlFalseAlarms++;
+                    if (r.MlNgScore is { } okScore) rankedNormal.Add(okScore);
                 }
                 continue;
             }
@@ -158,6 +162,7 @@ public static class MetricsAggregator
                 mlNgScored++;
                 if (isNg(r.MlLabel))
                     mlNgHits++;
+                if (r.MlNgScore is { } ngScore) rankedDefect.Add(ngScore);
             }
         }
 
@@ -169,16 +174,24 @@ public static class MetricsAggregator
         // 격상 자격 신호(A1, 이행기): 표본 충분 + 조건 전부 충족 → true; 표본 충분·계산 가능·조건 미달 → false; 데이터 불충분 → null.
         // «표본 충분» 에는 검사 건수(MinWindow)뿐 아니라 재현율 분모의 NG 건수(MinNgSamples)도 든다 — 라벨된 NG 1건으로
         // 재현율 1.0 이 되어 true 가 나오는 점추정을 막는다.
+        // 재현율 항은 한 작동점(argmax)의 값이 아니라 «정상 오경보를 FalseAlarmCeiling 으로 묶었을 때 잡은 불량의 비율» 이다(D-116) —
+        // 같은 모델의 argmax 재현율은 문턱 하나로 크게 갈리므로(재생 12 대상에서 8/40 ~ 38/40) 그 위에 쌓은 신호는 문턱 의존이다. 이 값은
+        // ML 불량 점수(ml_ng_score)가 있는 행으로만 재므로, 점수 표본도 같은 하한(MinNgSamples · MinOkSamples)을 채워야 «표본 충분» 이다 —
+        // 점수 필드가 생기기 전의 옛 행만 있는 창은 null(위장 금지)이고, 새 행이 하한만큼 쌓이면 신호가 다시 난다.
+        var mlAuroc = rankedDefect.Count > 0 && rankedNormal.Count > 0 ? RankScoring.Auroc(rankedNormal, rankedDefect) : (double?)null;
+        var mlRecallAtFar = RankScoring.RecallAtFalseAlarm(rankedNormal, rankedDefect, options.FalseAlarmCeiling);
         bool enough = mlChecked >= options.MinWindow
             && labeledNg >= options.MinNgSamples && mlNgScored >= options.MinNgSamples
-            && mlOkScored >= options.MinOkSamples;
-        // 재현율만으로는 모든 사진을 불량으로 모는 모델도 통과한다 — ML 의 정상 오경보율 상한(FalseAlarmCeiling)도 조건이다.
+            && mlOkScored >= options.MinOkSamples
+            && rankedDefect.Count >= options.MinNgSamples && rankedNormal.Count >= options.MinOkSamples;
+        // 재현율만으로는 모든 사진을 불량으로 모는 모델도 통과한다 — ML 의 정상 오경보율 상한(FalseAlarmCeiling)도 조건이다
+        // (실제로 라벨을 정하는 argmax 의 오경보율이다 — 격상 뒤의 운영 작동점).
         var mlFalseAlarmRate = Rate(mlFalseAlarms, mlOkScored);
         bool? eligible = (enough
-            && vlmRecall is { } vr && mlRecall is { } mr && agreementRate is { } ar && mlFalseAlarmRate is { } fa
+            && vlmRecall is { } vr && mlRecallAtFar is { } mr && agreementRate is { } ar && mlFalseAlarmRate is { } fa
             && mr >= vr && mr >= options.RecallFloor && ar >= options.AgreementFloor && fa <= options.FalseAlarmCeiling)
             ? true
-            : (enough && vlmRecall is not null && mlRecall is not null && agreementRate is not null && mlFalseAlarmRate is not null
+            : (enough && vlmRecall is not null && mlRecallAtFar is not null && agreementRate is not null && mlFalseAlarmRate is not null
                 ? false      // 표본 충분·계산 가능하나 조건 미달 → 명시 false
                 : null);     // 데이터 불충분 → null(위장 금지)
 
@@ -223,6 +236,10 @@ public static class MetricsAggregator
             MlNgRecall = mlRecall,
             VlmFalseAlarmRate = Rate(vlmFalseAlarms, labeledOk),
             MlFalseAlarmRate = mlFalseAlarmRate,
+            MlRankedNg = rankedDefect.Count + rankedNormal.Count > 0 ? rankedDefect.Count : null,
+            MlRankedOk = rankedDefect.Count + rankedNormal.Count > 0 ? rankedNormal.Count : null,
+            MlAuroc = mlAuroc,
+            MlRecallAtFar = mlRecallAtFar,
             LabelConsistencyRate = Rate(labelConsistent, audited),
             AuditPositiveAgreement = SpecificAgreement(auditNgNg, auditNgOk + auditOkNg),
             AuditNegativeAgreement = SpecificAgreement(auditOkOk, auditNgOk + auditOkNg),

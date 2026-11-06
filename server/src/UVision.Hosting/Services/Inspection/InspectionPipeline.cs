@@ -84,7 +84,7 @@ public sealed partial class InspectionPipeline(
             var failedAt = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
             await WriteFailClosedMetricSafelyAsync(
                 scenario.ScenarioId, ml, failedAt, vlmOnly: !mlActive, MatchOf(effective, capture.Context), capture.Origin?.Kind,
-                cancellationToken);
+                cancellationToken, mlNgScore: ml?.NgScore(effective.NgLabelRule));
             var failedSubject = new LedgerSubject(
                 $"dec_{Guid.NewGuid():N}", effective, failedAt, result, evidence.Ml, capture.Context, evidence.Memory, capture.Origin,
                 evidence.TeacherEdition);
@@ -213,7 +213,8 @@ public sealed partial class InspectionPipeline(
         await WriteMetricsSafelyAsync(
             scenario.ScenarioId, imageId, timestamp, verdict, confidence, evidence.Ml, dual,
             posture, vlmOnly: !mlActive, MatchOf(effective, capture.Context), contested: contests.Count > 0,
-            capture.Origin?.Kind, cancellationToken, decidedClass: effective.IsClassification ? decidedClass : null);
+            capture.Origin?.Kind, cancellationToken, decidedClass: effective.IsClassification ? decidedClass : null,
+            mlNgScore: dual is null ? null : evidence.Ml?.Result?.NgScore(effective.NgLabelRule));
 
         if (mlActive
             && (stage == AuthorityStage.CoPrimary || stage == AuthorityStage.MlPrimary))
@@ -742,7 +743,7 @@ public sealed partial class InspectionPipeline(
     /// </summary>
     private async Task WriteFailClosedMetricSafelyAsync(
         string scenarioId, MlClassification? ml, string timestamp, bool vlmOnly, string? match, string? origin,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, double? mlNgScore = null)
     {
         var row = new MetricsRow
         {
@@ -752,6 +753,7 @@ public sealed partial class InspectionPipeline(
             VlmConfidence = null,
             MlLabel = ml?.Label,
             MlConfidence = ml?.Confidence,
+            MlNgScore = mlNgScore,
             Posture = MetricsRow.PostureFailClosed,
             MlDegraded = false,
             VlmOnly = vlmOnly,
@@ -786,7 +788,7 @@ public sealed partial class InspectionPipeline(
         string scenarioId, string imageId, string timestamp,
         Verdict verdict, double confidence, MlOutcome? outcome, DualCheckResult? dual,
         string? posture, bool vlmOnly, string? match, bool contested, string? origin, CancellationToken cancellationToken,
-        string? decidedClass = null)
+        string? decidedClass = null, double? mlNgScore = null)
     {
         var degraded = outcome?.Failed ?? false;
         var row = new MetricsRow
@@ -797,6 +799,7 @@ public sealed partial class InspectionPipeline(
             VlmConfidence = confidence,
             MlLabel = dual?.MlLabel,
             MlConfidence = dual?.MlConfidence,
+            MlNgScore = mlNgScore,
             Agreement = dual?.Agreement,
             RequiresReview = dual?.RequiresReview,
             MlDegraded = degraded,

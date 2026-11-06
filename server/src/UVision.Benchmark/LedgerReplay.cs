@@ -3,6 +3,7 @@ using System.Text;
 using HoneAI;
 using UVision.Api.Configuration;
 using UVision.Api.Storage;
+using UVision.Api.Services.Metrics;
 
 namespace UVision.Benchmark;
 
@@ -19,7 +20,7 @@ internal static class LedgerReplay
 {
     internal sealed record ScoredCase(double Global, double Patch, int BankSize, bool Defect);
 
-    private static readonly double[] FalseAlarmRates = PatchScoring.StandardFalseAlarmRates;
+    private static readonly double[] FalseAlarmRates = RankScoring.StandardFalseAlarmRates;
 
     /// <summary>기억 크기 구간의 아래 경계(포함). 마지막은 «그 이상».</summary>
     private static readonly int[] BankEdges = [1, 10, 50, 200];
@@ -104,10 +105,10 @@ internal static class LedgerReplay
             double[] gn = [.. normal.Select(c => c.Global)], gd = [.. defect.Select(c => c.Global)];
             double[] pn = [.. normal.Select(c => c.Patch)], pd = [.. defect.Select(c => c.Patch)];
             var missed = FalseAlarmRates.Select(r =>
-                $"{PatchScoring.MissedAtFalseAlarm(gn, gd, r)} → {PatchScoring.MissedAtFalseAlarm(pn, pd, r)} /{defect.Count}").ToList();
+                $"{RankScoring.MissedAtFalseAlarm(gn, gd, r)} → {RankScoring.MissedAtFalseAlarm(pn, pd, r)} /{defect.Count}").ToList();
             var small = normal.Count < 30 || defect.Count < 30 ? "표본 적음" : "";
             sb.AppendLine(string.Create(inv,
-                $"| {label} | {normal.Count} | {defect.Count} | {PatchScoring.Auroc(gn, gd):F3} → {PatchScoring.Auroc(pn, pd):F3} | {missed[0]} | {missed[1]} | {missed[2]} | {small} |"));
+                $"| {label} | {normal.Count} | {defect.Count} | {RankScoring.Auroc(gn, gd):F3} → {RankScoring.Auroc(pn, pd):F3} | {missed[0]} | {missed[1]} | {missed[2]} | {small} |"));
         }
         return sb.ToString();
     }

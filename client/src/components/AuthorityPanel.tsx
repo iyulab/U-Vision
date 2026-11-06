@@ -126,7 +126,7 @@ export function AuthorityPanel({
               <p data-testid="promotion-signal" className={ev.signal === 'eligible' ? 'text-emerald-300' : 'text-amber-300'}>
                 {ev.signal === 'eligible' && '격상 가능 신호 — 조건 충족(확정은 사람).'}
                 {ev.signal === 'unmet' && '격상 조건 미충족 — 재현율 · 오경보율 · 일치율 중 기준에 못 미칩니다. 근거가 약한 채 격상하면 라인이 ML 에 더 의존합니다.'}
-                {ev.signal === 'insufficient' && '표본 부족 — 신호를 낼 만큼 쌓이지 않았습니다(적격이라는 뜻이 아닙니다).'}
+                {ev.signal === 'insufficient' && '표본 부족 — 신호를 낼 만큼 쌓이지 않았습니다(적격이라는 뜻이 아닙니다). 불량 점수가 붙은 판정이 아직 적으면 이 칸도 비어 있습니다.'}
               </p>
             </div>
           )}

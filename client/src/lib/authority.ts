@@ -32,6 +32,11 @@ export type EvidenceMetrics = {
   ml_false_alarms?: number
   ml_ng_recall?: number | null
   ml_false_alarm_rate?: number | null
+  /** 정상 오경보를 상한으로 묶었을 때의 재현율 — 격상 신호의 재현율 항(D-116). 점수가 붙은 건이 없으면 생략. */
+  ml_recall_at_far?: number | null
+  ml_auroc?: number | null
+  ml_ranked_ng?: number | null
+  ml_ranked_ok?: number | null
   promotion_eligible?: boolean | null
 }
 
@@ -52,6 +57,9 @@ export function evidenceSummary(m: EvidenceMetrics): EvidenceSummary {
       { label: '사람 라벨 불량 / 정상', value: `${m.labeled_ng ?? 0} / ${m.labeled_ok ?? 0}` },
       { label: 'ML 이 점수 매긴 불량 중 적중 (재현율)', value: `${frac(m.ml_ng_hits, m.ml_ng_scored)} (${pct(m.ml_ng_recall)})` },
       { label: 'ML 이 점수 매긴 정상 중 불량으로 부름 (오경보율)', value: `${frac(m.ml_false_alarms, m.ml_ok_scored)} (${pct(m.ml_false_alarm_rate)})` },
+      // 신호의 재현율 항은 위 한 작동점(적중)이 아니라 이 값이다 — 같은 모델도 작동점은 문턱 하나로 크게 갈린다.
+      { label: '정상 오경보를 상한으로 묶었을 때 잡은 불량 (신호의 재현율 항)', value: `${pct(m.ml_recall_at_far)} · 점수 표본 불량 ${m.ml_ranked_ng ?? 0} / 정상 ${m.ml_ranked_ok ?? 0}` },
+      { label: '순위 품질 (AUROC — 불량 점수가 정상보다 높을 확률)', value: m.ml_auroc == null ? '—' : m.ml_auroc.toFixed(3) },
     ],
   }
 }

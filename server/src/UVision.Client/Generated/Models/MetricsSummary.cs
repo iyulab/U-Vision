@@ -84,6 +84,8 @@ namespace UVision.Client.Models
         public int? MatchAbstained { get; set; }
         /// <summary>The match_mismatches property</summary>
         public int? MatchMismatches { get; set; }
+        /// <summary>The ml_auroc property</summary>
+        public double? MlAuroc { get; set; }
         /// <summary>The ml_checked property</summary>
         public int? MlChecked { get; set; }
         /// <summary>The ml_degraded property</summary>
@@ -100,6 +102,12 @@ namespace UVision.Client.Models
         public int? MlNgScored { get; set; }
         /// <summary>The ml_ok_scored property</summary>
         public int? MlOkScored { get; set; }
+        /// <summary>The ml_ranked_ng property</summary>
+        public int? MlRankedNg { get; set; }
+        /// <summary>The ml_ranked_ok property</summary>
+        public int? MlRankedOk { get; set; }
+        /// <summary>The ml_recall_at_far property</summary>
+        public double? MlRecallAtFar { get; set; }
         /// <summary>The oracle_conflicts property</summary>
         public int? OracleConflicts { get; set; }
         /// <summary>The oracle_consistency_rate property</summary>
@@ -185,6 +193,7 @@ namespace UVision.Client.Models
                 { "labeled_ok", n => { LabeledOk = n.GetIntValue(); } },
                 { "match_abstained", n => { MatchAbstained = n.GetIntValue(); } },
                 { "match_mismatches", n => { MatchMismatches = n.GetIntValue(); } },
+                { "ml_auroc", n => { MlAuroc = n.GetDoubleValue(); } },
                 { "ml_checked", n => { MlChecked = n.GetIntValue(); } },
                 { "ml_degraded", n => { MlDegraded = n.GetIntValue(); } },
                 { "ml_false_alarm_rate", n => { MlFalseAlarmRate = n.GetDoubleValue(); } },
@@ -193,6 +202,9 @@ namespace UVision.Client.Models
                 { "ml_ng_recall", n => { MlNgRecall = n.GetDoubleValue(); } },
                 { "ml_ng_scored", n => { MlNgScored = n.GetIntValue(); } },
                 { "ml_ok_scored", n => { MlOkScored = n.GetIntValue(); } },
+                { "ml_ranked_ng", n => { MlRankedNg = n.GetIntValue(); } },
+                { "ml_ranked_ok", n => { MlRankedOk = n.GetIntValue(); } },
+                { "ml_recall_at_far", n => { MlRecallAtFar = n.GetDoubleValue(); } },
                 { "oracle_conflicts", n => { OracleConflicts = n.GetIntValue(); } },
                 { "oracle_consistency_rate", n => { OracleConsistencyRate = n.GetDoubleValue(); } },
                 { "oracle_coverage_rate", n => { OracleCoverageRate = n.GetDoubleValue(); } },
@@ -242,6 +254,7 @@ namespace UVision.Client.Models
             writer.WriteIntValue("labeled_ok", LabeledOk);
             writer.WriteIntValue("match_abstained", MatchAbstained);
             writer.WriteIntValue("match_mismatches", MatchMismatches);
+            writer.WriteDoubleValue("ml_auroc", MlAuroc);
             writer.WriteIntValue("ml_checked", MlChecked);
             writer.WriteIntValue("ml_degraded", MlDegraded);
             writer.WriteDoubleValue("ml_false_alarm_rate", MlFalseAlarmRate);
@@ -250,6 +263,9 @@ namespace UVision.Client.Models
             writer.WriteDoubleValue("ml_ng_recall", MlNgRecall);
             writer.WriteIntValue("ml_ng_scored", MlNgScored);
             writer.WriteIntValue("ml_ok_scored", MlOkScored);
+            writer.WriteIntValue("ml_ranked_ng", MlRankedNg);
+            writer.WriteIntValue("ml_ranked_ok", MlRankedOk);
+            writer.WriteDoubleValue("ml_recall_at_far", MlRecallAtFar);
             writer.WriteIntValue("oracle_conflicts", OracleConflicts);
             writer.WriteDoubleValue("oracle_consistency_rate", OracleConsistencyRate);
             writer.WriteDoubleValue("oracle_coverage_rate", OracleCoverageRate);

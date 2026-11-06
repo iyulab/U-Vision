@@ -1007,6 +1007,10 @@ export interface MetricsSummary {
   ml_ng_recall: null | number
   vlm_false_alarm_rate: null | number
   ml_false_alarm_rate: null | number
+  ml_ranked_ng?: number
+  ml_ranked_ok?: number
+  ml_auroc?: number
+  ml_recall_at_far?: number
   fail_closed_rate: null | number
   label_consistency_rate: null | number
   audit_positive_agreement: null | number

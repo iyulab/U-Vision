@@ -32,7 +32,7 @@ public class ClassifyBenchTests
     }
 
     [Fact]
-    public void NgScoreOf_ReadsTheNgProbability_ThenOneMinusOk_ThenTheBinaryLabel()
+    public void NgScore_ReadsTheNgProbability_ThenOneMinusOk_ThenTheBinaryLabel()
     {
         static MlClassification Make(string label, double confidence, params (string Cls, double P)[] scores) => new()
         {
@@ -40,14 +40,16 @@ public class ClassifyBenchTests
         };
 
         // 대소문자를 무시하고 NG 쪽 확률을 그대로 — 예측 라벨이 OK 여도 NG 점수는 NG 확률이다.
-        Assert.Equal(0.3, ClassifyBench.NgScoreOf(Make("ok", 0.7, ("ng", 0.3), ("ok", 0.7))));
+        Assert.Equal(0.3, Make("ok", 0.7, ("ng", 0.3), ("ok", 0.7)).NgScore());
         // NG 가 없고 OK 만 있으면 1 − OK.
-        Assert.Equal(0.25, ClassifyBench.NgScoreOf(Make("OK", 0.75, ("OK", 0.75))));
+        Assert.Equal(0.25, Make("OK", 0.75, ("OK", 0.75)).NgScore());
         // 확률 맵이 비면 예측 라벨의 확률로 이진 환산.
-        Assert.Equal(0.9, ClassifyBench.NgScoreOf(Make("NG", 0.9)));
-        Assert.Equal(0.2, ClassifyBench.NgScoreOf(Make("ok", 0.8))!.Value, precision: 10);
+        Assert.Equal(0.9, Make("NG", 0.9).NgScore());
+        Assert.Equal(0.2, Make("ok", 0.8).NgScore()!.Value, precision: 10);
         // 이진이 아닌 라벨은 읽을 수 없다 — 그 사진은 문턱 무관 지표에서 빠진다.
-        Assert.Null(ClassifyBench.NgScoreOf(Make("scratch", 0.6)));
+        Assert.Null(Make("scratch", 0.6).NgScore());
+        // 불량 유형을 나누는 시나리오 — 규칙이 NG 로 읽는 클래스들의 확률 합.
+        Assert.Equal(0.5, Make("ok", 0.5, ("ok", 0.5), ("scratch", 0.3), ("dent", 0.2)).NgScore(c => c != "ok")!.Value, precision: 10);
     }
 
     [Fact]
