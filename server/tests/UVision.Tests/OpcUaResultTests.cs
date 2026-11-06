@@ -93,8 +93,15 @@ public static class OpcUaTrust
     public static async Task<OpcUaTestClient> ConnectTrustedAsync(OpcUaServerFixture server, string name)
     {
         var pki = Path.Combine(server.Root, "client-pki-" + name);
-        await Assert.ThrowsAnyAsync<Exception>(() =>
-            OpcUaTestClient.ConnectAsync(pki, server.EndpointUrl, name, TimeSpan.FromSeconds(8)));
+        // 첫 시도의 «실패» 는 거절이 아니라 시간 초과일 수도 있다 — 부하가 큰 실행에서는 서버가 인증서를 처리해 거절 폴더에 두기 전에 8초가
+        // 지난다(거절 폴더가 아직 없어 이 절차 전체가 «찾지 못함» 으로 무너지고, 시험들이 공유하는 신뢰 클라이언트가 함께 실패했다).
+        // 그래서 거절 인증서가 나타났는지를 직접 기다리고, 나타나지 않았으면 첫 시도를 되풀이한다.
+        for (var attempt = 1; ; attempt++)
+        {
+            await Assert.ThrowsAnyAsync<Exception>(() =>
+                OpcUaTestClient.ConnectAsync(pki, server.EndpointUrl, name, TimeSpan.FromSeconds(8)));
+            if (await WaitForRejectedAsync(server, name, TimeSpan.FromSeconds(10)) || attempt >= 3) break;
+        }
         TrustRejected(server, name);
         // 서버가 신뢰 목록을 캐시할 수 있어 짧게 간격을 두고 몇 번 다시 시도한다.
         Exception? last = null;
@@ -113,12 +120,30 @@ public static class OpcUaTrust
         throw new InvalidOperationException("trusted client could not connect", last);
     }
 
+    private static string[] RejectedCertificates(OpcUaServerFixture server, string name)
+    {
+        var rejected = Path.Combine(server.ServerPki, "rejected", "certs");
+        // 폴더는 스택이 첫 거절에서 만든다 — 아직 없으면 «아직 없음» 이다.
+        return Directory.Exists(rejected)
+            ? Directory.EnumerateFiles(rejected, "UVisionTestClient-" + name + " *.der").ToArray()
+            : [];
+    }
+
+    private static async Task<bool> WaitForRejectedAsync(OpcUaServerFixture server, string name, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (RejectedCertificates(server, name).Length == 0)
+        {
+            if (DateTime.UtcNow >= deadline) return false;
+            await Task.Delay(100);
+        }
+        return true;
+    }
+
     /// <summary>거절 폴더의 해당 클라이언트 인증서(RSA — 접속에 쓰이는 것)를 신뢰 폴더로 복사한다.</summary>
     public static void TrustRejected(OpcUaServerFixture server, string name)
     {
-        var rejected = Path.Combine(server.ServerPki, "rejected", "certs");
-        var applicationName = "UVisionTestClient-" + name;
-        var cert = Directory.EnumerateFiles(rejected, applicationName + " *.der").ToArray();
+        var cert = RejectedCertificates(server, name);
         Assert.NotEmpty(cert);
         var trusted = Path.Combine(server.ServerPki, "trusted", "certs");
         Directory.CreateDirectory(trusted);
