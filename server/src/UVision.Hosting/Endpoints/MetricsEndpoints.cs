@@ -1,10 +1,8 @@
-using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using UVision.Api.Configuration;
 using UVision.Api.Models;
 using UVision.Api.Services.Memory;
 using UVision.Api.Services.Metrics;
-using UVision.Api.Services.Scenarios;
 using UVision.Api.Storage;
 
 namespace UVision.Api.Endpoints;
