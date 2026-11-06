@@ -108,4 +108,22 @@ describe('AuthorityPanel', () => {
     expect(promoteAuthority).toHaveBeenCalledWith('photo', 'co_primary', '1234', 'console')
     expect(screen.queryByTestId('acknowledge-box')).toBeNull()
   })
+
+  it('전이 이력에서 확인하고 올린 격상에만 «근거 없이 올림» 표지를 보인다', async () => {
+    getAuthority.mockResolvedValue({
+      stage: 'co_primary',
+      history: [
+        { from: 'shadow', to: 'advisory', at: '2026-11-06T01:00:00Z', by: 'console', mode: 'promote', reason: null },
+        { from: 'advisory', to: 'co_primary', at: '2026-11-06T02:00:00Z', by: 'console', mode: 'promote', reason: null,
+          acknowledged_unverified: true, unverified_basis: ['signal_insufficient'] },
+      ],
+    })
+    getMetrics.mockResolvedValue({})
+    render(<AuthorityPanel scenarios={scenarios} initialScenarioId="photo" runWithPin={vi.fn()} />)
+
+    await screen.findByText(/전이 이력/)
+    const marks = screen.getAllByTestId('unverified-mark')
+    expect(marks).toHaveLength(1)
+    expect(marks[0].textContent).toContain('표본 부족')
+  })
 })

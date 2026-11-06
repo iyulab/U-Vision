@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AUTHORITY_STAGES, evidenceSummary, needsAcknowledgement, nextStageUp, stageLabel } from './authority'
+import { AUTHORITY_STAGES, evidenceSummary, needsAcknowledgement, nextStageUp, stageLabel, unverifiedMark } from './authority'
 
 describe('authority stages', () => {
   it('orders stages', () => {
@@ -52,5 +52,16 @@ describe('needsAcknowledgement', () => {
   it('ML 이 판정 권한을 받지 않는 격상(shadow → advisory)은 묻지 않고, 단계를 건너뛰면 신호와 무관하게 묻는다', () => {
     expect(needsAcknowledgement('shadow', 'advisory', 'insufficient')).toBe(false)
     expect(needsAcknowledgement('advisory', 'ml_primary', 'eligible')).toBe(true)
+  })
+})
+
+describe('unverifiedMark', () => {
+  it('확인하고 올린 격상에만 표지와 사유를 사람 말로 보이고, 나머지는 표지가 없다', () => {
+    expect(unverifiedMark({ acknowledged_unverified: true, unverified_basis: ['skipped_stage', 'signal_unmet'] }))
+      .toBe('근거 없이 올림 — 단계를 건너뜀 · 격상 신호 «적격 아님»')
+    expect(unverifiedMark({ acknowledged_unverified: true, unverified_basis: ['signal_insufficient'] })).toContain('표본 부족')
+    expect(unverifiedMark({ acknowledged_unverified: true })).toBe('근거 없이 올림') // 사유 목록이 없어도 확인 사실은 보인다
+    expect(unverifiedMark({ acknowledged_unverified: true, unverified_basis: ['future_reason'] })).toContain('future_reason') // 모르는 표지는 그대로
+    expect(unverifiedMark({})).toBeNull() // 근거가 있었던 격상 · 격하 · 옛 이력
   })
 })

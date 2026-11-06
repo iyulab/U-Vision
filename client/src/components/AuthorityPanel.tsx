@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { demoteAuthority, getAuthority, getMetrics, promoteAuthority } from '../lib/api'
 import type { PinRunResult } from '../hooks/usePin'
 import { useResource } from '../hooks/useResource'
-import { EVIDENCE_WINDOW_DAYS, evidenceSummary, needsAcknowledgement, nextStageUp, stageLabel } from '../lib/authority'
+import { EVIDENCE_WINDOW_DAYS, evidenceSummary, needsAcknowledgement, nextStageUp, stageLabel, unverifiedMark } from '../lib/authority'
 import type { AuthorityStage } from '../lib/authority'
 import type { Scenario } from '../lib/types'
 
@@ -178,6 +178,11 @@ export function AuthorityPanel({
                   .map((h, i) => (
                     <li key={i}>
                       {h.from} → {h.to} · {h.mode} · {h.at.slice(0, 19)}
+                      {unverifiedMark(h) && (
+                        <span data-testid="unverified-mark" className="ml-2 rounded bg-amber-500/20 px-1.5 py-0.5 text-amber-300">
+                          {unverifiedMark(h)}
+                        </span>
+                      )}
                     </li>
                   ))}
               </ul>

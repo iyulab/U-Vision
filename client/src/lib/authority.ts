@@ -38,6 +38,22 @@ export function needsAcknowledgement(
   return skips || (givesMlAuthority && signal !== 'eligible')
 }
 
+const BASIS_LABEL: Record<string, string> = {
+  skipped_stage: '단계를 건너뜀',
+  signal_unmet: '격상 신호 «적격 아님»',
+  signal_insufficient: '격상 신호 표본 부족',
+}
+
+/**
+ * 격상 이력 한 줄의 «근거 없이 올림» 표지 — 서버가 확인을 요구했고 사람이 확인한 격상에만 있다(`acknowledged_unverified`). 근거가 있었던
+ * 격상 · 격하 · 이 필드가 생기기 전의 옛 이력은 null. 모르는 사유 표지는 지어내지 않고 그대로 보인다.
+ */
+export function unverifiedMark(h: { acknowledged_unverified?: boolean; unverified_basis?: string[] }): string | null {
+  if (!h.acknowledged_unverified) return null
+  const why = (h.unverified_basis ?? []).map((b) => BASIS_LABEL[b] ?? b)
+  return why.length > 0 ? `근거 없이 올림 — ${why.join(' · ')}` : '근거 없이 올림'
+}
+
 export type EvidenceMetrics = {
   labeled_ng?: number
   labeled_ok?: number
