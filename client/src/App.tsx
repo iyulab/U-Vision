@@ -106,10 +106,10 @@ export default function App() {
       )}
 
       {/* 우상단 컨트롤: 촬영 모드 + 태블릿 라벨 + 활성 시나리오 선택 + 관리 진입 */}
-      <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
+      <div className="absolute inset-x-4 top-4 z-10 flex flex-wrap items-center justify-end gap-2">
         <button
           onClick={toggleCaptureMode}
-          className="rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur hover:bg-black/80"
+          className="whitespace-nowrap rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur hover:bg-black/80"
         >
           {captureMode === 'auto' ? '자동' : '수동'}
         </button>
@@ -145,7 +145,7 @@ export default function App() {
         {active && !isVerification(active) && !isCounting(active) && !isClassification(active) && (
           <button
             onClick={() => setShowQuestions(true)}
-            className="rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur hover:bg-black/80"
+            className="whitespace-nowrap rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur hover:bg-black/80"
           >
             사진 확인
           </button>
@@ -153,14 +153,14 @@ export default function App() {
         {active && (
           <button
             onClick={() => setShowTodayList(true)}
-            className="rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur hover:bg-black/80"
+            className="whitespace-nowrap rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur hover:bg-black/80"
           >
             오늘 이력
           </button>
         )}
         <button
           onClick={() => setShowAdmin(true)}
-          className="rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur hover:bg-black/80"
+          className="whitespace-nowrap rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur hover:bg-black/80"
         >
           관리
         </button>

@@ -12,7 +12,7 @@ export function InspectionHistory({ items }: { items: InspectResult[] }) {
   if (recent.length === 0) return null
 
   return (
-    <div className="absolute bottom-4 right-4 w-44 rounded-xl bg-black/60 p-2 text-xs text-white backdrop-blur">
+    <div className="ml-auto w-44 shrink-0 rounded-xl bg-black/60 p-2 text-xs text-white backdrop-blur">
       <div className="px-1 pb-1 font-semibold text-white/70">최근</div>
       <ul className="space-y-1">
         {recent.map((it) => (

@@ -9,7 +9,7 @@ import { useContinuousCapture } from '../hooks/useContinuousCapture'
 import { useInspection } from '../hooks/useInspection'
 import { useMotionDetection } from '../hooks/useMotionDetection'
 import { useWakeLock } from '../hooks/useWakeLock'
-import { unavailableHintText } from './unavailablePanel'
+import { unavailableHintText, unavailableReasonText } from './unavailablePanel'
 import { InspectionHistory } from './InspectionHistory'
 import { RoiOverlay } from './RoiOverlay'
 import { VerdictBadge } from './VerdictBadge'
@@ -69,32 +69,33 @@ export function CameraView({
       <video ref={videoRef} className="h-full w-full object-cover" playsInline muted autoPlay />
       <RoiOverlay roi={roi} />
 
-      <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur">
-        <span
-          className={`h-2.5 w-2.5 rounded-full ${
-            error
-              ? 'bg-red-500'
-              : busy
-                ? 'bg-sky-400 animate-pulse'
-                : auto && motion?.isStill
-                  ? 'bg-emerald-400'
-                  : 'bg-amber-400 animate-pulse'
-          }`}
-        />
-        {statusLabel}
-      </div>
-
-      {inspection.pending > 0 && (
-        <div className="absolute left-4 top-16 rounded-full bg-slate-700/90 px-4 py-2 text-sm font-medium text-white backdrop-blur">
-          판정 대기 {inspection.pending}건
-          {inspection.storageDurable === false && (
-            <span className="ml-2 text-amber-300">· 기기 보관 보장 안 됨 — 연결을 복구하세요</span>
-          )}
+      {/* 위쪽 한 덩이 — 상태 · 대기 · 알림 · 판정 불가 · 오류가 위에서 아래로 쌓여 서로 겹치지 않는다. 좁은 폭에서는 우상단 컨트롤이 두 줄이라 그 아래에서 시작한다. */}
+      <div className="absolute inset-x-4 top-28 z-10 flex flex-col items-start gap-2 sm:right-auto sm:top-16 sm:max-w-md">
+        <div className="flex items-center gap-2 rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur">
+          <span
+            className={`h-2.5 w-2.5 rounded-full ${
+              error
+                ? 'bg-red-500'
+                : busy
+                  ? 'bg-sky-400 animate-pulse'
+                  : auto && motion?.isStill
+                    ? 'bg-emerald-400'
+                    : 'bg-amber-400 animate-pulse'
+            }`}
+          />
+          {statusLabel}
         </div>
-      )}
-      {inspection.lateAlerts.length > 0 && (
-        <div className="absolute inset-x-0 top-40 z-10 flex justify-center">
-          <div className="flex items-center gap-4 rounded-xl bg-red-600/95 px-5 py-3 text-white shadow-lg">
+
+        {inspection.pending > 0 && (
+          <div className="rounded-full bg-slate-700/90 px-4 py-2 text-sm font-medium text-white backdrop-blur">
+            판정 대기 {inspection.pending}건
+            {inspection.storageDurable === false && (
+              <span className="ml-2 text-amber-300">· 기기 보관 보장 안 됨 — 연결을 복구하세요</span>
+            )}
+          </div>
+        )}
+        {inspection.lateAlerts.length > 0 && (
+          <div className="flex w-full items-center gap-4 rounded-xl bg-red-600/95 px-5 py-3 text-white shadow-lg">
             <span className="text-sm font-semibold">
               대기했다 판정된 {shortVerdictLabel(inspection.lateAlerts[0])} {inspection.lateAlerts.length}건 — 촬영{' '}
               {inspection.lateAlerts
@@ -103,63 +104,75 @@ export function CameraView({
             </span>
             <button
               onClick={inspection.dismissLateAlerts}
-              className="rounded-full bg-white px-4 py-1 text-sm font-semibold text-red-700"
+              className="shrink-0 rounded-full bg-white px-4 py-1 text-sm font-semibold text-red-700"
             >
               확인
             </button>
           </div>
-        </div>
-      )}
-      {inspection.queueNotice && (
-        <div className="absolute inset-x-0 top-28 flex justify-center">
-          <div className="rounded-lg bg-amber-600/90 px-4 py-2 text-sm text-white">{inspection.queueNotice}</div>
-        </div>
-      )}
-
-      <VerdictBadge result={inspection.latest} phase={inspection.phase} aboveShutter={!auto} />
-      <InspectionHistory items={inspection.history} />
-
-      {/* 다음 품목 안내(자동 연속 플로우) */}
-      {showNextPrompt && (
-        <div className="absolute inset-x-0 bottom-24 flex justify-center">
-          <div className="rounded-full bg-emerald-600/90 px-6 py-3 text-base font-semibold text-white">
-            다음 품목을 올려놓으세요
+        )}
+        {inspection.queueNotice && (
+          <div className="w-full rounded-lg bg-amber-600/90 px-4 py-2 text-sm text-white">{inspection.queueNotice}</div>
+        )}
+        {inspection.phase === 'unavailable' && (
+          <div className="flex w-full flex-col items-center rounded-xl bg-amber-500/90 px-6 py-4 text-center text-white">
+            <span className="text-lg font-bold">⚠️ 판정 불가 — 사람 확인 필요</span>
+            <span data-testid="unavailable-reason" className="mt-1 text-sm text-white/95">
+              {unavailableReasonText(inspection.unavailable?.reason)}
+            </span>
+            {unavailableHintText(inspection.unavailable?.mlHint) && (
+              <span className="mt-1 text-sm text-white/90">{unavailableHintText(inspection.unavailable?.mlHint)}</span>
+            )}
           </div>
-        </div>
-      )}
+        )}
+        {inspection.error && (
+          <div className="w-full rounded-lg bg-red-600/90 px-4 py-2 text-sm text-white">{inspection.error}</div>
+        )}
+      </div>
 
-      {/* 카메라 없이 사진 파일로 판정 — 카메라가 없거나 막힌 기기 · 보관된 사진 */}
-      <label
-        className={`absolute bottom-8 left-4 z-10 rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur ${
-          busy ? 'opacity-40' : 'cursor-pointer hover:bg-black/75'
-        }`}
-      >
-        사진 파일로 판정
-        <input
-          data-testid="photo-upload"
-          type="file"
-          accept="image/jpeg,image/png"
-          className="sr-only"
-          disabled={busy}
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) inspection.uploadFile(file)
-            e.target.value = '' // 같은 파일을 다시 골라도 변경 이벤트가 오게
-          }}
-        />
-      </label>
+      {/* 아래쪽 한 덩이 — 안내 · 판정 카드 · 조작 줄이 서로 겹치지 않고 위에서 아래로 쌓인다(좁은 폭에서도). 판정 카드가 길면 이 덩이 안에서 스크롤한다. */}
+      <div className="absolute inset-x-0 bottom-0 z-10 flex max-h-[70%] flex-col items-center gap-3 overflow-y-auto px-4 pb-6">
+        {/* 다음 품목 안내(자동 연속 플로우) */}
+        {showNextPrompt && (
+          <div className="rounded-full bg-emerald-600/90 px-6 py-3 text-base font-semibold text-white">다음 품목을 올려놓으세요</div>
+        )}
 
-      {/* 수동 셔터 */}
-      {!auto && (
-        <div className="absolute inset-x-0 bottom-8 flex justify-center">
-          <button
-            onClick={inspection.trigger}
-            disabled={!ready || busy}
-            className="h-20 w-20 rounded-full border-4 border-white bg-white/90 shadow-xl disabled:opacity-40"
-            aria-label="촬영"
-          />
+        <VerdictBadge result={inspection.latest} phase={inspection.phase} />
+
+        <div className="flex w-full flex-wrap items-end justify-between gap-3">
+          {/* 카메라 없이 사진 파일로 판정 — 카메라가 없거나 막힌 기기 · 보관된 사진 */}
+          <label
+            className={`rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur ${
+              busy ? 'opacity-40' : 'cursor-pointer hover:bg-black/75'
+            }`}
+          >
+            사진 파일로 판정
+            <input
+              data-testid="photo-upload"
+              type="file"
+              accept="image/jpeg,image/png"
+              className="sr-only"
+              disabled={busy}
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) inspection.uploadFile(file)
+                e.target.value = '' // 같은 파일을 다시 골라도 변경 이벤트가 오게
+              }}
+            />
+          </label>
+
+          {/* 수동 셔터 */}
+          {!auto && (
+            <button
+              onClick={inspection.trigger}
+              disabled={!ready || busy}
+              className="h-20 w-20 rounded-full border-4 border-white bg-white/90 shadow-xl disabled:opacity-40"
+              aria-label="촬영"
+            />
+          )}
+
+          <InspectionHistory items={inspection.history} />
         </div>
-      )}
+      </div>
 
       {inspection.phase === 'blocked' && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm">
@@ -174,27 +187,6 @@ export function CameraView({
             >
               확인 — 다음 품목
             </button>
-          </div>
-        </div>
-      )}
-
-      {inspection.phase === 'unavailable' && (
-        <div className="absolute inset-x-0 top-16 flex justify-center">
-          <div className="flex flex-col items-center rounded-xl bg-amber-500/90 px-6 py-4 text-center text-white">
-            <span className="text-lg font-bold">⚠️ 판정 불가 — 사람 확인 필요</span>
-            {unavailableHintText(inspection.unavailable?.mlHint) && (
-              <span className="mt-1 text-sm text-white/90">
-                {unavailableHintText(inspection.unavailable?.mlHint)}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {inspection.error && (
-        <div className="absolute inset-x-0 top-16 flex justify-center">
-          <div className="rounded-lg bg-red-600/90 px-4 py-2 text-sm text-white">
-            {inspection.error}
           </div>
         </div>
       )}

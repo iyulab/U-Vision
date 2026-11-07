@@ -60,4 +60,13 @@ describe('CameraView 사진 파일 판정', () => {
 
     expect((screen.getByTestId('photo-upload') as HTMLInputElement).disabled).toBe(true)
   })
+
+  it('판정 불가일 때 이유를 말한다 — 성공처럼 보이는 판정 표지는 없다', () => {
+    h.inspection = state({ phase: 'unavailable', unavailable: { reason: 'vlm_unavailable' } })
+    render(<CameraView {...props} />)
+
+    expect(screen.getByText('⚠️ 판정 불가 — 사람 확인 필요')).toBeTruthy()
+    expect(screen.getByTestId('unavailable-reason').textContent).toContain('연결하지 못했')
+    expect(screen.queryByText(/신뢰도/)).toBeNull()
+  })
 })
