@@ -61,8 +61,11 @@ export function VerdictBadge({
         >
           {verdictLabel(result)}
         </div>
-        {ng && result.findings && (
-          <p className="mt-3 text-base leading-snug text-white/95">{result.findings}</p>
+        {/* 소견은 NG 에서 크게(이유를 알아야 분리한다), OK 에서는 작게 — 둘 다 판정의 근거라 숨기지 않는다. */}
+        {result.findings && (
+          <p className={ng ? 'mt-3 text-base leading-snug text-white/95' : 'mt-2 text-sm leading-snug text-white/85'}>
+            {result.findings}
+          </p>
         )}
         <p className="mt-2 text-sm text-white/80">
           신뢰도 {(result.confidence * 100).toFixed(0)}%

@@ -128,6 +128,27 @@ export function CameraView({
         </div>
       )}
 
+      {/* 카메라 없이 사진 파일로 판정 — 카메라가 없거나 막힌 기기 · 보관된 사진 */}
+      <label
+        className={`absolute bottom-8 left-4 z-10 rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur ${
+          busy ? 'opacity-40' : 'cursor-pointer hover:bg-black/75'
+        }`}
+      >
+        사진 파일로 판정
+        <input
+          data-testid="photo-upload"
+          type="file"
+          accept="image/jpeg,image/png"
+          className="sr-only"
+          disabled={busy}
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) inspection.uploadFile(file)
+            e.target.value = '' // 같은 파일을 다시 골라도 변경 이벤트가 오게
+          }}
+        />
+      </label>
+
       {/* 수동 셔터 */}
       {!auto && (
         <div className="absolute inset-x-0 bottom-8 flex justify-center">

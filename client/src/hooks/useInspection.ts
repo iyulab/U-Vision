@@ -33,6 +33,8 @@ export interface InspectionState {
   dismissLateAlerts: () => void
   /** 캡처→업로드→판정 1회 실행. 진행 중이면 무시(중복 트리거 방지). */
   trigger: () => void
+  /** 카메라 없이 사진 파일(JPEG · PNG) 한 장을 같은 경로(기기 큐 → 서버 판정)로 판정한다. 진행 중이면 무시. */
+  uploadFile: (file: File) => void
   /** 차단 게이트(co-primary 불일치) 해제 — 작업자 명시 확인. blocked → done. */
   acknowledge: () => void
 }
@@ -145,76 +147,97 @@ export function useInspection(
     }
   }, [onDrained])
 
-  const trigger = useCallback(() => {
-    if (inFlight.current) return
-    const video = videoRef.current
-    if (!video) return
-    inFlight.current = true
+  /** 사진 한 장의 수명주기 — 카메라 프레임이든 고른 파일이든 같은 경로(흐림 거부 → 기기 큐 → 서버)를 탄다. */
+  const submit = useCallback(
+    (source: () => Promise<{ blob: Blob; sharpness: number | null }>) => {
+      if (inFlight.current) return
+      inFlight.current = true
 
-    void (async () => {
-      setError(null)
-      setUnavailable(null)
-      try {
-        setPhase('capturing')
-        const { blob, sharpness } = await captureFrame(video, roi)
-        // 흐림 거부: VLM 호출 전 차단(토큰 절약). minSharpness<=0 이면 비활성.
-        if (minSharpness > 0 && sharpness < minSharpness) {
-          setError(`흐림 — 재시도 (선명도 ${Math.round(sharpness)} < ${minSharpness})`)
-          setPhase('rejected')
-          return
-        }
-        const item: QueuedCapture = {
-          id: crypto.randomUUID(),
-          bytes: await blob.arrayBuffer(),
-          type: blob.type || 'image/jpeg',
-          scenarioId,
-          deviceId: getDeviceId(),
-          deviceLabel: getDeviceLabel(),
-          capturedAt: new Date().toISOString(),
-        }
-        if (classes !== null) item.classification = { classes }
-        if (expectedPart !== null) {
-          const expected = expectedPart.trim()
-          if (!expected) {
-            setError('기대 품번을 입력하세요')
+      void (async () => {
+        setError(null)
+        setUnavailable(null)
+        try {
+          setPhase('capturing')
+          const { blob, sharpness } = await source()
+          // 흐림 거부: VLM 호출 전 차단(토큰 절약). minSharpness<=0 이면 비활성. 고른 파일(sharpness null)은 거르지 않는다.
+          if (sharpness !== null && minSharpness > 0 && sharpness < minSharpness) {
+            setError(`흐림 — 재시도 (선명도 ${Math.round(sharpness)} < ${minSharpness})`)
             setPhase('rejected')
             return
           }
-          item.expectedPart = expected
-          item.observedCode = await readCode(blob)
-        }
-        setPhase('uploading')
+          const item: QueuedCapture = {
+            id: crypto.randomUUID(),
+            bytes: await blob.arrayBuffer(),
+            type: blob.type || 'image/jpeg',
+            scenarioId,
+            deviceId: getDeviceId(),
+            deviceLabel: getDeviceLabel(),
+            capturedAt: new Date().toISOString(),
+          }
+          if (classes !== null) item.classification = { classes }
+          if (expectedPart !== null) {
+            const expected = expectedPart.trim()
+            if (!expected) {
+              setError('기대 품번을 입력하세요')
+              setPhase('rejected')
+              return
+            }
+            item.expectedPart = expected
+            item.observedCode = await readCode(blob)
+          }
+          setPhase('uploading')
 
-        const sender = await getCaptureSender()
-        const queued = sender ? await sender.add(item).then(() => true, () => false) : false
-        if (!sender || !queued) {
-          // 큐를 쓸 수 없는 환경 — 바로 보낸다(실패는 그대로 보인다).
-          showResult(await sendCapture(item))
-          return
+          const sender = await getCaptureSender()
+          const queued = sender ? await sender.add(item).then(() => true, () => false) : false
+          if (!sender || !queued) {
+            // 큐를 쓸 수 없는 환경 — 바로 보낸다(실패는 그대로 보인다).
+            showResult(await sendCapture(item))
+            return
+          }
+          currentId.current = item.id
+          const outcome = await sender.sendOne(item.id)
+          if (outcome.kind === 'sent') {
+            currentId.current = null
+            showResult(outcome.result)
+          } else if (outcome.kind === 'failed') {
+            currentId.current = null
+            showFailure(outcome.error)
+          } else if (outcome.kind === 'offline' || outcome.kind === 'retry') {
+            // 화면은 다음 캡처로 넘어간다 — 이 캡처의 판정은 나중에 이력으로만(차단 게이트를 걸지 않는다).
+            // retry(서버가 저장 못 함)도 같다: 큐에 남아 다시 보낸다.
+            currentId.current = null
+            setPhase('queued')
+          }
+          // 'gone' — 큐 비우기가 먼저 보냈고 onDrained 가 이미 화면에 냈다.
+          await refreshPending()
+        } catch (e) {
+          showFailure(e)
+        } finally {
+          inFlight.current = false
         }
-        currentId.current = item.id
-        const outcome = await sender.sendOne(item.id)
-        if (outcome.kind === 'sent') {
-          currentId.current = null
-          showResult(outcome.result)
-        } else if (outcome.kind === 'failed') {
-          currentId.current = null
-          showFailure(outcome.error)
-        } else if (outcome.kind === 'offline' || outcome.kind === 'retry') {
-          // 화면은 다음 캡처로 넘어간다 — 이 캡처의 판정은 나중에 이력으로만(차단 게이트를 걸지 않는다).
-          // retry(서버가 저장 못 함)도 같다: 큐에 남아 다시 보낸다.
-          currentId.current = null
-          setPhase('queued')
-        }
-        // 'gone' — 큐 비우기가 먼저 보냈고 onDrained 가 이미 화면에 냈다.
-        await refreshPending()
-      } catch (e) {
-        showFailure(e)
-      } finally {
-        inFlight.current = false
+      })()
+    },
+    [scenarioId, minSharpness, expectedPart, classes, showResult, showFailure, refreshPending],
+  )
+
+  const trigger = useCallback(() => {
+    const video = videoRef.current
+    if (!video) return
+    submit(() => captureFrame(video, roi))
+  }, [videoRef, roi, submit])
+
+  const uploadFile = useCallback(
+    (file: File) => {
+      if (file.type !== 'image/jpeg' && file.type !== 'image/png') {
+        setUnavailable(null)
+        setError('JPEG 또는 PNG 사진만 판정할 수 있습니다')
+        setPhase('rejected')
+        return
       }
-    })()
-  }, [videoRef, scenarioId, roi, minSharpness, expectedPart, classes, showResult, showFailure, refreshPending])
+      submit(async () => ({ blob: file, sharpness: null }))
+    },
+    [submit],
+  )
 
   const acknowledge = useCallback(() => {
     setPhase((p) => (p === 'blocked' ? 'done' : p))
@@ -234,6 +257,7 @@ export function useInspection(
     lateAlerts,
     dismissLateAlerts,
     trigger,
+    uploadFile,
     acknowledge,
   }
 }

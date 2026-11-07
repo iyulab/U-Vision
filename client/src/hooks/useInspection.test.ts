@@ -85,6 +85,54 @@ describe('useInspection', () => {
     expect(await queue.count()).toBe(0)
   })
 
+  it('고른 사진 파일도 같은 경로(큐 → 서버)로 판정하고, 흐림 거부는 걸지 않는다', async () => {
+    const queue = await useRealQueue()
+    h.sharpness = 1 // 카메라 프레임이었다면 거부되었을 선명도 — 파일에는 적용하지 않는다
+    h.send.mockResolvedValue(result('NG'))
+    const { result: hook } = await mounted(50)
+    const file = new File([new Uint8Array([9, 8, 7])], 'part.png', { type: 'image/png' })
+
+    act(() => hook.current.uploadFile(file))
+
+    await waitFor(() => expect(hook.current.phase).toBe('done'))
+    expect(hook.current.latest?.verdict).toBe('NG')
+    expect(h.send).toHaveBeenCalledTimes(1)
+    const sent = h.send.mock.calls[0][0]
+    expect(sent.type).toBe('image/png')
+    expect(sent.scenarioId).toBe('s')
+    expect(new Uint8Array(sent.bytes)).toEqual(new Uint8Array([9, 8, 7]))
+    expect(await queue.count()).toBe(0)
+  })
+
+  it('JPEG · PNG 가 아닌 파일은 보내지 않고 이유를 말한다', async () => {
+    await useRealQueue()
+    const { result: hook } = await mounted()
+
+    act(() => hook.current.uploadFile(new File(['x'], 'notes.txt', { type: 'text/plain' })))
+
+    expect(hook.current.phase).toBe('rejected')
+    expect(hook.current.error).toContain('JPEG 또는 PNG')
+    expect(h.send).not.toHaveBeenCalled()
+  })
+
+  it('서버에 닿지 못할 때 고른 파일도 기기 큐에 남았다가 돌아오면 보낸다 — 중복 없이', async () => {
+    const queue = await useRealQueue()
+    h.send.mockRejectedValueOnce(new NetworkError('offline')).mockResolvedValue(result('OK'))
+    const { result: hook } = await mounted()
+
+    act(() => hook.current.uploadFile(new File([new Uint8Array([1])], 'a.jpg', { type: 'image/jpeg' })))
+    await waitFor(() => expect(hook.current.phase).toBe('queued'))
+    expect(await queue.count()).toBe(1)
+
+    await act(async () => {
+      window.dispatchEvent(new Event('online'))
+      await new Promise((r) => setTimeout(r, 20))
+    })
+    await waitFor(() => expect(hook.current.pending).toBe(0))
+    expect(h.send).toHaveBeenCalledTimes(2) // 한 번 실패 + 한 번 성공 — 같은 항목을 둘로 보내지 않는다
+    expect(hook.current.history).toHaveLength(1)
+  })
+
   it('차단 게이트 판정은 확인 전까지 blocked 로 남는다', async () => {
     await useRealQueue()
     h.send.mockResolvedValue(result('NG', { posture: 'review_block' }))
