@@ -30,6 +30,7 @@ export type RejudgeOpinion = Wire.RejudgeOpinion
 export type RejudgeSynthesis = Wire.RejudgeSynthesis
 export type MemoryReplayRow = Wire.MemoryReplayRow
 export type MemoryRecommendation = Wire.MemoryRecommendation
+export type MemoryNeighborCurve = Wire.MemoryNeighborCurve
 export type FlywheelReport = Wire.FlywheelReport
 export type FlywheelPoint = Wire.FlywheelPoint
 export type MetricsSummary = Wire.MetricsSummary

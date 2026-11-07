@@ -4,7 +4,7 @@
  */
 
 import { formatPercent } from './metrics'
-import type { MemoryRecommendation, MemoryReplayRow, MemoryReport, Scenario, ScenarioInput } from './types'
+import type { MemoryNeighborCurve, MemoryRecommendation, MemoryReplayRow, MemoryReport, Scenario, ScenarioInput } from './types'
 
 /** 상태 한 줄 — 지어졌으면 사례 수 · 인코더 판 · 지은 시각, 아니면 왜 비었는지. */
 export function memoryStatusLine(report: MemoryReport, now: Date = new Date()): string {
@@ -67,6 +67,52 @@ export function recommendationView(rec: MemoryRecommendation): RecommendationVie
     tone: 'candidate',
     headline: `후보 문턱 ${formatDistance(rec.max_distance)}`,
     detail: `${evidence} — 목표 ${target} 를 주장하려면 놓침 0 으로 불량 라벨 ${rec.defects_needed}장이 필요합니다. 아직 후보일 뿐입니다.`,
+  }
+}
+
+export interface NeighborCurveRowView {
+  k: number
+  configured: boolean
+  /** 답한 비율과 («답함/센 수»). */
+  answer: string
+  /** 불량 통과 — 불량 라벨이 없으면 비율 대신 그렇게 말한다(0 으로 꾸미지 않는다). */
+  defectPass: string
+  /** 불량이 OK 로 지나갔나 — 강조. */
+  hasMiss: boolean
+}
+
+export interface NeighborCurveView {
+  rows: NeighborCurveRowView[]
+  caption: string
+  /** 불량 라벨이 증거로 모자란가 — 한 장의 차이가 큰 표임을 알린다. */
+  thin: boolean
+  /** 모자란 표에 붙는 경고(없으면 null). */
+  warning: string | null
+}
+
+/**
+ * 이웃 수 k 곡선 표시 — 서버가 k 를 고르지 않으므로 이 표도 고르지 않는다. 응답률과 불량 통과를 «나란히» 보이고, 불량 라벨이
+ * 목표를 주장할 만큼(`defectsNeeded`, 서버 추천의 증거 기준) 되지 않으면 한 장의 차이가 큰 표임을 알린다. 불량 라벨이 없는
+ * 행은 통과를 «측정 불가» 로 말한다.
+ */
+export function neighborCurveView(curve: MemoryNeighborCurve, defectsNeeded: number): NeighborCurveView {
+  const rows = curve.rows.map((r): NeighborCurveRowView => ({
+    k: r.k,
+    configured: r.configured,
+    answer: `${formatPercent(r.answer_rate)} (${r.answered}/${r.counted})`,
+    defectPass:
+      r.labeled_defects === 0
+        ? '불량 라벨 없음 — 측정 불가'
+        : `${r.missed}/${r.labeled_defects} (${formatPercent(r.defect_pass_rate ?? null)})`,
+    hasMiss: r.missed > 0,
+  }))
+  const smallest = curve.rows.reduce((m, r) => Math.min(m, r.labeled_defects), Number.POSITIVE_INFINITY)
+  const thin = curve.rows.length > 0 && smallest < defectsNeeded
+  return {
+    rows,
+    thin,
+    caption: `이웃 수 k — 거리 문턱 ${formatDistance(curve.max_distance)} 그대로 k 만 바꿨다면. k 가 클수록 OK 로 지나가는 불량은 줄지만 기억이 답하는 비율도 함께 떨어집니다. 서버는 k 를 고르지 않습니다 — 두 값을 함께 보고 정하세요(이웃 수는 설치 설정입니다).`,
+    warning: thin ? `불량 라벨이 ${smallest === Number.POSITIVE_INFINITY ? 0 : smallest}장뿐이라 한 장의 차이가 통과율에 크게 보입니다 — 목표를 주장하려면 놓침 0 으로 ${defectsNeeded}장이 필요합니다.` : null,
   }
 }
 

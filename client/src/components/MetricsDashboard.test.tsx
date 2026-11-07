@@ -141,6 +141,33 @@ describe('MetricsDashboard', () => {
       expect(screen.queryByRole('button', { name: /적용/ })).toBeNull()
     })
 
+    it('이웃 수 곡선이 있으면 k 마다 답함과 불량 통과를 나란히 보이고, 없으면 표를 두지 않는다', async () => {
+      const withCurve = report()
+      withCurve.recommendation!.neighbor_curve = {
+        max_distance: 0.15,
+        rows: [
+          { k: 1, configured: false, counted: 40, answered: 38, answer_rate: 0.95, labeled_defects: 6, missed: 2, defect_pass_rate: 0.3333 },
+          { k: 5, configured: true, counted: 40, answered: 24, answer_rate: 0.6, labeled_defects: 6, missed: 0, defect_pass_rate: 0 },
+        ],
+      }
+      getMemory.mockResolvedValue(withCurve)
+      listMetricsDates.mockResolvedValue(['2026-11-01'])
+      getMetrics.mockResolvedValue({ scenario_id: 's1', date: '2026-11-01' } as unknown as MetricsSummary)
+      render(<MetricsDashboard scenarios={inspection} initialScenarioId="s1" />)
+
+      const table = await screen.findByTestId('memory-neighbor-curve')
+      expect(table.textContent).toContain('95% (38/40)')
+      expect(table.textContent).toContain('2/6 (33%)')
+      expect(table.textContent).toContain('60% (24/40)')
+      expect(table.textContent).toContain('서버는 k 를 고르지 않습니다')
+      expect(table.textContent).toContain('불량 라벨이 6장뿐') // 목표를 주장할 만큼(149) 되지 않는다
+    })
+
+    it('곡선이 없으면(이웃 순서가 장부에 없음) 이웃 수 표를 그리지 않는다', async () => {
+      await open(undefined)
+      expect(screen.queryByTestId('memory-neighbor-curve')).toBeNull()
+    })
+
     it('재생 기간을 바꾸면 그 기간으로 다시 읽는다', async () => {
       await open(undefined)
       fireEvent.change(screen.getByLabelText('재생 기간'), { target: { value: '7' } })

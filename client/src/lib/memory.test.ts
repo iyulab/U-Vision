@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { canApplyRecommendation, distanceUpdateInput, formatDistance, hasMiss, memoryStatusLine, MEMORY_WINDOWS, recommendationView } from './memory'
-import type { MemoryRecommendation, MemoryReplayRow, MemoryReport, Scenario } from './types'
+import { canApplyRecommendation, distanceUpdateInput, formatDistance, hasMiss, memoryStatusLine, MEMORY_WINDOWS, neighborCurveView, recommendationView } from './memory'
+import type { MemoryNeighborCurve, MemoryRecommendation, MemoryReplayRow, MemoryReport, Scenario } from './types'
 
 const base: MemoryReport = { scenario_id: 's', date: '2026-10-23', enabled: true, replayed: 0, replay: [] }
 
@@ -141,5 +141,40 @@ describe('MEMORY_WINDOWS', () => {
   it('하루가 기본이고 서버 상한(90일) 안이다', () => {
     expect(MEMORY_WINDOWS[0].days).toBe(1)
     expect(Math.max(...MEMORY_WINDOWS.map((w) => w.days))).toBeLessThanOrEqual(90)
+  })
+})
+
+describe('neighborCurveView', () => {
+  const curve = (rows: MemoryNeighborCurve['rows']): MemoryNeighborCurve => ({ max_distance: 0.15, rows })
+  const r = (over: Partial<MemoryNeighborCurve['rows'][number]>): MemoryNeighborCurve['rows'][number] => ({
+    k: 5, configured: false, counted: 40, answered: 30, answer_rate: 0.75, labeled_defects: 10, missed: 0, defect_pass_rate: 0, ...over,
+  })
+
+  it('k 마다 응답률과 불량 통과를 나란히 보인다 — 설정된 k 는 표지', () => {
+    const v = neighborCurveView(curve([r({ k: 1, answered: 38, answer_rate: 0.95, missed: 4, defect_pass_rate: 0.4 }), r({ k: 5, configured: true })]), 149)
+    expect(v.rows.map((x) => x.k)).toEqual([1, 5])
+    expect(v.rows[0]).toMatchObject({ answer: '95% (38/40)', defectPass: '4/10 (40%)', hasMiss: true, configured: false })
+    expect(v.rows[1]).toMatchObject({ answer: '75% (30/40)', defectPass: '0/10 (0%)', hasMiss: false, configured: true })
+  })
+
+  it('불량 라벨이 없는 행은 통과를 «측정 불가» 로 말한다 — 0 으로 꾸미지 않는다', () => {
+    const v = neighborCurveView(curve([r({ labeled_defects: 0, defect_pass_rate: undefined })]), 149)
+    expect(v.rows[0].defectPass).toBe('불량 라벨 없음 — 측정 불가')
+  })
+
+  it('불량 라벨이 목표를 주장할 만큼 안 되면 경고하고, 충분하면 경고가 없다', () => {
+    const thin = neighborCurveView(curve([r({ labeled_defects: 12 }), r({ k: 9, labeled_defects: 12 })]), 149)
+    expect(thin.thin).toBe(true)
+    expect(thin.warning).toContain('불량 라벨이 12장뿐')
+    expect(thin.warning).toContain('149장')
+    const enough = neighborCurveView(curve([r({ labeled_defects: 200 })]), 149)
+    expect(enough.thin).toBe(false)
+    expect(enough.warning).toBeNull()
+  })
+
+  it('설명은 서버가 k 를 고르지 않는다고 밝히고 문턱을 말한다', () => {
+    const v = neighborCurveView(curve([r({})]), 149)
+    expect(v.caption).toContain('거리 문턱 0.15')
+    expect(v.caption).toContain('서버는 k 를 고르지 않습니다')
   })
 })

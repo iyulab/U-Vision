@@ -4,7 +4,7 @@ import { useResource } from '../hooks/useResource'
 
 import { getAmbiguity, getFlywheel, getMemory, getMetrics, getSolverTrust, getTrainingReadiness, listMetricsDates } from '../lib/api'
 import { classNameOf } from '../lib/labels'
-import { canApplyRecommendation, formatDistance, hasMiss, MEMORY_WINDOWS, memoryStatusLine, recommendationView } from '../lib/memory'
+import { canApplyRecommendation, formatDistance, hasMiss, MEMORY_WINDOWS, memoryStatusLine, neighborCurveView, recommendationView } from '../lib/memory'
 import { auditAgreementLine, datasetNotice, emptyMetricsNotice, falseAlarmLead, formatPercent, fraction, hasNoMetricData, hasVlmMlMetrics, recallLead } from '../lib/metrics'
 import { hasClosedQuestions } from '../lib/ambiguity'
 import { hasPlants } from '../lib/solverTrust'
@@ -189,6 +189,7 @@ function MemoryPanel({
   const configured = report.replay.find((r) => r.configured)?.max_distance
   const rec = report.recommendation
   const view = rec ? recommendationView(rec) : null
+  const curveView = rec?.neighbor_curve ? neighborCurveView(rec.neighbor_curve, rec.defects_needed) : null
 
   async function apply(distance: number) {
     if (!onApply) return
@@ -258,6 +259,36 @@ function MemoryPanel({
             </p>
           )}
           {message && <p className="mt-2 text-xs">{message}</p>}
+        </div>
+      )}
+      {curveView && (
+        <div data-testid="memory-neighbor-curve" className="mt-4 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <caption className="mb-2 text-left text-xs text-slate-500">{curveView.caption}</caption>
+            <thead className="text-xs text-slate-400">
+              <tr>
+                <th className="py-1 pr-4 font-medium">이웃 수 k</th>
+                <th className="py-1 pr-4 font-medium">답함</th>
+                <th className="py-1 font-medium">불량 통과</th>
+              </tr>
+            </thead>
+            <tbody>
+              {curveView.rows.map((r) => (
+                <tr
+                  key={r.k}
+                  className={`border-t border-slate-700 ${r.configured ? 'bg-slate-700/40 font-semibold text-white' : 'text-slate-300'}`}
+                >
+                  <td className="py-1 pr-4">
+                    {r.k}
+                    {r.configured && <span className="ml-1 text-xs font-normal text-slate-400">(설정)</span>}
+                  </td>
+                  <td className="py-1 pr-4">{r.answer}</td>
+                  <td className={`py-1 ${r.hasMiss ? 'text-amber-400' : ''}`}>{r.defectPass}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {curveView.warning && <p className="mt-2 text-xs text-amber-300/90">{curveView.warning}</p>}
         </div>
       )}
       {report.replay.length === 0 ? (
