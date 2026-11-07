@@ -84,8 +84,18 @@ public sealed record MemoryRecommendation
     /// <summary>한 문장 설명.</summary>
     [JsonPropertyName("reason")] public required string Reason { get; init; }
 
-    public static MemoryRecommendation From(Services.Memory.OptionAdvice advice, double targetMissRate) => new()
+    /// <summary>
+    /// 이웃 수 k 곡선 — 설정된 거리 문턱에서 k 만 바꿨다면 기억이 답했을 비율과 불량이 OK 로 지나간 수(장부가 이웃 순서를 남긴 판정이
+    /// 하나도 없으면 생략). k 를 고르는 값이 아니라 두 값의 맞교환을 보이는 관찰이다 — 정하는 것은 사람이다.
+    /// </summary>
+    [JsonPropertyName("neighbor_curve")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MemoryNeighborCurve? NeighborCurve { get; init; }
+
+    public static MemoryRecommendation From(
+        Services.Memory.OptionAdvice advice, double targetMissRate, MemoryNeighborCurve? neighborCurve = null) => new()
     {
+        NeighborCurve = neighborCurve,
         MaxDistance = advice.MaxDistance,
         Answered = advice.Answered,
         LabeledDefects = advice.LabeledDefects,
@@ -96,6 +106,44 @@ public sealed record MemoryRecommendation
         DefectsNeeded = advice.DefectsNeeded,
         Reason = advice.Reason,
     };
+}
+
+/// <summary>이웃 수 k 곡선 — 거리 문턱은 설정값 그대로 두고 k 만 바꿔 다시 센 행들(작은 k 부터).</summary>
+public sealed record MemoryNeighborCurve
+{
+    /// <summary>모든 행이 쓴 거리 문턱(설정값).</summary>
+    [JsonPropertyName("max_distance")] public required double MaxDistance { get; init; }
+
+    [JsonPropertyName("rows")] public required IReadOnlyList<MemoryNeighborRow> Rows { get; init; }
+}
+
+/// <summary>이웃 수 k 하나에서의 재생 — «이 k 였다면».</summary>
+public sealed record MemoryNeighborRow
+{
+    [JsonPropertyName("k")] public required int K { get; init; }
+
+    /// <summary>지금 설정된 k 인가.</summary>
+    [JsonPropertyName("configured")] public required bool Configured { get; init; }
+
+    /// <summary>이 k 로 다시 셀 수 있었던 판정 수 — 응답률의 분모. 이웃 순서가 기록보다 짧거나 없는 줄은 빠진다.</summary>
+    [JsonPropertyName("counted")] public required int Counted { get; init; }
+
+    /// <summary>기억이 답했을 판정 수.</summary>
+    [JsonPropertyName("answered")] public required int Answered { get; init; }
+
+    /// <summary>답한 수 / 센 수 — k 가 클수록 이웃이 한 클래스로 모이기 어려워 떨어진다.</summary>
+    [JsonPropertyName("answer_rate")] public required double AnswerRate { get; init; }
+
+    /// <summary>센 판정 가운데 사람 라벨이 불량인 수 — 불량 통과율의 분모(작으면 한 장의 차이가 크다).</summary>
+    [JsonPropertyName("labeled_defects")] public required int LabeledDefects { get; init; }
+
+    /// <summary>OK 로 답했는데 사람 라벨이 불량인 수.</summary>
+    [JsonPropertyName("missed")] public required int Missed { get; init; }
+
+    /// <summary>놓침 / 라벨 있는 불량(분모 0 이면 생략).</summary>
+    [JsonPropertyName("defect_pass_rate")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? DefectPassRate { get; init; }
 }
 
 /// <summary>문턱 하나에서의 재생 — «이 문턱이었다면».</summary>

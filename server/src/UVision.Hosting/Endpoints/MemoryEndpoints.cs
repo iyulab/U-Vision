@@ -47,15 +47,20 @@ public static class MemoryEndpoints
             var enabled = memory.IsEnabled && effective.Tiers.Contains(ScenarioVocabulary.MemoryTier);
 
             var cases = new List<ReplayCase>();
+            var neighborRecords = new List<NeighborRecord>();
             // 하루면 지금 동작 그대로 — 여러 날이면 마지막 날(date)부터 거슬러 같은 읽기를 날마다 한다(라벨은 그날의 기록에 붙는다).
             await foreach (var entry in ReplaySource.ReadAsync(
                 scenarioId, days == 1 ? new[] { date } : ReplayWindow.Dates(date, days), labelStore, paths, cancellationToken))
             {
-                if (MemoryReplay.FromAnnotations(entry.Annotations, effective, entry.HumanLabel) is { } c)
-                    cases.Add(c);
+                if (MemoryReplay.FromAnnotations(entry.Annotations, effective, entry.HumanLabel) is not { } c) continue;
+                cases.Add(c);
+                // 이웃 순서를 남긴 줄만 k 곡선의 재료다(기록 경로가 생기기 전의 줄은 다시 셀 수 없다).
+                if (entry.Annotations is { } annotations && annotations.ContainsKey(MemoryAnswer.NeighborClassesKey))
+                    neighborRecords.Add(new NeighborRecord(c, annotations));
             }
 
-            var replay = cases.Count == 0 ? [] : MemoryReplay.Run(cases, effective, effective.MemoryMaxDistance ?? options.MaxDistance);
+            var configuredDistance = effective.MemoryMaxDistance ?? options.MaxDistance;
+            var replay = cases.Count == 0 ? [] : MemoryReplay.Run(cases, effective, configuredDistance);
             // 목표 놓침률 0 은 어떤 증거로도 주장할 수 없다 — 시나리오가 0 을 골랐으면 기본 목표로 센다.
             var target = effective.Targets.MaxMissRate > 0 ? effective.Targets.MaxMissRate : ScenarioTargets.Default.MaxMissRate;
 
@@ -71,7 +76,9 @@ public static class MemoryEndpoints
                 Replayed = cases.Count,
                 Replay = replay,
                 Days = days == 1 ? null : days,
-                Recommendation = replay.Count == 0 ? null : MemoryRecommendation.From(OptionAdvisor.AdviseMaxDistance(replay, target), target),
+                Recommendation = replay.Count == 0 ? null : MemoryRecommendation.From(
+                    OptionAdvisor.AdviseMaxDistance(replay, target), target,
+                    NeighborCurve.Compute(neighborRecords, effective, configuredDistance, options.Neighbors)),
             });
         }
         catch (ArgumentException) // 형식 위반 scenario_id/date → 400

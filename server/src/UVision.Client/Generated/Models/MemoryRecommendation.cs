@@ -26,6 +26,14 @@ namespace UVision.Client.Models
         public double? MaxDistance { get; set; }
         /// <summary>The missed property</summary>
         public int? Missed { get; set; }
+        /// <summary>The neighbor_curve property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::UVision.Client.Models.MemoryNeighborCurve? NeighborCurve { get; set; }
+#nullable restore
+#else
+        public global::UVision.Client.Models.MemoryNeighborCurve NeighborCurve { get; set; }
+#endif
         /// <summary>The reason property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -69,6 +77,7 @@ namespace UVision.Client.Models
                 { "labeled_defects", n => { LabeledDefects = n.GetIntValue(); } },
                 { "max_distance", n => { MaxDistance = n.GetDoubleValue(); } },
                 { "missed", n => { Missed = n.GetIntValue(); } },
+                { "neighbor_curve", n => { NeighborCurve = n.GetObjectValue<global::UVision.Client.Models.MemoryNeighborCurve>(global::UVision.Client.Models.MemoryNeighborCurve.CreateFromDiscriminatorValue); } },
                 { "reason", n => { Reason = n.GetStringValue(); } },
                 { "sufficient", n => { Sufficient = n.GetBoolValue(); } },
                 { "target_miss_rate", n => { TargetMissRate = n.GetDoubleValue(); } },
@@ -87,6 +96,7 @@ namespace UVision.Client.Models
             writer.WriteIntValue("labeled_defects", LabeledDefects);
             writer.WriteDoubleValue("max_distance", MaxDistance);
             writer.WriteIntValue("missed", Missed);
+            writer.WriteObjectValue<global::UVision.Client.Models.MemoryNeighborCurve>("neighbor_curve", NeighborCurve);
             writer.WriteStringValue("reason", Reason);
             writer.WriteBoolValue("sufficient", Sufficient);
             writer.WriteDoubleValue("target_miss_rate", TargetMissRate);

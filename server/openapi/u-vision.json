@@ -5271,6 +5271,70 @@
           }
         }
       },
+      "MemoryNeighborCurve": {
+        "required": [
+          "max_distance",
+          "rows"
+        ],
+        "type": "object",
+        "properties": {
+          "max_distance": {
+            "type": "number",
+            "format": "double"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryNeighborRow"
+            }
+          }
+        }
+      },
+      "MemoryNeighborRow": {
+        "required": [
+          "k",
+          "configured",
+          "counted",
+          "answered",
+          "answer_rate",
+          "labeled_defects",
+          "missed"
+        ],
+        "type": "object",
+        "properties": {
+          "k": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "counted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "answered": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "answer_rate": {
+            "type": "number",
+            "format": "double"
+          },
+          "labeled_defects": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "missed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "defect_pass_rate": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
       "MemoryRecommendation": {
         "required": [
           "answered",
@@ -5316,6 +5380,9 @@
           },
           "reason": {
             "type": "string"
+          },
+          "neighbor_curve": {
+            "$ref": "#/components/schemas/MemoryNeighborCurve"
           }
         }
       },

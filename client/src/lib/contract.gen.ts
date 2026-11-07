@@ -88,6 +88,8 @@ export interface Contract {
   LabelAudit?: LabelAudit
   LabelEvent?: LabelEvent
   LabelInput?: LabelInput
+  MemoryNeighborCurve?: MemoryNeighborCurve
+  MemoryNeighborRow?: MemoryNeighborRow
   MemoryRecommendation?: MemoryRecommendation
   MemoryReplayRow?: MemoryReplayRow
   MemoryReport?: MemoryReport
@@ -920,6 +922,28 @@ export interface LabelInput {
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "MemoryNeighborCurve".
+ */
+export interface MemoryNeighborCurve {
+  max_distance: number
+  rows: MemoryNeighborRow[]
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "MemoryNeighborRow".
+ */
+export interface MemoryNeighborRow {
+  k: number
+  configured: boolean
+  counted: number
+  answered: number
+  answer_rate: number
+  labeled_defects: number
+  missed: number
+  defect_pass_rate?: number
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
  * via the `definition` "MemoryRecommendation".
  */
 export interface MemoryRecommendation {
@@ -932,6 +956,7 @@ export interface MemoryRecommendation {
   target_miss_rate: number
   defects_needed: number
   reason: string
+  neighbor_curve?: MemoryNeighborCurve
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

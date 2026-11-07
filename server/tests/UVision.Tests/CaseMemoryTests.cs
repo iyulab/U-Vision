@@ -181,6 +181,30 @@ public class CaseMemoryTests
     }
 
     [Fact]
+    public async Task MemoryReport_Recommendation_CarriesTheNeighborCurveRecordedInTheLedger()
+    {
+        using var factory = new MemoryEnabledFactory();
+        var client = factory.CreateClient();
+        await SeedTwoLabeledOkAsync(factory, client);
+
+        var report = await (await client.GetAsync("/api/u-vision/memory?scenario_id=demo")).Content.ReadFromJsonAsync<JsonElement>();
+        var curve = report.GetProperty("recommendation").GetProperty("neighbor_curve");
+
+        Assert.Equal(0.15, curve.GetProperty("max_distance").GetDouble());
+        // 기억이 사례 하나뿐이라 장부의 이웃 순서도 하나 — k 1 만 다시 셀 수 있고, 설정된 k(1)가 거기 표지된다.
+        var rows = curve.GetProperty("rows").EnumerateArray().ToList();
+        var row = Assert.Single(rows);
+        Assert.Equal(1, row.GetProperty("k").GetInt32());
+        Assert.True(row.GetProperty("configured").GetBoolean());
+        Assert.Equal(1, row.GetProperty("counted").GetInt32());
+        Assert.Equal(1, row.GetProperty("answered").GetInt32());
+        Assert.Equal(1.0, row.GetProperty("answer_rate").GetDouble());
+        Assert.Equal(0, row.GetProperty("labeled_defects").GetInt32());
+        Assert.Equal(0, row.GetProperty("missed").GetInt32());
+        Assert.False(row.TryGetProperty("defect_pass_rate", out _)); // 불량 라벨이 없으면 비율을 생략한다(0 으로 꾸미지 않는다)
+    }
+
+    [Fact]
     public async Task Flywheel_BucketsLabeledJudgmentsInOrder_AndTheMemoryLineStartsWhenMemoryExists()
     {
         using var factory = new MemoryEnabledFactory();
