@@ -1,0 +1,37 @@
+# U-Vision software inference worker (src/UVision.Edge.Worker) - looks at a camera source (a recording or a stream), asks a model server for
+# detections, tracks them and tells the edge agent over a unix socket. It never decides: rules and events belong to the agent.
+# Build from this directory:  docker build -f Dockerfile.edge-worker --build-arg VERSION=<version> -t u-vision-edge-worker:<version> .
+#
+# NOT PUBLISHED. The decoder is the ffmpeg command-line tool from the distribution package, run as a child process (nothing is linked). That
+# package is built with GPL components, which matters the moment this image is distributed next to a dual-licensed (AGPL + commercial)
+# product: review the licence of the ffmpeg build - or switch to an LGPL-only build - before this image is ever published.
+# This image is built locally to run the stage evaluation and the developer stack (scripts/edge-up.ps1).
+#
+# Run (see samples/EdgeNode for the agent and engine around it):
+#   docker run --rm -v u-vision-sock:/sock -v /path/to/cameras.json:/config/cameras.json:ro -v /path/to/videos:/video:ro \
+#     -e UVISION_WORKER_SOCKET=/sock/w.sock -e UVISION_CAMERAS_FILE=/config/cameras.json -e UVISION_DETECTOR_URL=http://model:5000 \
+#     --user 2000:1654 u-vision-edge-worker:<version>
+# cameras.json maps a camera alias to its source: {"dock-1": "/video/line.mp4"} (a path or a stream URL). Only this container reads it.
+
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG TARGETARCH
+ARG VERSION=0.0.0-dev
+WORKDIR /src
+RUN case "$TARGETARCH" in arm64) echo linux-arm64 ;; *) echo linux-x64 ;; esac > /tmp/rid
+COPY nuget.config ./
+COPY src/UVision.Edge.Worker/UVision.Edge.Worker.csproj src/UVision.Edge.Worker/
+RUN dotnet restore src/UVision.Edge.Worker/UVision.Edge.Worker.csproj -r "$(cat /tmp/rid)"
+COPY src/UVision.Edge.Worker/ src/UVision.Edge.Worker/
+RUN dotnet publish src/UVision.Edge.Worker/UVision.Edge.Worker.csproj -c Release --no-restore \
+    -r "$(cat /tmp/rid)" --self-contained false -p:Version="$VERSION" -o /app
+
+FROM mcr.microsoft.com/dotnet/runtime:10.0
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=build /app ./
+# Not root. The socket volume is shared with the agent: run this container with the agent's group (--user <uid>:1654) and give the agent
+# UVISION_WORKER_SOCKET_MODE=0660 (see samples/EdgeNode).
+USER $APP_UID
+ENTRYPOINT ["dotnet", "uvision-edge-worker.dll"]

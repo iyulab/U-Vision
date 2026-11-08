@@ -20,7 +20,7 @@ docker compose up -d                         # 3. 에이전트가 등록하고 �
 | `engine` | 게시 이미지 `ghcr.io/iyulab/u-vision`. 데이터는 `engine-data` 볼륨. `ADMIN_PIN` 필수(관리 동작을 지킨다). 판정원은 기본 `mock` — 실제 VLM 은 `VLM_PROVIDER` · `VLM_ENDPOINT` 등(README «엔진 서버로 띄우기»). |
 | `socket-dir` | 한 번 돌고 끝나는 준비 단계 — 새 볼륨은 root 소유라 비루트 에이전트가 소켓 파일을 못 만든다. 디렉터리를 에이전트의 그룹(1654)에 넘긴다. |
 | `edge-agent` | 게시 이미지 `ghcr.io/iyulab/u-vision-edge-agent`. 자격 · 마지막 구성 · 아직 도착하지 못한 사건(outbox)이 `edge-data` 볼륨에 남으므로 **이 볼륨을 지우지 않는다**. |
-| `worker` (주석) | 추론 워커 자리. 이 저장소는 워커 이미지를 싣지 않는다. |
+| `worker` (주석) | 추론 워커 자리. 이 저장소에는 소프트웨어 워커의 소스(`src/UVision.Edge.Worker`)와 `Dockerfile.edge-worker` 가 있지만 **이미지는 게시하지 않는다**(디코더로 쓰는 `ffmpeg` 배포본의 라이선스를 검토하기 전) — 로컬에서 지어 쓴다. Jetson 용 워커(하드웨어 디코드 · TensorRT)는 아직 없다. |
 
 ## 소켓 권한 — 왜 `0660` 과 그룹인가
 
@@ -41,6 +41,6 @@ docker compose up -d                         # 3. 에이전트가 등록하고 �
 
 ## 이 예제가 보증하지 않는 것
 
-- 추론 워커 이미지가 없다 — 이 예제만으로는 노드가 «연결되어 있다» 는 것까지 보인다(사건을 만들어 넣어 주는 것은 워커다).
+- 게시된 추론 워커 이미지가 없다 — 이 예제만으로는 노드가 «연결되어 있다» 는 것까지 보인다(사건을 만들어 넣어 주는 것은 워커다). 소프트웨어 워커를 로컬에서 지어 붙이는 방법은 `server/Dockerfile.edge-worker` 머리말에 있다.
 - 태블릿 카메라는 **HTTPS** 에서만 열린다. 이 compose 는 평문 `8080` 만 연다 — 현장에서는 앞단에 TLS 를 둔다([`samples/SameOriginMount`](../SameOriginMount) 의 리버스 프록시 참고). 엔진 주소가 같은 기계 밖의 `http://` 이면 등록 토큰과 노드 자격이 평문으로 오간다.
 - arm64(Jetson 등)에서의 실행은 이 예제로 확인하지 않았다(이미지는 amd64 · arm64 를 함께 게시한다).

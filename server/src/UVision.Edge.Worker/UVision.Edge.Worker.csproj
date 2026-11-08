@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>uvision-edge-worker</AssemblyName>
+    <RootNamespace>UVision.Edge.Worker</RootNamespace>
+    <!-- The software inference worker (server/Dockerfile.edge-worker): decodes a camera source with the ffmpeg command-line tool
+         (a child process, nothing linked), asks a model server for detections, tracks them and writes the line protocol the edge
+         agent listens for. It only looks - rules and events belong to the agent. The version is stamped at image build time. -->
+    <Version>0.0.0-dev</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="UVision.Tests" />
+  </ItemGroup>
+
+</Project>
