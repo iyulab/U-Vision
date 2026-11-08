@@ -161,6 +161,11 @@ export function AuthorityPanel({
                 {ev.signal === 'unmet' && '격상 조건 미충족 — 재현율 · 오경보율 · 일치율 중 기준에 못 미칩니다. 근거가 약한 채 격상하면 라인이 ML 에 더 의존합니다.'}
                 {ev.signal === 'insufficient' && '표본 부족 — 신호를 낼 만큼 쌓이지 않았습니다(적격이라는 뜻이 아닙니다). 불량 점수가 붙은 판정이 아직 적으면 이 칸도 비어 있습니다.'}
               </p>
+              {ev.basis && ev.signal !== 'eligible' && (
+                <p data-testid="promotion-basis-note" className="text-xs text-slate-400">
+                  신호는 지금 서빙되는 모델 판({ev.basis.model.slice(0, 12)})이 점수 매긴 표본만 읽습니다. 모델을 다시 지었다면 새 판이 표본을 채울 때까지 신호가 비어 있는 것이 정상이고, 위 창 집계(재현율 · 오경보율)는 옛 판의 표본까지 섞여 있습니다.
+                </p>
+              )}
             </div>
           )}
 

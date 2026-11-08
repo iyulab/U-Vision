@@ -69,11 +69,15 @@ export type EvidenceMetrics = {
   ml_ranked_ng?: number | null
   ml_ranked_ok?: number | null
   promotion_eligible?: boolean | null
+  /** 신호가 읽은 ML 모델 판과 그 판의 사람 라벨 표본 — 행이 모델 신원을 싣지 않으면 생략(D-119). */
+  promotion_basis?: { model: string; ng_scored: number; ok_scored: number } | null
 }
 
 export type EvidenceSummary = {
   /** 격상 신호의 뜻 — 점추정이라 확정이 아니다. */
   signal: 'eligible' | 'unmet' | 'insufficient'
+  /** 신호가 읽은 모델 판의 표본 — 서버가 준 것만(없으면 null). 모델을 다시 지으면 새 판이 표본을 채울 때까지 신호가 비는 이유다. */
+  basis: { model: string; ngScored: number; okScored: number } | null
   rows: { label: string; value: string }[]
 }
 
@@ -82,8 +86,10 @@ const frac = (a: number | undefined, b: number | undefined) => (b ? `${a ?? 0}/$
 
 /** 서버 집계(창)를 격상 확인 화면의 읽기 전용 근거 줄로 바꾼다 — 값을 지어내지 않고 서버가 준 것만 옮긴다. */
 export function evidenceSummary(m: EvidenceMetrics): EvidenceSummary {
+  const b = m.promotion_basis ?? null
   return {
     signal: m.promotion_eligible === true ? 'eligible' : m.promotion_eligible === false ? 'unmet' : 'insufficient',
+    basis: b ? { model: b.model, ngScored: b.ng_scored, okScored: b.ok_scored } : null,
     rows: [
       { label: '사람 라벨 불량 / 정상', value: `${m.labeled_ng ?? 0} / ${m.labeled_ok ?? 0}` },
       { label: 'ML 이 점수 매긴 불량 중 적중 (재현율)', value: `${frac(m.ml_ng_hits, m.ml_ng_scored)} (${pct(m.ml_ng_recall)})` },
@@ -91,6 +97,8 @@ export function evidenceSummary(m: EvidenceMetrics): EvidenceSummary {
       // 신호의 재현율 항은 위 한 작동점(적중)이 아니라 이 값이다 — 같은 모델도 작동점은 문턱 하나로 크게 갈린다.
       { label: '정상 오경보를 상한으로 묶었을 때 잡은 불량 (신호의 재현율 항)', value: `${pct(m.ml_recall_at_far)} · 점수 표본 불량 ${m.ml_ranked_ng ?? 0} / 정상 ${m.ml_ranked_ok ?? 0}` },
       { label: '순위 품질 (AUROC — 불량 점수가 정상보다 높을 확률)', value: m.ml_auroc == null ? '—' : m.ml_auroc.toFixed(3) },
+      // 신호의 ML 쪽 항은 창 전체가 아니라 가장 최근에 답한 모델 판의 표본만 읽는다 — 위 줄들(창 전체)과 다른 표본이다.
+      ...(b ? [{ label: '신호가 읽는 모델 판 (이 판의 표본만 잰다)', value: `${b.model.slice(0, 12)} · 불량 ${b.ng_scored} / 정상 ${b.ok_scored}` }] : []),
     ],
   }
 }

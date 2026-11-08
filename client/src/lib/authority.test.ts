@@ -35,6 +35,16 @@ describe('evidenceSummary', () => {
     expect(none[4].value).toBe('—')
   })
 
+  it('신호가 읽은 모델 판의 표본을 서버가 준 대로 한 줄 더하고, 판 정보가 없으면 줄도 basis 도 없다(D-119)', () => {
+    const withBasis = evidenceSummary({ promotion_basis: { model: 'abcdef0123456789ffff', ng_scored: 12, ok_scored: 30 }, promotion_eligible: null })
+    expect(withBasis.basis).toEqual({ model: 'abcdef0123456789ffff', ngScored: 12, okScored: 30 })
+    expect(withBasis.rows.at(-1)).toEqual({ label: '신호가 읽는 모델 판 (이 판의 표본만 잰다)', value: 'abcdef012345 · 불량 12 / 정상 30' })
+    expect(withBasis.rows).toHaveLength(6)
+    const none = evidenceSummary({ labeled_ng: 5 })
+    expect(none.basis).toBeNull()
+    expect(none.rows).toHaveLength(5) // 옛 응답 — 이전과 같은 다섯 줄
+  })
+
   it('분모가 0 이면 비율을 지어내지 않는다', () => {
     const rows = evidenceSummary({ ml_ok_scored: 0, ml_false_alarm_rate: null }).rows
     expect(rows[2].value).toBe('0건 (—)')

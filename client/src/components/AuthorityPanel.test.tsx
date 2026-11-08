@@ -64,6 +64,28 @@ describe('AuthorityPanel', () => {
     expect(getMetrics).toHaveBeenCalledWith('photo', expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), 30)
   })
 
+  it('신호가 읽는 모델 판과 그 표본을 보이고, 신호가 비어 있으면 모델을 다시 지었을 때의 정상 상태임을 말한다(D-119)', async () => {
+    getAuthority.mockResolvedValue({ stage: 'advisory', history: [] })
+    getMetrics.mockResolvedValue({
+      labeled_ng: 120, labeled_ok: 300, promotion_eligible: null,
+      promotion_basis: { model: '0123456789abcdef', ng_scored: 8, ok_scored: 21 },
+    })
+    render(<AuthorityPanel scenarios={scenarios} initialScenarioId="photo" runWithPin={vi.fn()} />)
+
+    const box = await screen.findByTestId('promotion-evidence')
+    expect(box.textContent).toContain('0123456789ab · 불량 8 / 정상 21')
+    expect(screen.getByTestId('promotion-basis-note').textContent).toContain('새 판이 표본을 채울 때까지')
+  })
+
+  it('판 정보가 없는 응답(옛 행 · 신원을 보고하지 않는 서버)에는 모델 판 줄도 안내도 없다', async () => {
+    getAuthority.mockResolvedValue({ stage: 'advisory', history: [] })
+    getMetrics.mockResolvedValue({ labeled_ng: 5, promotion_eligible: null })
+    render(<AuthorityPanel scenarios={scenarios} initialScenarioId="photo" runWithPin={vi.fn()} />)
+
+    await screen.findByTestId('promotion-evidence')
+    expect(screen.queryByTestId('promotion-basis-note')).toBeNull()
+  })
+
   // 근거 없는 격상(D-116) — 서버도 확인 없이는 409 로 거절하므로 콘솔은 미리 «알고 하는가» 를 묻고, 확인했을 때만 확인 표지를 보낸다.
   const runWithPin = async (action: (pin: string) => Promise<void>) => {
     await action('1234')
