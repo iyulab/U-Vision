@@ -1851,6 +1851,84 @@
         }
       }
     },
+    "/api/u-vision/edge/nodes/{node_id}/events": {
+      "get": {
+        "tags": [
+          "U-Vision"
+        ],
+        "operationId": "ListEdgeNodeEvents",
+        "parameters": [
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSetupRequiredResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdgeNodeEventsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/u-vision/edge/nodes/{node_id}/scenarios": {
       "put": {
         "tags": [
@@ -4503,6 +4581,176 @@
           }
         }
       },
+      "EdgeCurrentAlarm": {
+        "required": [
+          "scenario_id",
+          "rule",
+          "state",
+          "device_time",
+          "received_at",
+          "source",
+          "class"
+        ],
+        "type": "object",
+        "properties": {
+          "scenario_id": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "string"
+          },
+          "source": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "zone": {
+            "type": "string"
+          },
+          "class": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "state": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "since": {
+            "type": "string"
+          },
+          "device_time": {
+            "type": "string"
+          },
+          "received_at": {
+            "type": "string"
+          },
+          "config_stale": {
+            "type": "boolean"
+          }
+        }
+      },
+      "EdgeCurrentCount": {
+        "required": [
+          "scenario_id",
+          "rule",
+          "count",
+          "device_time",
+          "received_at",
+          "source",
+          "class"
+        ],
+        "type": "object",
+        "properties": {
+          "scenario_id": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "string"
+          },
+          "source": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "zone": {
+            "type": "string"
+          },
+          "class": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "since": {
+            "type": "string"
+          },
+          "device_time": {
+            "type": "string"
+          },
+          "received_at": {
+            "type": "string"
+          },
+          "config_stale": {
+            "type": "boolean"
+          }
+        }
+      },
+      "EdgeCurrentSource": {
+        "required": [
+          "scenario_id",
+          "state",
+          "device_time",
+          "received_at",
+          "source",
+          "camera"
+        ],
+        "type": "object",
+        "properties": {
+          "scenario_id": {
+            "type": "string"
+          },
+          "source": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "camera": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "state": {
+            "type": "string"
+          },
+          "device_time": {
+            "type": "string"
+          },
+          "received_at": {
+            "type": "string"
+          }
+        }
+      },
+      "EdgeCurrentState": {
+        "required": [
+          "counts",
+          "alarms",
+          "sources"
+        ],
+        "type": "object",
+        "properties": {
+          "counts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EdgeCurrentCount"
+            }
+          },
+          "alarms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EdgeCurrentAlarm"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EdgeCurrentSource"
+            }
+          }
+        }
+      },
       "EdgeEventInput": {
         "type": "object",
         "properties": {
@@ -4536,6 +4784,52 @@
               "null",
               "string"
             ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/JsonElement"
+          }
+        }
+      },
+      "EdgeEventRecord": {
+        "required": [
+          "node_id",
+          "event_id",
+          "seq",
+          "scenario_id",
+          "kind",
+          "device_time",
+          "received_at"
+        ],
+        "type": "object",
+        "properties": {
+          "node_id": {
+            "type": "string"
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "seq": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "scenario_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "device_time": {
+            "type": "string"
+          },
+          "received_at": {
+            "type": "string"
+          },
+          "clock_offset_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "corrected_time": {
+            "type": "string"
           },
           "data": {
             "$ref": "#/components/schemas/JsonElement"
@@ -4637,6 +4931,37 @@
           },
           "revoked_at": {
             "type": "string"
+          }
+        }
+      },
+      "EdgeNodeEventsView": {
+        "required": [
+          "node_id",
+          "events",
+          "current",
+          "scanned",
+          "truncated"
+        ],
+        "type": "object",
+        "properties": {
+          "node_id": {
+            "type": "string"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EdgeEventRecord"
+            }
+          },
+          "current": {
+            "$ref": "#/components/schemas/EdgeCurrentState"
+          },
+          "scanned": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "truncated": {
+            "type": "boolean"
           }
         }
       },

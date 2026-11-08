@@ -4,6 +4,7 @@ import { issueEdgeToken, listEdgeNodes, revokeEdgeNode, setEdgeNodeScenarios } f
 import type { PinRunResult } from '../hooks/usePin'
 import { assignmentChanged, describeNode, sortRows, validateTokenInput, type FlagSeverity } from '../lib/edgeNodes'
 import type { EdgeNode, EdgeTokenIssued, Scenario } from '../lib/types'
+import { EdgeNodeEventsSection } from './EdgeNodeEvents'
 
 const SEVERITY_STYLE: Record<FlagSeverity, string> = {
   bad: 'text-red-300',
@@ -163,7 +164,7 @@ export function EdgeNodesPanel({ scenarios, runWithPin }: { scenarios: Scenario[
         ) : (
           <ul className="space-y-3">
             {rows.map((row) => (
-              <NodeCard key={row.node.node_id} row={row} scenarios={scenarios} busy={busy} onAssign={assign} onRevoke={revoke} />
+              <NodeCard key={row.node.node_id} row={row} scenarios={scenarios} busy={busy} onAssign={assign} onRevoke={revoke} runWithPin={runWithPin} />
             ))}
           </ul>
         )}
@@ -178,12 +179,14 @@ function NodeCard({
   busy,
   onAssign,
   onRevoke,
+  runWithPin,
 }: {
   row: ReturnType<typeof describeNode>
   scenarios: Scenario[]
   busy: boolean
   onAssign: (nodeId: string, selected: string[]) => Promise<boolean>
   onRevoke: (nodeId: string) => Promise<void>
+  runWithPin: RunWithPin
 }) {
   const { node } = row
   const [editing, setEditing] = useState(false)
@@ -225,6 +228,8 @@ function NodeCard({
           ))}
         </ul>
       )}
+
+      <EdgeNodeEventsSection nodeId={node.node_id} runWithPin={runWithPin} />
 
       {!row.revoked && (
         <div className="space-y-2 pt-1">

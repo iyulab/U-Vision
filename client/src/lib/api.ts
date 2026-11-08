@@ -1,4 +1,4 @@
-import type { AdminStatus, Ambiguity, AnomalyMap, AuthorityState, DecisionEvidence, DetectionUnavailable, EdgeNode, EdgeTokenInput, EdgeTokenIssued, RejudgeResponse, EventsStatus, FlywheelReport, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Question, QuestionAnswer, Reference, RetentionPurgeInput, RetentionPurgeResponse, Scenario, SolverTrust, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
+import type { AdminStatus, Ambiguity, AnomalyMap, AuthorityState, DecisionEvidence, DetectionUnavailable, EdgeNode, EdgeNodeEvents, EdgeTokenInput, EdgeTokenIssued, RejudgeResponse, EventsStatus, FlywheelReport, HealthStatus, InspectResult, InspectResultV2, MemoryReport, MetricsSummary, MlResult, Question, QuestionAnswer, Reference, RetentionPurgeInput, RetentionPurgeResponse, Scenario, SolverTrust, ScenarioInput, StoredLabel, StoredResult, TrainingReadiness } from './types'
 import type { QuestionAnswerInput } from './contract.gen'
 import type { AuthorityStage } from './authority'
 import { resolveApiBase } from './runtimeConfig'
@@ -479,6 +479,13 @@ export async function listEdgeNodes(pin: string): Promise<EdgeNode[]> {
   const res = await fetch(`${API_BASE}/edge/nodes`, { headers: { [PIN_HEADER]: pin } })
   await ensureOk(res, '엣지 노드 목록')
   return (await res.json()) as EdgeNode[]
+}
+
+/** 노드가 보낸 최근 사건(최신 먼저)과 거기서 파생한 «지금 상태». 읽기 전용 — 판정에 쓰이지 않는다. */
+export async function listEdgeNodeEvents(nodeId: string, pin: string, limit = 50): Promise<EdgeNodeEvents> {
+  const res = await fetch(`${API_BASE}/edge/nodes/${encodeURIComponent(nodeId)}/events?limit=${limit}`, { headers: { [PIN_HEADER]: pin } })
+  await ensureOk(res, '노드 사건')
+  return (await res.json()) as EdgeNodeEvents
 }
 
 /** 일회용 등록 토큰 발급 — 평문은 이 응답에서만 보인다. */

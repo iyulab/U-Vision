@@ -8,6 +8,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Threading;
 using System;
+using UVision.Client.Edge.Nodes.Item.Events;
 using UVision.Client.Edge.Nodes.Item.Scenarios;
 using UVision.Client.Models;
 namespace UVision.Client.Edge.Nodes.Item
@@ -18,6 +19,11 @@ namespace UVision.Client.Edge.Nodes.Item
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class WithNode_ItemRequestBuilder : BaseRequestBuilder
     {
+        /// <summary>The events property</summary>
+        public global::UVision.Client.Edge.Nodes.Item.Events.EventsRequestBuilder Events
+        {
+            get => new global::UVision.Client.Edge.Nodes.Item.Events.EventsRequestBuilder(PathParameters, RequestAdapter);
+        }
         /// <summary>The scenarios property</summary>
         public global::UVision.Client.Edge.Nodes.Item.Scenarios.ScenariosRequestBuilder Scenarios
         {

@@ -51,6 +51,11 @@ export type RetentionPurgeInput = Wire.RetentionPurgeInput
 export type RetentionPurgeResponse = Wire.RetentionPurgeResponse
 export type EdgeNode = Wire.EdgeNode
 export type EdgeNodeStatus = Wire.EdgeNodeStatus
+export type EdgeNodeEvents = Wire.EdgeNodeEventsView
+export type EdgeEvent = Wire.EdgeEventRecord
+export type EdgeCurrentCount = Wire.EdgeCurrentCount
+export type EdgeCurrentAlarm = Wire.EdgeCurrentAlarm
+export type EdgeCurrentSource = Wire.EdgeCurrentSource
 export type EdgeTokenInput = Wire.EdgeTokenRequest
 export type EdgeTokenIssued = Wire.EdgeTokenResponse
 

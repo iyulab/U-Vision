@@ -62,11 +62,17 @@ export interface Contract {
   DemoteAuthorityInput?: DemoteAuthorityInput
   DetectionUnavailableResponse?: DetectionUnavailableResponse
   EdgeConfig?: EdgeConfig
+  EdgeCurrentAlarm?: EdgeCurrentAlarm
+  EdgeCurrentCount?: EdgeCurrentCount
+  EdgeCurrentSource?: EdgeCurrentSource
+  EdgeCurrentState?: EdgeCurrentState
   EdgeEventInput?: EdgeEventInput
+  EdgeEventRecord?: EdgeEventRecord
   EdgeEventResult?: EdgeEventResult
   EdgeEventsRequest?: EdgeEventsRequest
   EdgeEventsResponse?: EdgeEventsResponse
   EdgeNode?: EdgeNode
+  EdgeNodeEventsView?: EdgeNodeEventsView
   EdgeNodeStatus?: EdgeNodeStatus
   EdgeRegisterRequest?: EdgeRegisterRequest
   EdgeRegisterResponse?: EdgeRegisterResponse
@@ -621,6 +627,60 @@ export interface ScenarioOutput {
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeCurrentAlarm".
+ */
+export interface EdgeCurrentAlarm {
+  scenario_id: string
+  rule: string
+  source: null | string
+  zone?: string
+  class: null | string
+  state: string
+  count?: number
+  since?: string
+  device_time: string
+  received_at: string
+  config_stale?: boolean
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeCurrentCount".
+ */
+export interface EdgeCurrentCount {
+  scenario_id: string
+  rule: string
+  source: null | string
+  zone?: string
+  class: null | string
+  count: number
+  since?: string
+  device_time: string
+  received_at: string
+  config_stale?: boolean
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeCurrentSource".
+ */
+export interface EdgeCurrentSource {
+  scenario_id: string
+  source: null | string
+  camera: null | string
+  state: string
+  device_time: string
+  received_at: string
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeCurrentState".
+ */
+export interface EdgeCurrentState {
+  counts: EdgeCurrentCount[]
+  alarms: EdgeCurrentAlarm[]
+  sources: EdgeCurrentSource[]
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
  * via the `definition` "EdgeEventInput".
  */
 export interface EdgeEventInput {
@@ -629,6 +689,22 @@ export interface EdgeEventInput {
   scenario_id?: null | string
   kind?: null | string
   device_time?: null | string
+  data?: JsonElement
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeEventRecord".
+ */
+export interface EdgeEventRecord {
+  node_id: string
+  event_id: string
+  seq: number
+  scenario_id: string
+  kind: string
+  device_time: string
+  received_at: string
+  clock_offset_ms?: number
+  corrected_time?: string
   data?: JsonElement
 }
 /**
@@ -706,6 +782,17 @@ export interface EdgeWorkerStatus {
   skipped_rules: number
   skipped?: string[]
   config_stale?: boolean
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "EdgeNodeEventsView".
+ */
+export interface EdgeNodeEventsView {
+  node_id: string
+  events: EdgeEventRecord[]
+  current: EdgeCurrentState
+  scanned: number
+  truncated: boolean
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema

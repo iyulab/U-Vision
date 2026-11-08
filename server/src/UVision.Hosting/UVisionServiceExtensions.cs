@@ -98,6 +98,7 @@ public static class UVisionServiceExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<Services.Edge.EdgeNodeStore>();
         services.AddSingleton<Services.Edge.EdgeEventStore>();
+        services.AddSingleton<Services.Edge.EdgeEventReader>();
         services.AddSingleton<Services.Edge.EdgeConfigBuilder>();
         services.AddSingleton<Services.Inspection.RejudgeService>();
         services.AddSingleton<Services.Inspection.InspectionPipeline>();

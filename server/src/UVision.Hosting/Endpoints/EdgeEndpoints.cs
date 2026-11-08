@@ -21,6 +21,11 @@ public static class EdgeEndpoints
         parent.MapGet("/edge/nodes", ListNodesAsync).RequireAdminPin()
             .WithName("ListEdgeNodes")
             .Produces<IReadOnlyList<EdgeNode>>();
+        parent.MapGet("/edge/nodes/{node_id}/events", ListNodeEventsAsync).RequireAdminPin()
+            .WithName("ListEdgeNodeEvents")
+            .Produces<EdgeNodeEventsView>()
+            .ProducesProblem(400)
+            .ProducesProblem(404);
         parent.MapPut("/edge/nodes/{node_id}/scenarios", SetScenariosAsync).RequireAdminPin()
             .WithName("SetEdgeNodeScenarios")
             .Produces<EdgeNode>()
@@ -63,6 +68,23 @@ public static class EdgeEndpoints
 
     private static async Task<IResult> ListNodesAsync(EdgeNodeStore nodes, CancellationToken ct) =>
         Results.Ok(await nodes.ListAsync(ct));
+
+    /// <summary>
+    /// 노드가 보낸 최근 사건과 거기서 파생한 «지금 상태»(규칙별 센 값 · 경보 · 소스 상태) — 관리자의 읽기 전용 면. 회수된 노드의 장부도 읽는다.
+    /// 읽는 범위는 최근 사건 5,000 건(<c>truncated</c> 가 알린다)이고, <c>limit</c> 는 돌려주는 목록의 길이(1~500, 기본 100)다.
+    /// </summary>
+    private static async Task<IResult> ListNodeEventsAsync(
+        string node_id, int? limit, EdgeNodeStore nodes, EdgeEventReader reader, CancellationToken ct)
+    {
+        try
+        {
+            StoragePaths.Id(node_id);
+            if (!(await nodes.ListAsync(ct)).Any(n => n.NodeId == node_id))
+                return Results.Problem(statusCode: 404, detail: $"노드 없음: {node_id}");
+            return Results.Ok(await reader.ReadAsync(node_id, limit ?? EdgeEventReader.DefaultLimit, ct));
+        }
+        catch (ArgumentException ex) { return Results.Problem(statusCode: 400, detail: ex.Message); }
+    }
 
     private static async Task<IResult> RevokeNodeAsync(string node_id, EdgeNodeStore nodes, CancellationToken ct)
     {
