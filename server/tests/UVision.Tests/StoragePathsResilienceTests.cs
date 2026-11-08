@@ -95,5 +95,36 @@ public sealed class StoragePathsResilienceTests : IDisposable
         await Assert.ThrowsAsync<FileNotFoundException>(() => StoragePaths.ReadAllBytesResilientAsync(Path.Combine(_dir, "none")));
     }
 
+    // 재시도 예산은 개수가 아니라 벽시계다 — 부하로 쓰는 쪽이 굶은 만큼 같이 늘어야 한다(전체 스위트 부하에서 40 번(약 0.4 초)이 소진된 적이 있다).
+    // 다른 쪽이 파일을 0.4 초보다 오래(여기서는 0.9 초) 독점하는 상황을 직접 만든다. Windows 에서만 독점 열기가 이동 · 열기를 거절한다.
+    [Fact]
+    public async Task Replace_WaitsOutAnOverlapLongerThanTheOldFixedCount()
+    {
+        var path = Path.Combine(_dir, "held.json");
+        await StoragePaths.AtomicWriteJsonAsync(path, new Payload(0, "a"));
+        var holder = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
+        var release = Task.Run(async () => { await Task.Delay(TimeSpan.FromMilliseconds(900)); holder.Dispose(); });
+
+        await StoragePaths.AtomicWriteJsonAsync(path, new Payload(1, "b"));   // 예산이 개수 40 번(약 0.4 초)이면 여기서 던진다
+
+        await release;
+        var back = JsonSerializer.Deserialize<Payload>(await StoragePaths.ReadAllBytesResilientAsync(path), StoragePaths.Json);
+        Assert.Equal(1, back!.N);
+    }
+
+    [Fact]
+    public async Task Read_WaitsOutAnExclusiveWriterLongerThanTheOldFixedCount()
+    {
+        var path = Path.Combine(_dir, "writing.json");
+        await File.WriteAllTextAsync(path, "{\"n\":7}");
+        var writer = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        var release = Task.Run(async () => { await Task.Delay(TimeSpan.FromMilliseconds(900)); writer.Dispose(); });
+
+        var bytes = await StoragePaths.ReadAllBytesResilientAsync(path);   // 같은 이유로 읽는 쪽도 벽시계 예산이어야 한다
+
+        await release;
+        Assert.Equal("{\"n\":7}", System.Text.Encoding.UTF8.GetString(bytes));
+    }
+
     private sealed record Payload(int N, string Pad);
 }

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -382,7 +383,7 @@ public sealed partial class StoragePaths
     /// <para>
     /// Windows 는 누가 그 파일을 열고 있는 동안의 덮어쓰기 이동을 <see cref="UnauthorizedAccessException"/>(또는 <see cref="IOException"/>)으로
     /// 거절한다 — 읽는 쪽이 <c>FileShare.Delete</c> 를 줘도 같다(실측: 8 초 동안 읽기와 겹친 쓰기 대부분이 거절). 읽기는 몇 밀리초면 끝나므로
-    /// 짧게 다시 시도한다(<see cref="ReplaceRetries"/>); 그래도 안 되면 던진다. 다른 OS 에는 이 경합이 없어 첫 시도에 성공한다.
+    /// 짧게 다시 시도한다(<see cref="ReplaceBudget"/> 동안); 그래도 안 되면 던진다. 다른 OS 에는 이 경합이 없어 첫 시도에 성공한다.
     /// </para>
     /// </summary>
     public static async Task AtomicWriteAsync(
@@ -394,6 +395,7 @@ public sealed partial class StoragePaths
         try
         {
             await File.WriteAllBytesAsync(tmp, bytes, ct);
+            var started = Stopwatch.GetTimestamp();
             for (var attempt = 0; ; attempt++)
             {
                 try
@@ -401,7 +403,7 @@ public sealed partial class StoragePaths
                     File.Move(tmp, path, overwrite: true);
                     break;
                 }
-                catch (Exception e) when (e is IOException or UnauthorizedAccessException && attempt < ReplaceRetries)
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException && !BudgetSpent(started))
                 {
                     await Task.Delay(attempt < 5 ? 1 : 10, ct);
                 }
@@ -414,8 +416,14 @@ public sealed partial class StoragePaths
         }
     }
 
-    /// <summary>덮어쓰기 이동과 읽기가 겹칠 때 다시 시도하는 횟수 — 최대 약 0.4 초(앞 5 번은 1 ms, 그 뒤는 10 ms).</summary>
-    public const int ReplaceRetries = 40;
+    /// <summary>
+    /// 덮어쓰기 이동과 읽기가 겹칠 때 다시 시도하는 <b>벽시계</b> 예산(앞 5 번은 1 ms 간격, 그 뒤는 10 ms). 개수(40 번 ≈ 0.4 초)로 묶으면 부하로
+    /// 이 태스크가 굶은 만큼은 세어지지 않아 전체 스위트처럼 CPU 가 바쁠 때 예산이 소진되던 일이 있었다 — 시간으로 묶으면 굶은 만큼 같이 늘어난다.
+    /// 성공 경로(첫 시도)에는 영향이 없다.
+    /// </summary>
+    public static readonly TimeSpan ReplaceBudget = TimeSpan.FromSeconds(2);
+
+    private static bool BudgetSpent(long startedTimestamp) => Stopwatch.GetElapsedTime(startedTimestamp) >= ReplaceBudget;
 
     /// <summary>
     /// 다른 쪽이 같은 파일을 교체하는 순간(<see cref="AtomicWriteAsync"/>)에 열기가 <see cref="IOException"/> 으로 거절될 수 있다 — Windows 에서만.
@@ -423,6 +431,7 @@ public sealed partial class StoragePaths
     /// </summary>
     public static async Task<FileStream> OpenReadResilientAsync(string path, CancellationToken ct = default)
     {
+        var started = Stopwatch.GetTimestamp();
         for (var attempt = 0; ; attempt++)
         {
             try
@@ -432,7 +441,7 @@ public sealed partial class StoragePaths
             catch (Exception e) when (e is IOException and not FileNotFoundException and not DirectoryNotFoundException
                                           || e is UnauthorizedAccessException)
             {
-                if (attempt >= ReplaceRetries) throw;
+                if (BudgetSpent(started)) throw;
                 await Task.Delay(attempt < 5 ? 1 : 10, ct);
             }
         }
@@ -441,6 +450,7 @@ public sealed partial class StoragePaths
     /// <summary><see cref="OpenReadResilientAsync"/> 의 동기 쌍둥이 — 비동기로 쓸 수 없는 읽기(색인 · 상태 읽기)용. 같은 공유 모드와 같은 재시도.</summary>
     public static FileStream OpenReadResilient(string path)
     {
+        var started = Stopwatch.GetTimestamp();
         for (var attempt = 0; ; attempt++)
         {
             try
@@ -450,7 +460,7 @@ public sealed partial class StoragePaths
             catch (Exception e) when (e is IOException and not FileNotFoundException and not DirectoryNotFoundException
                                           || e is UnauthorizedAccessException)
             {
-                if (attempt >= ReplaceRetries) throw;
+                if (BudgetSpent(started)) throw;
                 Thread.Sleep(attempt < 5 ? 1 : 10);
             }
         }
