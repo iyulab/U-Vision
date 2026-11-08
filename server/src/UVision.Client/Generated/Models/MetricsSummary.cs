@@ -118,6 +118,14 @@ namespace UVision.Client.Models
         public int? OracleEvaluated { get; set; }
         /// <summary>The oracle_pending property</summary>
         public int? OraclePending { get; set; }
+        /// <summary>The promotion_basis property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::UVision.Client.Models.PromotionBasis? PromotionBasis { get; set; }
+#nullable restore
+#else
+        public global::UVision.Client.Models.PromotionBasis PromotionBasis { get; set; }
+#endif
         /// <summary>The promotion_eligible property</summary>
         public bool? PromotionEligible { get; set; }
         /// <summary>The review_rate property</summary>
@@ -210,6 +218,7 @@ namespace UVision.Client.Models
                 { "oracle_coverage_rate", n => { OracleCoverageRate = n.GetDoubleValue(); } },
                 { "oracle_evaluated", n => { OracleEvaluated = n.GetIntValue(); } },
                 { "oracle_pending", n => { OraclePending = n.GetIntValue(); } },
+                { "promotion_basis", n => { PromotionBasis = n.GetObjectValue<global::UVision.Client.Models.PromotionBasis>(global::UVision.Client.Models.PromotionBasis.CreateFromDiscriminatorValue); } },
                 { "promotion_eligible", n => { PromotionEligible = n.GetBoolValue(); } },
                 { "review_rate", n => { ReviewRate = n.GetDoubleValue(); } },
                 { "reviews_required", n => { ReviewsRequired = n.GetIntValue(); } },
@@ -271,6 +280,7 @@ namespace UVision.Client.Models
             writer.WriteDoubleValue("oracle_coverage_rate", OracleCoverageRate);
             writer.WriteIntValue("oracle_evaluated", OracleEvaluated);
             writer.WriteIntValue("oracle_pending", OraclePending);
+            writer.WriteObjectValue<global::UVision.Client.Models.PromotionBasis>("promotion_basis", PromotionBasis);
             writer.WriteBoolValue("promotion_eligible", PromotionEligible);
             writer.WriteDoubleValue("review_rate", ReviewRate);
             writer.WriteIntValue("reviews_required", ReviewsRequired);

@@ -87,6 +87,16 @@ public static class MetricsAggregator
         var rankedNormal = new List<double>();
         var rankedDefect = new List<double>();
 
+        // 격상 신호의 ML 쪽 항은 창 전체가 아니라 «가장 최근에 답한 모델 판» 의 행으로만 잰다 — 창(기본 30 일)에 여러 판의 점수가 섞여 있으면
+        // 좋아진 새 판이 옛 약한 판에 눌려 «적격» 이 늦고(재생에서 관찰), 거꾸로 옛 좋은 판의 점수가 나빠진 새 판을 가려 «적격» 으로 읽힌다
+        // (시험이 재현). 행이 모델 신원(ml_model)을 하나도 싣지 않으면(옛 행 · 신원을 보고하지 않는 서버 · mock) 기준 판이 없어 창 전체로 잰다 —
+        // 이전과 같은 판정이다. 아래 b* 는 기준 판의 몫이고, 기준 판이 없으면 창 전체와 값이 같다. 다른 지표(ml_ng_recall · ml_auroc …)는 창 전체 그대로다.
+        var basisModel = rows.LastOrDefault(r => r.MlModel is not null)?.MlModel;
+        bool InBasis(MetricsRow r) => basisModel is null || string.Equals(r.MlModel, basisModel, StringComparison.Ordinal);
+        int bChecked = 0, bNonDegraded = 0, bAgreements = 0, bNgScored = 0, bOkScored = 0, bFalseAlarms = 0;
+        var bRankedNormal = new List<double>();
+        var bRankedDefect = new List<double>();
+
         // 계수 판정(검출기) 줄은 VLM · ML 집계와 뜻이 달라 맨 앞에서 갈라 따로 센다 — 검사 수 · 재현율 · 오경보 · 격상 신호에 들지 않는다.
         // 사람 라벨 조인도 하지 않는다: 검출기의 정확도는 정수 정답이 있는 개수 오차 측정이 잰다.
         var counting = new CountingTally();
@@ -119,11 +129,18 @@ public static class MetricsAggregator
             {
                 mlChecked++;
                 degraded++;
+                if (InBasis(r)) bChecked++;
             }
             else
             {
                 mlChecked++;
                 if (r.Agreement == true) agreements++;
+                if (InBasis(r))
+                {
+                    bChecked++;
+                    bNonDegraded++;
+                    if (r.Agreement == true) bAgreements++;
+                }
                 if (r.RequiresReview == true)
                 {
                     reviews++;
@@ -148,6 +165,12 @@ public static class MetricsAggregator
                     if (isNg(r.MlLabel))
                         mlFalseAlarms++;
                     if (r.MlNgScore is { } okScore) rankedNormal.Add(okScore);
+                    if (InBasis(r))
+                    {
+                        bOkScored++;
+                        if (isNg(r.MlLabel)) bFalseAlarms++;
+                        if (r.MlNgScore is { } bOkScore) bRankedNormal.Add(bOkScore);
+                    }
                 }
                 continue;
             }
@@ -163,6 +186,11 @@ public static class MetricsAggregator
                 if (isNg(r.MlLabel))
                     mlNgHits++;
                 if (r.MlNgScore is { } ngScore) rankedDefect.Add(ngScore);
+                if (InBasis(r))
+                {
+                    bNgScored++;
+                    if (r.MlNgScore is { } bNgScore) bRankedDefect.Add(bNgScore);
+                }
             }
         }
 
@@ -180,18 +208,22 @@ public static class MetricsAggregator
         // 점수 필드가 생기기 전의 옛 행만 있는 창은 null(위장 금지)이고, 새 행이 하한만큼 쌓이면 신호가 다시 난다.
         var mlAuroc = rankedDefect.Count > 0 && rankedNormal.Count > 0 ? RankScoring.Auroc(rankedNormal, rankedDefect) : (double?)null;
         var mlRecallAtFar = RankScoring.RecallAtFalseAlarm(rankedNormal, rankedDefect, options.FalseAlarmCeiling);
-        bool enough = mlChecked >= options.MinWindow
-            && labeledNg >= options.MinNgSamples && mlNgScored >= options.MinNgSamples
-            && mlOkScored >= options.MinOkSamples
-            && rankedDefect.Count >= options.MinNgSamples && rankedNormal.Count >= options.MinOkSamples;
+        // 신호의 ML 쪽 입력은 기준 판의 몫(b*)이다 — 창 전체 값(mlRecallAtFar 등)은 응답의 다른 지표로만 나간다.
+        var signalRecallAtFar = RankScoring.RecallAtFalseAlarm(bRankedNormal, bRankedDefect, options.FalseAlarmCeiling);
+        var signalAgreementRate = Rate(bAgreements, bNonDegraded);
+        bool enough = bChecked >= options.MinWindow
+            && labeledNg >= options.MinNgSamples && bNgScored >= options.MinNgSamples
+            && bOkScored >= options.MinOkSamples
+            && bRankedDefect.Count >= options.MinNgSamples && bRankedNormal.Count >= options.MinOkSamples;
         // 재현율만으로는 모든 사진을 불량으로 모는 모델도 통과한다 — ML 의 정상 오경보율 상한(FalseAlarmCeiling)도 조건이다
         // (실제로 라벨을 정하는 argmax 의 오경보율이다 — 격상 뒤의 운영 작동점).
         var mlFalseAlarmRate = Rate(mlFalseAlarms, mlOkScored);
+        var signalFalseAlarmRate = Rate(bFalseAlarms, bOkScored);
         bool? eligible = (enough
-            && vlmRecall is { } vr && mlRecallAtFar is { } mr && agreementRate is { } ar && mlFalseAlarmRate is { } fa
+            && vlmRecall is { } vr && signalRecallAtFar is { } mr && signalAgreementRate is { } ar && signalFalseAlarmRate is { } fa
             && mr >= vr && mr >= options.RecallFloor && ar >= options.AgreementFloor && fa <= options.FalseAlarmCeiling)
             ? true
-            : (enough && vlmRecall is not null && mlRecallAtFar is not null && agreementRate is not null && mlFalseAlarmRate is not null
+            : (enough && vlmRecall is not null && signalRecallAtFar is not null && signalAgreementRate is not null && signalFalseAlarmRate is not null
                 ? false      // 표본 충분·계산 가능하나 조건 미달 → 명시 false
                 : null);     // 데이터 불충분 → null(위장 금지)
 
@@ -246,6 +278,7 @@ public static class MetricsAggregator
             OracleConsistencyRate = Rate(oracleEvaluated - oracleConflicts, oracleEvaluated),
             OracleCoverageRate = Rate(reviews - oraclePending, reviews),
             PromotionEligible = eligible,
+            PromotionBasis = basisModel is null ? null : new PromotionBasis { Model = basisModel, NgScored = bNgScored, OkScored = bOkScored },
             WindowDays = windowDays,
             Counting = counting.ToMetrics(),
             Classification = classification.ToMetrics(),

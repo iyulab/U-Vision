@@ -754,6 +754,7 @@ public sealed partial class InspectionPipeline(
             MlLabel = ml?.Label,
             MlConfidence = ml?.Confidence,
             MlNgScore = mlNgScore,
+            MlModel = MlModelOf(ml),
             Posture = MetricsRow.PostureFailClosed,
             MlDegraded = false,
             VlmOnly = vlmOnly,
@@ -800,6 +801,7 @@ public sealed partial class InspectionPipeline(
             MlLabel = dual?.MlLabel,
             MlConfidence = dual?.MlConfidence,
             MlNgScore = mlNgScore,
+            MlModel = MlModelOf(outcome?.Result),
             Agreement = dual?.Agreement,
             RequiresReview = dual?.RequiresReview,
             MlDegraded = degraded,
@@ -817,6 +819,13 @@ public sealed partial class InspectionPipeline(
                 "메트릭 기록 실패 — 관측만 누락 (scenario={ScenarioId}, image={ImageId})", scenarioId, imageId);
         }
     }
+
+    /// <summary>
+    /// 메트릭 행에 남길 ML 모델 신원 — 서빙 쪽이 보고한 파일 해시(실제로 답한 모델), 없으면 엔진 레지스트리의 판. 둘 다 없으면(mock · 신원을
+    /// 보고하지 않는 서버 · degrade) null — 격상 신호는 신원이 없는 행만 있는 창을 창 전체로 읽는다.
+    /// </summary>
+    private static string? MlModelOf(MlClassification? ml) =>
+        ml is null ? null : (ml.ModelSha256 ?? ml.ModelVersion);
 
     /// <summary>대조 단의 답(메트릭용) — 시나리오에 대조 단이 없으면 null, 읽은 코드가 없으면 기권.</summary>
     private static string? MatchOf(EffectiveScenario effective, InspectionContext? context) =>

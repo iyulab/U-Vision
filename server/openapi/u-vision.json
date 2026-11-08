@@ -5788,6 +5788,9 @@
           "promotion_eligible": {
             "type": "boolean"
           },
+          "promotion_basis": {
+            "$ref": "#/components/schemas/PromotionBasis"
+          },
           "window_days": {
             "type": "integer",
             "format": "int32"
@@ -6051,6 +6054,27 @@
           },
           "acknowledge_unverified": {
             "type": "boolean"
+          }
+        }
+      },
+      "PromotionBasis": {
+        "required": [
+          "model",
+          "ng_scored",
+          "ok_scored"
+        ],
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "ng_scored": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ok_scored": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

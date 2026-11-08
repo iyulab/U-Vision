@@ -47,6 +47,15 @@ public sealed record MetricsRow
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? MlNgScore { get; init; }
 
+    /// <summary>
+    /// 이 사진에 <b>실제로 답한</b> ML 모델의 신원(서빙 쪽이 보고한 파일 SHA-256, 없으면 엔진 레지스트리의 판) — 격상 신호가 «지금
+    /// 서빙되는 모델» 의 증거만으로 재도록 행을 모델 판으로 가른다. 모델이 신원을 보고하지 않거나(mock · 보고하지 않는 서버) 이 필드가
+    /// 생기기 전의 옛 행이면 null(생략 — 옛 행은 byte 그대로).
+    /// </summary>
+    [JsonPropertyName("ml_model")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? MlModel { get; init; }
+
     /// <summary>VLM·ML 일치 여부. degrade 시 null.</summary>
     [JsonPropertyName("agreement")] public bool? Agreement { get; init; }
 
@@ -333,6 +342,16 @@ public sealed record MetricsSummary
     public bool? PromotionEligible { get; init; }
 
     /// <summary>
+    /// 격상 신호가 읽은 ML 모델 판과 그 판의 표본 — 창의 행이 모델 신원(<c>ml_model</c>)을 싣고 있을 때만 나온다(없으면 생략, 응답은 byte
+    /// 그대로). 신호의 ML 쪽 항(표본 하한 · 재현율 · 오경보율 · 일치율)은 창 전체가 아니라 <b>가장 최근에 답한 모델 판의 행</b>으로만
+    /// 잰다 — 옛 좋은 판의 점수가 나빠진 새 판을 가리거나 좋아진 새 판이 옛 판에 눌리지 않게. 다른 지표(<c>ml_ng_recall</c> ·
+    /// <c>ml_auroc</c> 등)는 창 전체의 값 그대로다(모델 판이 섞인다).
+    /// </summary>
+    [JsonPropertyName("promotion_basis")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PromotionBasis? PromotionBasis { get; init; }
+
+    /// <summary>
     /// 집계 창의 날 수 — <c>days</c> 를 2 이상으로 부른 응답에만 나온다(날짜 하나 응답은 바이트 그대로). <c>date</c> 가 창의 마지막 날이고,
     /// 모든 비율 · 격상 신호가 그 창 전체의 행과 라벨로 계산된다. 사람 라벨된 불량이 날마다 몇 건씩만 쌓이는 현장에서 신호가 날짜 하나로는
     /// 영영 표본 하한에 닿지 못하는 것을 막는 길이다.
@@ -436,4 +455,17 @@ public sealed record CountingMetrics
 
     /// <summary>구성 확인에서 과잉인 종류가 있던 비율 = with_extra / composition_checked.</summary>
     [JsonPropertyName("extra_rate")] public double? ExtraRate { get; init; }
+}
+
+/// <summary>격상 신호가 읽은 ML 모델 판과 그 판의 사람 라벨 표본 수(<see cref="MetricsSummary.PromotionBasis"/>).</summary>
+public sealed record PromotionBasis
+{
+    /// <summary>기준이 된 모델 판의 신원 — 가장 최근에 답한 행의 <c>ml_model</c>.</summary>
+    [JsonPropertyName("model")] public required string Model { get; init; }
+
+    /// <summary>그 판이 점수를 매긴 사람 라벨 불량 건수 — <c>MinNgSamples</c> 와 견줘 «지금 모델 N/59» 를 읽는다.</summary>
+    [JsonPropertyName("ng_scored")] public required int NgScored { get; init; }
+
+    /// <summary>그 판이 점수를 매긴 사람 라벨 정상 건수 — <c>MinOkSamples</c> 와 견준다.</summary>
+    [JsonPropertyName("ok_scored")] public required int OkScored { get; init; }
 }

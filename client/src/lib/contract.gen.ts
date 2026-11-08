@@ -104,6 +104,7 @@ export interface Contract {
   PathStepV2?: PathStepV2
   ProblemDetails?: ProblemDetails
   PromoteAuthorityInput?: PromoteAuthorityInput
+  PromotionBasis?: PromotionBasis
   QuestionAnswerInput?: QuestionAnswerInput
   QuestionAnswerResponse?: QuestionAnswerResponse
   QuestionResponse?: QuestionResponse
@@ -1045,9 +1046,19 @@ export interface MetricsSummary {
   oracle_consistency_rate: null | number
   oracle_coverage_rate: null | number
   promotion_eligible?: boolean
+  promotion_basis?: PromotionBasis
   window_days?: number
   counting?: CountingMetrics
   classification?: ClassificationMetrics
+}
+/**
+ * This interface was referenced by `Contract`'s JSON-Schema
+ * via the `definition` "PromotionBasis".
+ */
+export interface PromotionBasis {
+  model: string
+  ng_scored: number
+  ok_scored: number
 }
 /**
  * This interface was referenced by `Contract`'s JSON-Schema
