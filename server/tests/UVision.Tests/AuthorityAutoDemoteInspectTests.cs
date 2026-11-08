@@ -63,6 +63,42 @@ public sealed class AuthorityAutoDemoteInspectTests : IClassFixture<AuthorityAut
         Assert.Contains(state.History, t => t.Mode == "demote-auto");
     }
 
+    [Fact]
+    public async Task ABadNewModelIsNotHiddenByTheGoodOldModelsRowsOfTheSameDay()
+    {
+        var scenarioId = $"demmix_{Guid.NewGuid():N}"[..12];
+        _factory.SeedScenario(new Scenario { ScenarioId = scenarioId, Name = "d", Criteria = "c" });
+
+        var authority = _factory.Services.GetRequiredService<IAuthorityStore>();
+        await authority.SetStageAsync(scenarioId, AuthorityStage.CoPrimary, "test", "promote", null, default);
+
+        var metrics = _factory.Services.GetRequiredService<IMetricsStore>();
+        var labels = _factory.Services.GetRequiredService<ILabelStore>();
+        var today = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        async Task Seed(string id, string model, Verdict vlm, string mlLabel)
+        {
+            await metrics.AppendAsync(scenarioId, new MetricsRow
+            {
+                ImageId = id, Timestamp = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
+                Verdict = vlm, VlmConfidence = 0.9, MlLabel = mlLabel, MlConfidence = 0.9, MlModel = model,
+                Agreement = vlm.ToString() == mlLabel, RequiresReview = false, MlDegraded = false,
+            });
+            await labels.AppendLabelAsync(scenarioId, today, id, "NG", "test");
+        }
+
+        // 옛 좋은 판: ML 이 불량 60건을 모두 잡았고 VLM 은 놓쳤다. 같은 날 새 판: ML 이 2건을 놓쳤고 VLM 은 잡았다.
+        // 창 전체로 재면 ML 재현율 60/62 = 0.968 ≥ floor 이고 VLM 2/62 보다 높아 격하하지 않는다(결함) — 새 판만으로 재면 0 < 1 이라 격하.
+        for (int i = 0; i < 60; i++) await Seed($"old{i}", "sha-old", Verdict.OK, "NG");
+        foreach (var id in new[] { "new1", "new2" }) await Seed(id, "sha-new", Verdict.NG, "OK");
+
+        var resp = await _factory.CreateClient().PostAsync("/api/u-vision/inspect", InspectForm(scenarioId));
+        resp.EnsureSuccessStatusCode();
+
+        var state = await authority.ReadAsync(scenarioId, default);
+        Assert.Equal(AuthorityStage.Advisory, state!.Stage);
+        Assert.Contains(state.History, t => t.Mode == "demote-auto");
+    }
+
     private static MultipartFormDataContent InspectForm(string scenarioId)
     {
         var bytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01 };

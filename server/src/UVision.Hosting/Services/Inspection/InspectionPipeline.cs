@@ -850,7 +850,7 @@ public sealed partial class InspectionPipeline(
 
             var labels = await labelStore.ListAsync(scenarioId, dateBucket, cancellationToken);
             var summary = MetricsAggregator.Summarize(
-                scenarioId, dateBucket, rows, labels, authorityOptions, effective.NgLabelRule);
+                scenarioId, dateBucket, AutoDemoteEvaluator.CurrentModelRows(rows), labels, authorityOptions, effective.NgLabelRule);
             if (AutoDemoteEvaluator.Evaluate(stage, summary, authorityOptions) is { } target)
             {
                 await authorityStore.SetStageAsync(
